@@ -19,7 +19,7 @@ function getAuthUser(req: express.Request) {
   }
 }
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function getPrismaClient(): PrismaClient | null {
   try {
@@ -37,9 +37,14 @@ function getPrismaClient(): PrismaClient | null {
       dbUrl += "&pgbouncer=true";
     }
 
-    // Добавляем короткий таймаут подключения, чтобы Vercel не убивал процесс по таймауту 10с
+    // Ограничиваем пул подключений до 3 штук, чтобы избежать превышения лимита pool_size=15
+    if (!dbUrl.includes("connection_limit=")) {
+      dbUrl += "&connection_limit=3";
+    }
+
+    // Таймауты подключения
     if (!dbUrl.includes("connect_timeout=")) {
-      dbUrl += "&connect_timeout=5&pool_timeout=5";
+      dbUrl += "&connect_timeout=10&pool_timeout=10";
     }
 
     const client = new PrismaClient({
@@ -47,7 +52,7 @@ function getPrismaClient(): PrismaClient | null {
       log: ["error"]
     });
 
-    if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = client;
+    globalForPrisma.prisma = client;
     return client;
   } catch (err) {
     console.error("Prisma client instantiation error:", err);
