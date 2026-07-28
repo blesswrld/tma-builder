@@ -58,7 +58,18 @@ export default function AdminPage() {
   const fetchShops = async () => {
     try {
       const res = await fetch("/api/shops");
-      if (!res.ok) throw new Error("Не удалось загрузить список магазинов");
+      if (!res.ok) {
+        let errMsg = "Не удалось загрузить список магазинов";
+        try {
+          const errData = await res.json();
+          if (errData.error) errMsg = errData.error;
+        } catch {
+          if (res.status === 500) {
+            errMsg = "Ошибка 500: Проверьте переменную DATABASE_URL в настройках Vercel!";
+          }
+        }
+        throw new Error(errMsg);
+      }
       const data = await res.json();
       setShops(data);
 
@@ -122,7 +133,16 @@ export default function AdminPage() {
         })
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        if (res.status === 500) {
+          throw new Error("Ошибка сервера (500). Проверьте переменную DATABASE_URL в настройках Vercel!");
+        }
+        throw new Error("Сервер вернул некорректный ответ");
+      }
+
       if (!res.ok) throw new Error(data.error || "Не удалось создать магазин");
 
       setNewShopData({ name: "", slug: "", description: "" });

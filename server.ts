@@ -4,7 +4,16 @@ import path from "path";
 import { PrismaClient } from "@prisma/client";
 import { createServer as createViteServer } from "vite";
 
-export const prisma = new PrismaClient();
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+
+export const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    log: ["error"]
+  });
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
 export const app = express();
 
 app.use(express.json());
