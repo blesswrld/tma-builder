@@ -65,6 +65,8 @@ async function ensureOrderSchema(db: PrismaClient) {
         "shopId" TEXT NOT NULL,
         "customerName" TEXT NOT NULL,
         "customerPhone" TEXT NOT NULL,
+        "tableNumber" TEXT,
+        "preferredTime" TEXT,
         "items" TEXT NOT NULL,
         "totalPrice" INTEGER NOT NULL,
         "status" TEXT NOT NULL DEFAULT 'PENDING',
@@ -74,6 +76,9 @@ async function ensureOrderSchema(db: PrismaClient) {
     `);
     await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'PENDING';`);
     await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "note" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "tableNumber" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "preferredTime" TEXT;`);
+
     await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "category" TEXT;`);
     await db.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "User" (
@@ -95,6 +100,34 @@ async function ensureOrderSchema(db: PrismaClient) {
   } catch (e) {
     console.warn("ensureOrderSchema warning:", e);
   }
+}
+
+async function canManageShop(db: PrismaClient, shopId: string, authUser: { id: string } | null): Promise<boolean> {
+  const shop = await db.shop.findUnique({ where: { id: shopId } });
+  if (!shop) return false;
+
+  // Если у заведения не указан владельца
+  if (!shop.ownerId) {
+    if (authUser) {
+      await db.shop.update({ where: { id: shopId }, data: { ownerId: authUser.id } }).catch(() => {});
+    }
+    return true;
+  }
+
+  // Если владелец совпадает с текущим пользователем
+  if (authUser && shop.ownerId === authUser.id) {
+    return true;
+  }
+
+  // Проверяем, существует ли указанный владелец в БД
+  const existingOwner = await db.user.findUnique({ where: { id: shop.ownerId } });
+  if (!existingOwner && authUser) {
+    // Старый владелец удален из базы - перепривязываем на текущего пользователя
+    await db.shop.update({ where: { id: shopId }, data: { ownerId: authUser.id } }).catch(() => {});
+    return true;
+  }
+
+  return false;
 }
 
 export const prisma = getPrismaClient();
@@ -447,7 +480,8 @@ app.post("/api/shops", async (req, res) => {
         return res.status(404).json({ error: "Заведение не найдено." });
       }
 
-      if (shop.ownerId && (!authUser || authUser.id !== shop.ownerId)) {
+      const hasPermission = await canManageShop(db, id, authUser);
+      if (!hasPermission) {
         return res.status(403).json({ error: "У вас нет прав на удаление этого заведения." });
       }
 
@@ -503,7 +537,8 @@ app.post("/api/shops", async (req, res) => {
       const shop = await db.shop.findUnique({ where: { id: shopId } });
       if (!shop) return res.status(404).json({ error: "Заведение не найдено." });
 
-      if (shop.ownerId && (!authUser || authUser.id !== shop.ownerId)) {
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) {
         return res.status(403).json({ error: "У вас нет прав на редактирование услуг этого заведения." });
       }
 
@@ -568,7 +603,8 @@ app.post("/api/shops", async (req, res) => {
       const service = await db.service.findUnique({ where: { id }, include: { shop: true } });
       if (!service) return res.status(404).json({ error: "Услуга не найдена." });
 
-      if (service.shop.ownerId && (!authUser || authUser.id !== service.shop.ownerId)) {
+      const hasPermission = await canManageShop(db, service.shopId, authUser);
+      if (!hasPermission) {
         return res.status(403).json({ error: "У вас нет прав на изменение услуг этого заведения." });
       }
 
@@ -602,7 +638,8 @@ app.post("/api/shops", async (req, res) => {
       const service = await db.service.findUnique({ where: { id }, include: { shop: true } });
       if (!service) return res.status(404).json({ error: "Услуга не найдена." });
 
-      if (service.shop.ownerId && (!authUser || authUser.id !== service.shop.ownerId)) {
+      const hasPermission = await canManageShop(db, service.shopId, authUser);
+      if (!hasPermission) {
         return res.status(403).json({ error: "У вас нет прав на удаление услуг этого заведения." });
       }
 
@@ -661,7 +698,8 @@ app.post("/api/shops", async (req, res) => {
       const shop = await db.shop.findUnique({ where: { id } });
       if (!shop) return res.status(404).json({ error: "Заведение не найдено." });
 
-      if (shop.ownerId && (!authUser || authUser.id !== shop.ownerId)) {
+      const hasPermission = await canManageShop(db, id, authUser);
+      if (!hasPermission) {
         return res.status(403).json({ error: "У вас нет прав на редактирование настроек этого заведения." });
       }
 
