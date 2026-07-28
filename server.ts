@@ -22,6 +22,11 @@ function getPrismaClient(): PrismaClient | null {
       dbUrl += "&pgbouncer=true";
     }
 
+    // Добавляем короткий таймаут подключения, чтобы Vercel не убивал процесс по таймауту 10с
+    if (!dbUrl.includes("connect_timeout=")) {
+      dbUrl += "&connect_timeout=5&pool_timeout=5";
+    }
+
     const client = new PrismaClient({
       datasources: { db: { url: dbUrl } },
       log: ["error"]
