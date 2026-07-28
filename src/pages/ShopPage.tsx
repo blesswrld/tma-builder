@@ -65,14 +65,13 @@ export default function ShopPage() {
           return;
         }
         if (!res.ok) {
-          let msg = "Ошибка загрузки данных заведения";
+          let msg = `Ошибка сервера (${res.status})`;
+          const text = await res.text();
           try {
-            const data = await res.json();
+            const data = JSON.parse(text);
             if (data.error) msg = data.error;
           } catch {
-            if (res.status === 500) {
-              msg = "Ошибка сервера (500). Убедитесь, что переменная DATABASE_URL добавлена в Vercel Environment Variables.";
-            }
+            if (text) msg = `${msg}: ${text.slice(0, 150)}`;
           }
           throw new Error(msg);
         }
