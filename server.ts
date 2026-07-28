@@ -36,9 +36,9 @@ app.use(express.json());
       });
 
       res.json(shops);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Ошибка при получении списка магазинов:", error);
-      res.status(500).json({ error: "Не удалось получить список магазинов." });
+      res.status(500).json({ error: "Ошибка базы данных: " + (error?.message || String(error)) });
     }
   });
 
@@ -96,9 +96,9 @@ app.use(express.json());
       });
 
       res.status(201).json(newShop);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Ошибка при создании магазина:", error);
-      res.status(500).json({ error: "Не удалось создать магазин." });
+      res.status(500).json({ error: "Ошибка БД: " + (error?.message || String(error)) });
     }
   });
 
