@@ -13,7 +13,6 @@ function getPrismaClient(): PrismaClient | null {
     if (!dbUrl) return null;
 
     // Автоматическая настройка параметров для Supabase
-    const hasParams = dbUrl.includes("?");
     if (!dbUrl.includes("sslmode=")) {
       dbUrl += (dbUrl.includes("?") ? "&" : "?") + "sslmode=require";
     }
@@ -40,6 +39,32 @@ function getPrismaClient(): PrismaClient | null {
   }
 }
 
+let orderSchemaChecked = false;
+async function ensureOrderSchema(db: PrismaClient) {
+  if (orderSchemaChecked) return;
+  try {
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Order" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "shopId" TEXT NOT NULL,
+        "customerName" TEXT NOT NULL,
+        "customerPhone" TEXT NOT NULL,
+        "items" TEXT NOT NULL,
+        "totalPrice" INTEGER NOT NULL,
+        "status" TEXT NOT NULL DEFAULT 'PENDING',
+        "note" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'PENDING';`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "note" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "category" TEXT;`);
+    orderSchemaChecked = true;
+  } catch (e) {
+    console.warn("ensureOrderSchema warning:", e);
+  }
+}
+
 export const prisma = getPrismaClient();
 
 export const app = express();
@@ -57,6 +82,8 @@ app.use(express.json());
       if (!db) {
         return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
       }
+
+      await ensureOrderSchema(db);
 
       const shops = await db.shop.findMany({
         include: {
@@ -149,11 +176,16 @@ app.use(express.json());
         return res.status(503).json({ error: "База данных PostgreSQL не настроена." });
       }
 
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
       // Используем транзакцию для безопасного каскадного удаления всех зависимых сущностей
-      await prisma.$transaction([
-        prisma.service.deleteMany({ where: { shopId: id } }),
-        prisma.order.deleteMany({ where: { shopId: id } }),
-        prisma.shop.delete({ where: { id } })
+      await db.$transaction([
+        db.service.deleteMany({ where: { shopId: id } }),
+        db.order.deleteMany({ where: { shopId: id } }),
+        db.shop.delete({ where: { id } })
       ]);
 
       res.json({ success: true });
@@ -167,7 +199,7 @@ app.use(express.json());
   app.post("/api/shops/:shopId/services", async (req, res) => {
     try {
       const { shopId } = req.params;
-      const { title, price, description } = req.body;
+      const { title, price, description, category } = req.body;
 
       if (!title || typeof title !== "string" || title.trim().length < 2) {
         return res.status(400).json({ error: "Название услуги должно содержать минимум 2 символа." });
@@ -190,12 +222,20 @@ app.use(express.json());
         return res.status(400).json({ error: "Описание услуги не должно превышать 500 символов." });
       }
 
-      const service = await prisma.service.create({
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      await ensureOrderSchema(db);
+
+      const service = await db.service.create({
         data: {
           shopId,
           title: title.trim(),
           price: Math.round(parsedPrice),
-          description: description?.trim() || null
+          description: description?.trim() || null,
+          category: category?.trim() || null
         }
       });
 
@@ -206,11 +246,55 @@ app.use(express.json());
     }
   });
 
+  // API Route: Редактировать услугу
+  app.put("/api/services/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { title, price, description, category } = req.body;
+
+      if (!title || typeof title !== "string" || title.trim().length < 2) {
+        return res.status(400).json({ error: "Название услуги должно содержать минимум 2 символа." });
+      }
+
+      const parsedPrice = Number(price);
+      if (isNaN(parsedPrice) || parsedPrice <= 0) {
+        return res.status(400).json({ error: "Укажите корректную положительную цену (больше 0 ₽)." });
+      }
+
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      await ensureOrderSchema(db);
+
+      const updatedService = await db.service.update({
+        where: { id },
+        data: {
+          title: title.trim(),
+          price: Math.round(parsedPrice),
+          description: description?.trim() || null,
+          category: category?.trim() || null
+        }
+      });
+
+      res.json(updatedService);
+    } catch (error) {
+      console.error("Ошибка при обновлении услуги:", error);
+      res.status(500).json({ error: "Не удалось обновить услугу." });
+    }
+  });
+
   // API Route: Удалить услугу
   app.delete("/api/services/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      await prisma.service.delete({ where: { id } });
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      await db.service.delete({ where: { id } });
       res.json({ success: true });
     } catch (error) {
       console.error("Ошибка при удалении услуги:", error);
@@ -225,7 +309,14 @@ app.use(express.json());
         return res.status(503).json({ error: "База данных PostgreSQL не настроена (отсутствует DATABASE_URL)." });
       }
 
-      const shop = await prisma.shop.findUnique({
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      await ensureOrderSchema(db);
+
+      const shop = await db.shop.findUnique({
         where: { slug: req.params.slug },
         include: { services: true },
       });
@@ -247,7 +338,12 @@ app.use(express.json());
       const { id } = req.params;
       const { name, description, botToken, adminChatId } = req.body;
       
-      const updatedShop = await prisma.shop.update({
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      const updatedShop = await db.shop.update({
         where: { id },
         data: {
           name,
@@ -274,6 +370,13 @@ app.use(express.json());
       if (!process.env.DATABASE_URL) {
         return res.status(503).json({ error: "База данных PostgreSQL не настроена." });
       }
+
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      await ensureOrderSchema(db);
 
       const { shopId, customerName, customerPhone, items, totalPrice } = req.body;
 
@@ -306,18 +409,19 @@ app.use(express.json());
       }
 
       // Получаем магазин для настроек Telegram
-      const shop = await prisma.shop.findUnique({
+      const shop = await db.shop.findUnique({
         where: { id: shopId }
       });
 
       // 1. Сохраняем в PostgreSQL
-      const order = await prisma.order.create({
+      const order = await db.order.create({
         data: {
           shopId,
           customerName,
           customerPhone,
           items: JSON.stringify(items),
           totalPrice,
+          status: "PENDING"
         },
       });
 
@@ -347,6 +451,110 @@ app.use(express.json());
     } catch (error) {
       console.error("Ошибка при создании заказа:", error);
       res.status(500).json({ error: "Не удалось создать заказ." });
+    }
+  });
+
+  // API Route: Получить список заказов магазина
+  app.get("/api/shops/:shopId/orders", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      if (!process.env.DATABASE_URL) {
+        return res.status(503).json({ error: "База данных PostgreSQL не настроена." });
+      }
+
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      await ensureOrderSchema(db);
+
+      const orders = await db.order.findMany({
+        where: { shopId },
+        orderBy: { createdAt: "desc" }
+      });
+
+      res.json(orders);
+    } catch (error: any) {
+      console.error("Ошибка при получении заказов:", error);
+      res.status(500).json({ error: "Не удалось получить заказы." });
+    }
+  });
+
+  // API Route: Получить заказ по ID (для отслеживания клиентом)
+  app.get("/api/orders/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      await ensureOrderSchema(db);
+
+      const order = await db.order.findUnique({
+        where: { id },
+        include: { shop: { select: { name: true, slug: true } } }
+      });
+
+      if (!order) {
+        return res.status(404).json({ error: "Заказ не найден." });
+      }
+
+      res.json(order);
+    } catch (error) {
+      console.error("Ошибка при получении информации о заказе:", error);
+      res.status(500).json({ error: "Не удалось загрузить заказ." });
+    }
+  });
+
+  // API Route: Обновить статус заказа
+  app.patch("/api/orders/:id/status", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      const validStatuses = ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: "Недопустимый статус заказа." });
+      }
+
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      await ensureOrderSchema(db);
+
+      const updatedOrder = await db.order.update({
+        where: { id },
+        data: { status }
+      });
+
+      res.json(updatedOrder);
+    } catch (error: any) {
+      console.error("Ошибка при обновлении статуса заказа:", error);
+      res.status(500).json({ error: "Не удалось обновить статус заказа." });
+    }
+  });
+
+  // API Route: Удалить заказ
+  app.delete("/api/orders/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      await ensureOrderSchema(db);
+
+      await db.order.delete({ where: { id } });
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Ошибка при удалении заказа:", error);
+      res.status(500).json({ error: "Не удалось удалить заказ." });
     }
   });
 

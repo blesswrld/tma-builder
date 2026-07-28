@@ -28,6 +28,7 @@ model Service {
   title       String
   price       Int
   description String?
+  category    String?
   createdAt   DateTime @default(now())
 }
 
@@ -39,5 +40,7 @@ model Order {
   customerPhone String
   items         String   // JSON string storing ordered items
   totalPrice    Int
+  status        String   @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+  note          String?
   createdAt     DateTime @default(now())
 }

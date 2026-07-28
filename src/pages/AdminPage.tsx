@@ -1,12 +1,32 @@
 import { useEffect, useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Trash2, ExternalLink, Store, ShoppingBag, Check, Copy, Settings, AlertCircle } from "lucide-react";
+import { Plus, Trash2, ExternalLink, Store, ShoppingBag, Check, Copy, Settings, AlertCircle, Clock, CheckCircle2, XCircle, Package, RefreshCw, Phone, User, ListOrdered, Edit3, Search, BarChart3, Tag, TrendingUp, Layers } from "lucide-react";
 
 interface Service {
   id: string;
   title: string;
   price: number;
   description: string | null;
+  category?: string | null;
+}
+
+interface OrderItem {
+  id: string;
+  title: string;
+  price: number;
+  quantity: number;
+}
+
+interface Order {
+  id: string;
+  shopId: string;
+  customerName: string;
+  customerPhone: string;
+  items: string; // JSON
+  totalPrice: number;
+  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+  note?: string | null;
+  createdAt: string;
 }
 
 interface Shop {
@@ -28,6 +48,14 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
+  // Табы для управления магазином
+  const [activeTab, setActiveTab] = useState<"services" | "orders">("services");
+
+  // Заказы
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>("ALL");
+
   // Форма создания магазина
   const [isCreatingShop, setIsCreatingShop] = useState(false);
   const [newShopData, setNewShopData] = useState({ name: "", slug: "", description: "" });
@@ -36,9 +64,20 @@ export default function AdminPage() {
 
   // Форма добавления услуги
   const [isAddingService, setIsAddingService] = useState(false);
-  const [newServiceData, setNewServiceData] = useState({ title: "", price: "", description: "" });
+  const [newServiceData, setNewServiceData] = useState({ title: "", price: "", description: "", category: "" });
   const [serviceError, setServiceError] = useState<string | null>(null);
   const [serviceFieldErrors, setServiceFieldErrors] = useState<{ title?: string; price?: string; description?: string }>({});
+
+  // Форма редактирования услуги
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [editServiceData, setEditServiceData] = useState({ title: "", price: "", description: "", category: "" });
+  const [editServiceError, setEditServiceError] = useState<string | null>(null);
+  const [editServiceFieldErrors, setEditServiceFieldErrors] = useState<{ title?: string; price?: string; description?: string }>({});
+  const [isSavingEditService, setIsSavingEditService] = useState(false);
+
+  // Фильтрация и поиск услуг
+  const [serviceSearchQuery, setServiceSearchQuery] = useState("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("ALL");
 
   // Инструкция Telegram
   const [isTgGuideOpen, setIsTgGuideOpen] = useState(false);
@@ -89,6 +128,59 @@ export default function AdminPage() {
   useEffect(() => {
     fetchShops();
   }, []);
+
+  const fetchOrders = async (shopId: string) => {
+    setOrdersLoading(true);
+    try {
+      const res = await fetch(`/api/shops/${shopId}/orders`);
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data);
+      }
+    } catch (err) {
+      console.error("Ошибка при получении заказов:", err);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedShop) {
+      fetchOrders(selectedShop.id);
+    } else {
+      setOrders([]);
+    }
+  }, [selectedShop?.id]);
+
+  const handleUpdateOrderStatus = async (orderId: string, status: Order["status"]) => {
+    try {
+      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+      } else {
+        const err = await res.json();
+        alert(err.error || "Не удалось обновить статус");
+      }
+    } catch (err: any) {
+      alert("Ошибка сети: " + err.message);
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("Вы уверены, что хотите удалить этот заказ?")) return;
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, { method: "DELETE" });
+      if (res.ok) {
+        setOrders(prev => prev.filter(o => o.id !== orderId));
+      }
+    } catch (err: any) {
+      alert("Не удалось удалить заказ: " + err.message);
+    }
+  };
 
   const validateCreateShop = () => {
     const errors: { name?: string; slug?: string; description?: string } = {};
@@ -229,19 +321,77 @@ export default function AdminPage() {
         body: JSON.stringify({
           title: newServiceData.title.trim(),
           price: Number(newServiceData.price),
-          description: newServiceData.description.trim() || undefined
+          description: newServiceData.description.trim() || undefined,
+          category: newServiceData.category.trim() || undefined
         })
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Не удалось добавить услугу");
 
-      setNewServiceData({ title: "", price: "", description: "" });
+      setNewServiceData({ title: "", price: "", description: "", category: "" });
       setServiceFieldErrors({});
       setIsAddingService(false);
       await fetchShops();
     } catch (err: any) {
       setServiceError(err.message);
+    }
+  };
+
+  const handleOpenEditService = (service: Service) => {
+    setEditingService(service);
+    setEditServiceData({
+      title: service.title,
+      price: service.price.toString(),
+      description: service.description || "",
+      category: service.category || ""
+    });
+    setEditServiceError(null);
+    setEditServiceFieldErrors({});
+  };
+
+  const handleSaveEditService = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editingService) return;
+
+    const errors: { title?: string; price?: string; description?: string } = {};
+    if (!editServiceData.title.trim() || editServiceData.title.trim().length < 2) {
+      errors.title = "Название услуги должно содержать минимум 2 символа";
+    }
+    const priceNum = Number(editServiceData.price);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      errors.price = "Укажите корректную стоимость больше 0 ₽";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setEditServiceFieldErrors(errors);
+      return;
+    }
+
+    setIsSavingEditService(true);
+    setEditServiceError(null);
+
+    try {
+      const res = await fetch(`/api/services/${editingService.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editServiceData.title.trim(),
+          price: Math.round(priceNum),
+          description: editServiceData.description.trim() || undefined,
+          category: editServiceData.category.trim() || undefined
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Не удалось обновить услугу");
+
+      setEditingService(null);
+      await fetchShops();
+    } catch (err: any) {
+      setEditServiceError(err.message);
+    } finally {
+      setIsSavingEditService(false);
     }
   };
 
@@ -326,6 +476,15 @@ export default function AdminPage() {
       </div>
     );
   }
+
+  const allServices = selectedShop?.services || [];
+  const categories = Array.from(new Set(allServices.map(s => s.category).filter(Boolean))) as string[];
+  const filteredServices = allServices.filter(service => {
+    const matchesCategory = selectedCategoryFilter === "ALL" || service.category === selectedCategoryFilter;
+    const matchesSearch = service.title.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
+      (service.description && service.description.toLowerCase().includes(serviceSearchQuery.toLowerCase()));
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
@@ -448,7 +607,7 @@ export default function AdminPage() {
           <main className="lg:col-span-8 xl:col-span-9 space-y-6">
             {selectedShop ? (
               <>
-                {/* Карточка заведения */}
+                {/* Карточка заведения и аналитика */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-2xs space-y-5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
@@ -461,11 +620,6 @@ export default function AdminPage() {
                       <p className="text-xs text-slate-500 mt-1">
                         {selectedShop.description || "Описание не указано"}
                       </p>
-                      <div className="flex items-center gap-4 mt-3 text-xs text-slate-400 font-medium">
-                        <span>Услуг: <strong className="text-slate-700">{(selectedShop.services || []).length}</strong></span>
-                        <span>•</span>
-                        <span>Всего заказов: <strong className="text-slate-700">{selectedShop._count?.orders || 0}</strong></span>
-                      </div>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
@@ -522,77 +676,230 @@ export default function AdminPage() {
                       </button>
                     </div>
                   </div>
-                </div>
 
-                {/* Секция услуг + предпросмотр */}
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-                  {/* Таблица услуг */}
-                  <div className="xl:col-span-8 space-y-4">
-                    <div className="flex justify-between items-center px-1">
-                      <h3 className="text-sm font-bold text-slate-900">
-                        Список услуг и товаров ({(selectedShop.services || []).length})
-                      </h3>
-                      <button
-                        onClick={() => {
-                          setNewServiceData({ title: "", price: "", description: "" });
-                          setServiceFieldErrors({});
-                          setServiceError(null);
-                          setIsAddingService(true);
-                        }}
-                        className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <Plus size={15} />
-                        <span>Добавить услугу</span>
-                      </button>
+                  {/* Быстрая аналитика */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
+                    <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-1">
+                      <div className="flex items-center justify-between text-slate-400">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Выручка</span>
+                        <TrendingUp size={14} className="text-emerald-500" />
+                      </div>
+                      <p className="text-base font-extrabold text-slate-900 font-mono">
+                        {orders
+                          .filter(o => o.status === "COMPLETED" || o.status === "CONFIRMED")
+                          .reduce((sum, o) => sum + o.totalPrice, 0)
+                          .toLocaleString("ru-RU")} ₽
+                      </p>
                     </div>
 
-                    <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-2xs">
-                      {(selectedShop.services || []).length === 0 ? (
-                        <div className="p-12 text-center text-slate-400">
-                          <ShoppingBag size={36} className="mx-auto mb-3 opacity-30" />
-                          <p className="font-semibold text-xs text-slate-700">В магазине пока нет услуг</p>
-                          <p className="text-[11px] text-slate-400 mt-1">Нажмите «Добавить услугу», чтобы наполнить каталог</p>
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left border-collapse">
-                            <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200/60">
-                              <tr>
-                                <th className="px-5 py-3">Услуга / Товар</th>
-                                <th className="px-5 py-3">Цена</th>
-                                <th className="px-5 py-3 text-right">Действия</th>
-                              </tr>
-                            </thead>
-                            <tbody className="text-xs divide-y divide-slate-100">
-                              {(selectedShop.services || []).map((service) => (
-                                <tr key={service.id} className="hover:bg-slate-50/50 transition-colors">
-                                  <td className="px-5 py-3.5">
-                                    <p className="font-semibold text-slate-900">{service.title}</p>
-                                    {service.description && (
-                                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{service.description}</p>
-                                    )}
-                                  </td>
-                                  <td className="px-5 py-3.5 font-bold text-slate-900">
-                                    {service.price.toLocaleString("ru-RU")} ₽
-                                  </td>
-                                  <td className="px-5 py-3.5 text-right">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteService(service.id)}
-                                      className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg transition-colors hover:bg-red-50"
-                                      title="Удалить услугу"
-                                    >
-                                      <Trash2 size={15} />
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
+                    <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-1">
+                      <div className="flex items-center justify-between text-slate-400">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Всего заказов</span>
+                        <Package size={14} className="text-blue-500" />
+                      </div>
+                      <p className="text-base font-extrabold text-slate-900 font-mono">
+                        {orders.length}
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-1">
+                      <div className="flex items-center justify-between text-slate-400">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">В обработке</span>
+                        <Clock size={14} className="text-amber-500" />
+                      </div>
+                      <p className="text-base font-extrabold text-amber-700 font-mono">
+                        {orders.filter(o => o.status === "PENDING").length}
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-1">
+                      <div className="flex items-center justify-between text-slate-400">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Средний чек</span>
+                        <BarChart3 size={14} className="text-indigo-500" />
+                      </div>
+                      <p className="text-base font-extrabold text-slate-900 font-mono">
+                        {(orders.length > 0
+                          ? Math.round(orders.reduce((sum, o) => sum + o.totalPrice, 0) / orders.length)
+                          : 0
+                        ).toLocaleString("ru-RU")} ₽
+                      </p>
                     </div>
                   </div>
+                </div>
+
+                {/* Табы навигации в заведении */}
+                <div className="flex border-b border-slate-200/80 gap-2">
+                  <button
+                    onClick={() => setActiveTab("services")}
+                    className={`px-4 py-2.5 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors ${
+                      activeTab === "services"
+                        ? "border-slate-900 text-slate-900"
+                        : "border-transparent text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <ShoppingBag size={15} />
+                    <span>Услуги и товары ({(selectedShop.services || []).length})</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab("orders")}
+                    className={`px-4 py-2.5 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors ${
+                      activeTab === "orders"
+                        ? "border-slate-900 text-slate-900"
+                        : "border-transparent text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <ListOrdered size={15} />
+                    <span>Управление заказами ({orders.length})</span>
+                    {orders.filter(o => o.status === "PENDING").length > 0 && (
+                      <span className="px-2 py-0.5 bg-amber-500 text-white rounded-full text-[10px] font-extrabold animate-pulse">
+                        {orders.filter(o => o.status === "PENDING").length} нов.
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Вкладка 1: Услуги и товары */}
+                {activeTab === "services" && (
+                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                      {/* Таблица услуг */}
+                      <div className="xl:col-span-8 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
+                          <h3 className="text-sm font-bold text-slate-900">
+                            Каталог услуг ({filteredServices.length} из {allServices.length})
+                          </h3>
+                          <button
+                            onClick={() => {
+                              setNewServiceData({ title: "", price: "", description: "", category: "" });
+                              setServiceFieldErrors({});
+                              setServiceError(null);
+                              setIsAddingService(true);
+                            }}
+                            className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-2xs self-start sm:self-auto"
+                          >
+                            <Plus size={15} />
+                            <span>Добавить услугу</span>
+                          </button>
+                        </div>
+
+                        {/* Поиск и фильтры по категориям */}
+                        {allServices.length > 0 && (
+                          <div className="space-y-2.5">
+                            <div className="relative">
+                              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <input
+                                type="text"
+                                value={serviceSearchQuery}
+                                onChange={e => setServiceSearchQuery(e.target.value)}
+                                placeholder="Поиск услуг по названию или описанию..."
+                                className="w-full pl-9 pr-4 py-2 bg-white text-xs rounded-xl border border-slate-200/80 focus:border-slate-900 focus:outline-none transition-all"
+                              />
+                              {serviceSearchQuery && (
+                                <button
+                                  onClick={() => setServiceSearchQuery("")}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+
+                            {categories.length > 0 && (
+                              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                                <button
+                                  onClick={() => setSelectedCategoryFilter("ALL")}
+                                  className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors shrink-0 ${
+                                    selectedCategoryFilter === "ALL"
+                                      ? "bg-slate-900 text-white"
+                                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                  }`}
+                                >
+                                  Все категории ({allServices.length})
+                                </button>
+                                {categories.map(cat => (
+                                  <button
+                                    key={cat}
+                                    onClick={() => setSelectedCategoryFilter(cat)}
+                                    className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors shrink-0 ${
+                                      selectedCategoryFilter === cat
+                                        ? "bg-slate-900 text-white"
+                                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                    }`}
+                                  >
+                                    {cat} ({allServices.filter(s => s.category === cat).length})
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-2xs">
+                          {filteredServices.length === 0 ? (
+                            <div className="p-12 text-center text-slate-400">
+                              <ShoppingBag size={36} className="mx-auto mb-3 opacity-30" />
+                              <p className="font-semibold text-xs text-slate-700">Услуги не найдены</p>
+                              <p className="text-[11px] text-slate-400 mt-1">Попробуйте изменить параметры поиска или фильтр категорий</p>
+                            </div>
+                          ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                              <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200/60">
+                                <tr>
+                                  <th className="px-5 py-3">Услуга / Товар</th>
+                                  <th className="px-5 py-3">Категория</th>
+                                  <th className="px-5 py-3">Цена</th>
+                                  <th className="px-5 py-3 text-right">Действия</th>
+                                </tr>
+                              </thead>
+                              <tbody className="text-xs divide-y divide-slate-100">
+                                {filteredServices.map((service) => (
+                                  <tr key={service.id} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-5 py-3.5">
+                                      <p className="font-semibold text-slate-900">{service.title}</p>
+                                      {service.description && (
+                                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{service.description}</p>
+                                      )}
+                                    </td>
+                                    <td className="px-5 py-3.5">
+                                      {service.category ? (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[10px] font-semibold">
+                                          <Tag size={10} className="text-slate-400" />
+                                          {service.category}
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-300 text-[10px]">—</span>
+                                      )}
+                                    </td>
+                                    <td className="px-5 py-3.5 font-bold text-slate-900 font-mono">
+                                      {service.price.toLocaleString("ru-RU")} ₽
+                                    </td>
+                                    <td className="px-5 py-3.5 text-right space-x-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEditService(service)}
+                                        className="text-slate-400 hover:text-slate-800 p-1.5 rounded-lg transition-colors hover:bg-slate-100"
+                                        title="Редактировать услугу"
+                                      >
+                                        <Edit3 size={15} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteService(service.id)}
+                                        className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg transition-colors hover:bg-red-50"
+                                        title="Удалить услугу"
+                                      >
+                                        <Trash2 size={15} />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
                   {/* Макет смартфона */}
                   <div className="xl:col-span-4 hidden xl:block space-y-3">
@@ -633,6 +940,201 @@ export default function AdminPage() {
                     </div>
                   </div>
                 </div>
+              )}
+
+                {/* Вкладка 2: Управление заказами */}
+                {activeTab === "orders" && (
+                  <div className="space-y-4">
+                    {/* Панель фильтрации заказов */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {[
+                          { id: "ALL", label: "Все заказы", count: orders.length },
+                          { id: "PENDING", label: "⏳ В обработке", count: orders.filter(o => o.status === "PENDING").length, color: "text-amber-700 bg-amber-50" },
+                          { id: "CONFIRMED", label: "🤝 Подтвержден", count: orders.filter(o => o.status === "CONFIRMED").length, color: "text-blue-700 bg-blue-50" },
+                          { id: "COMPLETED", label: "✅ Завершен", count: orders.filter(o => o.status === "COMPLETED").length, color: "text-emerald-700 bg-emerald-50" },
+                          { id: "CANCELLED", label: "❌ Отменен", count: orders.filter(o => o.status === "CANCELLED").length, color: "text-rose-700 bg-rose-50" }
+                        ].map((f) => {
+                          const isActive = orderStatusFilter === f.id;
+                          return (
+                            <button
+                              key={f.id}
+                              onClick={() => setOrderStatusFilter(f.id)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                                isActive
+                                  ? "bg-slate-900 text-white shadow-2xs"
+                                  : "bg-slate-100/80 text-slate-600 hover:bg-slate-200/80"
+                              }`}
+                            >
+                              <span>{f.label}</span>
+                              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${isActive ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
+                                {f.count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        onClick={() => fetchOrders(selectedShop.id)}
+                        disabled={ordersLoading}
+                        className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1"
+                        title="Обновить список заказов"
+                      >
+                        <RefreshCw size={14} className={ordersLoading ? "animate-spin" : ""} />
+                        <span className="hidden sm:inline">Обновить</span>
+                      </button>
+                    </div>
+
+                    {/* Список заказов */}
+                    {ordersLoading ? (
+                      <div className="p-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200/80">
+                        <RefreshCw size={28} className="mx-auto mb-2 animate-spin text-slate-400" />
+                        <p className="text-xs font-semibold">Загрузка заказов...</p>
+                      </div>
+                    ) : orders.filter(o => orderStatusFilter === "ALL" || o.status === orderStatusFilter).length === 0 ? (
+                      <div className="p-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200/80">
+                        <Package size={36} className="mx-auto mb-3 opacity-30" />
+                        <p className="font-semibold text-xs text-slate-700">Заказов пока нет</p>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          {orderStatusFilter === "ALL"
+                            ? "Клиенты ещё не оформляли заказы в этом заведении"
+                            : "Заказов с выбранным статусом не найдено"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {orders
+                          .filter(o => orderStatusFilter === "ALL" || o.status === orderStatusFilter)
+                          .map((order) => {
+                            let parsedItems: OrderItem[] = [];
+                            try {
+                              parsedItems = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
+                            } catch (e) {
+                              parsedItems = [];
+                            }
+
+                            const statusBadges: Record<string, { label: string; bg: string; text: string; border: string }> = {
+                              PENDING: { label: "⏳ В обработке", bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200" },
+                              CONFIRMED: { label: "🤝 Подтвержден", bg: "bg-blue-50", text: "text-blue-800", border: "border-blue-200" },
+                              COMPLETED: { label: "✅ Завершен", bg: "bg-emerald-50", text: "text-emerald-800", border: "border-emerald-200" },
+                              CANCELLED: { label: "❌ Отменен", bg: "bg-rose-50", text: "text-rose-800", border: "border-rose-200" }
+                            };
+
+                            const currentBadge = statusBadges[order.status] || statusBadges.PENDING;
+
+                            return (
+                              <div
+                                key={order.id}
+                                className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between gap-4"
+                              >
+                                <div className="space-y-3">
+                                  {/* Шапка заказа */}
+                                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                    <div className="space-y-0.5">
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                        Заказ #{order.id.slice(-6)}
+                                      </span>
+                                      <p className="text-[11px] font-medium text-slate-500">
+                                        {new Date(order.createdAt).toLocaleString("ru-RU", {
+                                          day: "2-digit",
+                                          month: "short",
+                                          hour: "2-digit",
+                                          minute: "2-digit"
+                                        })}
+                                      </p>
+                                    </div>
+
+                                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${currentBadge.bg} ${currentBadge.text} ${currentBadge.border}`}>
+                                      {currentBadge.label}
+                                    </span>
+                                  </div>
+
+                                  {/* Данные клиента */}
+                                  <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100 space-y-1">
+                                    <div className="flex items-center gap-2 text-xs text-slate-900 font-semibold">
+                                      <User size={14} className="text-slate-400" />
+                                      <span>{order.customerName}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-slate-700">
+                                      <Phone size={14} className="text-slate-400" />
+                                      <a
+                                        href={`tel:${order.customerPhone}`}
+                                        className="hover:underline font-mono text-blue-600 font-semibold"
+                                      >
+                                        {order.customerPhone}
+                                      </a>
+                                    </div>
+                                  </div>
+
+                                  {/* Позиции заказа */}
+                                  <div className="space-y-1.5 pt-1">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Состав заказа:</span>
+                                    <div className="space-y-1 max-h-36 overflow-y-auto">
+                                      {parsedItems.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center text-xs text-slate-800">
+                                          <span className="font-medium text-slate-700 truncate max-w-[200px]">
+                                            • {item.title} {item.quantity > 1 ? `(x${item.quantity})` : ""}
+                                          </span>
+                                          <span className="font-bold text-slate-900 font-mono">
+                                            {(item.price * (item.quantity || 1)).toLocaleString("ru-RU")} ₽
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Итог и Действия со статусом */}
+                                <div className="border-t border-slate-100 pt-3 space-y-3">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-500">Итоговая сумма:</span>
+                                    <span className="text-base font-extrabold text-slate-900">
+                                      {order.totalPrice.toLocaleString("ru-RU")} ₽
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                                    {order.status !== "CONFIRMED" && (
+                                      <button
+                                        onClick={() => handleUpdateOrderStatus(order.id, "CONFIRMED")}
+                                        className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg text-[11px] transition-colors"
+                                      >
+                                        🤝 Подтвердить
+                                      </button>
+                                    )}
+                                    {order.status !== "COMPLETED" && (
+                                      <button
+                                        onClick={() => handleUpdateOrderStatus(order.id, "COMPLETED")}
+                                        className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg text-[11px] transition-colors"
+                                      >
+                                        ✅ Завершить
+                                      </button>
+                                    )}
+                                    {order.status !== "CANCELLED" && (
+                                      <button
+                                        onClick={() => handleUpdateOrderStatus(order.id, "CANCELLED")}
+                                        className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg text-[11px] transition-colors"
+                                      >
+                                        ❌ Отменить
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => handleDeleteOrder(order.id)}
+                                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-auto"
+                                      title="Удалить запись о заказе"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             ) : (
               <div className="p-12 bg-white rounded-2xl border border-slate-200/80 text-center space-y-4">
@@ -840,6 +1342,21 @@ export default function AdminPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Категория (опционально)
+                </label>
+                <input
+                  type="text"
+                  value={newServiceData.category}
+                  onChange={(e) => {
+                    setNewServiceData((prev) => ({ ...prev, category: e.target.value }));
+                  }}
+                  placeholder="Например: Напитки, Десерты, Услуги..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Описание
                 </label>
                 <textarea
@@ -872,6 +1389,120 @@ export default function AdminPage() {
                   className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs"
                 >
                   Сохранить
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка редактирования услуги */}
+      {editingService && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200/80 w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">Редактирование услуги</h3>
+              <button
+                type="button"
+                onClick={() => setEditingService(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {editServiceError && (
+              <div className="p-3 bg-red-50 text-red-600 text-xs rounded-xl font-medium border border-red-100 flex items-center gap-2">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>{editServiceError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditService} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Название <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editServiceData.title}
+                  onChange={(e) => {
+                    setEditServiceData((prev) => ({ ...prev, title: e.target.value }));
+                    if (editServiceFieldErrors.title) setEditServiceFieldErrors(prev => ({ ...prev, title: undefined }));
+                  }}
+                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border transition-all focus:outline-none ${
+                    editServiceFieldErrors.title ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
+                  }`}
+                />
+                {editServiceFieldErrors.title && (
+                  <p className="text-[11px] text-red-500 mt-1 font-medium">{editServiceFieldErrors.title}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Стоимость (рубли) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editServiceData.price}
+                  onChange={(e) => {
+                    setEditServiceData((prev) => ({ ...prev, price: e.target.value }));
+                    if (editServiceFieldErrors.price) setEditServiceFieldErrors(prev => ({ ...prev, price: undefined }));
+                  }}
+                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border transition-all focus:outline-none font-mono ${
+                    editServiceFieldErrors.price ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
+                  }`}
+                />
+                {editServiceFieldErrors.price && (
+                  <p className="text-[11px] text-red-500 mt-1 font-medium">{editServiceFieldErrors.price}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Категория
+                </label>
+                <input
+                  type="text"
+                  value={editServiceData.category}
+                  onChange={(e) => {
+                    setEditServiceData((prev) => ({ ...prev, category: e.target.value }));
+                  }}
+                  placeholder="Например: Напитки, Десерты..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Описание
+                </label>
+                <textarea
+                  rows={2}
+                  value={editServiceData.description}
+                  onChange={(e) => {
+                    setEditServiceData((prev) => ({ ...prev, description: e.target.value }));
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingService(null)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEditService}
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs disabled:opacity-50"
+                >
+                  {isSavingEditService ? "Сохранение..." : "Сохранить"}
                 </button>
               </div>
             </form>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, FormEvent } from "react";
 import { useParams } from "react-router-dom";
-import { Plus, Minus, X, CheckCircle, AlertCircle } from "lucide-react";
+import { Plus, Minus, X, CheckCircle, AlertCircle, Search, Tag, ShoppingBag, Clock, Receipt, ListOrdered } from "lucide-react";
 import NotFoundPage from "./NotFoundPage";
 
 declare global {
@@ -14,6 +14,7 @@ interface Service {
   title: string;
   price: number;
   description: string | null;
+  category?: string | null;
 }
 
 interface Shop {
@@ -23,6 +24,16 @@ interface Shop {
   description: string | null;
   logoUrl: string | null;
   services: Service[];
+}
+
+interface Order {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  items: string; // JSON
+  totalPrice: number;
+  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+  createdAt: string;
 }
 
 export default function ShopPage() {
@@ -37,6 +48,15 @@ export default function ShopPage() {
   const [cart, setCart] = useState<Record<string, number>>({});
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Фильтры и поиск по каталогу
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("ALL");
+
+  // Отслеживание заказов покупателя
+  const [isMyOrdersOpen, setIsMyOrdersOpen] = useState(false);
+  const [myOrders, setMyOrders] = useState<Order[]>([]);
+  const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -194,6 +214,19 @@ export default function ShopPage() {
         throw new Error(data.error || "Ошибка при оформлении заказа");
       }
 
+      // Сохраняем ID заказа в локальное хранилище устройства
+      if (shop?.id && data.id) {
+        try {
+          const storageKey = `my_orders_${shop.id}`;
+          const existing = JSON.parse(localStorage.getItem(storageKey) || "[]");
+          if (!existing.includes(data.id)) {
+            localStorage.setItem(storageKey, JSON.stringify([data.id, ...existing]));
+          }
+        } catch (e) {
+          console.error("Storage error:", e);
+        }
+      }
+
       setOrderSuccess(true);
       setCart({});
       
@@ -210,6 +243,43 @@ export default function ShopPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const fetchMyOrders = async () => {
+    if (!shop?.id) return;
+    setMyOrdersLoading(true);
+    try {
+      const storageKey = `my_orders_${shop.id}`;
+      const savedIds: string[] = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      if (savedIds.length === 0) {
+        setMyOrders([]);
+        setMyOrdersLoading(false);
+        return;
+      }
+
+      const fetched: Order[] = [];
+      for (const id of savedIds.slice(0, 10)) {
+        try {
+          const res = await fetch(`/api/orders/${id}`);
+          if (res.ok) {
+            const data = await res.json();
+            fetched.push(data);
+          }
+        } catch (e) {
+          console.error("Error fetching order:", e);
+        }
+      }
+      setMyOrders(fetched);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setMyOrdersLoading(false);
+    }
+  };
+
+  const handleOpenMyOrders = () => {
+    setIsMyOrdersOpen(true);
+    fetchMyOrders();
   };
 
   const handleFinishOrder = () => {
@@ -260,15 +330,28 @@ export default function ShopPage() {
         
         <div>
           {/* Шапка магазина */}
-          <div className="bg-slate-900 text-white px-6 py-8 text-center relative overflow-hidden">
+          <div className="bg-slate-900 text-white px-6 py-7 text-center relative overflow-hidden">
             <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+            
+            {/* Кнопка Мои заказы */}
+            <div className="relative z-20 flex justify-end mb-2">
+              <button
+                type="button"
+                onClick={handleOpenMyOrders}
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold rounded-xl backdrop-blur-md border border-white/10 transition-colors flex items-center gap-1.5"
+              >
+                <ListOrdered size={14} />
+                <span>Мои заказы</span>
+              </button>
+            </div>
+
             <div className="relative z-10 flex flex-col items-center">
-              <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl mb-3 flex items-center justify-center text-white font-bold text-xl border border-white/20 uppercase shadow-inner">
+              <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl mb-2.5 flex items-center justify-center text-white font-bold text-xl border border-white/20 uppercase shadow-inner">
                 {shop.name.charAt(0)}
               </div>
               <h1 className="text-lg font-bold tracking-tight">{shop.name}</h1>
               {shop.description && (
-                <p className="text-slate-300 text-xs mt-1.5 leading-relaxed max-w-xs font-normal">
+                <p className="text-slate-300 text-xs mt-1 leading-relaxed max-w-xs font-normal">
                   {shop.description}
                 </p>
               )}
@@ -276,70 +359,145 @@ export default function ShopPage() {
           </div>
 
           {/* Список услуг */}
-          <div className="p-5 space-y-3 pb-28">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Услуги и товары</h2>
-              <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
-                {(shop.services || []).length} позиции
-              </span>
-            </div>
-            
-            {(shop.services || []).length === 0 ? (
-              <div className="text-center py-12 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                <p className="text-slate-400 text-xs font-medium">Каталог услуг пока пуст</p>
-              </div>
-            ) : (
-              (shop.services || []).map((service) => {
-                const qty: number = cart[service.id] || 0;
-                
-                return (
-                  <div 
-                    key={service.id} 
-                    className="p-4 border border-slate-100 rounded-2xl flex justify-between items-center bg-white hover:border-slate-200 transition-all shadow-sm group"
-                  >
-                    <div className="flex-1 space-y-1 pr-4">
-                      <h3 className="text-xs font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">{service.title}</h3>
-                      <p className="text-xs font-bold text-slate-900">{service.price.toLocaleString("ru-RU")} ₽</p>
-                      {service.description && (
-                        <p className="text-slate-500 text-[11px] leading-relaxed line-clamp-2 pt-0.5">
-                          {service.description}
-                        </p>
-                      )}
-                    </div>
-                    
-                    <div className="shrink-0 flex justify-end">
-                      {qty > 0 ? (
-                        <div className="flex items-center gap-1.5 bg-slate-900 text-white rounded-full p-1 shadow-sm">
-                          <button 
-                            type="button"
-                            onClick={() => handleRemoveFromCart(service.id)}
-                            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-800 transition-colors"
-                          >
-                            <Minus size={12} />
-                          </button>
-                          <span className="font-bold text-[11px] w-4 text-center">{qty}</span>
-                          <button 
-                            type="button"
-                            onClick={() => handleAddToCart(service.id)}
-                            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-800 transition-colors"
-                          >
-                            <Plus size={12} />
-                          </button>
-                        </div>
-                      ) : (
-                        <button 
-                          type="button"
-                          onClick={() => handleAddToCart(service.id)}
-                          className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-800 text-[11px] font-semibold rounded-full transition-all shadow-2xs"
+          <div className="p-4 space-y-3 pb-28">
+            {/* Поиск и категории */}
+            {(() => {
+              const allServices = shop.services || [];
+              const categories = Array.from(new Set(allServices.map(s => s.category).filter(Boolean))) as string[];
+
+              const filteredServices = allServices.filter(service => {
+                const matchesCategory = selectedCategory === "ALL" || service.category === selectedCategory;
+                const matchesSearch = service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  (service.description && service.description.toLowerCase().includes(searchQuery.toLowerCase()));
+                return matchesCategory && matchesSearch;
+              });
+
+              return (
+                <>
+                  <div className="space-y-2.5 mb-3">
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Поиск по меню..."
+                        className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs focus:bg-white focus:border-slate-900 focus:outline-none transition-all"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery("")}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
                         >
-                          Добавить
+                          ✕
                         </button>
                       )}
                     </div>
+
+                    {categories.length > 0 && (
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                        <button
+                          onClick={() => setSelectedCategory("ALL")}
+                          className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors shrink-0 ${
+                            selectedCategory === "ALL"
+                              ? "bg-slate-900 text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
+                        >
+                          Все ({allServices.length})
+                        </button>
+                        {categories.map(cat => (
+                          <button
+                            key={cat}
+                            onClick={() => setSelectedCategory(cat)}
+                            className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors shrink-0 ${
+                              selectedCategory === cat
+                                ? "bg-slate-900 text-white"
+                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                );
-              })
-            )}
+
+                  <div className="flex items-center justify-between mb-2 px-1">
+                    <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Меню & Услуги</h2>
+                    <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                      {filteredServices.length} позиций
+                    </span>
+                  </div>
+                  
+                  {filteredServices.length === 0 ? (
+                    <div className="text-center py-10 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                      <ShoppingBag size={28} className="mx-auto mb-2 text-slate-300" />
+                      <p className="text-slate-500 text-xs font-semibold">Позиции не найдены</p>
+                      <p className="text-slate-400 text-[11px] mt-0.5">Попробуйте изменить поиск или категорию</p>
+                    </div>
+                  ) : (
+                    filteredServices.map((service) => {
+                      const qty: number = cart[service.id] || 0;
+                      
+                      return (
+                        <div 
+                          key={service.id} 
+                          className="p-3.5 border border-slate-100 rounded-2xl flex justify-between items-center bg-white hover:border-slate-200 transition-all shadow-2xs group"
+                        >
+                          <div className="flex-1 space-y-1 pr-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h3 className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{service.title}</h3>
+                              {service.category && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 bg-slate-100 text-slate-600 text-[9px] font-medium rounded">
+                                  {service.category}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs font-bold text-slate-900 font-mono">{service.price.toLocaleString("ru-RU")} ₽</p>
+                            {service.description && (
+                              <p className="text-slate-500 text-[11px] leading-relaxed line-clamp-2 pt-0.5">
+                                {service.description}
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="shrink-0 flex justify-end">
+                            {qty > 0 ? (
+                              <div className="flex items-center gap-1.5 bg-slate-900 text-white rounded-full p-1 shadow-2xs">
+                                <button 
+                                  type="button"
+                                  onClick={() => handleRemoveFromCart(service.id)}
+                                  className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-800 transition-colors"
+                                >
+                                  <Minus size={12} />
+                                </button>
+                                <span className="font-bold text-[11px] w-4 text-center">{qty}</span>
+                                <button 
+                                  type="button"
+                                  onClick={() => handleAddToCart(service.id)}
+                                  className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-800 transition-colors"
+                                >
+                                  <Plus size={12} />
+                                </button>
+                              </div>
+                            ) : (
+                              <button 
+                                type="button"
+                                onClick={() => handleAddToCart(service.id)}
+                                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-800 text-[11px] font-semibold rounded-full transition-all shadow-2xs"
+                              >
+                                Добавить
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -473,6 +631,106 @@ export default function ShopPage() {
                 ) : (
                   `Подтвердить заказ (${totalPrice.toLocaleString("ru-RU")} ₽)`
                 )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Модалка "Мои заказы" (Трекер статуса) */}
+        {isMyOrdersOpen && (
+          <div className="absolute inset-0 z-50 flex flex-col bg-white animate-in slide-in-from-bottom duration-250">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Receipt size={18} className="text-slate-700" />
+                <h2 className="text-sm font-bold text-slate-900">Мои заказы</h2>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsMyOrdersOpen(false)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {myOrdersLoading ? (
+                <div className="py-12 text-center text-slate-400 space-y-2">
+                  <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="text-xs">Загрузка информации о заказах...</p>
+                </div>
+              ) : myOrders.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 space-y-2 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <Clock size={32} className="mx-auto text-slate-300" />
+                  <p className="text-xs font-bold text-slate-700">У вас пока нет заказов</p>
+                  <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                    Оформите заказ в нашем заведении, и он автоматически появится здесь для отслеживания статуса.
+                  </p>
+                </div>
+              ) : (
+                myOrders.map(order => {
+                  let parsedItems: any[] = [];
+                  try {
+                    parsedItems = JSON.parse(order.items);
+                  } catch (e) {
+                    console.error("Failed to parse order items", e);
+                  }
+
+                  const statusConfig = {
+                    PENDING: { label: "⏳ В обработке", bg: "bg-amber-50 text-amber-700 border-amber-200" },
+                    CONFIRMED: { label: "🤝 Подтвержден", bg: "bg-blue-50 text-blue-700 border-blue-200" },
+                    COMPLETED: { label: "✅ Выполнен", bg: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+                    CANCELLED: { label: "❌ Отменен", bg: "bg-rose-50 text-rose-700 border-rose-200" },
+                  }[order.status] || { label: order.status, bg: "bg-slate-100 text-slate-700" };
+
+                  return (
+                    <div key={order.id} className="p-4 rounded-2xl border border-slate-200/80 bg-white shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <div>
+                          <span className="text-[11px] font-mono text-slate-400">
+                            Заказ #{order.id.slice(-6).toUpperCase()}
+                          </span>
+                          <p className="text-[10px] text-slate-400">
+                            {new Date(order.createdAt).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${statusConfig.bg}`}>
+                          {statusConfig.label}
+                        </span>
+                      </div>
+
+                      {/* Позиции заказа */}
+                      <div className="space-y-1.5">
+                        {parsedItems.map((item: any, idx: number) => (
+                          <div key={idx} className="flex justify-between items-center text-xs">
+                            <span className="text-slate-600">
+                              <span className="font-semibold text-slate-900 mr-1.5">{item.quantity}x</span>
+                              {item.title}
+                            </span>
+                            <span className="font-semibold text-slate-900 font-mono">
+                              {(item.price * item.quantity).toLocaleString("ru-RU")} ₽
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs font-bold text-slate-900">
+                        <span>Итого</span>
+                        <span className="font-mono text-sm">{order.totalPrice.toLocaleString("ru-RU")} ₽</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="p-4 bg-white border-t border-slate-100">
+              <button
+                type="button"
+                onClick={fetchMyOrders}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+              >
+                Обновить статус
               </button>
             </div>
           </div>
