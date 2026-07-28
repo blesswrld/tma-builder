@@ -1,0 +1,6 @@
+{
+  "name": "TMA Builder (Мульти-витрина)",
+  "description": "Telegram Mini App Builder с динамическим роутингом, PostgreSQL и корзиной. Адаптирован под экосистему AI Studio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
