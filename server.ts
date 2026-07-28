@@ -4,15 +4,12 @@ import path from "path";
 import { PrismaClient } from "@prisma/client";
 import { createServer as createViteServer } from "vite";
 
-const prisma = new PrismaClient();
+export const prisma = new PrismaClient();
+export const app = express();
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+app.use(express.json());
 
-  app.use(express.json());
-
-  // API Route: Получить список всех магазинов
+// API Route: Получить список всех магазинов
   app.get("/api/shops", async (req, res) => {
     try {
       if (!process.env.DATABASE_URL) {
@@ -306,25 +303,30 @@ async function startServer() {
     }
   });
 
-  // Vite middleware для разработки
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    // В продакшене отдаем собранную статику
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+// Vite middleware / сервер для статической локальной работы (вне Vercel)
+if (!process.env.VERCEL) {
+  async function startServer() {
+    const PORT = 3000;
+    if (process.env.NODE_ENV !== "production") {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), "dist");
+      app.use(express.static(distPath));
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(distPath, "index.html"));
+      });
+    }
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Сервер запущен на порту ${PORT}`);
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
-  });
+  startServer();
 }
 
-startServer();
+export default app;
