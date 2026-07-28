@@ -1,6 +1,10 @@
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Trash2, ExternalLink, Store, ShoppingBag, Check, Copy, Settings, AlertCircle, Clock, CheckCircle2, XCircle, Package, RefreshCw, Phone, User, ListOrdered, Edit3, Search, BarChart3, Tag, TrendingUp, Layers } from "lucide-react";
+import { Plus, Trash2, ExternalLink, Store, ShoppingBag, Check, Copy, Settings, AlertCircle, Clock, CheckCircle2, XCircle, Package, RefreshCw, Phone, User, ListOrdered, Edit3, Search, BarChart3, Tag, TrendingUp, Layers, LogIn, LogOut, ShieldCheck, Mail, Lock, QrCode, Download, Volume2, VolumeX, Crown, FileSpreadsheet, Bell } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import QrGeneratorModal from "../components/QrGeneratorModal";
+import PlanModal from "../components/PlanModal";
+import AnalyticsTab from "../components/AnalyticsTab";
 
 interface Service {
   id: string;
@@ -22,6 +26,8 @@ interface Order {
   shopId: string;
   customerName: string;
   customerPhone: string;
+  tableNumber?: string | null;
+  preferredTime?: string | null;
   items: string; // JSON
   totalPrice: number;
   status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
@@ -36,6 +42,16 @@ interface Shop {
   description: string | null;
   botToken?: string | null;
   adminChatId?: string | null;
+  workingHours?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  isOpen?: boolean;
+  ownerId?: string | null;
+  owner?: {
+    id: string;
+    email: string;
+    name?: string | null;
+  } | null;
   services: Service[];
   _count?: {
     orders: number;
@@ -43,13 +59,24 @@ interface Shop {
 }
 
 export default function AdminPage() {
+  const { user, token, login, register, logout } = useAuth();
+
+  // Модалка авторизации
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authName, setAuthName] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+
   const [shops, setShops] = useState<Shop[]>([]);
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
   // Табы для управления магазином
-  const [activeTab, setActiveTab] = useState<"services" | "orders">("services");
+  const [activeTab, setActiveTab] = useState<"services" | "orders" | "analytics">("services");
 
   // Заказы
   const [orders, setOrders] = useState<Order[]>([]);
@@ -82,11 +109,20 @@ export default function AdminPage() {
   // Инструкция Telegram
   const [isTgGuideOpen, setIsTgGuideOpen] = useState(false);
 
-  // Настройки магазина
+  // Настройки и редактирование заведения
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsData, setSettingsData] = useState({ botToken: "", adminChatId: "" });
+  const [settingsData, setSettingsData] = useState({
+    name: "",
+    description: "",
+    botToken: "",
+    adminChatId: "",
+    workingHours: "",
+    address: "",
+    phone: "",
+    isOpen: true
+  });
   const [settingsError, setSettingsError] = useState<string | null>(null);
-  const [settingsFieldErrors, setSettingsFieldErrors] = useState<{ botToken?: string; adminChatId?: string }>({});
+  const [settingsFieldErrors, setSettingsFieldErrors] = useState<{ botToken?: string; adminChatId?: string; name?: string }>({});
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // Подтверждение и состояние удаления магазина
@@ -94,9 +130,164 @@ export default function AdminPage() {
   const [isDeletingShop, setIsDeletingShop] = useState(false);
   const [deleteShopError, setDeleteShopError] = useState<string | null>(null);
 
+  // Разделение заведений по устройствам (локально)
+  const [myDeviceShopIds, setMyDeviceShopIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("my_admin_shops");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [shopFilterMode, setShopFilterMode] = useState<"my" | "all">("my");
+
+  // Состояния для SaaS фич
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
+  const prevOrdersCountRef = useRef<number | null>(null);
+
+  // Синтез звука встроенным Web Audio API
+  const playOrderChime = () => {
+    if (!isAudioEnabled) return;
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Тон 1: D5
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+      gain1.gain.setValueAtTime(0.25, audioCtx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start(audioCtx.currentTime);
+      osc1.stop(audioCtx.currentTime + 0.3);
+
+      // Тон 2: A5 через 0.12 сек
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(880, audioCtx.currentTime + 0.12);
+      gain2.gain.setValueAtTime(0.3, audioCtx.currentTime + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.start(audioCtx.currentTime + 0.12);
+      osc2.stop(audioCtx.currentTime + 0.5);
+    } catch (err) {
+      console.error("Audio chime error:", err);
+    }
+  };
+
+  // Выгрузка в CSV / Excel
+  const exportOrdersToCsv = () => {
+    if (!orders || orders.length === 0) {
+      alert("Нет заказов для экспорта.");
+      return;
+    }
+
+    let csvContent = "\uFEFFID Заказа;Дата и время;Имя клиента;Телефон;№ Столика / Время;Состав заказа;Итого (₽);Статус;Примечание\n";
+
+    orders.forEach(order => {
+      let parsedItems = "";
+      try {
+        const itemsArr = JSON.parse(order.items);
+        if (Array.isArray(itemsArr)) {
+          parsedItems = itemsArr.map((i: any) => `${i.title} (x${i.quantity})`).join(", ");
+        } else {
+          parsedItems = order.items;
+        }
+      } catch {
+        parsedItems = order.items;
+      }
+
+      const tableOrTime = [order.tableNumber ? `Стол: ${order.tableNumber}` : "", order.preferredTime ? `Время: ${order.preferredTime}` : ""].filter(Boolean).join(" | ") || "—";
+      const formattedDate = new Date(order.createdAt).toLocaleString("ru-RU");
+      const statusMap: Record<string, string> = {
+        PENDING: "Новый",
+        CONFIRMED: "Принят",
+        COMPLETED: "Выполнен",
+        CANCELLED: "Отменен"
+      };
+
+      const row = [
+        order.id,
+        formattedDate,
+        `"${(order.customerName || "").replace(/"/g, '""')}"`,
+        `"${(order.customerPhone || "").replace(/"/g, '""')}"`,
+        `"${tableOrTime.replace(/"/g, '""')}"`,
+        `"${parsedItems.replace(/"/g, '""')}"`,
+        order.totalPrice,
+        statusMap[order.status] || order.status,
+        `"${(order.note || "").replace(/"/g, '""')}"`
+      ];
+
+      csvContent += row.join(";") + "\n";
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `orders_${selectedShop?.slug || "shop"}_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const linkShopToDevice = (shopId: string) => {
+    try {
+      const updated = Array.from(new Set([...myDeviceShopIds, shopId]));
+      localStorage.setItem("my_admin_shops", JSON.stringify(updated));
+      setMyDeviceShopIds(updated);
+    } catch (e) {
+      console.error("Storage error:", e);
+    }
+  };
+
+  const unlinkShopFromDevice = (shopId: string) => {
+    try {
+      const updated = myDeviceShopIds.filter(id => id !== shopId);
+      localStorage.setItem("my_admin_shops", JSON.stringify(updated));
+      setMyDeviceShopIds(updated);
+    } catch (e) {
+      console.error("Storage error:", e);
+    }
+  };
+
+  const handleAuthSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setIsSubmittingAuth(true);
+
+    try {
+      if (authMode === "login") {
+        await login(authEmail, authPassword);
+      } else {
+        await register(authEmail, authPassword, authName);
+      }
+      setIsAuthModalOpen(false);
+      setAuthEmail("");
+      setAuthPassword("");
+      setAuthName("");
+      await fetchShops();
+    } catch (err: any) {
+      setAuthError(err.message || "Ошибка авторизации");
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
+
   const fetchShops = async () => {
     try {
-      const res = await fetch("/api/shops");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch("/api/shops", { headers });
       if (!res.ok) {
         let errMsg = `Ошибка сервера (${res.status})`;
         const text = await res.text();
@@ -108,15 +299,25 @@ export default function AdminPage() {
         }
         throw new Error(errMsg);
       }
-      const data = await res.json();
+      const data: Shop[] = await res.json();
       setShops(data);
+
+      let currentDeviceIds = myDeviceShopIds;
+      if (localStorage.getItem("my_admin_shops") === null && data.length > 0) {
+        currentDeviceIds = data.map((s: Shop) => s.id);
+        localStorage.setItem("my_admin_shops", JSON.stringify(currentDeviceIds));
+        setMyDeviceShopIds(currentDeviceIds);
+      }
+
+      const myShops = data.filter((s: Shop) => currentDeviceIds.includes(s.id));
+      const activeList = shopFilterMode === "my" && myShops.length > 0 ? myShops : data;
 
       setSelectedShop(prev => {
         if (prev) {
           const updated = data.find((s: Shop) => s.id === prev.id);
-          return updated || (data.length > 0 ? data[0] : null);
+          if (updated) return updated;
         }
-        return data.length > 0 ? data[0] : null;
+        return activeList.length > 0 ? activeList[0] : null;
       });
     } catch (err) {
       console.error(err);
@@ -127,28 +328,47 @@ export default function AdminPage() {
 
   useEffect(() => {
     fetchShops();
-  }, []);
+  }, [token]);
 
-  const fetchOrders = async (shopId: string) => {
-    setOrdersLoading(true);
+  const fetchOrders = async (shopId: string, silent = false) => {
+    if (!silent) setOrdersLoading(true);
     try {
       const res = await fetch(`/api/shops/${shopId}/orders`);
       if (res.ok) {
-        const data = await res.json();
+        const data: Order[] = await res.json();
+        
+        // Проверка поступления новых заказов для уведомления
+        if (prevOrdersCountRef.current !== null && data.length > prevOrdersCountRef.current) {
+          const newest = data[0];
+          if (newest && newest.status === "PENDING") {
+            setNewOrderAlert(newest);
+            playOrderChime();
+          }
+        }
+        prevOrdersCountRef.current = data.length;
         setOrders(data);
       }
     } catch (err) {
       console.error("Ошибка при получении заказов:", err);
     } finally {
-      setOrdersLoading(false);
+      if (!silent) setOrdersLoading(false);
     }
   };
 
   useEffect(() => {
     if (selectedShop) {
+      prevOrdersCountRef.current = null;
       fetchOrders(selectedShop.id);
+
+      // Фоновый поллинг новых заказов каждые 10 секунд
+      const interval = setInterval(() => {
+        fetchOrders(selectedShop.id, true);
+      }, 10000);
+
+      return () => clearInterval(interval);
     } else {
       setOrders([]);
+      prevOrdersCountRef.current = null;
     }
   }, [selectedShop?.id]);
 
@@ -214,9 +434,14 @@ export default function AdminPage() {
     if (!validateCreateShop()) return;
 
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const res = await fetch("/api/shops", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           name: newShopData.name.trim(),
           slug: newShopData.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, "-"),
@@ -236,6 +461,11 @@ export default function AdminPage() {
       }
 
       if (!res.ok) throw new Error(data.error || "Не удалось создать магазин");
+
+      if (data?.id) {
+        linkShopToDevice(data.id);
+        setShopFilterMode("my");
+      }
 
       setNewShopData({ name: "", slug: "", description: "" });
       setCreateShopFieldErrors({});
@@ -263,7 +493,10 @@ export default function AdminPage() {
     console.log(`[DEBUG] Initiating DELETE request to endpoint: ${targetUrl}`);
 
     try {
-      const res = await fetch(targetUrl, { method: "DELETE" });
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(targetUrl, { method: "DELETE", headers });
       const data = await res.json().catch(() => ({}));
       console.log(`[DEBUG] Delete request response status: ${res.status}`, data);
 
@@ -272,6 +505,7 @@ export default function AdminPage() {
       }
 
       console.log(`[DEBUG] Shop "${shopToDelete.name}" (ID: ${shopToDelete.id}) successfully deleted.`);
+      unlinkShopFromDevice(shopToDelete.id);
       setShopToDelete(null);
       setSelectedShop(null);
       await fetchShops();
@@ -315,9 +549,12 @@ export default function AdminPage() {
     if (!validateService()) return;
 
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const res = await fetch(`/api/shops/${selectedShop.id}/services`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           title: newServiceData.title.trim(),
           price: Number(newServiceData.price),
@@ -372,9 +609,12 @@ export default function AdminPage() {
     setEditServiceError(null);
 
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const res = await fetch(`/api/services/${editingService.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           title: editServiceData.title.trim(),
           price: Math.round(priceNum),
@@ -397,8 +637,12 @@ export default function AdminPage() {
 
   const handleDeleteService = async (serviceId: string) => {
     try {
-      const res = await fetch(`/api/services/${serviceId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Не удалось удалить услугу");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/services/${serviceId}`, { method: "DELETE", headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Не удалось удалить услугу");
       await fetchShops();
     } catch (err: any) {
       alert(err.message);
@@ -406,7 +650,11 @@ export default function AdminPage() {
   };
 
   const validateSettings = () => {
-    const errors: { botToken?: string; adminChatId?: string } = {};
+    const errors: { botToken?: string; adminChatId?: string; name?: string } = {};
+
+    if (!settingsData.name.trim()) {
+      errors.name = "Укажите название заведения";
+    }
 
     if (settingsData.botToken.trim()) {
       const botTokenRegex = /^\d+:[A-Za-z0-9_-]{30,}$/;
@@ -436,14 +684,21 @@ export default function AdminPage() {
     setIsSavingSettings(true);
 
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const res = await fetch(`/api/shops/${selectedShop.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
-          name: selectedShop.name,
-          description: selectedShop.description,
-          botToken: settingsData.botToken.trim() || null,
-          adminChatId: settingsData.adminChatId.trim() || null
+          name: settingsData.name.trim() || selectedShop.name,
+          description: settingsData.description.trim() || undefined,
+          botToken: settingsData.botToken.trim() || undefined,
+          adminChatId: settingsData.adminChatId.trim() || undefined,
+          workingHours: settingsData.workingHours.trim() || undefined,
+          address: settingsData.address.trim() || undefined,
+          phone: settingsData.phone.trim() || undefined,
+          isOpen: settingsData.isOpen
         })
       });
 
@@ -477,6 +732,36 @@ export default function AdminPage() {
     );
   }
 
+  const handleClaimShop = async (shopId: string) => {
+    if (!token) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/shops/${shopId}/claim`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Не удалось привязать заведение");
+        return;
+      }
+      linkShopToDevice(shopId);
+      await fetchShops();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const myShops = user
+    ? shops.filter((s) => s.ownerId === user.id)
+    : shops.filter((s) => myDeviceShopIds.includes(s.id) && !s.ownerId);
+
+  const displayedShops = shopFilterMode === "my" ? myShops : shops;
+
   const allServices = selectedShop?.services || [];
   const categories = Array.from(new Set(allServices.map(s => s.category).filter(Boolean))) as string[];
   const filteredServices = allServices.filter(service => {
@@ -503,11 +788,58 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-lg text-xs text-slate-600 font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span>База данных PostgreSQL</span>
-            </div>
+          <div className="flex items-center gap-2.5">
+            {/* Кнопка вкл/выкл звуковых уведомлений */}
+            <button
+              onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+              title={isAudioEnabled ? "Звук уведомлений включен" : "Звук уведомлений выключен"}
+              className={`p-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border ${
+                isAudioEnabled 
+                  ? "bg-slate-100 border-slate-200 text-slate-800 hover:bg-slate-200" 
+                  : "bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
+              }`}
+            >
+              {isAudioEnabled ? <Volume2 size={16} className="text-emerald-600" /> : <VolumeX size={16} />}
+              <span className="hidden md:inline text-[11px]">{isAudioEnabled ? "Звук вкл" : "Звук выкл"}</span>
+            </button>
+
+            {/* Плашка и кнопка выбора тарифа SaaS */}
+            <button
+              onClick={() => setIsPlanModalOpen(true)}
+              className="px-3 py-1.5 bg-linear-to-r from-amber-500/10 via-amber-500/15 to-indigo-500/10 hover:from-amber-500/20 hover:to-indigo-500/20 text-slate-900 border border-amber-300/60 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs active:scale-98"
+            >
+              <Crown size={15} className="text-amber-500 fill-amber-500" />
+              <span>Тариф: {user?.plan || "FREE"}</span>
+            </button>
+
+            {/* Блок аутентификации пользователя */}
+            {user ? (
+              <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-xl text-xs font-semibold text-slate-800">
+                  <ShieldCheck size={14} className="text-emerald-600" />
+                  <span className="truncate max-w-[120px] sm:max-w-[180px]">{user.name || user.email}</span>
+                </div>
+                <button
+                  onClick={logout}
+                  title="Выйти из аккаунта"
+                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                >
+                  <LogOut size={16} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setAuthError(null);
+                  setIsAuthModalOpen(true);
+                }}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 active:scale-98 border border-slate-200"
+              >
+                <LogIn size={15} />
+                <span className="hidden sm:inline">Войти</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 setNewShopData({ name: "", slug: "", description: "" });
@@ -532,50 +864,182 @@ export default function AdminPage() {
           {/* Боковая панель выбора заведения */}
           <aside className="lg:col-span-4 xl:col-span-3 space-y-4">
             <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Ваши заведения ({shops.length})
-                </span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Заведения
+                  </span>
+                </div>
+
+                {/* Переключатель локального режима устройств */}
+                <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShopFilterMode("my");
+                      if (myShops.length > 0 && (!selectedShop || !myDeviceShopIds.includes(selectedShop.id))) {
+                        setSelectedShop(myShops[0]);
+                      }
+                    }}
+                    className={`py-1.5 px-2 rounded-lg text-center transition-all ${
+                      shopFilterMode === "my"
+                        ? "bg-white text-slate-900 shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Мои ({myShops.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShopFilterMode("all")}
+                    className={`py-1.5 px-2 rounded-lg text-center transition-all ${
+                      shopFilterMode === "all"
+                        ? "bg-white text-slate-900 shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Все ({shops.length})
+                  </button>
+                </div>
               </div>
 
-              {shops.length === 0 ? (
-                <div className="text-center py-6 px-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                  <p className="text-xs text-slate-500 mb-3">У вас пока нет созданных магазинов</p>
-                  <button
-                    onClick={() => setIsCreatingShop(true)}
-                    className="text-xs font-semibold text-blue-600 hover:underline"
-                  >
-                    + Создать первый магазин
-                  </button>
+              {displayedShops.length === 0 ? (
+                <div className="text-center py-6 px-3 bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-2">
+                  <p className="text-xs text-slate-500">
+                    {shopFilterMode === "my"
+                      ? "На этом устройстве пока нет сохраненных заведений"
+                      : "Заведений пока нет"}
+                  </p>
+                  <div className="flex flex-col gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingShop(true)}
+                      className="text-xs font-semibold text-blue-600 hover:underline"
+                    >
+                      + Создать заведение
+                    </button>
+                    {shopFilterMode === "my" && shops.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShopFilterMode("all")}
+                        className="text-[11px] font-medium text-slate-500 hover:text-slate-800"
+                      >
+                        Показать все в базе ({shops.length})
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-                  {shops.map((shop) => {
+                  {displayedShops.map((shop) => {
                     const isSelected = selectedShop?.id === shop.id;
+                    const isOwner = user
+                      ? shop.ownerId === user.id
+                      : myDeviceShopIds.includes(shop.id) && !shop.ownerId;
+                    const hasOtherOwner = user
+                      ? Boolean(shop.ownerId && shop.ownerId !== user.id)
+                      : Boolean(shop.ownerId);
+
                     return (
-                      <button
+                      <div
                         key={shop.id}
-                        onClick={() => setSelectedShop(shop)}
-                        className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-center gap-3 ${
+                        className={`w-full p-3 rounded-xl border transition-all flex items-center justify-between gap-2.5 ${
                           isSelected
                             ? "bg-slate-900 border-slate-900 text-white shadow-sm"
                             : "bg-slate-50/50 border-slate-200/80 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
                         }`}
                       >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 uppercase ${
-                          isSelected ? "bg-white/15 text-white" : "bg-slate-200/80 text-slate-700"
-                        }`}>
-                          {shop.name.charAt(0)}
-                        </div>
-                        <div className="overflow-hidden flex-1">
-                          <p className={`text-xs font-semibold truncate ${isSelected ? "text-white" : "text-slate-900"}`}>
-                            {shop.name}
-                          </p>
-                          <p className={`text-[11px] truncate ${isSelected ? "text-slate-300" : "text-slate-400"}`}>
-                            /{shop.slug}
-                          </p>
-                        </div>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedShop(shop)}
+                          className="flex items-center gap-3 overflow-hidden flex-1 text-left min-w-0"
+                        >
+                          <div
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 uppercase ${
+                              isSelected ? "bg-white/15 text-white" : "bg-slate-200/80 text-slate-700"
+                            }`}
+                          >
+                            {shop.name.charAt(0)}
+                          </div>
+                          <div className="overflow-hidden flex-1 min-w-0">
+                            <p
+                              className={`text-xs font-semibold truncate ${
+                                isSelected ? "text-white" : "text-slate-900"
+                              }`}
+                            >
+                              {shop.name}
+                            </p>
+                            <p
+                              className={`text-[10px] truncate ${
+                                isSelected ? "text-slate-300" : "text-slate-400"
+                              }`}
+                            >
+                              /{shop.slug}
+                            </p>
+                          </div>
+                        </button>
+
+                        {/* Безопасное отображение статуса владельца */}
+                        {isOwner ? (
+                          <span
+                            title="Вы являетесь владельцем этого заведения"
+                            className={`px-2 py-1 rounded-md text-[10px] font-semibold shrink-0 ${
+                              isSelected
+                                ? "bg-emerald-500/30 text-emerald-200"
+                                : "bg-emerald-100 text-emerald-800"
+                            }`}
+                          >
+                            Мое
+                          </span>
+                        ) : hasOtherOwner ? (
+                          <span
+                            title={`Заведение принадлежит пользователю ${shop.owner?.email || "другого аккаунта"}`}
+                            className={`px-2 py-1 rounded-md text-[10px] font-semibold shrink-0 select-none ${
+                              isSelected
+                                ? "bg-white/10 text-slate-400"
+                                : "bg-slate-200/60 text-slate-500"
+                            }`}
+                          >
+                            {shop.owner?.email ? shop.owner.email.split("@")[0] : "Чужое"}
+                          </span>
+                        ) : user ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleClaimShop(shop.id);
+                            }}
+                            title="Нажмите, чтобы привязать это анонимное заведение к вашему аккаунту"
+                            className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-colors shrink-0 ${
+                              isSelected
+                                ? "bg-blue-500/40 text-blue-100 hover:bg-blue-500/60"
+                                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                            }`}
+                          >
+                            + Привязать
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (myDeviceShopIds.includes(shop.id)) {
+                                unlinkShopFromDevice(shop.id);
+                              } else {
+                                linkShopToDevice(shop.id);
+                              }
+                            }}
+                            title="Сохранить локально на этом устройстве"
+                            className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-colors shrink-0 ${
+                              myDeviceShopIds.includes(shop.id)
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-slate-200/80 text-slate-700 hover:bg-slate-300"
+                            }`}
+                          >
+                            {myDeviceShopIds.includes(shop.id) ? "Мое" : "+ Мое"}
+                          </button>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -625,6 +1089,15 @@ export default function AdminPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         type="button"
+                        onClick={() => setIsQrModalOpen(true)}
+                        className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border border-indigo-200/80"
+                      >
+                        <QrCode size={15} />
+                        <span>QR & Печать</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => setIsTgGuideOpen(true)}
                         className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border border-blue-200/80"
                       >
@@ -651,31 +1124,77 @@ export default function AdminPage() {
 
                       <button
                         type="button"
+                        disabled={Boolean(selectedShop.ownerId && selectedShop.ownerId !== user?.id)}
                         onClick={() => {
                           setSettingsData({
+                            name: selectedShop.name || "",
+                            description: selectedShop.description || "",
                             botToken: selectedShop.botToken || "",
-                            adminChatId: selectedShop.adminChatId || ""
+                            adminChatId: selectedShop.adminChatId || "",
+                            workingHours: selectedShop.workingHours || "Пн-Вс: 09:00 - 22:00",
+                            address: selectedShop.address || "",
+                            phone: selectedShop.phone || "",
+                            isOpen: selectedShop.isOpen !== undefined ? selectedShop.isOpen : true
                           });
                           setSettingsFieldErrors({});
                           setSettingsError(null);
                           setIsSettingsOpen(true);
                         }}
-                        className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors border border-transparent hover:border-slate-200"
-                        title="Настройки заведения"
+                        className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors border border-transparent hover:border-slate-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                        title={selectedShop.ownerId && selectedShop.ownerId !== user?.id ? "Редактирование настроек доступно только владельцу" : "Настройки заведения"}
                       >
                         <Settings size={18} />
                       </button>
 
                       <button
                         type="button"
+                        disabled={Boolean(selectedShop.ownerId && selectedShop.ownerId !== user?.id)}
                         onClick={() => openDeleteConfirmation(selectedShop)}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100"
-                        title="Удалить заведение"
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                        title={selectedShop.ownerId && selectedShop.ownerId !== user?.id ? "Удаление доступно только владельцу" : "Удалить заведение"}
                       >
                         <Trash2 size={18} />
                       </button>
                     </div>
                   </div>
+
+                  {/* Информационные статусы владельца */}
+                  {selectedShop.ownerId && selectedShop.ownerId !== user?.id && (
+                    <div className="p-3.5 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
+                      <AlertCircle size={17} className="text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold">Чужое заведение (Режим просмотра)</p>
+                        <p className="text-[11px] text-amber-700 mt-0.5">
+                          Владелец: <strong>{selectedShop.owner?.email || "Другой пользователь"}</strong>. Вам доступен просмотр каталога, но редактирование услуг и настроек заблокировано для чужих аккаунтов.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedShop.ownerId && selectedShop.ownerId === user?.id && (
+                    <div className="px-3.5 py-2 bg-emerald-50 border border-emerald-200/80 rounded-xl text-xs text-emerald-900 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck size={16} className="text-emerald-600" />
+                        <span className="font-semibold">Вы владелец этого заведения</span>
+                      </div>
+                      <span className="text-[11px] text-emerald-700 font-medium">{user.email}</span>
+                    </div>
+                  )}
+
+                  {!selectedShop.ownerId && user && (
+                    <div className="px-3.5 py-2 bg-blue-50 border border-blue-200/80 rounded-xl text-xs text-blue-900 flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle size={16} className="text-blue-600" />
+                        <span className="font-medium">Заведение пока анонимно. Закрепите его за своим аккаунтом:</span>
+                      </div>
+                      <button
+                        onClick={() => handleClaimShop(selectedShop.id)}
+                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition-colors"
+                      >
+                        Привязать к {user.email}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Быстрая аналитика */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
@@ -728,7 +1247,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* Табы навигации в заведении */}
-                <div className="flex border-b border-slate-200/80 gap-2">
+                <div className="flex border-b border-slate-200/80 gap-2 flex-wrap">
                   <button
                     onClick={() => setActiveTab("services")}
                     className={`px-4 py-2.5 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors ${
@@ -757,6 +1276,18 @@ export default function AdminPage() {
                       </span>
                     )}
                   </button>
+
+                  <button
+                    onClick={() => setActiveTab("analytics")}
+                    className={`px-4 py-2.5 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors ${
+                      activeTab === "analytics"
+                        ? "border-slate-900 text-slate-900"
+                        : "border-transparent text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <BarChart3 size={15} />
+                    <span>Аналитика и финансовые отчеты</span>
+                  </button>
                 </div>
 
                 {/* Вкладка 1: Услуги и товары */}
@@ -769,13 +1300,15 @@ export default function AdminPage() {
                             Каталог услуг ({filteredServices.length} из {allServices.length})
                           </h3>
                           <button
+                            disabled={Boolean(selectedShop.ownerId && selectedShop.ownerId !== user?.id)}
                             onClick={() => {
                               setNewServiceData({ title: "", price: "", description: "", category: "" });
                               setServiceFieldErrors({});
                               setServiceError(null);
                               setIsAddingService(true);
                             }}
-                            className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-2xs self-start sm:self-auto"
+                            className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-2xs self-start sm:self-auto disabled:opacity-40 disabled:hover:bg-slate-900 disabled:cursor-not-allowed"
+                            title={selectedShop.ownerId && selectedShop.ownerId !== user?.id ? "Редактирование доступно только владельцу" : ""}
                           >
                             <Plus size={15} />
                             <span>Добавить услугу</span>
@@ -975,15 +1508,26 @@ export default function AdminPage() {
                         })}
                       </div>
 
-                      <button
-                        onClick={() => fetchOrders(selectedShop.id)}
-                        disabled={ordersLoading}
-                        className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1"
-                        title="Обновить список заказов"
-                      >
-                        <RefreshCw size={14} className={ordersLoading ? "animate-spin" : ""} />
-                        <span className="hidden sm:inline">Обновить</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={exportOrdersToCsv}
+                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1.5"
+                          title="Экспорт заказов в CSV / Excel"
+                        >
+                          <FileSpreadsheet size={15} />
+                          <span className="hidden sm:inline">Экспорт CSV</span>
+                        </button>
+
+                        <button
+                          onClick={() => fetchOrders(selectedShop.id)}
+                          disabled={ordersLoading}
+                          className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1"
+                          title="Обновить список заказов"
+                        >
+                          <RefreshCw size={14} className={ordersLoading ? "animate-spin" : ""} />
+                          <span className="hidden sm:inline">Обновить</span>
+                        </button>
+                      </div>
                     </div>
 
                     {/* Список заказов */}
@@ -1051,20 +1595,43 @@ export default function AdminPage() {
                                   </div>
 
                                   {/* Данные клиента */}
-                                  <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100 space-y-1">
-                                    <div className="flex items-center gap-2 text-xs text-slate-900 font-semibold">
-                                      <User size={14} className="text-slate-400" />
-                                      <span>{order.customerName}</span>
+                                  <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100 space-y-1.5">
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                      <div className="flex items-center gap-2 text-xs text-slate-900 font-semibold">
+                                        <User size={14} className="text-slate-400 shrink-0" />
+                                        <span>{order.customerName}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-xs text-slate-700">
+                                        <Phone size={14} className="text-slate-400 shrink-0" />
+                                        <a
+                                          href={`tel:${order.customerPhone}`}
+                                          className="hover:underline font-mono text-blue-600 font-semibold"
+                                        >
+                                          {order.customerPhone}
+                                        </a>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-2 text-xs text-slate-700">
-                                      <Phone size={14} className="text-slate-400" />
-                                      <a
-                                        href={`tel:${order.customerPhone}`}
-                                        className="hover:underline font-mono text-blue-600 font-semibold"
-                                      >
-                                        {order.customerPhone}
-                                      </a>
-                                    </div>
+
+                                    {(order.tableNumber || order.preferredTime) && (
+                                      <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60 text-xs flex-wrap">
+                                        {order.tableNumber && (
+                                          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded-md font-semibold text-[11px] flex items-center gap-1">
+                                            🪑 Столик: <strong>{order.tableNumber}</strong>
+                                          </span>
+                                        )}
+                                        {order.preferredTime && (
+                                          <span className="px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200/60 rounded-md font-semibold text-[11px] flex items-center gap-1">
+                                            ⏰ Время: <strong>{order.preferredTime}</strong>
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {order.note && (
+                                      <p className="text-[11px] text-slate-600 bg-amber-50/80 border border-amber-200/60 p-2 rounded-lg italic">
+                                        💬 {order.note}
+                                      </p>
+                                    )}
                                   </div>
 
                                   {/* Позиции заказа */}
@@ -1134,6 +1701,11 @@ export default function AdminPage() {
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* Вкладка 3: Финансовая аналитика */}
+                {activeTab === "analytics" && (
+                  <AnalyticsTab shopId={selectedShop.id} />
                 )}
               </>
             ) : (
@@ -1567,12 +2139,20 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Модалка настроек магазина */}
+      {/* Модалка настроек и редактирования заведения */}
       {isSettingsOpen && selectedShop && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200/80 w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 space-y-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Настройки интеграции Telegram</h3>
+          <div className="bg-white rounded-2xl border border-slate-200/80 w-full max-w-lg p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-slate-900 text-white rounded-xl">
+                  <Edit3 size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Редактирование заведения</h3>
+                  <p className="text-[11px] text-slate-500">График, адрес, статус и интеграция с Telegram</p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsSettingsOpen(false)}
@@ -1590,53 +2170,164 @@ export default function AdminPage() {
                 </div>
               )}
 
+              {/* Переключатель статуса заведения (Открыто / Закрыто) */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-900">Прием заказов</span>
+                    {settingsData.isOpen ? (
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-md">Открыто</span>
+                    ) : (
+                      <span className="px-2 py-0.5 bg-rose-100 text-rose-800 text-[10px] font-bold rounded-md">Временно закрыто</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500">Включите или отключите прием новых заказов покупателями</p>
+                </div>
+
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settingsData.isOpen}
+                    onChange={(e) => setSettingsData({ ...settingsData, isOpen: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+
+              {/* Название заведения */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Telegram Bot Token
+                  Название заведения <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  value={settingsData.botToken}
+                  required
+                  value={settingsData.name}
                   onChange={(e) => {
-                    setSettingsData({ ...settingsData, botToken: e.target.value });
-                    if (settingsFieldErrors.botToken) setSettingsFieldErrors(prev => ({ ...prev, botToken: undefined }));
+                    setSettingsData({ ...settingsData, name: e.target.value });
+                    if (settingsFieldErrors.name) setSettingsFieldErrors(prev => ({ ...prev, name: undefined }));
                   }}
-                  placeholder="123456789:AAH..."
-                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border font-mono transition-all focus:outline-none ${
-                    settingsFieldErrors.botToken ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
+                  placeholder="Ресторан Кофе и Выпечка"
+                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border transition-all focus:outline-none ${
+                    settingsFieldErrors.name ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
                   }`}
                 />
-                {settingsFieldErrors.botToken ? (
-                  <p className="text-[11px] text-red-500 mt-1 font-medium">{settingsFieldErrors.botToken}</p>
-                ) : (
-                  <p className="text-[11px] text-slate-400 mt-1">Токен от бота @BotFather</p>
-                )}
               </div>
 
+              {/* Описание заведения */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  ID Админского Чата
+                  Описание / Концепция
+                </label>
+                <textarea
+                  rows={2}
+                  value={settingsData.description}
+                  onChange={(e) => setSettingsData({ ...settingsData, description: e.target.value })}
+                  placeholder="Авторская кухня, свежий кофе и уютная атмосфера"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none resize-none"
+                />
+              </div>
+
+              {/* График работы */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  График работы
                 </label>
                 <input
                   type="text"
-                  value={settingsData.adminChatId}
-                  onChange={(e) => {
-                    setSettingsData({ ...settingsData, adminChatId: e.target.value });
-                    if (settingsFieldErrors.adminChatId) setSettingsFieldErrors(prev => ({ ...prev, adminChatId: undefined }));
-                  }}
-                  placeholder="12345678"
-                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border font-mono transition-all focus:outline-none ${
-                    settingsFieldErrors.adminChatId ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
-                  }`}
+                  value={settingsData.workingHours}
+                  onChange={(e) => setSettingsData({ ...settingsData, workingHours: e.target.value })}
+                  placeholder="Пн-Пт: 08:00 - 22:00, Сб-Вс: 09:00 - 23:00"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none"
                 />
-                {settingsFieldErrors.adminChatId ? (
-                  <p className="text-[11px] text-red-500 mt-1 font-medium">{settingsFieldErrors.adminChatId}</p>
-                ) : (
-                  <p className="text-[11px] text-slate-400 mt-1">Telegram Chat ID для заказов (узнать у @userinfobot)</p>
-                )}
+                <p className="text-[11px] text-slate-400 mt-1">Отображается клиентам в верхней части Mini App</p>
               </div>
 
-              <div className="pt-2 flex gap-3">
+              {/* Адрес и Телефон */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Адрес
+                  </label>
+                  <input
+                    type="text"
+                    value={settingsData.address}
+                    onChange={(e) => setSettingsData({ ...settingsData, address: e.target.value })}
+                    placeholder="г. Москва, ул. Арбат, д. 12"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Контактный телефон
+                  </label>
+                  <input
+                    type="text"
+                    value={settingsData.phone}
+                    onChange={(e) => setSettingsData({ ...settingsData, phone: e.target.value })}
+                    placeholder="+7 (999) 000-00-00"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Разделитель */}
+              <div className="pt-2 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-slate-900 mb-3 flex items-center gap-1.5">
+                  <span>Интеграция с Telegram Ботом</span>
+                </h4>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Telegram Bot Token
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsData.botToken}
+                      onChange={(e) => {
+                        setSettingsData({ ...settingsData, botToken: e.target.value });
+                        if (settingsFieldErrors.botToken) setSettingsFieldErrors(prev => ({ ...prev, botToken: undefined }));
+                      }}
+                      placeholder="123456789:AAH..."
+                      className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border font-mono transition-all focus:outline-none ${
+                        settingsFieldErrors.botToken ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
+                      }`}
+                    />
+                    {settingsFieldErrors.botToken ? (
+                      <p className="text-[11px] text-red-500 mt-1 font-medium">{settingsFieldErrors.botToken}</p>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 mt-1">Токен от бота @BotFather для отправки уведомлений</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      ID Админского Чата
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsData.adminChatId}
+                      onChange={(e) => {
+                        setSettingsData({ ...settingsData, adminChatId: e.target.value });
+                        if (settingsFieldErrors.adminChatId) setSettingsFieldErrors(prev => ({ ...prev, adminChatId: undefined }));
+                      }}
+                      placeholder="12345678"
+                      className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border font-mono transition-all focus:outline-none ${
+                        settingsFieldErrors.adminChatId ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
+                      }`}
+                    />
+                    {settingsFieldErrors.adminChatId ? (
+                      <p className="text-[11px] text-red-500 mt-1 font-medium">{settingsFieldErrors.adminChatId}</p>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 mt-1">Telegram Chat ID для получения заказов (узнать у @userinfobot)</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 flex gap-3">
                 <button
                   type="button"
                   onClick={() => setIsSettingsOpen(false)}
@@ -1647,9 +2338,9 @@ export default function AdminPage() {
                 <button
                   type="submit"
                   disabled={isSavingSettings}
-                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold text-xs transition-colors disabled:opacity-50"
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold text-xs transition-colors disabled:opacity-50 shadow-sm"
                 >
-                  {isSavingSettings ? "Сохранение..." : "Сохранить"}
+                  {isSavingSettings ? "Сохранение..." : "Сохранить изменения"}
                 </button>
               </div>
             </form>
@@ -1703,6 +2394,201 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Модальное окно Входа / Регистрации */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-5 border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
+                  <ShieldCheck size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {authMode === "login" ? "Вход в аккаунт администратора" : "Регистрация администратора"}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">Управляйте заведениями с любого устройства</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Табы режима: Вход / Регистрация */}
+            <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode("login");
+                  setAuthError(null);
+                }}
+                className={`py-2 px-3 rounded-lg text-center transition-all ${
+                  authMode === "login"
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Вход
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode("register");
+                  setAuthError(null);
+                }}
+                className={`py-2 px-3 rounded-lg text-center transition-all ${
+                  authMode === "register"
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Регистрация
+              </button>
+            </div>
+
+            {authError && (
+              <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-600 font-medium flex items-center gap-2">
+                <AlertCircle size={15} className="shrink-0" />
+                <span>{authError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+              {authMode === "register" && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Ваше имя или название организации
+                  </label>
+                  <div className="relative">
+                    <User size={15} className="absolute left-3 top-3 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Иван Иванов"
+                      value={authName}
+                      onChange={(e) => setAuthName(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  E-mail адрес <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Mail size={15} className="absolute left-3 top-3 text-slate-400" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="admin@example.com"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Пароль <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock size={15} className="absolute left-3 top-3 text-slate-400" />
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    placeholder="••••••••"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                  />
+                </div>
+                {authMode === "register" && (
+                  <p className="text-[10px] text-slate-400 mt-1">Минимум 6 символов</p>
+                )}
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(false)}
+                  disabled={isSubmittingAuth}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors disabled:opacity-50"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingAuth}
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
+                >
+                  {isSubmittingAuth ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <span>{authMode === "login" ? "Войти" : "Зарегистрироваться"}</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Всплывающее плавающее уведомление о новом заказе */}
+      {newOrderAlert && (
+        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-slate-700 max-w-sm w-full animate-in slide-in-from-bottom duration-300">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-amber-500 text-slate-950 rounded-xl animate-bounce">
+                <Bell size={18} />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-amber-400">🔔 Новый заказ #{newOrderAlert.id.slice(-6)}!</h4>
+                <p className="text-xs font-medium text-slate-200 mt-0.5">{newOrderAlert.customerName} ({newOrderAlert.customerPhone})</p>
+                <p className="text-xs font-bold text-emerald-400 mt-1">{newOrderAlert.totalPrice.toLocaleString("ru-RU")} ₽</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setNewOrderAlert(null)}
+              className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors"
+            >
+              <XCircle size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка генератора QR-кодов и макетов столов */}
+      {selectedShop && (
+        <QrGeneratorModal
+          isOpen={isQrModalOpen}
+          onClose={() => setIsQrModalOpen(false)}
+          shopName={selectedShop.name}
+          shopSlug={selectedShop.slug}
+        />
+      )}
+
+      {/* Модалка выбора SaaS тарифов */}
+      <PlanModal
+        isOpen={isPlanModalOpen}
+        onClose={() => setIsPlanModalOpen(false)}
+        currentPlan={user?.plan || "FREE"}
+        token={token}
+        onPlanUpdated={(newPlan) => {
+          if (user) {
+            user.plan = newPlan;
+          }
+          fetchShops();
+        }}
+      />
     </div>
   );
 }

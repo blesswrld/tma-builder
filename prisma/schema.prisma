@@ -8,6 +8,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  password              String
+  name                  String?
+  plan                  String    @default("FREE") // FREE, PRO, ENTERPRISE
+  subscriptionExpiresAt DateTime?
+  shops                 Shop[]
+  createdAt             DateTime  @default(now())
+}
+
 model Shop {
   id          String    @id @default(cuid())
   slug        String    @unique
@@ -16,6 +27,13 @@ model Shop {
   logoUrl     String?
   botToken    String?
   adminChatId String?
+  workingHours String?
+  address     String?
+  phone       String?
+  isOpen      Boolean   @default(true)
+  ownerId     String?
+  maxServices Int       @default(15)
+  owner       User?     @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   services    Service[]
   orders      Order[]
   createdAt   DateTime  @default(now())
@@ -38,6 +56,8 @@ model Order {
   shop          Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   customerName  String
   customerPhone String
+  tableNumber   String?
+  preferredTime String?
   items         String   // JSON string storing ordered items
   totalPrice    Int
   status        String   @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED

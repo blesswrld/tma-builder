@@ -1,6 +1,6 @@
 import React, { useEffect, useState, FormEvent } from "react";
 import { useParams } from "react-router-dom";
-import { Plus, Minus, X, CheckCircle, AlertCircle, Search, Tag, ShoppingBag, Clock, Receipt, ListOrdered } from "lucide-react";
+import { Plus, Minus, X, CheckCircle, AlertCircle, Search, Tag, ShoppingBag, Clock, Receipt, ListOrdered, MapPin, Phone as PhoneIcon } from "lucide-react";
 import NotFoundPage from "./NotFoundPage";
 
 declare global {
@@ -23,6 +23,10 @@ interface Shop {
   name: string;
   description: string | null;
   logoUrl: string | null;
+  workingHours?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  isOpen?: boolean;
   services: Service[];
 }
 
@@ -60,12 +64,22 @@ export default function ShopPage() {
   
   const [formData, setFormData] = useState({
     name: "",
-    phone: ""
+    phone: "",
+    tableNumber: "",
+    preferredTime: "",
+    note: ""
   });
   const [formErrors, setFormErrors] = useState<{ name?: string; phone?: string; general?: string }>({});
   const [orderSuccess, setOrderSuccess] = useState(false);
 
   useEffect(() => {
+    // Проверка аргумента столика из URL (например, при сканировании QR-кода столика)
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableFromUrl = urlParams.get("table") || urlParams.get("t") || urlParams.get("tableNumber");
+    if (tableFromUrl) {
+      setFormData(prev => ({ ...prev, tableNumber: tableFromUrl }));
+    }
+
     // Инициализация Telegram WebApp
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.ready();
@@ -204,6 +218,9 @@ export default function ShopPage() {
           shopId: shop.id,
           customerName: formData.name.trim(),
           customerPhone: formData.phone.trim(),
+          tableNumber: formData.tableNumber.trim() || undefined,
+          preferredTime: formData.preferredTime.trim() || undefined,
+          note: formData.note.trim() || undefined,
           items,
           totalPrice
         })
@@ -330,11 +347,24 @@ export default function ShopPage() {
         
         <div>
           {/* Шапка магазина */}
-          <div className="bg-slate-900 text-white px-6 py-7 text-center relative overflow-hidden">
+          <div className="bg-slate-900 text-white px-6 py-6 text-center relative overflow-hidden">
             <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
             
-            {/* Кнопка Мои заказы */}
-            <div className="relative z-20 flex justify-end mb-2">
+            {/* Верхняя панель: Статус работы и Кнопка Мои заказы */}
+            <div className="relative z-20 flex items-center justify-between mb-3">
+              {/* Статус заведения */}
+              {shop.isOpen !== false ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Открыто
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 text-[10px] font-bold border border-rose-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                  Закрыто
+                </span>
+              )}
+
               <button
                 type="button"
                 onClick={handleOpenMyOrders}
@@ -355,8 +385,36 @@ export default function ShopPage() {
                   {shop.description}
                 </p>
               )}
+
+              {/* Детали: График, Адрес, Телефон */}
+              <div className="mt-3 pt-3 border-t border-white/10 w-full flex flex-wrap items-center justify-center gap-y-1.5 gap-x-3 text-[11px] text-slate-300">
+                <div className="flex items-center gap-1">
+                  <Clock size={12} className="text-amber-400 shrink-0" />
+                  <span>{shop.workingHours || "Пн-Вс: 09:00 - 22:00"}</span>
+                </div>
+                {shop.address && (
+                  <div className="flex items-center gap-1">
+                    <MapPin size={12} className="text-indigo-400 shrink-0" />
+                    <span className="truncate max-w-[160px]">{shop.address}</span>
+                  </div>
+                )}
+                {shop.phone && (
+                  <div className="flex items-center gap-1">
+                    <PhoneIcon size={12} className="text-emerald-400 shrink-0" />
+                    <span>{shop.phone}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* Плашка, если заведение временно закрыто */}
+          {shop.isOpen === false && (
+            <div className="p-3 bg-amber-500 text-slate-950 font-bold text-xs text-center flex items-center justify-center gap-2 shadow-xs">
+              <AlertCircle size={16} />
+              <span>Заведение временно не принимает заказы</span>
+            </div>
+          )}
 
           {/* Список услуг */}
           <div className="p-4 space-y-3 pb-28">
@@ -614,6 +672,47 @@ export default function ShopPage() {
                     {formErrors.phone && (
                       <p className="text-[11px] text-red-500 mt-1 font-medium px-1">{formErrors.phone}</p>
                     )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        № Столика / Место
+                      </label>
+                      <input 
+                        type="text" 
+                        value={formData.tableNumber}
+                        onChange={e => setFormData(prev => ({ ...prev, tableNumber: e.target.value }))}
+                        placeholder="Стол 4, Зал 1"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white focus:outline-none transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Желаемое время
+                      </label>
+                      <input 
+                        type="text" 
+                        value={formData.preferredTime}
+                        onChange={e => setFormData(prev => ({ ...prev, preferredTime: e.target.value }))}
+                        placeholder="Как можно скорее / 18:30"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white focus:outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Комментарий к заказу
+                    </label>
+                    <textarea 
+                      rows={2}
+                      value={formData.note}
+                      onChange={e => setFormData(prev => ({ ...prev, note: e.target.value }))}
+                      placeholder="Пожелания, аллергии или без сахара..."
+                      className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white focus:outline-none transition-all resize-none"
+                    />
                   </div>
                 </form>
               </div>
