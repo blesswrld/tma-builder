@@ -5,21 +5,34 @@ import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
-function getPrismaClient() {
-  if (globalForPrisma.prisma) return globalForPrisma.prisma;
+function getPrismaClient(): PrismaClient | null {
+  try {
+    if (globalForPrisma.prisma) return globalForPrisma.prisma;
 
-  let dbUrl = process.env.DATABASE_URL || "";
-  if (dbUrl && !dbUrl.includes("sslmode=")) {
-    dbUrl += dbUrl.includes("?") ? "&sslmode=require" : "?sslmode=require";
+    let dbUrl = process.env.DATABASE_URL || "";
+    if (!dbUrl) return null;
+
+    // Автоматическая настройка параметров для Supabase
+    const hasParams = dbUrl.includes("?");
+    if (!dbUrl.includes("sslmode=")) {
+      dbUrl += (dbUrl.includes("?") ? "&" : "?") + "sslmode=require";
+    }
+    // Если порт 6543 (Supabase Connection Pooler) или ссылка pooler, добавляем pgbouncer=true
+    if ((dbUrl.includes(":6543") || dbUrl.includes("pooler.supabase.com")) && !dbUrl.includes("pgbouncer=")) {
+      dbUrl += "&pgbouncer=true";
+    }
+
+    const client = new PrismaClient({
+      datasources: { db: { url: dbUrl } },
+      log: ["error"]
+    });
+
+    if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = client;
+    return client;
+  } catch (err) {
+    console.error("Prisma client instantiation error:", err);
+    return null;
   }
-
-  const client = new PrismaClient({
-    datasources: dbUrl ? { db: { url: dbUrl } } : undefined,
-    log: ["error"]
-  });
-
-  if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = client;
-  return client;
 }
 
 export const prisma = getPrismaClient();
@@ -32,10 +45,15 @@ app.use(express.json());
   app.get("/api/shops", async (req, res) => {
     try {
       if (!process.env.DATABASE_URL) {
-        return res.status(503).json({ error: "База данных PostgreSQL не настроена." });
+        return res.status(503).json({ error: "Переменная DATABASE_URL не задана в Vercel!" });
       }
 
-      const shops = await prisma.shop.findMany({
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      const shops = await db.shop.findMany({
         include: {
           services: true,
           _count: {
@@ -56,7 +74,12 @@ app.use(express.json());
   app.post("/api/shops", async (req, res) => {
     try {
       if (!process.env.DATABASE_URL) {
-        return res.status(503).json({ error: "База данных PostgreSQL не настроена." });
+        return res.status(503).json({ error: "Переменная DATABASE_URL не задана в Vercel!" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
       }
 
       const { name, slug, description } = req.body;
@@ -83,7 +106,7 @@ app.use(express.json());
         return res.status(400).json({ error: "Описание не должно превышать 300 символов." });
       }
 
-      const existingShop = await prisma.shop.findUnique({
+      const existingShop = await db.shop.findUnique({
         where: { slug: formattedSlug }
       });
 
@@ -91,7 +114,7 @@ app.use(express.json());
         return res.status(400).json({ error: "Магазин с таким URL (slug) уже существует." });
       }
 
-      const newShop = await prisma.shop.create({
+      const newShop = await db.shop.create({
         data: {
           name: name.trim(),
           slug: formattedSlug,
