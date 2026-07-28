@@ -2,7 +2,6 @@ import "dotenv/config";
 import express from "express";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
-import { createServer as createViteServer } from "vite";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
@@ -328,6 +327,7 @@ if (!process.env.VERCEL) {
   async function startServer() {
     const PORT = 3000;
     if (process.env.NODE_ENV !== "production") {
+      const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: "spa",
