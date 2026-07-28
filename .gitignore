@@ -6,5 +6,3 @@ coverage/
 *.log
 .env*
 !.env.example
-README.md
-RELEASE_NOTES.md
