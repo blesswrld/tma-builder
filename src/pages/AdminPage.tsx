@@ -59,14 +59,13 @@ export default function AdminPage() {
     try {
       const res = await fetch("/api/shops");
       if (!res.ok) {
-        let errMsg = "Не удалось загрузить список магазинов";
+        let errMsg = `Ошибка сервера (${res.status})`;
+        const text = await res.text();
         try {
-          const errData = await res.json();
+          const errData = JSON.parse(text);
           if (errData.error) errMsg = errData.error;
         } catch {
-          if (res.status === 500) {
-            errMsg = "Ошибка 500: Проверьте переменную DATABASE_URL в настройках Vercel!";
-          }
+          if (text) errMsg = `${errMsg}: ${text.slice(0, 150)}`;
         }
         throw new Error(errMsg);
       }
@@ -134,11 +133,12 @@ export default function AdminPage() {
       });
 
       let data;
+      const text = await res.text();
       try {
-        data = await res.json();
+        data = JSON.parse(text);
       } catch {
-        if (res.status === 500) {
-          throw new Error("Ошибка сервера (500). Проверьте переменную DATABASE_URL в настройках Vercel!");
+        if (!res.ok) {
+          throw new Error(`Ошибка сервера (${res.status}): ${text.slice(0, 150)}`);
         }
         throw new Error("Сервер вернул некорректный ответ");
       }

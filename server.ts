@@ -6,13 +6,24 @@ import { createServer as createViteServer } from "vite";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
+function getPrismaClient() {
+  if (globalForPrisma.prisma) return globalForPrisma.prisma;
+
+  let dbUrl = process.env.DATABASE_URL || "";
+  if (dbUrl && !dbUrl.includes("sslmode=")) {
+    dbUrl += dbUrl.includes("?") ? "&sslmode=require" : "?sslmode=require";
+  }
+
+  const client = new PrismaClient({
+    datasources: dbUrl ? { db: { url: dbUrl } } : undefined,
     log: ["error"]
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+  if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = client;
+  return client;
+}
+
+export const prisma = getPrismaClient();
 
 export const app = express();
 
