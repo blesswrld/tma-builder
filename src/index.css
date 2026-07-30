@@ -1,18 +1,255 @@
 @import "tailwindcss";
 
-:root {
-  /* Фолбэки, если приложение открыто не в Telegram */
-  --tg-theme-bg-color: #ffffff;
-  --tg-theme-text-color: #222222;
-  --tg-theme-hint-color: #999999;
-  --tg-theme-link-color: #2481cc;
-  --tg-theme-button-color: #2481cc;
-  --tg-theme-button-text-color: #ffffff;
-  --tg-theme-secondary-bg-color: #f4f4f5;
+@layer base {
+  :root, html.dark {
+    --background: #09090b;
+    --surface: #121215;
+    --card: #18181c;
+    --card-hover: #222227;
+    --hover: #222227;
+    --input-bg: #18181c;
+    --input-border: #27272a;
+    --input-focus-border: #52525b;
+    
+    --border: #27272a;
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    
+    --text-primary: #ffffff;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    
+    --accent: #ffffff;
+    --accent-fg: #000000;
+    --accent-hover: #e4e4e7;
+    
+    --btn-secondary-bg: #18181c;
+    --btn-secondary-fg: #f4f4f5;
+    --btn-secondary-hover: #27272a;
+
+    --badge-bg: #27272a;
+    --badge-fg: #e4e4e7;
+
+    --modal-bg: #121215;
+    --modal-header-bg: #18181c;
+    --modal-overlay: rgba(0, 0, 0, 0.8);
+    
+    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --glow: rgba(255, 255, 255, 0.12);
+
+    --chart-grid: #27272a;
+    --chart-line: #ffffff;
+    --chart-area-start: rgba(255, 255, 255, 0.25);
+    --chart-area-end: rgba(255, 255, 255, 0);
+    --chart-tooltip-bg: #18181c;
+    --chart-tooltip-text: #ffffff;
+    --chart-tooltip-border: #27272a;
+
+    --scrollbar-thumb: #27272a;
+    --scrollbar-thumb-hover: #3f3f46;
+  }
+
+  html.light {
+    --background: #f4f4f6;
+    --surface: #ffffff;
+    --card: #ffffff;
+    --card-hover: #f1f3f5;
+    --hover: #f1f3f5;
+    --input-bg: #ffffff;
+    --input-border: #e4e4e7;
+    --input-focus-border: #a1a1aa;
+    
+    --border: #e4e4e7;
+    --border-subtle: rgba(0, 0, 0, 0.08);
+    
+    --text-primary: #09090b;
+    --text-secondary: #52525b;
+    --text-muted: #71717a;
+    
+    --accent: #09090b;
+    --accent-fg: #ffffff;
+    --accent-hover: #27272a;
+    
+    --btn-secondary-bg: #f4f4f6;
+    --btn-secondary-fg: #09090b;
+    --btn-secondary-hover: #e4e4e7;
+
+    --badge-bg: #e4e4e7;
+    --badge-fg: #18181b;
+
+    --modal-bg: #ffffff;
+    --modal-header-bg: #f8f9fa;
+    --modal-overlay: rgba(0, 0, 0, 0.45);
+    
+    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
+    --glow: rgba(0, 0, 0, 0.08);
+
+    --chart-grid: #e4e4e7;
+    --chart-line: #09090b;
+    --chart-area-start: rgba(9, 9, 11, 0.2);
+    --chart-area-end: rgba(9, 9, 11, 0);
+    --chart-tooltip-bg: #ffffff;
+    --chart-tooltip-text: #09090b;
+    --chart-tooltip-border: #e4e4e7;
+
+    --scrollbar-thumb: #d4d4d8;
+    --scrollbar-thumb-hover: #a1a1aa;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Geist", "Inter", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    letter-spacing: -0.011em;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
 }
 
-body {
-  background-color: var(--tg-theme-bg-color);
-  color: var(--tg-theme-text-color);
-  -webkit-tap-highlight-color: transparent;
+/* Linear / Vercel design token utility classes */
+.bg-app-bg { background-color: var(--background); }
+.bg-app-surface { background-color: var(--surface); }
+.bg-app-card { background-color: var(--card); }
+.bg-app-input { background-color: var(--input-bg); }
+.bg-app-modal { background-color: var(--modal-bg); }
+.bg-app-modal-header { background-color: var(--modal-header-bg); }
+.bg-app-accent { background-color: var(--accent); color: var(--accent-fg); }
+.bg-app-secondary { background-color: var(--btn-secondary-bg); color: var(--btn-secondary-fg); }
+.bg-app-badge { background-color: var(--badge-bg); color: var(--badge-fg); }
+
+.hover\:bg-app-hover:hover { background-color: var(--hover); }
+.hover\:bg-app-card-hover:hover { background-color: var(--card-hover); }
+
+.border-app-border { border-color: var(--border); }
+.border-app-subtle { border-color: var(--border-subtle); }
+.border-app-input { border-color: var(--input-border); }
+
+.text-app-primary { color: var(--text-primary); }
+.text-app-secondary { color: var(--text-secondary); }
+.text-app-muted { color: var(--text-muted); }
+
+/* Global overrides ensuring 100% theme consistency across all legacy utility classes */
+html.light .bg-\[\#09090b\], html.light .bg-\[\#000000\] {
+  background-color: var(--background) !important;
+}
+
+html.light .bg-\[\#121215\] {
+  background-color: var(--surface) !important;
+}
+
+html.light .bg-\[\#18181c\] {
+  background-color: var(--card) !important;
+}
+
+html.light .bg-\[\#1f1f23\], html.light .bg-\[\#16161a\] {
+  background-color: var(--card-hover) !important;
+}
+
+html.light .border-zinc-800,
+html.light .border-zinc-800\/80,
+html.light .border-zinc-800\/50,
+html.light .border-zinc-800\/60,
+html.light .border-zinc-800\/40 {
+  border-color: var(--border) !important;
+}
+
+html.light .border-zinc-700, html.light .border-zinc-700\/60 {
+  border-color: var(--border) !important;
+}
+
+html.light .border-zinc-900 {
+  border-color: var(--border-subtle) !important;
+}
+
+html.light .text-white, html.light .text-zinc-100 {
+  color: var(--text-primary) !important;
+}
+
+html.light .text-zinc-200, html.light .text-zinc-300 {
+  color: var(--text-secondary) !important;
+}
+
+html.light .text-zinc-400, html.light .text-zinc-500 {
+  color: var(--text-muted) !important;
+}
+
+html.light .bg-zinc-800 {
+  background-color: var(--btn-secondary-bg) !important;
+  color: var(--btn-secondary-fg) !important;
+}
+
+html.light .bg-zinc-900, html.light .bg-zinc-900\/50 {
+  background-color: var(--surface) !important;
+}
+
+html.light .bg-black {
+  background-color: var(--accent) !important;
+  color: var(--accent-fg) !important;
+}
+
+html.light .bg-white {
+  background-color: var(--accent) !important;
+  color: var(--accent-fg) !important;
+}
+
+html.light .bg-white.text-black, html.light .bg-black.text-white {
+  background-color: var(--accent) !important;
+  color: var(--accent-fg) !important;
+}
+
+html.light .hover\:bg-zinc-800:hover, html.light .hover\:bg-zinc-700:hover {
+  background-color: var(--hover) !important;
+}
+
+html.light .hover\:bg-zinc-200:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+/* Linear style glow effects */
+.glow-accent {
+  box-shadow: 0 0 20px -5px var(--glow);
+}
+
+.glow-subtle {
+  box-shadow: var(--shadow);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Animation utilities */
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.9; }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

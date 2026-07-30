@@ -33,10 +33,56 @@ model Shop {
   isOpen      Boolean   @default(true)
   ownerId     String?
   maxServices Int       @default(15)
-  owner       User?     @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  cashbackPercent Int      @default(5)
+  owner       User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   services    Service[]
   orders      Order[]
-  createdAt   DateTime  @default(now())
+  promocodes  Promocode[]
+  reviews     Review[]
+  banners     Banner[]
+  broadcasts  Broadcast[]
+  customers   Customer[]
+  createdAt   DateTime    @default(now())
+}
+
+model Broadcast {
+  id           String   @id @default(cuid())
+  shopId       String
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  title        String
+  message      String
+  imageUrl     String?
+  buttonText   String?  @default("📱 Открыть Меню")
+  targetFilter String   @default("ALL") // ALL, ACTIVE, INACTIVE
+  sentCount    Int      @default(0)
+  status       String   @default("SENT") // SENT, SCHEDULED, DRAFT
+  createdAt    DateTime @default(now())
+}
+
+model Customer {
+  id           String   @id @default(cuid())
+  shopId       String
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  phone        String
+  name         String
+  bonusBalance Int      @default(0)
+  totalSpent   Int      @default(0)
+  ordersCount  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Banner {
+  id          String   @id @default(cuid())
+  shopId      String
+  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  title       String
+  subtitle    String?
+  imageUrl    String?
+  badge       String?
+  bgGradient  String?  @default("from-slate-900 to-indigo-950")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
 }
 
 model Service {
@@ -47,6 +93,7 @@ model Service {
   price       Int
   description String?
   category    String?
+  isAvailable Boolean  @default(true)
   createdAt   DateTime @default(now())
 }
 
@@ -63,4 +110,28 @@ model Order {
   status        String   @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
   note          String?
   createdAt     DateTime @default(now())
+}
+
+model Promocode {
+  id              String   @id @default(cuid())
+  shopId          String
+  shop            Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  code            String
+  discountPercent Int      @default(0)
+  discountAmount  Int      @default(0)
+  isActive        Boolean  @default(true)
+  maxUses         Int      @default(100)
+  usedCount       Int      @default(0)
+  createdAt       DateTime @default(now())
+}
+
+model Review {
+  id           String   @id @default(cuid())
+  shopId       String
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  customerName String
+  rating       Int      @default(5)
+  comment      String?
+  reply        String?
+  createdAt    DateTime @default(now())
 }

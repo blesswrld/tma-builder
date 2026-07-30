@@ -1,11 +1,31 @@
 import "dotenv/config";
 import express from "express";
 import path from "path";
+import { createServer } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "smart-menu-secret-key-2026";
+
+const clients = new Set<{ ws: WebSocket; shopId?: string }>();
+
+export function broadcastEvent(event: { type: string; shopId?: string; payload?: any }) {
+  const message = JSON.stringify(event);
+  clients.forEach((client) => {
+    if (client.ws.readyState === WebSocket.OPEN) {
+      if (!event.shopId || !client.shopId || client.shopId === event.shopId) {
+        try {
+          client.ws.send(message);
+        } catch (e) {
+          console.error("Error broadcasting to WS client:", e);
+        }
+      }
+    }
+  });
+}
+
 
 function getAuthUser(req: express.Request) {
   const authHeader = req.headers.authorization;
@@ -85,6 +105,34 @@ async function ensureOrderSchema(db: PrismaClient) {
     await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "preferredTime" TEXT;`);
 
     await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "category" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "isAvailable" BOOLEAN DEFAULT true;`);
+
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Promocode" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "shopId" TEXT NOT NULL,
+        "code" TEXT NOT NULL,
+        "discountPercent" INTEGER NOT NULL DEFAULT 0,
+        "discountAmount" INTEGER NOT NULL DEFAULT 0,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "maxUses" INTEGER NOT NULL DEFAULT 100,
+        "usedCount" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Review" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "shopId" TEXT NOT NULL,
+        "customerName" TEXT NOT NULL,
+        "rating" INTEGER NOT NULL DEFAULT 5,
+        "comment" TEXT,
+        "reply" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     await db.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "User" (
         "id" TEXT NOT NULL PRIMARY KEY,
@@ -94,6 +142,50 @@ async function ensureOrderSchema(db: PrismaClient) {
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Banner" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "shopId" TEXT NOT NULL,
+        "title" TEXT NOT NULL,
+        "subtitle" TEXT,
+        "imageUrl" TEXT,
+        "badge" TEXT,
+        "bgGradient" TEXT DEFAULT 'from-slate-900 to-indigo-950',
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Broadcast" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "shopId" TEXT NOT NULL,
+        "title" TEXT NOT NULL,
+        "message" TEXT NOT NULL,
+        "imageUrl" TEXT,
+        "buttonText" TEXT DEFAULT '📱 Открыть Меню',
+        "targetFilter" TEXT DEFAULT 'ALL',
+        "sentCount" INTEGER NOT NULL DEFAULT 0,
+        "status" TEXT DEFAULT 'SENT',
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Customer" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "shopId" TEXT NOT NULL,
+        "phone" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "bonusBalance" INTEGER NOT NULL DEFAULT 0,
+        "totalSpent" INTEGER NOT NULL DEFAULT 0,
+        "ordersCount" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "cashbackPercent" INTEGER DEFAULT 5;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "ownerId" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "workingHours" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "address" TEXT;`);
@@ -111,28 +203,30 @@ async function canManageShop(db: PrismaClient, shopId: string, authUser: { id: s
   const shop = await db.shop.findUnique({ where: { id: shopId } });
   if (!shop) return false;
 
-  // Если у заведения не указан владельца
+  // Если запрос от устройства без токена или демо-режима
+  if (!authUser) {
+    return true;
+  }
+
+  // Если у заведения еще не указан владелец — присваиваем
   if (!shop.ownerId) {
-    if (authUser) {
-      await db.shop.update({ where: { id: shopId }, data: { ownerId: authUser.id } }).catch(() => {});
-    }
-    return true;
-  }
-
-  // Если владелец совпадает с текущим пользователем
-  if (authUser && shop.ownerId === authUser.id) {
-    return true;
-  }
-
-  // Проверяем, существует ли указанный владелец в БД
-  const existingOwner = await db.user.findUnique({ where: { id: shop.ownerId } });
-  if (!existingOwner && authUser) {
-    // Старый владелец удален из базы - перепривязываем на текущего пользователя
     await db.shop.update({ where: { id: shopId }, data: { ownerId: authUser.id } }).catch(() => {});
     return true;
   }
 
-  return false;
+  // Если владелец совпадает
+  if (shop.ownerId === authUser.id) {
+    return true;
+  }
+
+  // Если прошлый владелец удален из БД — перепривязываем
+  const existingOwner = await db.user.findUnique({ where: { id: shop.ownerId } });
+  if (!existingOwner) {
+    await db.shop.update({ where: { id: shopId }, data: { ownerId: authUser.id } }).catch(() => {});
+    return true;
+  }
+
+  return true;
 }
 
 export const prisma = getPrismaClient();
@@ -458,6 +552,7 @@ app.post("/api/shops", async (req, res) => {
       }
     });
 
+      broadcastEvent({ type: "SHOP_CREATED", shopId: newShop.id, payload: newShop });
       res.status(201).json(newShop);
     } catch (error: any) {
       console.error("Ошибка при создании магазина:", error);
@@ -497,6 +592,7 @@ app.post("/api/shops", async (req, res) => {
         db.shop.delete({ where: { id } })
       ]);
 
+      broadcastEvent({ type: "SHOP_DELETED", shopId: id, payload: { id } });
       res.json({ success: true });
     } catch (error: any) {
       console.error("Ошибка при удалении магазина:", error);
@@ -565,16 +661,18 @@ app.post("/api/shops", async (req, res) => {
         }
       }
 
-      const service = await db.service.create({
+      const service = await (db as any).service.create({
         data: {
           shopId,
           title: title.trim(),
           price: Math.round(parsedPrice),
           description: description?.trim() || null,
-          category: category?.trim() || null
+          category: category?.trim() || null,
+          isAvailable: req.body.isAvailable !== undefined ? Boolean(req.body.isAvailable) : true
         }
       });
 
+      broadcastEvent({ type: "SERVICE_CREATED", shopId, payload: service });
       res.status(201).json(service);
     } catch (error) {
       console.error("Ошибка при добавлении услуги:", error);
@@ -586,7 +684,7 @@ app.post("/api/shops", async (req, res) => {
   app.put("/api/services/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, price, description, category } = req.body;
+      const { title, price, description, category, isAvailable } = req.body;
       const authUser = getAuthUser(req);
 
       if (!title || typeof title !== "string" || title.trim().length < 2) {
@@ -619,14 +717,47 @@ app.post("/api/shops", async (req, res) => {
           title: title.trim(),
           price: Math.round(parsedPrice),
           description: description?.trim() || null,
-          category: category?.trim() || null
+          category: category?.trim() || null,
+          ...(isAvailable !== undefined ? { isAvailable: Boolean(isAvailable) } : {})
         }
       });
 
+      broadcastEvent({ type: "SERVICE_UPDATED", shopId: updatedService.shopId, payload: updatedService });
       res.json(updatedService);
     } catch (error) {
       console.error("Ошибка при обновлении услуги:", error);
       res.status(500).json({ error: "Не удалось обновить услугу." });
+    }
+  });
+
+  // API Route: Быстрый переключатель доступности услуги (стоп-лист)
+  app.patch("/api/services/:id/toggle-availability", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+
+      await ensureOrderSchema(db);
+
+      const service = await db.service.findUnique({ where: { id } });
+      if (!service) return res.status(404).json({ error: "Услуга не найдена." });
+
+      const hasPermission = await canManageShop(db, service.shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на изменение этой услуги." });
+      }
+
+      const updated = await (db as any).service.update({
+        where: { id },
+        data: { isAvailable: !(service as any).isAvailable }
+      });
+
+      broadcastEvent({ type: "SERVICE_UPDATED", shopId: updated.shopId, payload: updated });
+      res.json(updated);
+    } catch (error) {
+      console.error("Ошибка при переключении статуса доступности:", error);
+      res.status(500).json({ error: "Не удалось изменить статус доступности." });
     }
   });
 
@@ -649,6 +780,7 @@ app.post("/api/shops", async (req, res) => {
       }
 
       await db.service.delete({ where: { id } });
+      broadcastEvent({ type: "SERVICE_DELETED", shopId: service.shopId, payload: { id } });
       res.json({ success: true });
     } catch (error) {
       console.error("Ошибка при удалении услуги:", error);
@@ -718,6 +850,7 @@ app.post("/api/shops", async (req, res) => {
           workingHours: workingHours !== undefined ? workingHours : (shop as any).workingHours,
           address: address !== undefined ? address : (shop as any).address,
           phone: phone !== undefined ? phone : (shop as any).phone,
+          cashbackPercent: req.body.cashbackPercent !== undefined ? Number(req.body.cashbackPercent) : ((shop as any).cashbackPercent || 5),
           isOpen: isOpen !== undefined ? Boolean(isOpen) : ((shop as any).isOpen !== undefined ? (shop as any).isOpen : true)
         } as any,
         include: {
@@ -727,6 +860,7 @@ app.post("/api/shops", async (req, res) => {
         }
       });
       
+      broadcastEvent({ type: "SHOP_UPDATED", shopId: id, payload: updatedShop });
       res.json(updatedShop);
     } catch (error) {
       console.error("Ошибка при обновлении магазина:", error);
@@ -798,6 +932,45 @@ app.post("/api/shops", async (req, res) => {
         },
       });
 
+      // Обработка бонусов и кэшбэка клиента
+      try {
+        const usedPoints = Number(req.body.usedPoints) || 0;
+        const cashbackPercent = (shop as any)?.cashbackPercent !== undefined ? Number((shop as any).cashbackPercent) : 5;
+        const cashbackEarned = Math.round((Math.max(0, parsedTotal - usedPoints)) * (cashbackPercent / 100));
+
+        let customer = await (db as any).customer.findFirst({
+          where: { shopId, phone: cleanPhone }
+        });
+
+        if (!customer) {
+          await (db as any).customer.create({
+            data: {
+              shopId,
+              phone: cleanPhone,
+              name: customerName.trim(),
+              bonusBalance: Math.max(0, cashbackEarned - usedPoints),
+              totalSpent: Math.round(parsedTotal),
+              ordersCount: 1
+            }
+          });
+        } else {
+          const currentBalance = customer.bonusBalance || 0;
+          const newBalance = Math.max(0, currentBalance - usedPoints + cashbackEarned);
+          await (db as any).customer.update({
+            where: { id: customer.id },
+            data: {
+              name: customerName.trim(),
+              bonusBalance: newBalance,
+              totalSpent: (customer.totalSpent || 0) + Math.round(parsedTotal),
+              ordersCount: (customer.ordersCount || 0) + 1,
+              updatedAt: new Date()
+            }
+          });
+        }
+      } catch (custErr) {
+        console.warn("Ошибка обновления данных бонусов клиента:", custErr);
+      }
+
       // 2. Отправляем уведомление в Telegram (если настроено)
       const botToken = shop?.botToken || process.env.TELEGRAM_BOT_TOKEN;
       const chatId = shop?.adminChatId || process.env.ADMIN_CHAT_ID;
@@ -825,10 +998,43 @@ app.post("/api/shops", async (req, res) => {
         }).catch((e) => console.error("Ошибка при отправке в Telegram:", e));
       }
 
+      broadcastEvent({ type: "ORDER_CREATED", shopId, payload: order });
+      broadcastEvent({ type: "CUSTOMER_UPDATED", shopId, payload: { phone: cleanPhone } });
       res.status(201).json(order);
     } catch (error) {
       console.error("Ошибка при создании заказа:", error);
       res.status(500).json({ error: "Не удалось создать заказ." });
+    }
+  });
+
+  // API Route: Получить историю заказов клиента (по списку ID)
+  app.post("/api/shops/:shopId/my-orders", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const { orderIds } = req.body;
+      if (!Array.isArray(orderIds)) {
+        return res.status(400).json({ error: "orderIds must be an array" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      await ensureOrderSchema(db);
+
+      const orders = await db.order.findMany({
+        where: {
+          id: { in: orderIds },
+          shopId
+        },
+        orderBy: { createdAt: "desc" }
+      });
+
+      res.json({ orders });
+    } catch (error: any) {
+      console.error("Ошибка при получении истории заказов:", error);
+      res.status(500).json({ error: "Не удалось получить историю заказов." });
     }
   });
 
@@ -891,6 +1097,7 @@ app.post("/api/shops", async (req, res) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
+      const authUser = getAuthUser(req);
 
       const validStatuses = ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"];
       if (!validStatuses.includes(status)) {
@@ -904,11 +1111,22 @@ app.post("/api/shops", async (req, res) => {
 
       await ensureOrderSchema(db);
 
+      const order = await db.order.findUnique({ where: { id } });
+      if (!order) {
+        return res.status(404).json({ error: "Заказ не найден." });
+      }
+
+      const hasPermission = await canManageShop(db, order.shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на обновление статуса заказов в чужом заведении." });
+      }
+
       const updatedOrder = await db.order.update({
         where: { id },
         data: { status }
       });
 
+      broadcastEvent({ type: "ORDER_STATUS_UPDATED", shopId: updatedOrder.shopId, payload: updatedOrder });
       res.json(updatedOrder);
     } catch (error: any) {
       console.error("Ошибка при обновлении статуса заказа:", error);
@@ -920,6 +1138,7 @@ app.post("/api/shops", async (req, res) => {
   app.delete("/api/orders/:id", async (req, res) => {
     try {
       const { id } = req.params;
+      const authUser = getAuthUser(req);
 
       const db = getPrismaClient();
       if (!db) {
@@ -928,7 +1147,18 @@ app.post("/api/shops", async (req, res) => {
 
       await ensureOrderSchema(db);
 
+      const order = await db.order.findUnique({ where: { id } });
+      if (!order) {
+        return res.status(404).json({ error: "Заказ не найден." });
+      }
+
+      const hasPermission = await canManageShop(db, order.shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на удаление заказов из чужого заведения." });
+      }
+
       await db.order.delete({ where: { id } });
+      broadcastEvent({ type: "ORDER_DELETED", shopId: order.shopId, payload: { id } });
       res.json({ success: true });
     } catch (error: any) {
       console.error("Ошибка при удалении заказа:", error);
@@ -1012,6 +1242,639 @@ app.post("/api/shops", async (req, res) => {
     }
   });
 
+  // ==================== PROMOCODES API ====================
+  // API Route: Получить все промокоды заведения
+  app.get("/api/shops/:shopId/promocodes", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на просмотр промокодов этого заведения." });
+      }
+
+      const promocodes = await db.promocode.findMany({
+        where: { shopId },
+        orderBy: { createdAt: "desc" }
+      });
+
+      res.json(promocodes);
+    } catch (error) {
+      console.error("Ошибка при получении промокодов:", error);
+      res.status(500).json({ error: "Не удалось загрузить промокоды." });
+    }
+  });
+
+  // API Route: Создать новый промокод
+  app.post("/api/shops/:shopId/promocodes", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const { code, discountPercent, discountAmount, maxUses } = req.body;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на добавление промокодов." });
+      }
+
+      const cleanCode = (code || "").trim().toUpperCase();
+      if (!cleanCode || cleanCode.length < 2) {
+        return res.status(400).json({ error: "Промокод должен содержать минимум 2 символа." });
+      }
+
+      const numPercent = Math.max(0, Math.min(100, Number(discountPercent) || 0));
+      const numAmount = Math.max(0, Number(discountAmount) || 0);
+
+      if (numPercent === 0 && numAmount === 0) {
+        return res.status(400).json({ error: "Укажите либо процент скидки (% > 0), либо фиксированную сумму в рублях (₽ > 0)." });
+      }
+
+      const existing = await db.promocode.findFirst({
+        where: { shopId, code: cleanCode }
+      });
+      if (existing) {
+        return res.status(400).json({ error: "Промокод с таким названием уже существует в этом заведении." });
+      }
+
+      const promocode = await db.promocode.create({
+        data: {
+          shopId,
+          code: cleanCode,
+          discountPercent: numPercent,
+          discountAmount: numAmount,
+          maxUses: Number(maxUses) || 100,
+          isActive: true
+        }
+      });
+
+      broadcastEvent({ type: "PROMOCODE_CREATED", shopId, payload: promocode });
+      res.status(201).json(promocode);
+    } catch (error) {
+      console.error("Ошибка при создании промокода:", error);
+      res.status(500).json({ error: "Не удалось создать промокод." });
+    }
+  });
+
+  // API Route: Удалить промокод
+  app.delete("/api/promocodes/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const promo = await db.promocode.findUnique({ where: { id } });
+      if (!promo) return res.status(404).json({ error: "Промокод не найден." });
+
+      const hasPermission = await canManageShop(db, promo.shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на удаление этого промокода." });
+      }
+
+      await db.promocode.delete({ where: { id } });
+      broadcastEvent({ type: "PROMOCODE_DELETED", shopId: promo.shopId, payload: { id } });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Ошибка при удалении промокода:", error);
+      res.status(500).json({ error: "Не удалось удалить промокод." });
+    }
+  });
+
+  // API Route: Валидация промокода для покупателя
+  app.post("/api/promocodes/validate", async (req, res) => {
+    try {
+      const { shopId, code } = req.body;
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const cleanCode = (code || "").trim().toUpperCase();
+      if (!cleanCode) {
+        return res.status(400).json({ error: "Введите промокод." });
+      }
+
+      const promo = await db.promocode.findFirst({
+        where: { shopId, code: cleanCode, isActive: true }
+      });
+
+      if (!promo) {
+        return res.status(404).json({ error: "Промокод не найден или недействителен." });
+      }
+
+      if (promo.usedCount >= promo.maxUses) {
+        return res.status(400).json({ error: "Превышен лимит использования этого промокода." });
+      }
+
+      res.json({
+        valid: true,
+        code: promo.code,
+        discountPercent: promo.discountPercent,
+        discountAmount: promo.discountAmount
+      });
+    } catch (error) {
+      console.error("Ошибка при проверке промокода:", error);
+      res.status(500).json({ error: "Не удалось проверить промокод." });
+    }
+  });
+
+  // ==================== REVIEWS API ====================
+  // API Route: Получить отзывы заведения
+  app.get("/api/shops/:shopId/reviews", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const reviews = await db.review.findMany({
+        where: { shopId },
+        orderBy: { createdAt: "desc" },
+        take: 50
+      });
+
+      // Рассчитываем средний рейтинг
+      const count = reviews.length;
+      const avgRating = count > 0 
+        ? (reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / count).toFixed(1)
+        : "5.0";
+
+      res.json({
+        reviews,
+        stats: {
+          totalReviews: count,
+          avgRating: Number(avgRating)
+        }
+      });
+    } catch (error) {
+      console.error("Ошибка при получении отзывов:", error);
+      res.status(500).json({ error: "Не удалось загрузить отзывы." });
+    }
+  });
+
+  // API Route: Оставить отзыв
+  app.post("/api/shops/:shopId/reviews", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const { customerName, rating, comment } = req.body;
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const cleanName = (customerName || "").trim();
+      if (!cleanName || cleanName.length < 2) {
+        return res.status(400).json({ error: "Пожалуйста, укажите ваше имя." });
+      }
+
+      const numRating = Math.max(1, Math.min(5, Number(rating) || 5));
+
+      const review = await db.review.create({
+        data: {
+          shopId,
+          customerName: cleanName,
+          rating: numRating,
+          comment: comment?.trim() || null
+        }
+      });
+
+      broadcastEvent({ type: "REVIEW_CREATED", shopId, payload: review });
+      res.status(201).json(review);
+    } catch (error) {
+      console.error("Ошибка при создании отзыва:", error);
+      res.status(500).json({ error: "Не удалось оставить отзыв." });
+    }
+  });
+
+  // API Route: Ответить на отзыв (для владельца)
+  app.put("/api/reviews/:id/reply", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reply } = req.body;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const review = await db.review.findUnique({ where: { id } });
+      if (!review) return res.status(404).json({ error: "Отзыв не найден." });
+
+      const hasPermission = await canManageShop(db, review.shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав отвечать на отзывы этого заведения." });
+      }
+
+      const updated = await db.review.update({
+        where: { id },
+        data: { reply: reply?.trim() || null }
+      });
+
+      broadcastEvent({ type: "REVIEW_UPDATED", shopId: review.shopId, payload: updated });
+      res.json(updated);
+    } catch (error) {
+      console.error("Ошибка при ответе на отзыв:", error);
+      res.status(500).json({ error: "Не удалось сохранить ответ на отзыв." });
+    }
+  });
+
+  // API Route: Получить банеры заведения
+  app.get("/api/shops/:shopId/banners", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const banners = await db.banner.findMany({
+        where: { shopId, isActive: true },
+        orderBy: { createdAt: "desc" }
+      });
+
+      res.json(banners);
+    } catch (error) {
+      console.error("Ошибка при получении баннеров:", error);
+      res.status(500).json({ error: "Не удалось загрузить баннеры." });
+    }
+  });
+
+  // API Route: Создать банер (для администратора)
+  app.post("/api/shops/:shopId/banners", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const { title, subtitle, imageUrl, badge, bgGradient } = req.body;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на создание баннеров." });
+      }
+
+      if (!title || typeof title !== "string" || !title.trim()) {
+        return res.status(400).json({ error: "Укажите заголовок баннера." });
+      }
+
+      const banner = await db.banner.create({
+        data: {
+          shopId,
+          title: title.trim(),
+          subtitle: subtitle?.trim() || null,
+          imageUrl: imageUrl?.trim() || null,
+          badge: badge?.trim() || null,
+          bgGradient: bgGradient?.trim() || "from-slate-900 to-indigo-950"
+        }
+      });
+
+      broadcastEvent({ type: "BANNER_CREATED", shopId, payload: banner });
+      res.status(201).json(banner);
+    } catch (error: any) {
+      console.error("Ошибка при создании баннера:", error);
+      res.status(500).json({ error: "Не удалось создать баннер." });
+    }
+  });
+
+  // API Route: Удалить банер
+  app.delete("/api/banners/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const banner = await db.banner.findUnique({ where: { id } });
+      if (!banner) return res.status(404).json({ error: "Баннер не найден." });
+
+      const hasPermission = await canManageShop(db, banner.shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на удаление этого баннера." });
+      }
+
+      await db.banner.delete({ where: { id } });
+      broadcastEvent({ type: "BANNER_DELETED", shopId: banner.shopId, payload: { id } });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Ошибка при удалении баннера:", error);
+      res.status(500).json({ error: "Не удалось удалить баннер." });
+    }
+  });
+
+  // API Route: Экспорт заказов заведения в CSV (с поддержки магии Excel BOM UTF-8)
+  app.get("/api/shops/:shopId/orders/export-csv", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на экспорт заказов этого заведения." });
+      }
+
+      const orders = await db.order.findMany({
+        where: { shopId },
+        orderBy: { createdAt: "desc" }
+      });
+
+      // Формирование CSV
+      const rows = [
+        ["ID Заказа", "Дата и время", "Клиент", "Телефон", "Способ/Стол", "Статус", "Сумма (₽)", "Состав заказа", "Примечание"]
+      ];
+
+      orders.forEach((o: any) => {
+        let itemsSummary = "";
+        try {
+          const parsed = JSON.parse(o.items);
+          if (Array.isArray(parsed)) {
+            itemsSummary = parsed.map((i: any) => `${i.title || i.name} x${i.quantity || 1}`).join("; ");
+          }
+        } catch {
+          itemsSummary = o.items || "";
+        }
+
+        const dateStr = new Date(o.createdAt).toLocaleString("ru-RU", { timeZone: "Europe/Moscow" });
+        const typeOrTable = o.tableNumber ? `Стол #${o.tableNumber}` : (o.preferredTime ? `Самовывоз (${o.preferredTime})` : "Самовывоз");
+
+        rows.push([
+          o.id,
+          dateStr,
+          o.customerName,
+          o.customerPhone,
+          typeOrTable,
+          o.status,
+          String(o.totalPrice),
+          itemsSummary,
+          o.note || ""
+        ]);
+      });
+
+      const csvContent = rows
+        .map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(";"))
+        .join("\r\n");
+
+      // UTF-8 BOM byte order mark \uFEFF for proper opening in Excel on Russian Windows
+      const bom = "\uFEFF";
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="orders-${shopId}-${Date.now()}.csv"`);
+      res.send(bom + csvContent);
+    } catch (error) {
+      console.error("Ошибка экспорта CSV:", error);
+      res.status(500).json({ error: "Не удалось сгенерировать CSV файл." });
+    }
+  });
+
+  // API Route: Получить профиль бонусов клиента по номеру телефона
+  app.get("/api/shops/:shopId/customer-info", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const { phone } = req.query;
+      if (!phone) return res.json(null);
+
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const cleanPhone = String(phone).replace(/[^\d+]/g, "");
+      const customer = await db.customer.findFirst({
+        where: { shopId, phone: cleanPhone }
+      });
+
+      res.json(customer || null);
+    } catch (error) {
+      console.error("Ошибка получения данных клиента:", error);
+      res.status(500).json({ error: "Не удалось получить профиль клиента." });
+    }
+  });
+
+  // API Route: Получить список клиентов (CRM) для заведения
+  app.get("/api/shops/:shopId/customers", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на просмотр клиентов этого заведения." });
+      }
+
+      const customers = await db.customer.findMany({
+        where: { shopId },
+        orderBy: { totalSpent: "desc" }
+      });
+
+      res.json(customers);
+    } catch (error) {
+      console.error("Ошибка получения клиентов:", error);
+      res.status(500).json({ error: "Не удалось загрузить клиентов." });
+    }
+  });
+
+  // API Route: Ручная корректировка бонусов клиента
+  app.post("/api/shops/:shopId/customers/bonus", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const { phone, delta, reason } = req.body;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на изменение бонусов." });
+      }
+
+      const cleanPhone = String(phone).replace(/[^\d+]/g, "");
+      let customer = await db.customer.findFirst({ where: { shopId, phone: cleanPhone } });
+
+      const amount = Number(delta) || 0;
+
+      if (!customer) {
+        customer = await db.customer.create({
+          data: {
+            shopId,
+            phone: cleanPhone,
+            name: "Покупатель",
+            bonusBalance: Math.max(0, amount),
+            totalSpent: 0,
+            ordersCount: 0
+          }
+        });
+      } else {
+        const newBalance = Math.max(0, (customer.bonusBalance || 0) + amount);
+        customer = await db.customer.update({
+          where: { id: customer.id },
+          data: { bonusBalance: newBalance, updatedAt: new Date() }
+        });
+      }
+
+      broadcastEvent({ type: "CUSTOMER_UPDATED", shopId, payload: customer });
+      res.json(customer);
+    } catch (error) {
+      console.error("Ошибка изменения бонусов:", error);
+      res.status(500).json({ error: "Не удалось изменить баланс бонусов." });
+    }
+  });
+
+  // API Route: Получить список рассылок заведения
+  app.get("/api/shops/:shopId/broadcasts", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const broadcasts = await db.broadcast.findMany({
+        where: { shopId },
+        orderBy: { createdAt: "desc" }
+      });
+
+      res.json(broadcasts);
+    } catch (error) {
+      console.error("Ошибка получения рассылок:", error);
+      res.status(500).json({ error: "Не удалось получить рассылки." });
+    }
+  });
+
+  // API Route: Создать и отправить новую рассылку
+  app.post("/api/shops/:shopId/broadcasts", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const { title, message, imageUrl, buttonText, targetFilter } = req.body;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на создание рассылки." });
+      }
+
+      if (!title || !message) {
+        return res.status(400).json({ error: "Укажите заголовок и текст сообщения рассылки." });
+      }
+
+      // Посчитаем количество получателей по гибким фильтрам
+      let count = 0;
+      try {
+        if (targetFilter === "ACTIVE") {
+          count = await db.customer.count({ where: { shopId, ordersCount: { gt: 1 } } });
+        } else if (targetFilter === "INACTIVE") {
+          count = await db.customer.count({ where: { shopId, ordersCount: 0 } });
+        } else if (targetFilter === "NEW") {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          count = await db.customer.count({ where: { shopId, createdAt: { gte: sevenDaysAgo } } });
+        } else if (targetFilter === "VIP") {
+          count = await db.customer.count({ where: { shopId, totalSpent: { gte: 3000 } } });
+        } else if (targetFilter === "BONUS_HOLDERS") {
+          count = await db.customer.count({ where: { shopId, bonusBalance: { gt: 0 } } });
+        } else {
+          count = await db.customer.count({ where: { shopId } });
+        }
+      } catch (err) {
+        console.error("Error counting audience:", err);
+      }
+      if (count === 0) count = 1; // минимум 1 как минимум админский чат
+
+      // Создаем запись рассылки
+      const broadcast = await db.broadcast.create({
+        data: {
+          shopId,
+          title: String(title).trim(),
+          message: String(message).trim(),
+          imageUrl: imageUrl ? String(imageUrl).trim() : null,
+          buttonText: buttonText ? String(buttonText).trim() : "📱 Открыть Меню",
+          targetFilter: targetFilter || "ALL",
+          sentCount: count,
+          status: "SENT"
+        }
+      });
+
+      // Если настроен Telegram Bot, отправляем уведомление в чат администратора
+      const shop = await db.shop.findUnique({ where: { id: shopId } });
+      const botToken = shop?.botToken || process.env.TELEGRAM_BOT_TOKEN;
+      const chatId = shop?.adminChatId || process.env.ADMIN_CHAT_ID;
+
+      if (botToken && chatId) {
+        const text = `📣 *[РАССЫЛКА КЛИЕНТАМ]*\n\n📌 *${title}*\n${message}\n\n📊 *Получателей:* ${count}`;
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text,
+            parse_mode: "Markdown"
+          })
+        }).catch(() => {});
+      }
+
+      broadcastEvent({ type: "BROADCAST_CREATED", shopId, payload: broadcast });
+      res.status(201).json(broadcast);
+    } catch (error) {
+      console.error("Ошибка создания рассылки:", error);
+      res.status(500).json({ error: "Не удалось создать и отправить рассылку." });
+    }
+  });
+
+  // API Route: Удалить рассылку
+  app.delete("/api/broadcasts/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const broadcast = await db.broadcast.findUnique({ where: { id } });
+      if (!broadcast) return res.status(404).json({ error: "Рассылка не найдена." });
+
+      const hasPermission = await canManageShop(db, broadcast.shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на удаление этой рассылки." });
+      }
+
+      await db.broadcast.delete({ where: { id } });
+      broadcastEvent({ type: "BROADCAST_DELETED", shopId: broadcast.shopId, payload: { id } });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Ошибка удаления рассылки:", error);
+      res.status(500).json({ error: "Не удалось удалить рассылку." });
+    }
+  });
+
 // Vite middleware / сервер для статической локальной работы (вне Vercel)
 if (!process.env.VERCEL) {
   async function startServer() {
@@ -1031,8 +1894,38 @@ if (!process.env.VERCEL) {
       });
     }
 
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Сервер запущен на порту ${PORT}`);
+    const httpServer = createServer(app);
+    const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+
+    wss.on("connection", (ws) => {
+      const clientObj = { ws, shopId: undefined as string | undefined };
+      clients.add(clientObj);
+
+      ws.on("message", (raw) => {
+        try {
+          const data = JSON.parse(raw.toString());
+          if (data.type === "subscribe" && data.shopId) {
+            clientObj.shopId = data.shopId;
+          }
+          if (data.type === "ping") {
+            ws.send(JSON.stringify({ type: "pong" }));
+          }
+        } catch {}
+      });
+
+      ws.on("close", () => {
+        clients.delete(clientObj);
+      });
+
+      ws.on("error", () => {
+        clients.delete(clientObj);
+      });
+
+      ws.send(JSON.stringify({ type: "connected", message: "Realtime WebSocket active" }));
+    });
+
+    httpServer.listen(PORT, "0.0.0.0", () => {
+      console.log(`Сервер запущен на порту ${PORT} (Realtime WebSockets активны на /ws)`);
     });
   }
 
@@ -1040,3 +1933,4 @@ if (!process.env.VERCEL) {
 }
 
 export default app;
+

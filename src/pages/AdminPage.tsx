@@ -1,7 +1,17 @@
-import { useEffect, useState, FormEvent, useRef } from "react";
+import React, { useEffect, useState, FormEvent, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Trash2, ExternalLink, Store, ShoppingBag, Check, Copy, Settings, AlertCircle, Clock, CheckCircle2, XCircle, Package, RefreshCw, Phone, User, ListOrdered, Edit3, Search, BarChart3, Tag, TrendingUp, Layers, LogIn, LogOut, ShieldCheck, Mail, Lock, QrCode, Download, Volume2, VolumeX, Crown, FileSpreadsheet, Bell } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { 
+  Plus, Trash2, ExternalLink, Store, ShoppingBag, Check, Copy, Settings, 
+  AlertCircle, Clock, CheckCircle2, XCircle, Package, RefreshCw, Phone, 
+  User, ListOrdered, Edit3, Search, BarChart3, Tag, TrendingUp, Layers, 
+  LogIn, LogOut, ShieldCheck, Mail, Lock, QrCode, Download, Volume2, 
+  VolumeX, Crown, FileSpreadsheet, Bell, Star, Sparkles, Smartphone, 
+  Image as ImageIcon, Send, Users, Radio, Gift, ChevronDown, ChevronUp, 
+  Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
 import QrGeneratorModal from "../components/QrGeneratorModal";
 import PlanModal from "../components/PlanModal";
 import AnalyticsTab from "../components/AnalyticsTab";
@@ -12,6 +22,7 @@ interface Service {
   price: number;
   description: string | null;
   category?: string | null;
+  isAvailable?: boolean;
 }
 
 interface OrderItem {
@@ -61,8 +72,57 @@ interface Shop {
 export default function AdminPage() {
   const { user, token, login, register, logout } = useAuth();
 
-  // Модалка авторизации
+  // Auth modal
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  
+  // Custom Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    isDangerous?: boolean;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    confirmText: "Подтвердить",
+    cancelText: "Отмена",
+    isDangerous: true
+  });
+
+  // Custom Toast Notifications State
+  const [toasts, setToasts] = useState<Array<{
+    id: string;
+    message: string;
+    type: "success" | "error" | "warning";
+  }>>([]);
+
+  const showToast = (message: string, type: "success" | "error" | "warning" = "success") => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
+  const requestConfirm = (title: string, message: string, onConfirm: () => void, confirmText = "Подтвердить", isDangerous = true) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      },
+      confirmText,
+      cancelText: "Отмена",
+      isDangerous
+    });
+  };
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -75,41 +135,226 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
-  // Табы для управления магазином
-  const [activeTab, setActiveTab] = useState<"services" | "orders" | "analytics">("services");
+  const { subscribeShop, isConnected } = useRealtime();
 
-  // Заказы
+  useEffect(() => {
+    if (selectedShop?.id) {
+      subscribeShop(selectedShop.id);
+    }
+  }, [selectedShop?.id, subscribeShop]);
+
+  useRealtimeEvent("ORDER_CREATED", (event) => {
+    if (event.payload && event.shopId === selectedShop?.id) {
+      setOrders(prev => [event.payload, ...prev.filter(o => o.id !== event.payload.id)]);
+      setNewOrderAlert(event.payload);
+      playOrderChime();
+    }
+  });
+
+  useRealtimeEvent("ORDER_STATUS_UPDATED", (event) => {
+    if (event.payload && event.shopId === selectedShop?.id) {
+      setOrders(prev => prev.map(o => o.id === event.payload.id ? { ...o, status: event.payload.status } : o));
+    }
+  });
+
+  useRealtimeEvent("ORDER_DELETED", (event) => {
+    if (event.payload?.id) {
+      setOrders(prev => prev.filter(o => o.id !== event.payload.id));
+    }
+  });
+
+  useRealtimeEvent("SERVICE_CREATED", (event) => {
+    if (event.payload && event.shopId === selectedShop?.id) {
+      setShops(prev => prev.map(s => s.id === selectedShop?.id ? {
+        ...s,
+        services: [event.payload, ...s.services.filter(srv => srv.id !== event.payload.id)]
+      } : s));
+      setSelectedShop(prev => prev ? {
+        ...prev,
+        services: [event.payload, ...prev.services.filter(srv => srv.id !== event.payload.id)]
+      } : prev);
+    }
+  });
+
+  useRealtimeEvent("SERVICE_UPDATED", (event) => {
+    if (event.payload && event.shopId === selectedShop?.id) {
+      setShops(prev => prev.map(s => s.id === selectedShop?.id ? {
+        ...s,
+        services: s.services.map(srv => srv.id === event.payload.id ? { ...srv, ...event.payload } : srv)
+      } : s));
+      setSelectedShop(prev => prev ? {
+        ...prev,
+        services: prev.services.map(srv => srv.id === event.payload.id ? { ...srv, ...event.payload } : srv)
+      } : prev);
+    }
+  });
+
+  useRealtimeEvent("SERVICE_DELETED", (event) => {
+    if (event.payload?.id && event.shopId === selectedShop?.id) {
+      setShops(prev => prev.map(s => s.id === selectedShop?.id ? {
+        ...s,
+        services: s.services.filter(srv => srv.id !== event.payload.id)
+      } : s));
+      setSelectedShop(prev => prev ? {
+        ...prev,
+        services: prev.services.filter(srv => srv.id !== event.payload.id)
+      } : prev);
+    }
+  });
+
+  useRealtimeEvent("REVIEW_CREATED", (event) => {
+    if (event.payload && event.shopId === selectedShop?.id) {
+      setReviews(prev => [event.payload, ...prev.filter(r => r.id !== event.payload.id)]);
+    }
+  });
+
+  useRealtimeEvent("REVIEW_UPDATED", (event) => {
+    if (event.payload && event.shopId === selectedShop?.id) {
+      setReviews(prev => prev.map(r => r.id === event.payload.id ? { ...r, ...event.payload } : r));
+    }
+  });
+
+  useRealtimeEvent("CUSTOMER_UPDATED", (event) => {
+    if (event.payload && event.shopId === selectedShop?.id) {
+      setCustomers(prev => {
+        const exists = prev.some(c => c.id === event.payload.id || c.phone === event.payload.phone);
+        if (!exists) return [event.payload, ...prev];
+        return prev.map(c => (c.id === event.payload.id || c.phone === event.payload.phone) ? { ...c, ...event.payload } : c);
+      });
+    }
+  });
+
+  useRealtimeEvent("BROADCAST_CREATED", (event) => {
+    if (event.payload && event.shopId === selectedShop?.id) {
+      setBroadcasts(prev => [event.payload, ...prev.filter(b => b.id !== event.payload.id)]);
+    }
+  });
+
+  useRealtimeEvent("BROADCAST_DELETED", (event) => {
+    if (event.payload?.id) {
+      setBroadcasts(prev => prev.filter(b => b.id !== event.payload.id));
+    }
+  });
+
+  useRealtimeEvent("PROMOCODE_CREATED", (event) => {
+    if (event.payload && event.shopId === selectedShop?.id) {
+      setPromocodes(prev => [event.payload, ...prev.filter(p => p.id !== event.payload.id)]);
+    }
+  });
+
+  useRealtimeEvent("PROMOCODE_DELETED", (event) => {
+    if (event.payload?.id) {
+      setPromocodes(prev => prev.filter(p => p.id !== event.payload.id));
+    }
+  });
+
+  useRealtimeEvent("BANNER_CREATED", (event) => {
+    if (event.payload && event.shopId === selectedShop?.id) {
+      setBanners(prev => [event.payload, ...prev.filter(b => b.id !== event.payload.id)]);
+    }
+  });
+
+  useRealtimeEvent("BANNER_DELETED", (event) => {
+    if (event.payload?.id) {
+      setBanners(prev => prev.filter(b => b.id !== event.payload.id));
+    }
+  });
+
+  useRealtimeEvent("SHOP_UPDATED", (event) => {
+    if (event.payload?.id) {
+      setShops(prev => prev.map(s => s.id === event.payload.id ? { ...s, ...event.payload } : s));
+      if (selectedShop?.id === event.payload.id) {
+        setSelectedShop(prev => prev ? { ...prev, ...event.payload } : prev);
+      }
+    }
+  });
+
+  // Admin tabs
+  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim">("services");
+
+  // Broadcasts
+  const [broadcasts, setBroadcasts] = useState<any[]>([]);
+  const [broadcastsLoading, setBroadcastsLoading] = useState(false);
+  const [isCreatingBroadcast, setIsCreatingBroadcast] = useState(false);
+  const [newBroadcastData, setNewBroadcastData] = useState({
+    title: "",
+    message: "",
+    imageUrl: "",
+    buttonText: "📱 Open Menu",
+    targetFilter: "ALL"
+  });
+  const [broadcastError, setBroadcastError] = useState<string | null>(null);
+
+  // CRM
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [bonusModalCustomer, setBonusModalCustomer] = useState<any | null>(null);
+  const [bonusDeltaInput, setBonusDeltaInput] = useState<string>("100");
+
+  // Banners
+  const [banners, setBanners] = useState<any[]>([]);
+  const [bannersLoading, setBannersLoading] = useState(false);
+  const [isCreatingBanner, setIsCreatingBanner] = useState(false);
+  const [newBannerData, setNewBannerData] = useState({
+    title: "",
+    subtitle: "",
+    badge: "",
+    bgGradient: "from-zinc-900 to-indigo-950"
+  });
+  const [bannerError, setBannerError] = useState<string | null>(null);
+
+  // Bot simulator
+  const [botSimMessages, setBotSimMessages] = useState<Array<{ sender: "bot" | "user"; text: string; button?: string; time: string }>>([
+    { sender: "bot", text: "👋 Welcome! Tap the button below to open the Mini App storefront.", button: "📱 Open Menu", time: "12:00" }
+  ]);
+  const [botSimInput, setBotSimInput] = useState("");
+
+  // Promocodes
+  const [promocodes, setPromocodes] = useState<any[]>([]);
+  const [promocodesLoading, setPromocodesLoading] = useState(false);
+  const [isCreatingPromo, setIsCreatingPromo] = useState(false);
+  const [newPromoData, setNewPromoData] = useState({ code: "", discountPercent: "", discountAmount: "", usageLimit: "" });
+  const [promoError, setPromoError] = useState<string | null>(null);
+
+  // Reviews
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [replyingReviewId, setReplyingReviewId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+
+  // Orders
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("ALL");
 
-  // Форма создания магазина
+  // Create Shop
   const [isCreatingShop, setIsCreatingShop] = useState(false);
   const [newShopData, setNewShopData] = useState({ name: "", slug: "", description: "" });
   const [createShopError, setCreateShopError] = useState<string | null>(null);
   const [createShopFieldErrors, setCreateShopFieldErrors] = useState<{ name?: string; slug?: string; description?: string }>({});
 
-  // Форма добавления услуги
+  // Add Service
   const [isAddingService, setIsAddingService] = useState(false);
   const [newServiceData, setNewServiceData] = useState({ title: "", price: "", description: "", category: "" });
   const [serviceError, setServiceError] = useState<string | null>(null);
   const [serviceFieldErrors, setServiceFieldErrors] = useState<{ title?: string; price?: string; description?: string }>({});
 
-  // Форма редактирования услуги
+  // Edit Service
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [editServiceData, setEditServiceData] = useState({ title: "", price: "", description: "", category: "" });
   const [editServiceError, setEditServiceError] = useState<string | null>(null);
   const [editServiceFieldErrors, setEditServiceFieldErrors] = useState<{ title?: string; price?: string; description?: string }>({});
   const [isSavingEditService, setIsSavingEditService] = useState(false);
 
-  // Фильтрация и поиск услуг
+  // Filters
   const [serviceSearchQuery, setServiceSearchQuery] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("ALL");
 
-  // Инструкция Telegram
+  // Telegram guide
   const [isTgGuideOpen, setIsTgGuideOpen] = useState(false);
 
-  // Настройки и редактирование заведения
+  // Settings
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsData, setSettingsData] = useState({
     name: "",
@@ -119,18 +364,19 @@ export default function AdminPage() {
     workingHours: "",
     address: "",
     phone: "",
+    cashbackPercent: 5,
     isOpen: true
   });
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsFieldErrors, setSettingsFieldErrors] = useState<{ botToken?: string; adminChatId?: string; name?: string }>({});
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-  // Подтверждение и состояние удаления магазина
+  // Delete Shop
   const [shopToDelete, setShopToDelete] = useState<Shop | null>(null);
   const [isDeletingShop, setIsDeletingShop] = useState(false);
   const [deleteShopError, setDeleteShopError] = useState<string | null>(null);
 
-  // Разделение заведений по устройствам (локально)
+  // Device shop linking
   const [myDeviceShopIds, setMyDeviceShopIds] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem("my_admin_shops");
@@ -141,20 +387,19 @@ export default function AdminPage() {
   });
   const [shopFilterMode, setShopFilterMode] = useState<"my" | "all">("my");
 
-  // Состояния для SaaS фич
+  // SaaS Features Modals
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
   const prevOrdersCountRef = useRef<number | null>(null);
 
-  // Синтез звука встроенным Web Audio API
   const playOrderChime = () => {
     if (!isAudioEnabled) return;
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      // Тон 1: D5
       const osc1 = audioCtx.createOscillator();
       const gain1 = audioCtx.createGain();
       osc1.type = "sine";
@@ -166,7 +411,6 @@ export default function AdminPage() {
       osc1.start(audioCtx.currentTime);
       osc1.stop(audioCtx.currentTime + 0.3);
 
-      // Тон 2: A5 через 0.12 сек
       const osc2 = audioCtx.createOscillator();
       const gain2 = audioCtx.createGain();
       osc2.type = "sine";
@@ -182,14 +426,13 @@ export default function AdminPage() {
     }
   };
 
-  // Выгрузка в CSV / Excel
   const exportOrdersToCsv = () => {
     if (!orders || orders.length === 0) {
-      alert("Нет заказов для экспорта.");
+      alert("No orders to export.");
       return;
     }
 
-    let csvContent = "\uFEFFID Заказа;Дата и время;Имя клиента;Телефон;№ Столика / Время;Состав заказа;Итого (₽);Статус;Примечание\n";
+    let csvContent = "\uFEFFOrder ID;Date & Time;Customer;Phone;Table / Time;Items;Total (₽);Status;Note\n";
 
     orders.forEach(order => {
       let parsedItems = "";
@@ -204,14 +447,8 @@ export default function AdminPage() {
         parsedItems = order.items;
       }
 
-      const tableOrTime = [order.tableNumber ? `Стол: ${order.tableNumber}` : "", order.preferredTime ? `Время: ${order.preferredTime}` : ""].filter(Boolean).join(" | ") || "—";
-      const formattedDate = new Date(order.createdAt).toLocaleString("ru-RU");
-      const statusMap: Record<string, string> = {
-        PENDING: "Новый",
-        CONFIRMED: "Принят",
-        COMPLETED: "Выполнен",
-        CANCELLED: "Отменен"
-      };
+      const tableOrTime = [order.tableNumber ? `Table: ${order.tableNumber}` : "", order.preferredTime ? `Time: ${order.preferredTime}` : ""].filter(Boolean).join(" | ") || "—";
+      const formattedDate = new Date(order.createdAt).toLocaleString("en-US");
 
       const row = [
         order.id,
@@ -221,7 +458,7 @@ export default function AdminPage() {
         `"${tableOrTime.replace(/"/g, '""')}"`,
         `"${parsedItems.replace(/"/g, '""')}"`,
         order.totalPrice,
-        statusMap[order.status] || order.status,
+        order.status,
         `"${(order.note || "").replace(/"/g, '""')}"`
       ];
 
@@ -275,7 +512,7 @@ export default function AdminPage() {
       setAuthName("");
       await fetchShops();
     } catch (err: any) {
-      setAuthError(err.message || "Ошибка авторизации");
+      setAuthError(err.message || "Auth error");
     } finally {
       setIsSubmittingAuth(false);
     }
@@ -289,7 +526,7 @@ export default function AdminPage() {
       }
       const res = await fetch("/api/shops", { headers });
       if (!res.ok) {
-        let errMsg = `Ошибка сервера (${res.status})`;
+        let errMsg = `Server error (${res.status})`;
         const text = await res.text();
         try {
           const errData = JSON.parse(text);
@@ -333,11 +570,13 @@ export default function AdminPage() {
   const fetchOrders = async (shopId: string, silent = false) => {
     if (!silent) setOrdersLoading(true);
     try {
-      const res = await fetch(`/api/shops/${shopId}/orders`);
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/shops/${shopId}/orders`, { headers });
       if (res.ok) {
         const data: Order[] = await res.json();
         
-        // Проверка поступления новых заказов для уведомления
         if (prevOrdersCountRef.current !== null && data.length > prevOrdersCountRef.current) {
           const newest = data[0];
           if (newest && newest.status === "PENDING") {
@@ -349,7 +588,7 @@ export default function AdminPage() {
         setOrders(data);
       }
     } catch (err) {
-      console.error("Ошибка при получении заказов:", err);
+      console.error("Error loading orders:", err);
     } finally {
       if (!silent) setOrdersLoading(false);
     }
@@ -360,7 +599,6 @@ export default function AdminPage() {
       prevOrdersCountRef.current = null;
       fetchOrders(selectedShop.id);
 
-      // Фоновый поллинг новых заказов каждые 10 секунд
       const interval = setInterval(() => {
         fetchOrders(selectedShop.id, true);
       }, 10000);
@@ -372,55 +610,88 @@ export default function AdminPage() {
     }
   }, [selectedShop?.id]);
 
+  useEffect(() => {
+    if (selectedShop) {
+      if (activeTab === "orders") fetchOrders(selectedShop.id, true);
+    }
+  }, [activeTab]);
+
   const handleUpdateOrderStatus = async (orderId: string, status: Order["status"]) => {
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ status })
       });
+
+      let data: any = {};
+      const text = await res.text();
+      try {
+        data = JSON.parse(text);
+      } catch (e) {}
+
       if (res.ok) {
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+        showToast("Статус заказа обновлен", "success");
       } else {
-        const err = await res.json();
-        alert(err.error || "Не удалось обновить статус");
+        showToast(data.error || text || "Не удалось обновить статус", "error");
       }
     } catch (err: any) {
-      alert("Ошибка сети: " + err.message);
+      showToast("Ошибка сети: " + err.message, "error");
     }
   };
 
-  const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm("Вы уверены, что хотите удалить этот заказ?")) return;
-    try {
-      const res = await fetch(`/api/orders/${orderId}`, { method: "DELETE" });
-      if (res.ok) {
-        setOrders(prev => prev.filter(o => o.id !== orderId));
-      }
-    } catch (err: any) {
-      alert("Не удалось удалить заказ: " + err.message);
-    }
+  const handleDeleteOrder = (orderId: string) => {
+    requestConfirm(
+      "Удалить заказ?",
+      "Вы действительно хотите удалить этот заказ? Это действие безвозвратно удалит все данные.",
+      async () => {
+        try {
+          const headers: Record<string, string> = {};
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+
+          const res = await fetch(`/api/orders/${orderId}`, {
+            method: "DELETE",
+            headers
+          });
+
+          let data: any = {};
+          const text = await res.text();
+          try {
+            data = JSON.parse(text);
+          } catch (e) {}
+
+          if (res.ok) {
+            setOrders(prev => prev.filter(o => o.id !== orderId));
+            showToast("Заказ успешно удален", "success");
+          } else {
+            showToast(data.error || text || "Не удалось удалить заказ", "error");
+          }
+        } catch (err: any) {
+          showToast("Ошибка: " + err.message, "error");
+        }
+      },
+      "Удалить",
+      true
+    );
   };
 
   const validateCreateShop = () => {
     const errors: { name?: string; slug?: string; description?: string } = {};
 
     if (!newShopData.name.trim() || newShopData.name.trim().length < 2) {
-      errors.name = "Название должно содержать минимум 2 символа";
-    } else if (newShopData.name.trim().length > 50) {
-      errors.name = "Название не должно превышать 50 символов";
+      errors.name = "Name must be at least 2 characters";
     }
 
     const cleanSlug = newShopData.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, "-");
     const slugRegex = /^[a-z0-9-]{2,30}$/;
     if (!cleanSlug) {
-      errors.slug = "Введите URL / Slug магазина";
+      errors.slug = "Enter URL Slug";
     } else if (!slugRegex.test(cleanSlug)) {
-      errors.slug = "Slug должен состоять из латинских букв, цифр или дефисов (от 2 до 30 символов)";
-    }
-
-    if (newShopData.description.length > 300) {
-      errors.description = "Описание не должно превышать 300 символов";
+      errors.slug = "Slug must be 2-30 alphanumeric characters";
     }
 
     setCreateShopFieldErrors(errors);
@@ -435,9 +706,7 @@ export default function AdminPage() {
 
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
+      if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const res = await fetch("/api/shops", {
         method: "POST",
@@ -454,13 +723,10 @@ export default function AdminPage() {
       try {
         data = JSON.parse(text);
       } catch {
-        if (!res.ok) {
-          throw new Error(`Ошибка сервера (${res.status}): ${text.slice(0, 150)}`);
-        }
-        throw new Error("Сервер вернул некорректный ответ");
+        throw new Error(`Server error (${res.status})`);
       }
 
-      if (!res.ok) throw new Error(data.error || "Не удалось создать магазин");
+      if (!res.ok) throw new Error(data.error || "Failed to create shop");
 
       if (data?.id) {
         linkShopToDevice(data.id);
@@ -477,68 +743,32 @@ export default function AdminPage() {
     }
   };
 
-  const openDeleteConfirmation = (shop: Shop) => {
-    console.log(`[DEBUG] Opening delete confirmation modal for shop id="${shop.id}", name="${shop.name}"`);
-    setDeleteShopError(null);
-    setShopToDelete(shop);
-  };
-
   const confirmDeleteShop = async () => {
     if (!shopToDelete) return;
 
     setIsDeletingShop(true);
     setDeleteShopError(null);
 
-    const targetUrl = `/api/shops/${shopToDelete.id}`;
-    console.log(`[DEBUG] Initiating DELETE request to endpoint: ${targetUrl}`);
-
     try {
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(targetUrl, { method: "DELETE", headers });
+      const res = await fetch(`/api/shops/${shopToDelete.id}`, { method: "DELETE", headers });
       const data = await res.json().catch(() => ({}));
-      console.log(`[DEBUG] Delete request response status: ${res.status}`, data);
 
       if (!res.ok) {
-        throw new Error(data.error || `Не удалось удалить магазин (Код ошибки: ${res.status})`);
+        throw new Error(data.error || `Failed to delete shop`);
       }
 
-      console.log(`[DEBUG] Shop "${shopToDelete.name}" (ID: ${shopToDelete.id}) successfully deleted.`);
       unlinkShopFromDevice(shopToDelete.id);
       setShopToDelete(null);
       setSelectedShop(null);
       await fetchShops();
     } catch (err: any) {
-      console.error("[DEBUG] Error caught during shop deletion:", err);
-      setDeleteShopError(err.message || "Произошла ошибка при удалении магазина");
+      setDeleteShopError(err.message || "Error deleting shop");
     } finally {
       setIsDeletingShop(false);
     }
-  };
-
-  const validateService = () => {
-    const errors: { title?: string; price?: string; description?: string } = {};
-
-    if (!newServiceData.title.trim() || newServiceData.title.trim().length < 2) {
-      errors.title = "Название услуги должно содержать минимум 2 символа";
-    } else if (newServiceData.title.trim().length > 100) {
-      errors.title = "Название не должно превышать 100 символов";
-    }
-
-    const priceNum = Number(newServiceData.price);
-    if (isNaN(priceNum) || priceNum <= 0) {
-      errors.price = "Укажите корректную стоимость больше 0 ₽";
-    } else if (priceNum > 10000000) {
-      errors.price = "Цена превышает допустимый лимит (10,000,000 ₽)";
-    }
-
-    if (newServiceData.description.length > 500) {
-      errors.description = "Описание не должно превышать 500 символов";
-    }
-
-    setServiceFieldErrors(errors);
-    return Object.keys(errors).length === 0;
   };
 
   const handleAddService = async (e: FormEvent) => {
@@ -546,7 +776,10 @@ export default function AdminPage() {
     if (!selectedShop) return;
     setServiceError(null);
 
-    if (!validateService()) return;
+    if (!newServiceData.title.trim() || !newServiceData.price) {
+      setServiceError("Please fill required fields");
+      return;
+    }
 
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -564,10 +797,9 @@ export default function AdminPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Не удалось добавить услугу");
+      if (!res.ok) throw new Error(data.error || "Failed to add service");
 
       setNewServiceData({ title: "", price: "", description: "", category: "" });
-      setServiceFieldErrors({});
       setIsAddingService(false);
       await fetchShops();
     } catch (err: any) {
@@ -584,26 +816,11 @@ export default function AdminPage() {
       category: service.category || ""
     });
     setEditServiceError(null);
-    setEditServiceFieldErrors({});
   };
 
   const handleSaveEditService = async (e: FormEvent) => {
     e.preventDefault();
     if (!editingService) return;
-
-    const errors: { title?: string; price?: string; description?: string } = {};
-    if (!editServiceData.title.trim() || editServiceData.title.trim().length < 2) {
-      errors.title = "Название услуги должно содержать минимум 2 символа";
-    }
-    const priceNum = Number(editServiceData.price);
-    if (isNaN(priceNum) || priceNum <= 0) {
-      errors.price = "Укажите корректную стоимость больше 0 ₽";
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setEditServiceFieldErrors(errors);
-      return;
-    }
 
     setIsSavingEditService(true);
     setEditServiceError(null);
@@ -617,14 +834,14 @@ export default function AdminPage() {
         headers,
         body: JSON.stringify({
           title: editServiceData.title.trim(),
-          price: Math.round(priceNum),
+          price: Number(editServiceData.price),
           description: editServiceData.description.trim() || undefined,
           category: editServiceData.category.trim() || undefined
         })
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Не удалось обновить услугу");
+      if (!res.ok) throw new Error(data.error || "Failed to save changes");
 
       setEditingService(null);
       await fetchShops();
@@ -635,53 +852,303 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteService = async (serviceId: string) => {
+  const handleDeleteService = (serviceId: string) => {
+    requestConfirm(
+      "Удалить услугу?",
+      "Вы действительно хотите удалить эту услугу? Она исчезнет из каталога для всех клиентов.",
+      async () => {
+        try {
+          const headers: Record<string, string> = {};
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+
+          const res = await fetch(`/api/services/${serviceId}`, { method: "DELETE", headers });
+          if (!res.ok) throw new Error("Не удалось удалить услугу");
+          await fetchShops();
+          showToast("Услуга успешно удалена", "success");
+        } catch (err: any) {
+          showToast(err.message, "error");
+        }
+      },
+      "Удалить",
+      true
+    );
+  };
+
+  const handleToggleServiceAvailability = async (serviceId: string, currentStatus?: boolean) => {
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/services/${serviceId}/toggle-availability`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ isAvailable: !currentStatus })
+      });
+      if (!res.ok) throw new Error("Не удалось изменить доступность услуги");
+      await fetchShops();
+      showToast(currentStatus ? "Услуга скрыта из каталога" : "Услуга теперь доступна для заказа", "success");
+    } catch (err: any) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const fetchPromocodes = async () => {
+    if (!selectedShop) return;
+    setPromocodesLoading(true);
     try {
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/shops/${selectedShop.id}/promocodes`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setPromocodes(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPromocodesLoading(false);
+    }
+  };
 
-      const res = await fetch(`/api/services/${serviceId}`, { method: "DELETE", headers });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Не удалось удалить услугу");
-      await fetchShops();
+  const handleCreatePromocode = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedShop || !newPromoData.code.trim()) return;
+    setPromoError(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/shops/${selectedShop.id}/promocodes`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          code: newPromoData.code.trim().toUpperCase(),
+          discountPercent: Number(newPromoData.discountPercent) || 0,
+          discountAmount: Number(newPromoData.discountAmount) || 0,
+          usageLimit: Number(newPromoData.usageLimit) || undefined
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create promo code");
+      setNewPromoData({ code: "", discountPercent: "", discountAmount: "", usageLimit: "" });
+      setIsCreatingPromo(false);
+      fetchPromocodes();
     } catch (err: any) {
-      alert(err.message);
+      setPromoError(err.message);
     }
   };
 
-  const validateSettings = () => {
-    const errors: { botToken?: string; adminChatId?: string; name?: string } = {};
-
-    if (!settingsData.name.trim()) {
-      errors.name = "Укажите название заведения";
-    }
-
-    if (settingsData.botToken.trim()) {
-      const botTokenRegex = /^\d+:[A-Za-z0-9_-]{30,}$/;
-      if (!botTokenRegex.test(settingsData.botToken.trim())) {
-        errors.botToken = "Неверный формат Bot Token (пример: 123456789:AAH...)";
+  const handleDeletePromocode = (id: string) => {
+    requestConfirm(
+      "Удалить промокод?",
+      "Вы действительно хотите удалить этот промокод? Клиенты больше не смогут его активировать.",
+      async () => {
+        try {
+          const headers: Record<string, string> = {};
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          const res = await fetch(`/api/promocodes/${id}`, { method: "DELETE", headers });
+          if (res.ok) {
+            fetchPromocodes();
+            showToast("Промокод успешно удален", "success");
+          } else {
+            showToast("Не удалось удалить промокод", "error");
+          }
+        } catch (e: any) {
+          showToast("Ошибка: " + e.message, "error");
+        }
       }
-    }
-
-    if (settingsData.adminChatId.trim()) {
-      const chatIdRegex = /^-?\d+$/;
-      if (!chatIdRegex.test(settingsData.adminChatId.trim())) {
-        errors.adminChatId = "Chat ID должен состоять только из цифр";
-      }
-    }
-
-    setSettingsFieldErrors(errors);
-    return Object.keys(errors).length === 0;
+    );
   };
 
-  const handleUpdateSettings = async (e: FormEvent) => {
+  const fetchReviews = async () => {
+    if (!selectedShop) return;
+    setReviewsLoading(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/shops/${selectedShop.id}/reviews`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setReviews(data.reviews || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const fetchBanners = async () => {
+    if (!selectedShop) return;
+    setBannersLoading(true);
+    try {
+      const res = await fetch(`/api/shops/${selectedShop.id}/banners`);
+      if (res.ok) {
+        const data = await res.json();
+        setBanners(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBannersLoading(false);
+    }
+  };
+
+  const handleCreateBanner = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedShop || !newBannerData.title.trim()) return;
+    setBannerError(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/shops/${selectedShop.id}/banners`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(newBannerData)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create banner");
+      setNewBannerData({ title: "", subtitle: "", badge: "", bgGradient: "from-zinc-900 to-indigo-950" });
+      setIsCreatingBanner(false);
+      fetchBanners();
+    } catch (err: any) {
+      setBannerError(err.message);
+    }
+  };
+
+  const handleDeleteBanner = (id: string) => {
+    requestConfirm(
+      "Удалить баннер?",
+      "Вы действительно хотите удалить этот рекламный баннер? Он исчезнет с главного экрана витрины.",
+      async () => {
+        try {
+          const headers: Record<string, string> = {};
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          const res = await fetch(`/api/banners/${id}`, { method: "DELETE", headers });
+          if (res.ok) {
+            fetchBanners();
+            showToast("Баннер удален", "success");
+          } else {
+            showToast("Не удалось удалить баннер", "error");
+          }
+        } catch (e: any) {
+          showToast("Ошибка: " + e.message, "error");
+        }
+      }
+    );
+  };
+
+  const fetchBroadcasts = async () => {
+    if (!selectedShop) return;
+    setBroadcastsLoading(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/shops/${selectedShop.id}/broadcasts`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setBroadcasts(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBroadcastsLoading(false);
+    }
+  };
+
+  const handleCreateBroadcast = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedShop || !newBroadcastData.title.trim() || !newBroadcastData.message.trim()) return;
+    setBroadcastError(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/shops/${selectedShop.id}/broadcasts`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(newBroadcastData)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create broadcast");
+      setNewBroadcastData({ title: "", message: "", imageUrl: "", buttonText: "📱 Open Menu", targetFilter: "ALL" });
+      setIsCreatingBroadcast(false);
+      fetchBroadcasts();
+    } catch (err: any) {
+      setBroadcastError(err.message);
+    }
+  };
+
+  const handleDeleteBroadcast = (id: string) => {
+    requestConfirm(
+      "Удалить историю рассылки?",
+      "Вы действительно хотите удалить эту запись из истории рассылок? Это не отменит уже отправленные сообщения.",
+      async () => {
+        try {
+          const headers: Record<string, string> = {};
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          const res = await fetch(`/api/broadcasts/${id}`, { method: "DELETE", headers });
+          if (res.ok) {
+            fetchBroadcasts();
+            showToast("История рассылки удалена", "success");
+          } else {
+            showToast("Не удалось удалить запись", "error");
+          }
+        } catch (e: any) {
+          showToast("Ошибка: " + e.message, "error");
+        }
+      }
+    );
+  };
+
+  const fetchCustomers = async () => {
+    if (!selectedShop) return;
+    setCustomersLoading(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/shops/${selectedShop.id}/customers`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setCustomers(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCustomersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedShop) {
+      fetchPromocodes();
+      fetchReviews();
+      fetchBanners();
+      fetchBroadcasts();
+      fetchCustomers();
+    }
+  }, [selectedShop?.id]);
+
+  const handleOpenSettings = (shop: Shop) => {
+    setSettingsData({
+      name: shop.name,
+      description: shop.description || "",
+      botToken: shop.botToken || "",
+      adminChatId: shop.adminChatId || "",
+      workingHours: shop.workingHours || "",
+      address: shop.address || "",
+      phone: shop.phone || "",
+      cashbackPercent: 5,
+      isOpen: shop.isOpen !== false
+    });
+    setSettingsError(null);
+    setIsSettingsOpen(true);
+  };
+
+  const handleSaveSettings = async (e: FormEvent) => {
     e.preventDefault();
     if (!selectedShop) return;
-    setSettingsError(null);
-
-    if (!validateSettings()) return;
 
     setIsSavingSettings(true);
+    setSettingsError(null);
 
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -691,7 +1158,7 @@ export default function AdminPage() {
         method: "PUT",
         headers,
         body: JSON.stringify({
-          name: settingsData.name.trim() || selectedShop.name,
+          name: settingsData.name.trim(),
           description: settingsData.description.trim() || undefined,
           botToken: settingsData.botToken.trim() || undefined,
           adminChatId: settingsData.adminChatId.trim() || undefined,
@@ -703,7 +1170,7 @@ export default function AdminPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Не удалось сохранить настройки");
+      if (!res.ok) throw new Error(data.error || "Failed to update settings");
 
       setIsSettingsOpen(false);
       await fetchShops();
@@ -714,1869 +1181,1427 @@ export default function AdminPage() {
     }
   };
 
-  const copyShopUrl = (slug: string) => {
-    const url = `${window.location.origin}/${slug}`;
-    navigator.clipboard.writeText(url);
-    setCopiedSlug(slug);
-    setTimeout(() => setCopiedSlug(null), 2000);
+  const handleSendBotSimMessage = (text: string) => {
+    if (!text.trim()) return;
+    const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const userMsg = { sender: "user" as const, text, time: now };
+    
+    let botReplyText = "Please tap the button below to browse our menu and order:";
+    let buttonText = "📱 Open Menu";
+
+    if (text.toLowerCase().includes("/start")) {
+      botReplyText = `👋 Welcome to ${selectedShop?.name || "our shop"}!\n\nOrder online directly inside Telegram Mini App.`;
+    } else if (text.toLowerCase().includes("status") || text.toLowerCase().includes("order")) {
+      botReplyText = `📦 Order status: "Pending". We will notify you once confirmed!`;
+      buttonText = "📋 My Orders";
+    }
+
+    const botMsg = { sender: "bot" as const, text: botReplyText, button: buttonText, time: now };
+    setBotSimMessages(prev => [...prev, userMsg, botMsg]);
+    setBotSimInput("");
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-3 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
-          <p className="text-xs font-medium text-slate-400">Загрузка панели управления...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const handleClaimShop = async (shopId: string) => {
-    if (!token) {
-      setIsAuthModalOpen(true);
-      return;
-    }
+  const handleReplyReview = async (reviewId: string) => {
+    if (!replyText.trim()) return;
     try {
-      const res = await fetch(`/api/shops/${shopId}/claim`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/reviews/${reviewId}/reply`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ reply: replyText.trim() })
       });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Не удалось привязать заведение");
-        return;
+      if (res.ok) {
+        setReplyingReviewId(null);
+        setReplyText("");
+        fetchReviews();
       }
-      linkShopToDevice(shopId);
-      await fetchShops();
-    } catch (err) {
-      console.error(err);
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  const myShops = user
-    ? shops.filter((s) => s.ownerId === user.id)
-    : shops.filter((s) => myDeviceShopIds.includes(s.id) && !s.ownerId);
+  const myShopsList = shops.filter(s => myDeviceShopIds.includes(s.id));
+  const activeShops = shopFilterMode === "my" && myShopsList.length > 0 ? myShopsList : shops;
 
-  const displayedShops = shopFilterMode === "my" ? myShops : shops;
+  const categories = selectedShop
+    ? Array.from(new Set(selectedShop.services.map(s => s.category).filter(Boolean))) as string[]
+    : [];
 
-  const allServices = selectedShop?.services || [];
-  const categories = Array.from(new Set(allServices.map(s => s.category).filter(Boolean))) as string[];
-  const filteredServices = allServices.filter(service => {
+  const filteredServices = (selectedShop?.services || []).filter(service => {
     const matchesCategory = selectedCategoryFilter === "ALL" || service.category === selectedCategoryFilter;
     const matchesSearch = service.title.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
       (service.description && service.description.toLowerCase().includes(serviceSearchQuery.toLowerCase()));
     return matchesCategory && matchesSearch;
   });
 
+  const filteredOrders = orders.filter(o => orderStatusFilter === "ALL" || o.status === orderStatusFilter);
+
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
-      {/* Шапка */}
-      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-slate-900 text-white rounded-xl flex items-center justify-center font-bold shadow-sm">
-              <Store className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold tracking-tight text-slate-900">
-                TMA Builder
-              </h1>
-              <p className="text-[11px] text-slate-500 font-medium">Конструктор магазинов Telegram</p>
-            </div>
+    <div className="min-h-screen bg-[#08080a] text-zinc-100 font-sans flex flex-col md:flex-row selection:bg-zinc-800">
+      {/* Mobile Top Navigation */}
+      <div className="md:hidden sticky top-0 z-40 bg-[#09090b]/90 backdrop-blur-xl border-b border-zinc-800/80 px-4 h-14 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-white text-black flex items-center justify-center font-mono font-bold text-xs">
+            ▲
           </div>
-
-          <div className="flex items-center gap-2.5">
-            {/* Кнопка вкл/выкл звуковых уведомлений */}
-            <button
-              onClick={() => setIsAudioEnabled(!isAudioEnabled)}
-              title={isAudioEnabled ? "Звук уведомлений включен" : "Звук уведомлений выключен"}
-              className={`p-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border ${
-                isAudioEnabled 
-                  ? "bg-slate-100 border-slate-200 text-slate-800 hover:bg-slate-200" 
-                  : "bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
-              }`}
-            >
-              {isAudioEnabled ? <Volume2 size={16} className="text-emerald-600" /> : <VolumeX size={16} />}
-              <span className="hidden md:inline text-[11px]">{isAudioEnabled ? "Звук вкл" : "Звук выкл"}</span>
-            </button>
-
-            {/* Плашка и кнопка выбора тарифа SaaS */}
-            <button
-              onClick={() => setIsPlanModalOpen(true)}
-              className="px-3 py-1.5 bg-linear-to-r from-amber-500/10 via-amber-500/15 to-indigo-500/10 hover:from-amber-500/20 hover:to-indigo-500/20 text-slate-900 border border-amber-300/60 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs active:scale-98"
-            >
-              <Crown size={15} className="text-amber-500 fill-amber-500" />
-              <span>Тариф: {user?.plan || "FREE"}</span>
-            </button>
-
-            {/* Блок аутентификации пользователя */}
-            {user ? (
-              <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-xl text-xs font-semibold text-slate-800">
-                  <ShieldCheck size={14} className="text-emerald-600" />
-                  <span className="truncate max-w-[120px] sm:max-w-[180px]">{user.name || user.email}</span>
-                </div>
-                <button
-                  onClick={logout}
-                  title="Выйти из аккаунта"
-                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                >
-                  <LogOut size={16} />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  setAuthError(null);
-                  setIsAuthModalOpen(true);
-                }}
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 active:scale-98 border border-slate-200"
-              >
-                <LogIn size={15} />
-                <span className="hidden sm:inline">Войти</span>
-              </button>
-            )}
-
-            <button
-              onClick={() => {
-                setNewShopData({ name: "", slug: "", description: "" });
-                setCreateShopFieldErrors({});
-                setCreateShopError(null);
-                setIsCreatingShop(true);
-              }}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center gap-1.5 active:scale-98"
-            >
-              <Plus size={16} />
-              <span className="hidden sm:inline">Создать магазин</span>
-              <span className="sm:hidden">Создать</span>
-            </button>
-          </div>
+          <span className="font-semibold text-sm text-white font-mono">TMA BUILDER</span>
         </div>
-      </header>
-
-      {/* Основной контейнер с сеткой */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {/* Боковая панель выбора заведения */}
-          <aside className="lg:col-span-4 xl:col-span-3 space-y-4">
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Заведения
-                  </span>
-                </div>
-
-                {/* Переключатель локального режима устройств */}
-                <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShopFilterMode("my");
-                      if (myShops.length > 0 && (!selectedShop || !myDeviceShopIds.includes(selectedShop.id))) {
-                        setSelectedShop(myShops[0]);
-                      }
-                    }}
-                    className={`py-1.5 px-2 rounded-lg text-center transition-all ${
-                      shopFilterMode === "my"
-                        ? "bg-white text-slate-900 shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Мои ({myShops.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShopFilterMode("all")}
-                    className={`py-1.5 px-2 rounded-lg text-center transition-all ${
-                      shopFilterMode === "all"
-                        ? "bg-white text-slate-900 shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Все ({shops.length})
-                  </button>
-                </div>
-              </div>
-
-              {displayedShops.length === 0 ? (
-                <div className="text-center py-6 px-3 bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-2">
-                  <p className="text-xs text-slate-500">
-                    {shopFilterMode === "my"
-                      ? "На этом устройстве пока нет сохраненных заведений"
-                      : "Заведений пока нет"}
-                  </p>
-                  <div className="flex flex-col gap-1.5 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setIsCreatingShop(true)}
-                      className="text-xs font-semibold text-blue-600 hover:underline"
-                    >
-                      + Создать заведение
-                    </button>
-                    {shopFilterMode === "my" && shops.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setShopFilterMode("all")}
-                        className="text-[11px] font-medium text-slate-500 hover:text-slate-800"
-                      >
-                        Показать все в базе ({shops.length})
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-                  {displayedShops.map((shop) => {
-                    const isSelected = selectedShop?.id === shop.id;
-                    const isOwner = user
-                      ? shop.ownerId === user.id
-                      : myDeviceShopIds.includes(shop.id) && !shop.ownerId;
-                    const hasOtherOwner = user
-                      ? Boolean(shop.ownerId && shop.ownerId !== user.id)
-                      : Boolean(shop.ownerId);
-
-                    return (
-                      <div
-                        key={shop.id}
-                        className={`w-full p-3 rounded-xl border transition-all flex items-center justify-between gap-2.5 ${
-                          isSelected
-                            ? "bg-slate-900 border-slate-900 text-white shadow-sm"
-                            : "bg-slate-50/50 border-slate-200/80 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setSelectedShop(shop)}
-                          className="flex items-center gap-3 overflow-hidden flex-1 text-left min-w-0"
-                        >
-                          <div
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 uppercase ${
-                              isSelected ? "bg-white/15 text-white" : "bg-slate-200/80 text-slate-700"
-                            }`}
-                          >
-                            {shop.name.charAt(0)}
-                          </div>
-                          <div className="overflow-hidden flex-1 min-w-0">
-                            <p
-                              className={`text-xs font-semibold truncate ${
-                                isSelected ? "text-white" : "text-slate-900"
-                              }`}
-                            >
-                              {shop.name}
-                            </p>
-                            <p
-                              className={`text-[10px] truncate ${
-                                isSelected ? "text-slate-300" : "text-slate-400"
-                              }`}
-                            >
-                              /{shop.slug}
-                            </p>
-                          </div>
-                        </button>
-
-                        {/* Безопасное отображение статуса владельца */}
-                        {isOwner ? (
-                          <span
-                            title="Вы являетесь владельцем этого заведения"
-                            className={`px-2 py-1 rounded-md text-[10px] font-semibold shrink-0 ${
-                              isSelected
-                                ? "bg-emerald-500/30 text-emerald-200"
-                                : "bg-emerald-100 text-emerald-800"
-                            }`}
-                          >
-                            Мое
-                          </span>
-                        ) : hasOtherOwner ? (
-                          <span
-                            title={`Заведение принадлежит пользователю ${shop.owner?.email || "другого аккаунта"}`}
-                            className={`px-2 py-1 rounded-md text-[10px] font-semibold shrink-0 select-none ${
-                              isSelected
-                                ? "bg-white/10 text-slate-400"
-                                : "bg-slate-200/60 text-slate-500"
-                            }`}
-                          >
-                            {shop.owner?.email ? shop.owner.email.split("@")[0] : "Чужое"}
-                          </span>
-                        ) : user ? (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleClaimShop(shop.id);
-                            }}
-                            title="Нажмите, чтобы привязать это анонимное заведение к вашему аккаунту"
-                            className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-colors shrink-0 ${
-                              isSelected
-                                ? "bg-blue-500/40 text-blue-100 hover:bg-blue-500/60"
-                                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                            }`}
-                          >
-                            + Привязать
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (myDeviceShopIds.includes(shop.id)) {
-                                unlinkShopFromDevice(shop.id);
-                              } else {
-                                linkShopToDevice(shop.id);
-                              }
-                            }}
-                            title="Сохранить локально на этом устройстве"
-                            className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-colors shrink-0 ${
-                              myDeviceShopIds.includes(shop.id)
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-slate-200/80 text-slate-700 hover:bg-slate-300"
-                            }`}
-                          >
-                            {myDeviceShopIds.includes(shop.id) ? "Мое" : "+ Мое"}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <button
-                onClick={() => {
-                  setNewShopData({ name: "", slug: "", description: "" });
-                  setCreateShopFieldErrors({});
-                  setCreateShopError(null);
-                  setIsCreatingShop(true);
-                }}
-                className="w-full py-2.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                <Plus size={15} />
-                <span>Добавить заведение</span>
-              </button>
-            </div>
-
-            <div className="p-4 bg-blue-50/70 rounded-2xl border border-blue-100 text-xs text-blue-900 leading-relaxed space-y-1">
-              <p className="font-semibold text-blue-950">💡 Витрина Mini App</p>
-              <p className="text-[11px] text-blue-800">
-                Каждый магазин сразу имеет готовую веб-витрину по адресу вида <code>/{selectedShop?.slug || "my-shop"}</code>.
-              </p>
-            </div>
-          </aside>
-
-          {/* Панель управления выбранным заведением */}
-          <main className="lg:col-span-8 xl:col-span-9 space-y-6">
-            {selectedShop ? (
-              <>
-                {/* Карточка заведения и аналитика */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-2xs space-y-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2.5">
-                        <h2 className="text-xl font-bold text-slate-900">{selectedShop.name}</h2>
-                        <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200 uppercase tracking-wider">
-                          Активен
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {selectedShop.description || "Описание не указано"}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setIsQrModalOpen(true)}
-                        className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border border-indigo-200/80"
-                      >
-                        <QrCode size={15} />
-                        <span>QR & Печать</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsTgGuideOpen(true)}
-                        className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border border-blue-200/80"
-                      >
-                        <span>📱 Инструкция TG</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => copyShopUrl(selectedShop.slug)}
-                        className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
-                      >
-                        {copiedSlug === selectedShop.slug ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
-                        <span>{copiedSlug === selectedShop.slug ? "Скопировано" : "Ссылка"}</span>
-                      </button>
-
-                      <Link
-                        to={`/${selectedShop.slug}`}
-                        target="_blank"
-                        className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <span>Открыть Mini App</span>
-                        <ExternalLink size={14} />
-                      </Link>
-
-                      <button
-                        type="button"
-                        disabled={Boolean(selectedShop.ownerId && selectedShop.ownerId !== user?.id)}
-                        onClick={() => {
-                          setSettingsData({
-                            name: selectedShop.name || "",
-                            description: selectedShop.description || "",
-                            botToken: selectedShop.botToken || "",
-                            adminChatId: selectedShop.adminChatId || "",
-                            workingHours: selectedShop.workingHours || "Пн-Вс: 09:00 - 22:00",
-                            address: selectedShop.address || "",
-                            phone: selectedShop.phone || "",
-                            isOpen: selectedShop.isOpen !== undefined ? selectedShop.isOpen : true
-                          });
-                          setSettingsFieldErrors({});
-                          setSettingsError(null);
-                          setIsSettingsOpen(true);
-                        }}
-                        className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors border border-transparent hover:border-slate-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                        title={selectedShop.ownerId && selectedShop.ownerId !== user?.id ? "Редактирование настроек доступно только владельцу" : "Настройки заведения"}
-                      >
-                        <Settings size={18} />
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={Boolean(selectedShop.ownerId && selectedShop.ownerId !== user?.id)}
-                        onClick={() => openDeleteConfirmation(selectedShop)}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                        title={selectedShop.ownerId && selectedShop.ownerId !== user?.id ? "Удаление доступно только владельцу" : "Удалить заведение"}
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Информационные статусы владельца */}
-                  {selectedShop.ownerId && selectedShop.ownerId !== user?.id && (
-                    <div className="p-3.5 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
-                      <AlertCircle size={17} className="text-amber-600 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-bold">Чужое заведение (Режим просмотра)</p>
-                        <p className="text-[11px] text-amber-700 mt-0.5">
-                          Владелец: <strong>{selectedShop.owner?.email || "Другой пользователь"}</strong>. Вам доступен просмотр каталога, но редактирование услуг и настроек заблокировано для чужих аккаунтов.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedShop.ownerId && selectedShop.ownerId === user?.id && (
-                    <div className="px-3.5 py-2 bg-emerald-50 border border-emerald-200/80 rounded-xl text-xs text-emerald-900 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck size={16} className="text-emerald-600" />
-                        <span className="font-semibold">Вы владелец этого заведения</span>
-                      </div>
-                      <span className="text-[11px] text-emerald-700 font-medium">{user.email}</span>
-                    </div>
-                  )}
-
-                  {!selectedShop.ownerId && user && (
-                    <div className="px-3.5 py-2 bg-blue-50 border border-blue-200/80 rounded-xl text-xs text-blue-900 flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle size={16} className="text-blue-600" />
-                        <span className="font-medium">Заведение пока анонимно. Закрепите его за своим аккаунтом:</span>
-                      </div>
-                      <button
-                        onClick={() => handleClaimShop(selectedShop.id)}
-                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition-colors"
-                      >
-                        Привязать к {user.email}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Быстрая аналитика */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
-                    <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-1">
-                      <div className="flex items-center justify-between text-slate-400">
-                        <span className="text-[10px] font-bold uppercase tracking-wider">Выручка</span>
-                        <TrendingUp size={14} className="text-emerald-500" />
-                      </div>
-                      <p className="text-base font-extrabold text-slate-900 font-mono">
-                        {orders
-                          .filter(o => o.status === "COMPLETED" || o.status === "CONFIRMED")
-                          .reduce((sum, o) => sum + o.totalPrice, 0)
-                          .toLocaleString("ru-RU")} ₽
-                      </p>
-                    </div>
-
-                    <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-1">
-                      <div className="flex items-center justify-between text-slate-400">
-                        <span className="text-[10px] font-bold uppercase tracking-wider">Всего заказов</span>
-                        <Package size={14} className="text-blue-500" />
-                      </div>
-                      <p className="text-base font-extrabold text-slate-900 font-mono">
-                        {orders.length}
-                      </p>
-                    </div>
-
-                    <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-1">
-                      <div className="flex items-center justify-between text-slate-400">
-                        <span className="text-[10px] font-bold uppercase tracking-wider">В обработке</span>
-                        <Clock size={14} className="text-amber-500" />
-                      </div>
-                      <p className="text-base font-extrabold text-amber-700 font-mono">
-                        {orders.filter(o => o.status === "PENDING").length}
-                      </p>
-                    </div>
-
-                    <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-1">
-                      <div className="flex items-center justify-between text-slate-400">
-                        <span className="text-[10px] font-bold uppercase tracking-wider">Средний чек</span>
-                        <BarChart3 size={14} className="text-indigo-500" />
-                      </div>
-                      <p className="text-base font-extrabold text-slate-900 font-mono">
-                        {(orders.length > 0
-                          ? Math.round(orders.reduce((sum, o) => sum + o.totalPrice, 0) / orders.length)
-                          : 0
-                        ).toLocaleString("ru-RU")} ₽
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Табы навигации в заведении */}
-                <div className="flex border-b border-slate-200/80 gap-2 flex-wrap">
-                  <button
-                    onClick={() => setActiveTab("services")}
-                    className={`px-4 py-2.5 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors ${
-                      activeTab === "services"
-                        ? "border-slate-900 text-slate-900"
-                        : "border-transparent text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    <ShoppingBag size={15} />
-                    <span>Услуги и товары ({(selectedShop.services || []).length})</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab("orders")}
-                    className={`px-4 py-2.5 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors ${
-                      activeTab === "orders"
-                        ? "border-slate-900 text-slate-900"
-                        : "border-transparent text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    <ListOrdered size={15} />
-                    <span>Управление заказами ({orders.length})</span>
-                    {orders.filter(o => o.status === "PENDING").length > 0 && (
-                      <span className="px-2 py-0.5 bg-amber-500 text-white rounded-full text-[10px] font-extrabold animate-pulse">
-                        {orders.filter(o => o.status === "PENDING").length} нов.
-                      </span>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab("analytics")}
-                    className={`px-4 py-2.5 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors ${
-                      activeTab === "analytics"
-                        ? "border-slate-900 text-slate-900"
-                        : "border-transparent text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    <BarChart3 size={15} />
-                    <span>Аналитика и финансовые отчеты</span>
-                  </button>
-                </div>
-
-                {/* Вкладка 1: Услуги и товары */}
-                {activeTab === "services" && (
-                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-                      {/* Таблица услуг */}
-                      <div className="xl:col-span-8 space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
-                          <h3 className="text-sm font-bold text-slate-900">
-                            Каталог услуг ({filteredServices.length} из {allServices.length})
-                          </h3>
-                          <button
-                            disabled={Boolean(selectedShop.ownerId && selectedShop.ownerId !== user?.id)}
-                            onClick={() => {
-                              setNewServiceData({ title: "", price: "", description: "", category: "" });
-                              setServiceFieldErrors({});
-                              setServiceError(null);
-                              setIsAddingService(true);
-                            }}
-                            className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-2xs self-start sm:self-auto disabled:opacity-40 disabled:hover:bg-slate-900 disabled:cursor-not-allowed"
-                            title={selectedShop.ownerId && selectedShop.ownerId !== user?.id ? "Редактирование доступно только владельцу" : ""}
-                          >
-                            <Plus size={15} />
-                            <span>Добавить услугу</span>
-                          </button>
-                        </div>
-
-                        {/* Поиск и фильтры по категориям */}
-                        {allServices.length > 0 && (
-                          <div className="space-y-2.5">
-                            <div className="relative">
-                              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                              <input
-                                type="text"
-                                value={serviceSearchQuery}
-                                onChange={e => setServiceSearchQuery(e.target.value)}
-                                placeholder="Поиск услуг по названию или описанию..."
-                                className="w-full pl-9 pr-4 py-2 bg-white text-xs rounded-xl border border-slate-200/80 focus:border-slate-900 focus:outline-none transition-all"
-                              />
-                              {serviceSearchQuery && (
-                                <button
-                                  onClick={() => setServiceSearchQuery("")}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                                >
-                                  ✕
-                                </button>
-                              )}
-                            </div>
-
-                            {categories.length > 0 && (
-                              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-                                <button
-                                  onClick={() => setSelectedCategoryFilter("ALL")}
-                                  className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors shrink-0 ${
-                                    selectedCategoryFilter === "ALL"
-                                      ? "bg-slate-900 text-white"
-                                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                  }`}
-                                >
-                                  Все категории ({allServices.length})
-                                </button>
-                                {categories.map(cat => (
-                                  <button
-                                    key={cat}
-                                    onClick={() => setSelectedCategoryFilter(cat)}
-                                    className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors shrink-0 ${
-                                      selectedCategoryFilter === cat
-                                        ? "bg-slate-900 text-white"
-                                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                    }`}
-                                  >
-                                    {cat} ({allServices.filter(s => s.category === cat).length})
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-2xs">
-                          {filteredServices.length === 0 ? (
-                            <div className="p-12 text-center text-slate-400">
-                              <ShoppingBag size={36} className="mx-auto mb-3 opacity-30" />
-                              <p className="font-semibold text-xs text-slate-700">Услуги не найдены</p>
-                              <p className="text-[11px] text-slate-400 mt-1">Попробуйте изменить параметры поиска или фильтр категорий</p>
-                            </div>
-                          ) : (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                              <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200/60">
-                                <tr>
-                                  <th className="px-5 py-3">Услуга / Товар</th>
-                                  <th className="px-5 py-3">Категория</th>
-                                  <th className="px-5 py-3">Цена</th>
-                                  <th className="px-5 py-3 text-right">Действия</th>
-                                </tr>
-                              </thead>
-                              <tbody className="text-xs divide-y divide-slate-100">
-                                {filteredServices.map((service) => (
-                                  <tr key={service.id} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-5 py-3.5">
-                                      <p className="font-semibold text-slate-900">{service.title}</p>
-                                      {service.description && (
-                                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{service.description}</p>
-                                      )}
-                                    </td>
-                                    <td className="px-5 py-3.5">
-                                      {service.category ? (
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[10px] font-semibold">
-                                          <Tag size={10} className="text-slate-400" />
-                                          {service.category}
-                                        </span>
-                                      ) : (
-                                        <span className="text-slate-300 text-[10px]">—</span>
-                                      )}
-                                    </td>
-                                    <td className="px-5 py-3.5 font-bold text-slate-900 font-mono">
-                                      {service.price.toLocaleString("ru-RU")} ₽
-                                    </td>
-                                    <td className="px-5 py-3.5 text-right space-x-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenEditService(service)}
-                                        className="text-slate-400 hover:text-slate-800 p-1.5 rounded-lg transition-colors hover:bg-slate-100"
-                                        title="Редактировать услугу"
-                                      >
-                                        <Edit3 size={15} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteService(service.id)}
-                                        className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg transition-colors hover:bg-red-50"
-                                        title="Удалить услугу"
-                                      >
-                                        <Trash2 size={15} />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                  {/* Макет смартфона */}
-                  <div className="xl:col-span-4 hidden xl:block space-y-3">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block px-1">
-                      Предпросмотр Mini App
-                    </span>
-                    <div className="bg-slate-900 rounded-[32px] p-3 shadow-xl border border-slate-800 flex flex-col h-[500px] overflow-hidden relative">
-                      <div className="w-20 h-4 bg-slate-950 rounded-b-xl absolute top-0 left-1/2 -translate-x-1/2 z-10"></div>
-                      <div className="mt-4 flex-1 bg-white rounded-2xl overflow-hidden flex flex-col justify-between">
-                        <div>
-                          <div className="bg-slate-900 text-white px-4 py-5 text-center">
-                            <div className="w-9 h-9 bg-white/10 rounded-xl mb-2 flex items-center justify-center text-white font-bold text-sm uppercase mx-auto">
-                              {selectedShop.name.charAt(0)}
-                            </div>
-                            <h3 className="text-xs font-bold truncate">{selectedShop.name}</h3>
-                            <p className="text-[10px] text-slate-300 line-clamp-1 mt-0.5">{selectedShop.description || "Витрина"}</p>
-                          </div>
-                          <div className="p-3 space-y-2 max-h-[280px] overflow-y-auto">
-                            {(selectedShop.services || []).slice(0, 3).map((s) => (
-                              <div key={s.id} className="p-2 border border-slate-100 rounded-xl flex justify-between items-center bg-slate-50">
-                                <div className="space-y-0.5">
-                                  <p className="text-[10px] font-semibold text-slate-900">{s.title}</p>
-                                  <p className="text-[10px] font-bold text-slate-900">{s.price} ₽</p>
-                                </div>
-                                <span className="px-2 py-0.5 bg-slate-900 text-white text-[9px] font-semibold rounded-full">
-                                  Выбрать
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="p-3 bg-white border-t border-slate-100">
-                          <div className="w-full py-2 bg-slate-900 text-white rounded-xl text-[10px] font-bold text-center">
-                            Оформить заказ
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-                {/* Вкладка 2: Управление заказами */}
-                {activeTab === "orders" && (
-                  <div className="space-y-4">
-                    {/* Панель фильтрации заказов */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {[
-                          { id: "ALL", label: "Все заказы", count: orders.length },
-                          { id: "PENDING", label: "⏳ В обработке", count: orders.filter(o => o.status === "PENDING").length, color: "text-amber-700 bg-amber-50" },
-                          { id: "CONFIRMED", label: "🤝 Подтвержден", count: orders.filter(o => o.status === "CONFIRMED").length, color: "text-blue-700 bg-blue-50" },
-                          { id: "COMPLETED", label: "✅ Завершен", count: orders.filter(o => o.status === "COMPLETED").length, color: "text-emerald-700 bg-emerald-50" },
-                          { id: "CANCELLED", label: "❌ Отменен", count: orders.filter(o => o.status === "CANCELLED").length, color: "text-rose-700 bg-rose-50" }
-                        ].map((f) => {
-                          const isActive = orderStatusFilter === f.id;
-                          return (
-                            <button
-                              key={f.id}
-                              onClick={() => setOrderStatusFilter(f.id)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                                isActive
-                                  ? "bg-slate-900 text-white shadow-2xs"
-                                  : "bg-slate-100/80 text-slate-600 hover:bg-slate-200/80"
-                              }`}
-                            >
-                              <span>{f.label}</span>
-                              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${isActive ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
-                                {f.count}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={exportOrdersToCsv}
-                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1.5"
-                          title="Экспорт заказов в CSV / Excel"
-                        >
-                          <FileSpreadsheet size={15} />
-                          <span className="hidden sm:inline">Экспорт CSV</span>
-                        </button>
-
-                        <button
-                          onClick={() => fetchOrders(selectedShop.id)}
-                          disabled={ordersLoading}
-                          className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1"
-                          title="Обновить список заказов"
-                        >
-                          <RefreshCw size={14} className={ordersLoading ? "animate-spin" : ""} />
-                          <span className="hidden sm:inline">Обновить</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Список заказов */}
-                    {ordersLoading ? (
-                      <div className="p-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200/80">
-                        <RefreshCw size={28} className="mx-auto mb-2 animate-spin text-slate-400" />
-                        <p className="text-xs font-semibold">Загрузка заказов...</p>
-                      </div>
-                    ) : orders.filter(o => orderStatusFilter === "ALL" || o.status === orderStatusFilter).length === 0 ? (
-                      <div className="p-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200/80">
-                        <Package size={36} className="mx-auto mb-3 opacity-30" />
-                        <p className="font-semibold text-xs text-slate-700">Заказов пока нет</p>
-                        <p className="text-[11px] text-slate-400 mt-1">
-                          {orderStatusFilter === "ALL"
-                            ? "Клиенты ещё не оформляли заказы в этом заведении"
-                            : "Заказов с выбранным статусом не найдено"}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {orders
-                          .filter(o => orderStatusFilter === "ALL" || o.status === orderStatusFilter)
-                          .map((order) => {
-                            let parsedItems: OrderItem[] = [];
-                            try {
-                              parsedItems = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
-                            } catch (e) {
-                              parsedItems = [];
-                            }
-
-                            const statusBadges: Record<string, { label: string; bg: string; text: string; border: string }> = {
-                              PENDING: { label: "⏳ В обработке", bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200" },
-                              CONFIRMED: { label: "🤝 Подтвержден", bg: "bg-blue-50", text: "text-blue-800", border: "border-blue-200" },
-                              COMPLETED: { label: "✅ Завершен", bg: "bg-emerald-50", text: "text-emerald-800", border: "border-emerald-200" },
-                              CANCELLED: { label: "❌ Отменен", bg: "bg-rose-50", text: "text-rose-800", border: "border-rose-200" }
-                            };
-
-                            const currentBadge = statusBadges[order.status] || statusBadges.PENDING;
-
-                            return (
-                              <div
-                                key={order.id}
-                                className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between gap-4"
-                              >
-                                <div className="space-y-3">
-                                  {/* Шапка заказа */}
-                                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                                    <div className="space-y-0.5">
-                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                        Заказ #{order.id.slice(-6)}
-                                      </span>
-                                      <p className="text-[11px] font-medium text-slate-500">
-                                        {new Date(order.createdAt).toLocaleString("ru-RU", {
-                                          day: "2-digit",
-                                          month: "short",
-                                          hour: "2-digit",
-                                          minute: "2-digit"
-                                        })}
-                                      </p>
-                                    </div>
-
-                                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${currentBadge.bg} ${currentBadge.text} ${currentBadge.border}`}>
-                                      {currentBadge.label}
-                                    </span>
-                                  </div>
-
-                                  {/* Данные клиента */}
-                                  <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100 space-y-1.5">
-                                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                                      <div className="flex items-center gap-2 text-xs text-slate-900 font-semibold">
-                                        <User size={14} className="text-slate-400 shrink-0" />
-                                        <span>{order.customerName}</span>
-                                      </div>
-                                      <div className="flex items-center gap-2 text-xs text-slate-700">
-                                        <Phone size={14} className="text-slate-400 shrink-0" />
-                                        <a
-                                          href={`tel:${order.customerPhone}`}
-                                          className="hover:underline font-mono text-blue-600 font-semibold"
-                                        >
-                                          {order.customerPhone}
-                                        </a>
-                                      </div>
-                                    </div>
-
-                                    {(order.tableNumber || order.preferredTime) && (
-                                      <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60 text-xs flex-wrap">
-                                        {order.tableNumber && (
-                                          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded-md font-semibold text-[11px] flex items-center gap-1">
-                                            🪑 Столик: <strong>{order.tableNumber}</strong>
-                                          </span>
-                                        )}
-                                        {order.preferredTime && (
-                                          <span className="px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200/60 rounded-md font-semibold text-[11px] flex items-center gap-1">
-                                            ⏰ Время: <strong>{order.preferredTime}</strong>
-                                          </span>
-                                        )}
-                                      </div>
-                                    )}
-
-                                    {order.note && (
-                                      <p className="text-[11px] text-slate-600 bg-amber-50/80 border border-amber-200/60 p-2 rounded-lg italic">
-                                        💬 {order.note}
-                                      </p>
-                                    )}
-                                  </div>
-
-                                  {/* Позиции заказа */}
-                                  <div className="space-y-1.5 pt-1">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Состав заказа:</span>
-                                    <div className="space-y-1 max-h-36 overflow-y-auto">
-                                      {parsedItems.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center text-xs text-slate-800">
-                                          <span className="font-medium text-slate-700 truncate max-w-[200px]">
-                                            • {item.title} {item.quantity > 1 ? `(x${item.quantity})` : ""}
-                                          </span>
-                                          <span className="font-bold text-slate-900 font-mono">
-                                            {(item.price * (item.quantity || 1)).toLocaleString("ru-RU")} ₽
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Итог и Действия со статусом */}
-                                <div className="border-t border-slate-100 pt-3 space-y-3">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-500">Итоговая сумма:</span>
-                                    <span className="text-base font-extrabold text-slate-900">
-                                      {order.totalPrice.toLocaleString("ru-RU")} ₽
-                                    </span>
-                                  </div>
-
-                                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                                    {order.status !== "CONFIRMED" && (
-                                      <button
-                                        onClick={() => handleUpdateOrderStatus(order.id, "CONFIRMED")}
-                                        className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg text-[11px] transition-colors"
-                                      >
-                                        🤝 Подтвердить
-                                      </button>
-                                    )}
-                                    {order.status !== "COMPLETED" && (
-                                      <button
-                                        onClick={() => handleUpdateOrderStatus(order.id, "COMPLETED")}
-                                        className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg text-[11px] transition-colors"
-                                      >
-                                        ✅ Завершить
-                                      </button>
-                                    )}
-                                    {order.status !== "CANCELLED" && (
-                                      <button
-                                        onClick={() => handleUpdateOrderStatus(order.id, "CANCELLED")}
-                                        className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg text-[11px] transition-colors"
-                                      >
-                                        ❌ Отменить
-                                      </button>
-                                    )}
-                                    <button
-                                      onClick={() => handleDeleteOrder(order.id)}
-                                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-auto"
-                                      title="Удалить запись о заказе"
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Вкладка 3: Финансовая аналитика */}
-                {activeTab === "analytics" && (
-                  <AnalyticsTab shopId={selectedShop.id} />
-                )}
-              </>
-            ) : (
-              <div className="p-12 bg-white rounded-2xl border border-slate-200/80 text-center space-y-4">
-                <Store size={40} className="text-slate-300 mx-auto" />
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Заведение не выбрано</h3>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-                    Выберите заведение из списка слева или создайте новое за несколько секунд.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsCreatingShop(true)}
-                  className="px-5 py-2.5 bg-slate-900 text-white font-semibold text-xs rounded-xl hover:bg-slate-800 transition-colors shadow-2xs"
-                >
-                  Создать новое заведение
-                </button>
-              </div>
-            )}
-          </main>
-        </div>
+        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-zinc-400 hover:text-white">
+          {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
       </div>
 
-      {/* Модалка создания магазина */}
-      {isCreatingShop && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200/80 w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 space-y-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Новое заведение</h3>
-              <button
-                type="button"
-                onClick={() => setIsCreatingShop(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold p-1"
+      {/* Sleek Vercel / Linear Left Sidebar Navigation */}
+      <aside className={`
+        fixed md:sticky top-0 left-0 z-50 h-screen w-64 bg-[#0c0c0e] border-r border-zinc-800/80 flex flex-col justify-between p-4 transition-transform duration-200
+        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}>
+        <div className="space-y-6">
+          {/* Logo Brand Header */}
+          <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-white text-black flex items-center justify-center font-mono font-bold text-xs shadow-md shadow-white/10">
+                ▲
+              </div>
+              <span className="font-bold text-sm tracking-tight text-white font-mono">TMA BUILDER</span>
+            </div>
+            <span className="px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-zinc-400 uppercase">
+              v2.4
+            </span>
+          </div>
+
+          {/* Workspace / Shop Selector Dropdown */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 px-2 block">
+              Активное заведение
+            </label>
+            <div className="relative">
+              <select
+                value={selectedShop?.id || ""}
+                onChange={(e) => {
+                  const found = shops.find(s => s.id === e.target.value);
+                  if (found) setSelectedShop(found);
+                }}
+                className="w-full bg-[#141417] border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-white rounded-xl px-3 py-2.5 appearance-none focus:outline-none transition-colors cursor-pointer"
               >
-                ✕
-              </button>
+                {activeShops.map(s => (
+                  <option key={s.id} value={s.id} className="bg-[#141417] text-white">
+                    {s.name} ({s.slug})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
             </div>
 
-            {createShopError && (
-              <div className="p-3 bg-red-50 text-red-600 text-xs rounded-xl font-medium border border-red-100 flex items-center gap-2">
-                <AlertCircle size={14} className="shrink-0" />
-                <span>{createShopError}</span>
+            {/* Quick Actions Bar */}
+            {selectedShop && (
+              <div className="flex items-center justify-between gap-1 px-1 pt-1">
+                <button
+                  onClick={() => setIsCreatingShop(true)}
+                  className="flex-1 py-1.5 bg-[#141417] hover:bg-zinc-800 border border-zinc-800 text-[11px] font-mono text-zinc-300 rounded-lg transition-colors flex items-center justify-center gap-1"
+                >
+                  <Plus size={12} /> Заведение
+                </button>
+                <button
+                  onClick={() => handleOpenSettings(selectedShop)}
+                  className="p-1.5 bg-[#141417] hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white rounded-lg transition-colors"
+                  title="Настройки заведения"
+                >
+                  <Settings size={13} />
+                </button>
+                <a
+                  href={`/${selectedShop.slug}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-1.5 bg-[#141417] hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white rounded-lg transition-colors"
+                  title="Открыть витрину"
+                >
+                  <ExternalLink size={13} />
+                </a>
               </div>
             )}
+          </div>
 
-            <form onSubmit={handleCreateShop} className="space-y-4">
+          {/* Navigation Items */}
+          <nav className="space-y-1 font-mono text-xs">
+            {[
+              { id: "services", label: "Меню и услуги", icon: Layers, badge: selectedShop?.services.length },
+              { id: "orders", label: "Заказы", icon: ShoppingBag, badge: orders.filter(o => o.status === "PENDING").length, alert: orders.filter(o => o.status === "PENDING").length > 0 },
+              { id: "promocodes", label: "Промокоды", icon: Tag, badge: promocodes.length },
+              { id: "reviews", label: "Отзывы", icon: Star, badge: reviews.length },
+              { id: "banners", label: "Баннеры", icon: ImageIcon, badge: banners.length },
+              { id: "broadcasts", label: "Рассылки", icon: Send, badge: broadcasts.length },
+              { id: "customers", label: "Клиенты CRM", icon: Users, badge: customers.length },
+              { id: "analytics", label: "Аналитика", icon: BarChart3 },
+              { id: "botsim", label: "Симулятор бота", icon: Smartphone }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id as any);
+                    setIsSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
+                    isActive 
+                      ? "bg-white text-black font-bold shadow-md shadow-white/5" 
+                      : "text-zinc-400 hover:text-white hover:bg-[#141417]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Icon size={15} className={isActive ? "text-black" : "text-zinc-400"} />
+                    <span>{tab.label}</span>
+                  </div>
+                  {tab.badge !== undefined && tab.badge > 0 && (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      tab.alert ? "bg-rose-500 text-white animate-pulse" : isActive ? "bg-black/10 text-black" : "bg-zinc-800 text-zinc-300"
+                    }`}>
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Bottom Sidebar Footer */}
+        <div className="space-y-3 pt-4 border-t border-zinc-800/60 font-mono text-xs">
+          <div className="flex items-center justify-between px-1 gap-1">
+            <button
+              onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+              className="p-2 bg-[#141417] hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors"
+              title={isAudioEnabled ? "Отключить звук уведомлений" : "Включить звук уведомлений"}
+            >
+              {isAudioEnabled ? <Volume2 size={14} className="text-emerald-400" /> : <VolumeX size={14} />}
+            </button>
+            <button
+              onClick={() => setIsQrModalOpen(true)}
+              className="p-2 bg-[#141417] hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors"
+              title="Генератор QR-кодов"
+            >
+              <QrCode size={14} />
+            </button>
+            <button
+              onClick={() => setIsPlanModalOpen(true)}
+              className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 border border-white/10 text-white rounded-xl text-[10px] font-bold uppercase transition-all flex items-center gap-1"
+            >
+              <Crown size={12} className="text-amber-400" />
+              <span>{user?.plan || "БЕСПЛАТНЫЙ"}</span>
+            </button>
+          </div>
+
+          <div className="p-3 bg-[#121215] border border-zinc-800 rounded-2xl flex items-center justify-between">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-xl bg-zinc-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {user?.email ? user.email.charAt(0).toUpperCase() : "А"}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-white truncate">{user?.email || "Администратор"}</p>
+                <p className="text-[10px] text-zinc-500 truncate">{token ? "Авторизован" : "Локальный сеанс"}</p>
+              </div>
+            </div>
+            {token ? (
+              <button onClick={logout} className="p-1.5 text-zinc-400 hover:text-rose-400 transition-colors" title="Выйти">
+                <LogOut size={14} />
+              </button>
+            ) : (
+              <button onClick={() => setIsAuthModalOpen(true)} className="p-1.5 text-zinc-400 hover:text-white transition-colors" title="Войти">
+                <LogIn size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Workspace */}
+      <main className="flex-1 min-w-0 flex flex-col min-h-screen">
+        {/* Workspace Top Bar Header */}
+        <header className="h-16 border-b border-zinc-800/80 px-6 flex items-center justify-between gap-4 bg-[#09090b]/80 backdrop-blur-md sticky top-0 z-30">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-500 font-mono">Заведение /</span>
+              <h2 className="text-sm font-semibold tracking-tight text-white font-mono">
+                {activeTab === "services" && "Меню и услуги"}
+                {activeTab === "orders" && "Заказы"}
+                {activeTab === "promocodes" && "Промокоды"}
+                {activeTab === "reviews" && "Отзывы"}
+                {activeTab === "banners" && "Баннеры"}
+                {activeTab === "broadcasts" && "Рассылки"}
+                {activeTab === "customers" && "Клиенты CRM"}
+                {activeTab === "analytics" && "Аналитика"}
+                {activeTab === "botsim" && "Симулятор бота"}
+              </h2>
+            </div>
+            <p className="text-[11px] text-zinc-400 font-sans">
+              Управление заведением {selectedShop?.name || ""}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+
+            {activeTab === "services" && (
+              <button
+                onClick={() => setIsAddingService(true)}
+                className="px-3.5 py-2 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-all flex items-center gap-1.5 shadow-md shadow-white/5"
+              >
+                <Plus size={14} /> Добавить услугу
+              </button>
+            )}
+
+            {activeTab === "orders" && (
+              <button
+                onClick={exportOrdersToCsv}
+                className="px-3.5 py-2 bg-[#141417] hover:bg-zinc-800 border border-zinc-800 text-white font-mono text-xs rounded-xl transition-all flex items-center gap-1.5"
+              >
+                <FileSpreadsheet size={14} /> Экспорт CSV
+              </button>
+            )}
+
+            {activeTab === "promocodes" && (
+              <button
+                onClick={() => setIsCreatingPromo(true)}
+                className="px-3.5 py-2 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-all flex items-center gap-1.5"
+              >
+                <Plus size={14} /> Новый промокод
+              </button>
+            )}
+
+            {activeTab === "banners" && (
+              <button
+                onClick={() => setIsCreatingBanner(true)}
+                className="px-3.5 py-2 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-all flex items-center gap-1.5"
+              >
+                <Plus size={14} /> Новый баннер
+              </button>
+            )}
+
+            {activeTab === "broadcasts" && (
+              <button
+                onClick={() => setIsCreatingBroadcast(true)}
+                className="px-3.5 py-2 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-all flex items-center gap-1.5"
+              >
+                <Plus size={14} /> Новая рассылка
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* Tab Views Content Container */}
+        <div className="p-6 flex-1 space-y-6">
+          {!selectedShop && !loading && (
+            <div className="py-20 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-3xl p-8 space-y-4 max-w-md mx-auto">
+              <Store size={36} className="mx-auto text-zinc-500" />
+              <h3 className="text-base font-semibold text-white">Заведение не создано</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Создайте свое первое заведение в Telegram Mini App, чтобы начать управлять каталогом, заказами и акциями.
+              </p>
+              <button
+                onClick={() => setIsCreatingShop(true)}
+                className="px-5 py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-colors uppercase tracking-wider"
+              >
+                + Создать заведение
+              </button>
+            </div>
+          )}
+
+          {selectedShop && (
+            <>
+              {/* TAB 1: SERVICES / MENU */}
+              {activeTab === "services" && (
+                <div className="space-y-6">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-[#121215] p-3 rounded-2xl border border-zinc-800">
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+                      <button
+                        onClick={() => setSelectedCategoryFilter("ALL")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all ${
+                          selectedCategoryFilter === "ALL" ? "bg-white text-black font-bold" : "text-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        ВСЕ
+                      </button>
+                      {categories.map(cat => (
+                        <button
+                          key={cat}
+                          onClick={() => setSelectedCategoryFilter(cat)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all ${
+                            selectedCategoryFilter === cat ? "bg-white text-black font-bold" : "text-zinc-400 hover:text-white"
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="relative w-full sm:w-64">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                      <input
+                        type="text"
+                        value={serviceSearchQuery}
+                        onChange={e => setServiceSearchQuery(e.target.value)}
+                        placeholder="Поиск по меню..."
+                        className="w-full bg-[#18181c] border border-zinc-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-600"
+                      />
+                    </div>
+                  </div>
+
+                  {filteredServices.length === 0 ? (
+                    <div className="py-16 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
+                      <p className="text-xs text-zinc-400 font-mono">В меню пока нет позиций.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredServices.map(service => (
+                        <div
+                          key={service.id}
+                          className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+                            service.isAvailable === false ? "bg-[#121215]/50 border-zinc-800/40 opacity-60" : "bg-[#121215] border-zinc-800 hover:border-zinc-700"
+                          }`}
+                        >
+                          <div className="space-y-2 mb-4">
+                            <div className="flex justify-between items-start gap-2">
+                              <h3 className="text-sm font-semibold text-white">{service.title}</h3>
+                              <span className="text-xs font-mono font-bold text-white px-2 py-0.5 rounded-md bg-white/5 border border-white/10">
+                                {service.price} ₽
+                              </span>
+                            </div>
+                            {service.description && (
+                              <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">{service.description}</p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80">
+                            <button
+                              onClick={() => handleToggleServiceAvailability(service.id, service.isAvailable)}
+                              className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border transition-all ${
+                                service.isAvailable !== false
+                                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                  : "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                              }`}
+                            >
+                              {service.isAvailable !== false ? "В наличии" : "Отключено"}
+                            </button>
+
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleOpenEditService(service)}
+                                className="p-1.5 bg-[#18181c] hover:bg-zinc-800 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                                title="Редактировать"
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteService(service.id)}
+                                className="p-1.5 bg-[#18181c] hover:bg-rose-900/30 border border-zinc-800 hover:border-rose-800 text-zinc-400 hover:text-rose-400 rounded-lg transition-colors"
+                                title="Удалить"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 2: LIVE ORDERS */}
+              {activeTab === "orders" && (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-none bg-[#121215] p-3 rounded-2xl border border-zinc-800">
+                    {[
+                      { key: "ALL", label: "ВСЕ" },
+                      { key: "PENDING", label: "ОЖИДАЕТ" },
+                      { key: "CONFIRMED", label: "ПОДТВЕРЖДЕН" },
+                      { key: "COMPLETED", label: "ВЫПОЛНЕН" },
+                      { key: "CANCELLED", label: "ОТМЕНЕН" }
+                    ].map(statusObj => (
+                      <button
+                        key={statusObj.key}
+                        onClick={() => setOrderStatusFilter(statusObj.key)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all ${
+                          orderStatusFilter === statusObj.key ? "bg-white text-black font-bold" : "text-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        {statusObj.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {filteredOrders.length === 0 ? (
+                    <div className="py-20 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
+                      <ShoppingBag size={28} className="mx-auto text-zinc-600 mb-2" />
+                      <p className="text-xs text-zinc-400 font-mono">Заказов не найдено.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredOrders.map(order => {
+                        let parsedItems: OrderItem[] = [];
+                        try {
+                          parsedItems = JSON.parse(order.items);
+                        } catch (e) {}
+
+                        return (
+                          <div key={order.id} className="p-5 rounded-2xl bg-[#121215] border border-zinc-800 space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800/80 pb-3 font-mono text-xs">
+                              <div className="flex items-center gap-3">
+                                <span className="text-white font-bold">#{order.id.slice(-6)}</span>
+                                <span className="text-zinc-400">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                {order.tableNumber && (
+                                  <span className="px-2 py-0.5 bg-zinc-800 text-zinc-300 rounded font-bold">
+                                    Столик {order.tableNumber}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {[
+                                  { key: "PENDING", label: "Ожидает" },
+                                  { key: "CONFIRMED", label: "Принят" },
+                                  { key: "COMPLETED", label: "Готов" },
+                                  { key: "CANCELLED", label: "Отменен" }
+                                ].map(st => (
+                                  <button
+                                    key={st.key}
+                                    onClick={() => handleUpdateOrderStatus(order.id, st.key as any)}
+                                    className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all ${
+                                      order.status === st.key 
+                                        ? st.key === 'COMPLETED' ? 'bg-emerald-500 text-black' :
+                                          st.key === 'CONFIRMED' ? 'bg-amber-500 text-black' :
+                                          st.key === 'CANCELLED' ? 'bg-rose-500 text-white' : 'bg-white text-black'
+                                        : 'bg-[#18181c] text-zinc-400 hover:text-white border border-zinc-800'
+                                    }`}
+                                  >
+                                    {st.label}
+                                  </button>
+                                ))}
+                                <button onClick={() => handleDeleteOrder(order.id)} className="p-1 text-zinc-500 hover:text-rose-400">
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="md:col-span-2 space-y-2">
+                                <p className="text-[10px] font-mono uppercase text-zinc-500">Позиции заказа</p>
+                                <div className="space-y-1">
+                                  {Array.isArray(parsedItems) && parsedItems.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between items-center text-xs text-zinc-300 font-mono">
+                                      <span>{item.quantity}× {item.title}</span>
+                                      <span className="text-zinc-400">{(item.price || 0) * item.quantity} ₽</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {order.note && (
+                                  <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl mt-2">
+                                    Примечание: {order.note}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="bg-[#18181c] p-3 rounded-xl border border-zinc-800 space-y-1 text-xs">
+                                <p className="text-[10px] font-mono uppercase text-zinc-500">Данные клиента</p>
+                                <p className="font-semibold text-white">{order.customerName}</p>
+                                <p className="font-mono text-zinc-400">{order.customerPhone}</p>
+                                <div className="pt-2 border-t border-zinc-800 flex justify-between font-mono font-bold text-white text-sm">
+                                  <span>Итого</span>
+                                  <span>{order.totalPrice} ₽</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 3: PROMOCODES */}
+              {activeTab === "promocodes" && (
+                <div className="space-y-6">
+                  {promocodes.length === 0 ? (
+                    <div className="py-16 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
+                      <Tag size={28} className="mx-auto text-zinc-600 mb-2" />
+                      <p className="text-xs text-zinc-400 font-mono">Нет активных промокодов.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {promocodes.map(promo => (
+                        <div key={promo.id} className="p-5 rounded-2xl bg-[#121215] border border-zinc-800 flex justify-between items-start">
+                          <div className="space-y-2">
+                            <span className="px-2.5 py-1 bg-white text-black font-mono font-bold text-xs rounded-lg uppercase">
+                              {promo.code}
+                            </span>
+                            <p className="text-xs text-zinc-300 font-mono">
+                              Скидка: {promo.discountPercent > 0 ? `${promo.discountPercent}%` : `${promo.discountAmount} ₽`}
+                            </p>
+                            <p className="text-[11px] text-zinc-500 font-mono">
+                              Использован: {promo.usedCount} раз {promo.usageLimit ? `/ лимит ${promo.usageLimit}` : ''}
+                            </p>
+                          </div>
+                          <button onClick={() => handleDeletePromocode(promo.id)} className="p-1.5 text-zinc-500 hover:text-rose-400">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 4: REVIEWS */}
+              {activeTab === "reviews" && (
+                <div className="space-y-4">
+                  {reviews.length === 0 ? (
+                    <div className="py-16 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
+                      <p className="text-xs text-zinc-400 font-mono">Отзывов пока нет.</p>
+                    </div>
+                  ) : (
+                    reviews.map(rev => (
+                      <div key={rev.id} className="p-5 rounded-2xl bg-[#121215] border border-zinc-800 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-xs text-white">{rev.customerName}</span>
+                            <span className="text-xs text-amber-400 font-mono">★ {rev.rating}</span>
+                          </div>
+                          <span className="text-[10px] text-zinc-500 font-mono">
+                            {new Date(rev.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        {rev.comment && <p className="text-xs text-zinc-300 leading-relaxed">{rev.comment}</p>}
+                        {rev.reply ? (
+                          <div className="p-3 bg-[#18181c] rounded-xl border border-zinc-800 text-xs">
+                            <p className="text-[10px] text-zinc-500 font-mono uppercase mb-1">Ваш ответ</p>
+                            <p className="text-zinc-300">{rev.reply}</p>
+                          </div>
+                        ) : replyingReviewId === rev.id ? (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={replyText}
+                              onChange={e => setReplyText(e.target.value)}
+                              placeholder="Напишите ответ..."
+                              className="flex-1 bg-[#18181c] border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
+                            />
+                            <button onClick={() => handleReplyReview(rev.id)} className="px-3 py-1.5 bg-white text-black font-mono text-xs font-bold rounded-xl">
+                              Отправить
+                            </button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setReplyingReviewId(rev.id)} className="text-xs text-zinc-400 hover:text-white font-mono underline">
+                            + Ответить на отзыв
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* TAB 5: BANNERS */}
+              {activeTab === "banners" && (
+                <div className="space-y-6">
+                  {banners.length === 0 ? (
+                    <div className="py-16 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
+                      <p className="text-xs text-zinc-400 font-mono">Рекламные баннеры не настроены.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {banners.map(banner => (
+                        <div key={banner.id} className="p-6 rounded-2xl bg-gradient-to-br from-[#18181c] to-[#121215] border border-zinc-800 space-y-3 relative">
+                          <button onClick={() => handleDeleteBanner(banner.id)} className="absolute top-4 right-4 p-1.5 text-zinc-500 hover:text-rose-400">
+                            <Trash2 size={14} />
+                          </button>
+                          {banner.badge && (
+                            <span className="px-2.5 py-0.5 bg-white/10 text-white font-mono text-[10px] rounded-full uppercase">
+                              {banner.badge}
+                            </span>
+                          )}
+                          <h3 className="text-base font-bold text-white">{banner.title}</h3>
+                          {banner.subtitle && <p className="text-xs text-zinc-400">{banner.subtitle}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 6: BROADCASTS */}
+              {activeTab === "broadcasts" && (
+                <div className="space-y-4">
+                  {broadcasts.length === 0 ? (
+                    <div className="py-16 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
+                      <p className="text-xs text-zinc-400 font-mono">Рассылок пока не отправлялось.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {broadcasts.map(bc => {
+                        const targetLabels: Record<string, string> = {
+                          ALL: "Все клиенты",
+                          ACTIVE: "Активные",
+                          INACTIVE: "Спящие",
+                          NEW: "Новые",
+                          VIP: "VIP клиенты",
+                          BONUS_HOLDERS: "С бонусами"
+                        };
+                        return (
+                          <div key={bc.id} className="p-5 rounded-2xl bg-[#121215] border border-zinc-800 flex flex-col justify-between space-y-4">
+                            <div className="space-y-3">
+                              {/* Header row */}
+                              <div className="flex justify-between items-start">
+                                <div className="space-y-1">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-mono rounded-md font-semibold">
+                                      ✅ ОТПРАВЛЕНО
+                                    </span>
+                                    <span className="px-2 py-0.5 bg-zinc-800 text-zinc-300 text-[9px] font-mono rounded-md">
+                                      🎯 {targetLabels[bc.targetFilter] || bc.targetFilter || "Все клиенты"}
+                                    </span>
+                                  </div>
+                                  <h3 className="text-sm font-bold text-white font-mono pt-1">{bc.title}</h3>
+                                </div>
+                                <button onClick={() => handleDeleteBroadcast(bc.id)} className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/5 rounded-lg transition-colors">
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+
+                              {/* Image preset if exists */}
+                              {bc.imageUrl && (
+                                <div className="rounded-xl overflow-hidden h-24 bg-zinc-950 border border-zinc-900">
+                                  <img src={bc.imageUrl} alt={bc.title} className="w-full h-full object-cover opacity-85" />
+                                </div>
+                              )}
+
+                              <p className="text-xs text-zinc-300 leading-relaxed font-sans line-clamp-3">{bc.message}</p>
+                            </div>
+
+                            {/* Footer stats / buttons */}
+                            <div className="pt-3 border-t border-zinc-800/60 flex items-center justify-between text-[10px] font-mono text-zinc-400">
+                              <div>
+                                Получателей: <span className="text-white font-bold">{bc.sentCount || 1}</span>
+                              </div>
+                              {bc.buttonText && (
+                                <div className="px-2 py-1 bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-lg text-[9px]">
+                                  Button: {bc.buttonText}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 7: CRM CUSTOMERS */}
+              {activeTab === "customers" && (
+                <div className="space-y-4">
+                  {customers.length === 0 ? (
+                    <div className="py-16 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
+                      <p className="text-xs text-zinc-400 font-mono">Клиенты пока не зарегистрированы.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-[#121215]">
+                      <table className="w-full text-left font-mono text-xs">
+                        <thead className="bg-[#18181c] border-b border-zinc-800 text-zinc-400 uppercase text-[10px]">
+                          <tr>
+                            <th className="p-3">Клиент</th>
+                            <th className="p-3">Телефон</th>
+                            <th className="p-3">Заказов</th>
+                            <th className="p-3">Всего потрачено</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-800">
+                          {customers.map(c => (
+                            <tr key={c.id} className="hover:bg-white/5 transition-colors">
+                              <td className="p-3 text-white font-semibold">{c.name || "Клиент"}</td>
+                              <td className="p-3 text-zinc-400">{c.phone}</td>
+                              <td className="p-3 text-white">{c.ordersCount || 1}</td>
+                              <td className="p-3 text-emerald-400 font-bold">{c.totalSpent || 0} ₽</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 8: ANALYTICS */}
+              {activeTab === "analytics" && (
+                <AnalyticsTab shopId={selectedShop.id} />
+              )}
+
+              {/* TAB 9: TELEGRAM BOT SIMULATOR */}
+              {activeTab === "botsim" && (
+                <div className="max-w-md mx-auto p-4 rounded-3xl bg-[#121215] border border-zinc-800 shadow-2xl space-y-4 font-sans">
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                      <span className="text-xs font-semibold text-white font-mono">{selectedShop.name} Бот</span>
+                    </div>
+                    <span className="text-[10px] text-zinc-500 font-mono">Telegram Симулятор</span>
+                  </div>
+
+                  <div className="h-80 overflow-y-auto space-y-3 p-2 font-sans">
+                    {botSimMessages.map((msg, idx) => (
+                      <div key={idx} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                        <div className={`p-3 rounded-2xl max-w-[80%] text-xs ${msg.sender === 'user' ? 'bg-white text-black' : 'bg-[#18181c] text-white border border-zinc-800'}`}>
+                          <p>{msg.text}</p>
+                          {msg.button && (
+                            <a
+                              href={`/${selectedShop.slug}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 block w-full py-2 bg-white text-black text-center rounded-xl font-mono text-xs font-bold hover:bg-zinc-200 transition-colors"
+                            >
+                              {msg.button}
+                            </a>
+                          )}
+                        </div>
+                        <span className="text-[9px] text-zinc-600 font-mono mt-1">{msg.time}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2 border-t border-zinc-800 pt-3">
+                    <input
+                      type="text"
+                      value={botSimInput}
+                      onChange={e => setBotSimInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleSendBotSimMessage(botSimInput)}
+                      placeholder="Введите /start или сообщение..."
+                      className="flex-1 bg-[#18181c] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                    />
+                    <button onClick={() => handleSendBotSimMessage(botSimInput)} className="px-3 py-2 bg-white text-black rounded-xl font-mono text-xs font-bold">
+                      Отправить
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </main>
+
+      {/* DRAWERS & MODALS */}
+
+      {/* Auth Modal */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="max-w-sm w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-semibold tracking-tight uppercase font-mono">
+                {authMode === "login" ? "Вход в аккаунт" : "Регистрация"}
+              </h3>
+              <button onClick={() => setIsAuthModalOpen(false)} className="text-zinc-500 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+            {authError && <p className="text-xs text-rose-400 font-mono">{authError}</p>}
+            <form onSubmit={handleAuthSubmit} className="space-y-3 font-sans">
+              {authMode === "register" && (
+                <input
+                  type="text"
+                  value={authName}
+                  onChange={e => setAuthName(e.target.value)}
+                  placeholder="ФИО / Имя"
+                  className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                />
+              )}
+              <input
+                type="email"
+                value={authEmail}
+                onChange={e => setAuthEmail(e.target.value)}
+                placeholder="Электронная почта"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+              />
+              <input
+                type="password"
+                value={authPassword}
+                onChange={e => setAuthPassword(e.target.value)}
+                placeholder="Пароль"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+              />
+              <button type="submit" disabled={isSubmittingAuth} className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+                {isSubmittingAuth ? "Загрузка..." : authMode === "login" ? "Войти" : "Зарегистрироваться"}
+              </button>
+            </form>
+            <div className="text-center pt-2">
+              <button
+                onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
+                className="text-xs text-zinc-400 hover:text-white font-mono underline"
+              >
+                {authMode === "login" ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Shop Modal */}
+      {isCreatingShop && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+              <h3 className="text-sm font-semibold tracking-tight font-mono">Создать заведение</h3>
+              <button onClick={() => setIsCreatingShop(false)} className="text-zinc-500 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+            {createShopError && <p className="text-xs text-rose-400 font-mono">{createShopError}</p>}
+            <form onSubmit={handleCreateShop} className="space-y-3 font-sans">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Название заведения <span className="text-red-500">*</span>
-                </label>
                 <input
                   type="text"
                   value={newShopData.name}
-                  onChange={(e) => {
-                    const name = e.target.value;
-                    const generatedSlug = name.toLowerCase().trim().replace(/[^a-zA-Z0-9-а-яА-Я]/g, "-").replace(/--+/g, "-");
-                    setNewShopData((prev) => ({
-                      ...prev,
-                      name,
-                      slug: prev.slug === "" ? generatedSlug : prev.slug
-                    }));
-                    if (createShopFieldErrors.name) setCreateShopFieldErrors(prev => ({ ...prev, name: undefined }));
-                  }}
-                  placeholder="Кофейня «Зерно»"
-                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border transition-all focus:outline-none ${
-                    createShopFieldErrors.name 
-                      ? "border-red-300 focus:border-red-500" 
-                      : "border-slate-200 focus:border-slate-900 focus:bg-white"
-                  }`}
+                  onChange={e => setNewShopData(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Название заведения *"
+                  className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
                 />
-                {createShopFieldErrors.name && (
-                  <p className="text-[11px] text-red-500 mt-1 font-medium">{createShopFieldErrors.name}</p>
-                )}
+                {createShopFieldErrors.name && <p className="text-[11px] text-rose-400 mt-1 font-mono">{createShopFieldErrors.name}</p>}
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  URL / Slug магазина <span className="text-red-500">*</span>
-                </label>
-                <div className={`flex items-center rounded-xl bg-slate-50 border overflow-hidden px-3 py-2 transition-all ${
-                  createShopFieldErrors.slug ? "border-red-300" : "border-slate-200"
-                }`}>
-                  <span className="text-xs text-slate-400 mr-1 font-mono">/</span>
-                  <input
-                    type="text"
-                    value={newShopData.slug}
-                    onChange={(e) => {
-                      setNewShopData((prev) => ({ ...prev, slug: e.target.value }));
-                      if (createShopFieldErrors.slug) setCreateShopFieldErrors(prev => ({ ...prev, slug: undefined }));
-                    }}
-                    placeholder="coffee-zerno"
-                    className="w-full bg-transparent text-xs focus:outline-none font-mono text-slate-900"
-                  />
-                </div>
-                {createShopFieldErrors.slug && (
-                  <p className="text-[11px] text-red-500 mt-1 font-medium">{createShopFieldErrors.slug}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Описание
-                </label>
-                <textarea
-                  rows={2}
-                  value={newShopData.description}
-                  onChange={(e) => {
-                    setNewShopData((prev) => ({ ...prev, description: e.target.value }));
-                    if (createShopFieldErrors.description) setCreateShopFieldErrors(prev => ({ ...prev, description: undefined }));
-                  }}
-                  placeholder="Краткое описание для ваших клиентов"
-                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border transition-all focus:outline-none ${
-                    createShopFieldErrors.description ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
-                  }`}
+                <input
+                  type="text"
+                  value={newShopData.slug}
+                  onChange={e => setNewShopData(p => ({ ...p, slug: e.target.value }))}
+                  placeholder="URL-слаг (напр. coffee-bar) *"
+                  className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
                 />
-                {createShopFieldErrors.description && (
-                  <p className="text-[11px] text-red-500 mt-1 font-medium">{createShopFieldErrors.description}</p>
-                )}
+                {createShopFieldErrors.slug && <p className="text-[11px] text-rose-400 mt-1 font-mono">{createShopFieldErrors.slug}</p>}
               </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingShop(false)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs"
-                >
-                  Создать
-                </button>
-              </div>
+              <textarea
+                rows={2}
+                value={newShopData.description}
+                onChange={e => setNewShopData(p => ({ ...p, description: e.target.value }))}
+                placeholder="Описание заведения..."
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
+              />
+              <button type="submit" className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+                Создать заведение
+              </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Модалка добавления услуги */}
-      {isAddingService && selectedShop && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200/80 w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 space-y-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Новая услуга / товар</h3>
-              <button
-                type="button"
-                onClick={() => setIsAddingService(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold p-1"
-              >
-                ✕
+      {/* Add Service Modal */}
+      {isAddingService && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+              <h3 className="text-sm font-semibold font-mono">Новая услуга / позиция</h3>
+              <button onClick={() => setIsAddingService(false)} className="text-zinc-500 hover:text-white">
+                <X size={18} />
               </button>
             </div>
-
-            {serviceError && (
-              <div className="p-3 bg-red-50 text-red-600 text-xs rounded-xl font-medium border border-red-100 flex items-center gap-2">
-                <AlertCircle size={14} className="shrink-0" />
-                <span>{serviceError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleAddService} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Название <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newServiceData.title}
-                  onChange={(e) => {
-                    setNewServiceData((prev) => ({ ...prev, title: e.target.value }));
-                    if (serviceFieldErrors.title) setServiceFieldErrors(prev => ({ ...prev, title: undefined }));
-                  }}
-                  placeholder="Капучино 300мл"
-                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border transition-all focus:outline-none ${
-                    serviceFieldErrors.title ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
-                  }`}
-                />
-                {serviceFieldErrors.title && (
-                  <p className="text-[11px] text-red-500 mt-1 font-medium">{serviceFieldErrors.title}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Стоимость (рубли) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={newServiceData.price}
-                  onChange={(e) => {
-                    setNewServiceData((prev) => ({ ...prev, price: e.target.value }));
-                    if (serviceFieldErrors.price) setServiceFieldErrors(prev => ({ ...prev, price: undefined }));
-                  }}
-                  placeholder="250"
-                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border transition-all focus:outline-none font-mono ${
-                    serviceFieldErrors.price ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
-                  }`}
-                />
-                {serviceFieldErrors.price && (
-                  <p className="text-[11px] text-red-500 mt-1 font-medium">{serviceFieldErrors.price}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Категория (опционально)
-                </label>
-                <input
-                  type="text"
-                  value={newServiceData.category}
-                  onChange={(e) => {
-                    setNewServiceData((prev) => ({ ...prev, category: e.target.value }));
-                  }}
-                  placeholder="Например: Напитки, Десерты, Услуги..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Описание
-                </label>
-                <textarea
-                  rows={2}
-                  value={newServiceData.description}
-                  onChange={(e) => {
-                    setNewServiceData((prev) => ({ ...prev, description: e.target.value }));
-                    if (serviceFieldErrors.description) setServiceFieldErrors(prev => ({ ...prev, description: undefined }));
-                  }}
-                  placeholder="Детали услуги или состав"
-                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border transition-all focus:outline-none ${
-                    serviceFieldErrors.description ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
-                  }`}
-                />
-                {serviceFieldErrors.description && (
-                  <p className="text-[11px] text-red-500 mt-1 font-medium">{serviceFieldErrors.description}</p>
-                )}
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddingService(false)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs"
-                >
-                  Сохранить
-                </button>
-              </div>
+            {serviceError && <p className="text-xs text-rose-400 font-mono">{serviceError}</p>}
+            <form onSubmit={handleAddService} className="space-y-3 font-sans">
+              <input
+                type="text"
+                value={newServiceData.title}
+                onChange={e => setNewServiceData(p => ({ ...p, title: e.target.value }))}
+                placeholder="Название *"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+              />
+              <input
+                type="number"
+                value={newServiceData.price}
+                onChange={e => setNewServiceData(p => ({ ...p, price: e.target.value }))}
+                placeholder="Цена (₽) *"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+              />
+              <input
+                type="text"
+                value={newServiceData.category}
+                onChange={e => setNewServiceData(p => ({ ...p, category: e.target.value }))}
+                placeholder="Категория (напр. Кофе, Десерты)"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+              />
+              <textarea
+                rows={2}
+                value={newServiceData.description}
+                onChange={e => setNewServiceData(p => ({ ...p, description: e.target.value }))}
+                placeholder="Описание..."
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
+              />
+              <button type="submit" className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+                Сохранить позицию
+              </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Модалка редактирования услуги */}
+      {/* Edit Service Modal */}
       {editingService && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200/80 w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 space-y-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Редактирование услуги</h3>
-              <button
-                type="button"
-                onClick={() => setEditingService(null)}
-                className="text-slate-400 hover:text-slate-600 font-bold p-1"
-              >
-                ✕
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+              <h3 className="text-sm font-semibold font-mono">Редактирование услуги</h3>
+              <button onClick={() => setEditingService(null)} className="text-zinc-500 hover:text-white">
+                <X size={18} />
               </button>
             </div>
-
-            {editServiceError && (
-              <div className="p-3 bg-red-50 text-red-600 text-xs rounded-xl font-medium border border-red-100 flex items-center gap-2">
-                <AlertCircle size={14} className="shrink-0" />
-                <span>{editServiceError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveEditService} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Название <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={editServiceData.title}
-                  onChange={(e) => {
-                    setEditServiceData((prev) => ({ ...prev, title: e.target.value }));
-                    if (editServiceFieldErrors.title) setEditServiceFieldErrors(prev => ({ ...prev, title: undefined }));
-                  }}
-                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border transition-all focus:outline-none ${
-                    editServiceFieldErrors.title ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
-                  }`}
-                />
-                {editServiceFieldErrors.title && (
-                  <p className="text-[11px] text-red-500 mt-1 font-medium">{editServiceFieldErrors.title}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Стоимость (рубли) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={editServiceData.price}
-                  onChange={(e) => {
-                    setEditServiceData((prev) => ({ ...prev, price: e.target.value }));
-                    if (editServiceFieldErrors.price) setEditServiceFieldErrors(prev => ({ ...prev, price: undefined }));
-                  }}
-                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border transition-all focus:outline-none font-mono ${
-                    editServiceFieldErrors.price ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
-                  }`}
-                />
-                {editServiceFieldErrors.price && (
-                  <p className="text-[11px] text-red-500 mt-1 font-medium">{editServiceFieldErrors.price}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Категория
-                </label>
-                <input
-                  type="text"
-                  value={editServiceData.category}
-                  onChange={(e) => {
-                    setEditServiceData((prev) => ({ ...prev, category: e.target.value }));
-                  }}
-                  placeholder="Например: Напитки, Десерты..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Описание
-                </label>
-                <textarea
-                  rows={2}
-                  value={editServiceData.description}
-                  onChange={(e) => {
-                    setEditServiceData((prev) => ({ ...prev, description: e.target.value }));
-                  }}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingService(null)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingEditService}
-                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs disabled:opacity-50"
-                >
-                  {isSavingEditService ? "Сохранение..." : "Сохранить"}
-                </button>
-              </div>
+            {editServiceError && <p className="text-xs text-rose-400 font-mono">{editServiceError}</p>}
+            <form onSubmit={handleSaveEditService} className="space-y-3 font-sans">
+              <input
+                type="text"
+                value={editServiceData.title}
+                onChange={e => setEditServiceData(p => ({ ...p, title: e.target.value }))}
+                placeholder="Название *"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+              />
+              <input
+                type="number"
+                value={editServiceData.price}
+                onChange={e => setEditServiceData(p => ({ ...p, price: e.target.value }))}
+                placeholder="Цена (₽) *"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+              />
+              <input
+                type="text"
+                value={editServiceData.category}
+                onChange={e => setEditServiceData(p => ({ ...p, category: e.target.value }))}
+                placeholder="Категория"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+              />
+              <textarea
+                rows={2}
+                value={editServiceData.description}
+                onChange={e => setEditServiceData(p => ({ ...p, description: e.target.value }))}
+                placeholder="Описание..."
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
+              />
+              <button type="submit" disabled={isSavingEditService} className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+                {isSavingEditService ? "Сохранение..." : "Обновить позицию"}
+              </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Модалка инструкции для Telegram */}
-      {isTgGuideOpen && selectedShop && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200/80 w-full max-w-lg p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">
-                🚀 Подключение «{selectedShop.name}» к Telegram
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsTgGuideOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold p-1"
-              >
-                ✕
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+              <h3 className="text-sm font-semibold font-mono">Настройки заведения</h3>
+              <button onClick={() => setIsSettingsOpen(false)} className="text-zinc-500 hover:text-white">
+                <X size={18} />
               </button>
             </div>
-
-            <div className="space-y-3.5 text-xs">
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
-                <p className="font-bold text-slate-800">1. Откройте @BotFather в Telegram</p>
-                <p className="text-slate-500">Найдите бота <strong>@BotFather</strong> и введите команду <code>/mybots</code> (выберите вашего бота).</p>
+            {settingsError && <p className="text-xs text-rose-400 font-mono">{settingsError}</p>}
+            <form onSubmit={handleSaveSettings} className="space-y-3 font-sans">
+              <input
+                type="text"
+                value={settingsData.name}
+                onChange={e => setSettingsData(p => ({ ...p, name: e.target.value }))}
+                placeholder="Название заведения *"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+              />
+              <input
+                type="text"
+                value={settingsData.botToken}
+                onChange={e => setSettingsData(p => ({ ...p, botToken: e.target.value }))}
+                placeholder="Токен Telegram бота"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+              />
+              <input
+                type="text"
+                value={settingsData.adminChatId}
+                onChange={e => setSettingsData(p => ({ ...p, adminChatId: e.target.value }))}
+                placeholder="ID чата администратора"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+              />
+              <input
+                type="text"
+                value={settingsData.workingHours}
+                onChange={e => setSettingsData(p => ({ ...p, workingHours: e.target.value }))}
+                placeholder="Часы работы (напр. 09:00 - 22:00)"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+              />
+              <input
+                type="text"
+                value={settingsData.address}
+                onChange={e => setSettingsData(p => ({ ...p, address: e.target.value }))}
+                placeholder="Фактический адрес"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+              />
+              <input
+                type="text"
+                value={settingsData.phone}
+                onChange={e => setSettingsData(p => ({ ...p, phone: e.target.value }))}
+                placeholder="Контактный телефон"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+              />
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="isOpenCheck"
+                  checked={settingsData.isOpen}
+                  onChange={e => setSettingsData(p => ({ ...p, isOpen: e.target.checked }))}
+                  className="rounded bg-[#18181c] border-zinc-800 text-white focus:ring-0"
+                />
+                <label htmlFor="isOpenCheck" className="text-xs font-mono text-zinc-300">Заведение открыто для заказов</label>
               </div>
-
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
-                <p className="font-bold text-slate-800">2. Перейдите в настройки Menu Button</p>
-                <p className="text-slate-500">
-                  Выберите бота → <strong>Bot Settings</strong> → <strong>Menu Button</strong> → <strong>Configure menu button</strong>.
-                </p>
-              </div>
-
-              <div className="p-3.5 bg-blue-50/80 rounded-xl border border-blue-100 space-y-2">
-                <p className="font-bold text-blue-900">3. Вставьте URL Mini App:</p>
-                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-blue-200/80 font-mono text-[11px] text-blue-800 break-all">
-                  <span>{`${window.location.origin}/${selectedShop.slug}`}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => copyShopUrl(selectedShop.slug)}
-                  className="w-full py-2 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition-colors text-xs flex items-center justify-center gap-1.5"
-                >
-                  <Copy size={14} />
-                  <span>{copiedSlug === selectedShop.slug ? "Скопировано!" : "Скопировать WebApp URL"}</span>
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsTgGuideOpen(false)}
-              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl transition-colors"
-            >
-              Закрыть
-            </button>
+              <button type="submit" disabled={isSavingSettings} className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+                {isSavingSettings ? "Сохранение..." : "Сохранить настройки"}
+              </button>
+            </form>
           </div>
         </div>
       )}
 
-      {/* Модалка настроек и редактирования заведения */}
-      {isSettingsOpen && selectedShop && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200/80 w-full max-w-lg p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-slate-900 text-white rounded-xl">
-                  <Edit3 size={18} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Редактирование заведения</h3>
-                  <p className="text-[11px] text-slate-500">График, адрес, статус и интеграция с Telegram</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsSettingsOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold p-1"
-              >
-                ✕
+      {/* Create Promo Modal */}
+      {isCreatingPromo && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+              <h3 className="text-sm font-semibold font-mono">Создать промокод</h3>
+              <button onClick={() => setIsCreatingPromo(false)} className="text-zinc-500 hover:text-white">
+                <X size={18} />
               </button>
             </div>
+            {promoError && <p className="text-xs text-rose-400 font-mono">{promoError}</p>}
+            <form onSubmit={handleCreatePromocode} className="space-y-3 font-sans">
+              <input
+                type="text"
+                value={newPromoData.code}
+                onChange={e => setNewPromoData(p => ({ ...p, code: e.target.value.toUpperCase() }))}
+                placeholder="ПРОМОКОД (напр. SALE20) *"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono uppercase"
+              />
+              <input
+                type="number"
+                value={newPromoData.discountPercent}
+                onChange={e => setNewPromoData(p => ({ ...p, discountPercent: e.target.value }))}
+                placeholder="Процент скидки (%)"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+              />
+              <input
+                type="number"
+                value={newPromoData.discountAmount}
+                onChange={e => setNewPromoData(p => ({ ...p, discountAmount: e.target.value }))}
+                placeholder="Фиксированная скидка (₽)"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+              />
+              <input
+                type="number"
+                value={newPromoData.usageLimit}
+                onChange={e => setNewPromoData(p => ({ ...p, usageLimit: e.target.value }))}
+                placeholder="Лимит использований (опционально)"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+              />
+              <button type="submit" className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+                Создать промокод
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
-            <form onSubmit={handleUpdateSettings} className="space-y-4">
-              {settingsError && (
-                <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-medium border border-red-100 flex items-center gap-2">
-                  <AlertCircle size={14} className="shrink-0" />
-                  <span>{settingsError}</span>
-                </div>
-              )}
+      {/* Create Banner Modal */}
+      {isCreatingBanner && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+              <h3 className="text-sm font-semibold font-mono">Создать баннер</h3>
+              <button onClick={() => setIsCreatingBanner(false)} className="text-zinc-500 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+            {bannerError && <p className="text-xs text-rose-400 font-mono">{bannerError}</p>}
+            <form onSubmit={handleCreateBanner} className="space-y-3 font-sans">
+              <input
+                type="text"
+                value={newBannerData.title}
+                onChange={e => setNewBannerData(p => ({ ...p, title: e.target.value }))}
+                placeholder="Заголовок *"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+              />
+              <input
+                type="text"
+                value={newBannerData.subtitle}
+                onChange={e => setNewBannerData(p => ({ ...p, subtitle: e.target.value }))}
+                placeholder="Подзаголовок"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+              />
+              <input
+                type="text"
+                value={newBannerData.badge}
+                onChange={e => setNewBannerData(p => ({ ...p, badge: e.target.value }))}
+                placeholder="Текст бейджа (напр. АКЦИЯ, НОВИНКА)"
+                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+              />
+              <button type="submit" className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+                Сохранить баннер
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
-              {/* Переключатель статуса заведения (Открыто / Закрыто) */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+      {/* Create Broadcast Modal */}
+      {isCreatingBroadcast && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="max-w-4xl w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white flex flex-col md:flex-row gap-6 max-h-[90vh] overflow-y-auto">
+            {/* Left Column: Form Settings */}
+            <div className="flex-1 space-y-4">
+              <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
                 <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900">Прием заказов</span>
-                    {settingsData.isOpen ? (
-                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-md">Открыто</span>
-                    ) : (
-                      <span className="px-2 py-0.5 bg-rose-100 text-rose-800 text-[10px] font-bold rounded-md">Временно закрыто</span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-slate-500">Включите или отключите прием новых заказов покупателями</p>
+                  <h3 className="text-sm font-semibold font-mono text-white">Гибкий конструктор рассылки</h3>
+                  <p className="text-[11px] text-zinc-400 font-sans">Настройте таргетинг, шаблоны и интерактивные кнопки</p>
                 </div>
-
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settingsData.isOpen}
-                    onChange={(e) => setSettingsData({ ...settingsData, isOpen: e.target.checked })}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                </label>
+                <button onClick={() => setIsCreatingBroadcast(false)} className="text-zinc-500 hover:text-white md:hidden">
+                  <X size={18} />
+                </button>
               </div>
 
-              {/* Название заведения */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Название заведения <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={settingsData.name}
-                  onChange={(e) => {
-                    setSettingsData({ ...settingsData, name: e.target.value });
-                    if (settingsFieldErrors.name) setSettingsFieldErrors(prev => ({ ...prev, name: undefined }));
-                  }}
-                  placeholder="Ресторан Кофе и Выпечка"
-                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border transition-all focus:outline-none ${
-                    settingsFieldErrors.name ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
-                  }`}
-                />
-              </div>
+              {broadcastError && <p className="text-xs text-rose-400 font-mono bg-rose-500/10 border border-rose-500/20 px-3 py-2 rounded-xl">{broadcastError}</p>}
 
-              {/* Описание заведения */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Описание / Концепция
-                </label>
-                <textarea
-                  rows={2}
-                  value={settingsData.description}
-                  onChange={(e) => setSettingsData({ ...settingsData, description: e.target.value })}
-                  placeholder="Авторская кухня, свежий кофе и уютная атмосфера"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none resize-none"
-                />
-              </div>
-
-              {/* График работы */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  График работы
-                </label>
-                <input
-                  type="text"
-                  value={settingsData.workingHours}
-                  onChange={(e) => setSettingsData({ ...settingsData, workingHours: e.target.value })}
-                  placeholder="Пн-Пт: 08:00 - 22:00, Сб-Вс: 09:00 - 23:00"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none"
-                />
-                <p className="text-[11px] text-slate-400 mt-1">Отображается клиентам в верхней части Mini App</p>
-              </div>
-
-              {/* Адрес и Телефон */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Адрес
-                  </label>
+              <form onSubmit={handleCreateBroadcast} className="space-y-4 font-sans text-xs">
+                {/* Campaign Name */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] text-zinc-400 font-mono uppercase tracking-wider">Заголовок кампании *</label>
                   <input
                     type="text"
-                    value={settingsData.address}
-                    onChange={(e) => setSettingsData({ ...settingsData, address: e.target.value })}
-                    placeholder="г. Москва, ул. Арбат, д. 12"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none"
+                    value={newBroadcastData.title}
+                    onChange={e => setNewBroadcastData(p => ({ ...p, title: e.target.value }))}
+                    placeholder="Например: Спецпредложение для постоянных клиентов! 🔥"
+                    className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-zinc-700"
+                    required
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Контактный телефон
-                  </label>
-                  <input
-                    type="text"
-                    value={settingsData.phone}
-                    onChange={(e) => setSettingsData({ ...settingsData, phone: e.target.value })}
-                    placeholder="+7 (999) 000-00-00"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border border-slate-200 focus:border-slate-900 focus:bg-white transition-all focus:outline-none"
-                  />
+
+                {/* Target Audience selection */}
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] text-zinc-400 font-mono uppercase tracking-wider">Целевая аудитория (Таргетинг)</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {[
+                      { id: "ALL", label: "Все клиенты", desc: "Вся база CRM" },
+                      { id: "ACTIVE", label: "Активные", desc: "Сделали >1 заказа" },
+                      { id: "INACTIVE", label: "Спящие", desc: "0 заказов в CRM" },
+                      { id: "NEW", label: "Новые", desc: "Регистрация <7 дней" },
+                      { id: "VIP", label: "VIP клиенты", desc: "Сумма трат >3000 ₽" },
+                      { id: "BONUS_HOLDERS", label: "С бонусами", desc: "Баланс бонусов >0" },
+                    ].map(target => (
+                      <button
+                        key={target.id}
+                        type="button"
+                        onClick={() => setNewBroadcastData(p => ({ ...p, targetFilter: target.id }))}
+                        className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
+                          newBroadcastData.targetFilter === target.id
+                            ? "bg-white text-black border-white font-bold animate-pulse-subtle"
+                            : "bg-[#18181c] border-zinc-800 text-zinc-300 hover:border-zinc-700"
+                        }`}
+                      >
+                        <span className="font-semibold block text-[11px] font-mono">{target.label}</span>
+                        <span className={`text-[9px] block ${newBroadcastData.targetFilter === target.id ? "text-zinc-600" : "text-zinc-500"}`}>{target.desc}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Разделитель */}
-              <div className="pt-2 border-t border-slate-100">
-                <h4 className="text-xs font-bold text-slate-900 mb-3 flex items-center gap-1.5">
-                  <span>Интеграция с Telegram Ботом</span>
-                </h4>
+                {/* Message Text with variable helpers */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-baseline">
+                    <label className="block text-[11px] text-zinc-400 font-mono uppercase tracking-wider">Текст сообщения *</label>
+                    <span className="text-[10px] text-zinc-500 font-mono">Переменная: {"{name}"}</span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={newBroadcastData.message}
+                    onChange={e => setNewBroadcastData(p => ({ ...p, message: e.target.value }))}
+                    placeholder="Привет, {name}! Мы приготовили для вас специальный бонус..."
+                    className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-zinc-700 resize-none leading-relaxed"
+                    required
+                  />
+                  <p className="text-[10px] text-zinc-500 italic">Используйте {"{name}"}, чтобы автоматически подставить имя клиента при отправке.</p>
+                </div>
 
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Telegram Bot Token
-                    </label>
+                {/* Banner Image link or Presets */}
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] text-zinc-400 font-mono uppercase tracking-wider">Изображение (URL или шаблон)</label>
+                  <div className="flex gap-2">
                     <input
                       type="text"
-                      value={settingsData.botToken}
-                      onChange={(e) => {
-                        setSettingsData({ ...settingsData, botToken: e.target.value });
-                        if (settingsFieldErrors.botToken) setSettingsFieldErrors(prev => ({ ...prev, botToken: undefined }));
-                      }}
-                      placeholder="123456789:AAH..."
-                      className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border font-mono transition-all focus:outline-none ${
-                        settingsFieldErrors.botToken ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
-                      }`}
+                      value={newBroadcastData.imageUrl || ""}
+                      onChange={e => setNewBroadcastData(p => ({ ...p, imageUrl: e.target.value }))}
+                      placeholder="Вставьте ссылку на картинку..."
+                      className="flex-1 bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-zinc-700 font-mono"
                     />
-                    {settingsFieldErrors.botToken ? (
-                      <p className="text-[11px] text-red-500 mt-1 font-medium">{settingsFieldErrors.botToken}</p>
-                    ) : (
-                      <p className="text-[11px] text-slate-400 mt-1">Токен от бота @BotFather для отправки уведомлений</p>
+                    {newBroadcastData.imageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setNewBroadcastData(p => ({ ...p, imageUrl: "" }))}
+                        className="px-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-zinc-300 font-mono"
+                      >
+                        Очистить
+                      </button>
                     )}
                   </div>
+                  {/* Preset Buttons */}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {[
+                      { label: "🎁 Подарок", url: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&q=80&w=400" },
+                      { label: "💈 Стрижка", url: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=400" },
+                      { label: "🔥 Акция", url: "https://images.unsplash.com/photo-1557200134-90327ee9fafa?auto=format&fit=crop&q=80&w=400" },
+                    ].map(preset => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setNewBroadcastData(p => ({ ...p, imageUrl: preset.url }))}
+                        className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono transition-colors ${
+                          newBroadcastData.imageUrl === preset.url
+                            ? "bg-zinc-200 text-black border-transparent font-semibold"
+                            : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      ID Админского Чата
-                    </label>
+                {/* Interactive Action Button Label */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] text-zinc-400 font-mono uppercase tracking-wider">Интерактивная кнопка</label>
+                  <div className="flex gap-2">
                     <input
                       type="text"
-                      value={settingsData.adminChatId}
-                      onChange={(e) => {
-                        setSettingsData({ ...settingsData, adminChatId: e.target.value });
-                        if (settingsFieldErrors.adminChatId) setSettingsFieldErrors(prev => ({ ...prev, adminChatId: undefined }));
-                      }}
-                      placeholder="12345678"
-                      className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 text-xs border font-mono transition-all focus:outline-none ${
-                        settingsFieldErrors.adminChatId ? "border-red-300" : "border-slate-200 focus:border-slate-900 focus:bg-white"
-                      }`}
+                      value={newBroadcastData.buttonText || ""}
+                      onChange={e => setNewBroadcastData(p => ({ ...p, buttonText: e.target.value }))}
+                      placeholder="Например: 🛒 Открыть Меню"
+                      className="flex-1 bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-zinc-700"
                     />
-                    {settingsFieldErrors.adminChatId ? (
-                      <p className="text-[11px] text-red-500 mt-1 font-medium">{settingsFieldErrors.adminChatId}</p>
-                    ) : (
-                      <p className="text-[11px] text-slate-400 mt-1">Telegram Chat ID для получения заказов (узнать у @userinfobot)</p>
+                    <div className="flex gap-1">
+                      {["🛒 Заказать", "⭐ Оставить отзыв", "🎁 Забрать бонус"].map(btnPreset => (
+                        <button
+                          key={btnPreset}
+                          type="button"
+                          onClick={() => setNewBroadcastData(p => ({ ...p, buttonText: btnPreset }))}
+                          className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] rounded-lg text-zinc-300 transition-colors"
+                        >
+                          {btnPreset.split(" ")[1] || btnPreset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-3 border-t border-zinc-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingBroadcast(false)}
+                    className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono font-bold rounded-xl transition-colors uppercase tracking-wider"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-[2] py-2.5 bg-white text-black hover:bg-zinc-200 font-mono font-bold rounded-xl transition-colors uppercase tracking-wider"
+                  >
+                    🚀 Запустить рассылку
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Right Column: Live Telegram Smartphone Preview */}
+            <div className="w-full md:w-80 flex flex-col bg-[#141416] border border-zinc-800 rounded-3xl p-4 space-y-4">
+              <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
+                <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-widest">Интерактивный Превью</span>
+                <button onClick={() => setIsCreatingBroadcast(false)} className="text-zinc-500 hover:text-white hidden md:block">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Smartphone Shell */}
+              <div className="flex-1 bg-[#0d0d0f] rounded-2xl p-3 flex flex-col justify-between border border-zinc-900 shadow-inner relative overflow-hidden min-h-[380px]">
+                {/* Simulated status bar */}
+                <div className="flex justify-between items-center text-[9px] text-zinc-500 font-mono px-1">
+                  <span>12:30 📱</span>
+                  <span>LTE 🔋</span>
+                </div>
+
+                {/* Simulated Telegram Message Area */}
+                <div className="flex-1 flex flex-col justify-end py-4">
+                  {/* Message Bubble Container */}
+                  <div className="bg-[#18181c] rounded-2xl p-3 border border-zinc-800/80 space-y-3 shadow-xl w-full relative">
+                    {/* Bot Title Header */}
+                    <div className="flex items-center gap-1.5 pb-1 border-b border-zinc-800/40">
+                      <div className="w-5 h-5 bg-zinc-700 rounded-full flex items-center justify-center text-[10px] font-bold text-white font-mono">
+                        {selectedShop?.name?.substring(0,1) || "Б"}
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold leading-none text-white">{selectedShop?.name || "Бот-Ассистент"}</div>
+                        <div className="text-[8px] text-sky-400 leading-none">bot</div>
+                      </div>
+                    </div>
+
+                    {/* Image Preview if provided */}
+                    {newBroadcastData.imageUrl && (
+                      <div className="rounded-lg overflow-hidden border border-zinc-800 bg-[#121215] aspect-[1.9/1] flex items-center justify-center">
+                        <img
+                          src={newBroadcastData.imageUrl}
+                          alt="Banner Preview"
+                          className="w-full h-full object-cover"
+                          onError={(e: any) => { e.target.style.display = "none"; }}
+                        />
+                      </div>
                     )}
+
+                    {/* Broadcast Content */}
+                    <div className="space-y-1 font-sans">
+                      <div className="text-xs font-bold text-white leading-tight">
+                        {newBroadcastData.title || "Заголовок рассылки"}
+                      </div>
+                      <div className="text-[11px] text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                        {newBroadcastData.message
+                          ? newBroadcastData.message.replace(/\{name\}/g, "Александр")
+                          : "Здесь будет отображаться текст вашего сообщения. Поддерживается переменная имени."}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="pt-3 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsSettingsOpen(false)}
-                  className="flex-1 py-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-semibold text-xs transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingSettings}
-                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold text-xs transition-colors disabled:opacity-50 shadow-sm"
-                >
-                  {isSavingSettings ? "Сохранение..." : "Сохранить изменения"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Модальное окно подтверждения удаления магазина */}
-      {shopToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200/80 w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Удаление заведения</h3>
-              <button
-                type="button"
-                onClick={() => setShopToDelete(null)}
-                className="text-slate-400 hover:text-slate-600 font-bold p-1"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Вы действительно хотите удалить магазин <strong className="text-slate-900">«{shopToDelete.name}»</strong>? Все связанные услуги и история заказов будут полностью удалены.
-            </p>
-
-            {deleteShopError && (
-              <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-medium border border-red-100">
-                {deleteShopError}
-              </div>
-            )}
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShopToDelete(null)}
-                disabled={isDeletingShop}
-                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors disabled:opacity-50"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={confirmDeleteShop}
-                disabled={isDeletingShop}
-                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 shadow-2xs"
-              >
-                {isDeletingShop ? "Удаление..." : "Удалить"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Модальное окно Входа / Регистрации */}
-      {isAuthModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-5 border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
-                  <ShieldCheck size={18} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    {authMode === "login" ? "Вход в аккаунт администратора" : "Регистрация администратора"}
-                  </h3>
-                  <p className="text-[11px] text-slate-500">Управляйте заведениями с любого устройства</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAuthModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold p-1 text-sm"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Табы режима: Вход / Регистрация */}
-            <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("login");
-                  setAuthError(null);
-                }}
-                className={`py-2 px-3 rounded-lg text-center transition-all ${
-                  authMode === "login"
-                    ? "bg-white text-slate-900 shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Вход
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("register");
-                  setAuthError(null);
-                }}
-                className={`py-2 px-3 rounded-lg text-center transition-all ${
-                  authMode === "register"
-                    ? "bg-white text-slate-900 shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Регистрация
-              </button>
-            </div>
-
-            {authError && (
-              <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-600 font-medium flex items-center gap-2">
-                <AlertCircle size={15} className="shrink-0" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
-              {authMode === "register" && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Ваше имя или название организации
-                  </label>
-                  <div className="relative">
-                    <User size={15} className="absolute left-3 top-3 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Иван Иванов"
-                      value={authName}
-                      onChange={(e) => setAuthName(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  E-mail адрес <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <Mail size={15} className="absolute left-3 top-3 text-slate-400" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="admin@example.com"
-                    value={authEmail}
-                    onChange={(e) => setAuthEmail(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Пароль <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <Lock size={15} className="absolute left-3 top-3 text-slate-400" />
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    placeholder="••••••••"
-                    value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
-                  />
-                </div>
-                {authMode === "register" && (
-                  <p className="text-[10px] text-slate-400 mt-1">Минимум 6 символов</p>
-                )}
-              </div>
-
-              <div className="pt-2 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAuthModalOpen(false)}
-                  disabled={isSubmittingAuth}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors disabled:opacity-50"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingAuth}
-                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
-                >
-                  {isSubmittingAuth ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  ) : (
-                    <span>{authMode === "login" ? "Войти" : "Зарегистрироваться"}</span>
+                  {/* Inline Action Button */}
+                  {newBroadcastData.buttonText && (
+                    <div className="mt-2 w-full">
+                      <button
+                        type="button"
+                        className="w-full py-1.5 bg-[#202024] hover:bg-[#28282c] text-sky-400 border border-sky-400/15 rounded-xl text-[11px] font-bold transition-all text-center flex items-center justify-center gap-1.5"
+                      >
+                        {newBroadcastData.buttonText}
+                      </button>
+                    </div>
                   )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+                </div>
 
-      {/* Всплывающее плавающее уведомление о новом заказе */}
-      {newOrderAlert && (
-        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-slate-700 max-w-sm w-full animate-in slide-in-from-bottom duration-300">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-amber-500 text-slate-950 rounded-xl animate-bounce">
-                <Bell size={18} />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-amber-400">🔔 Новый заказ #{newOrderAlert.id.slice(-6)}!</h4>
-                <p className="text-xs font-medium text-slate-200 mt-0.5">{newOrderAlert.customerName} ({newOrderAlert.customerPhone})</p>
-                <p className="text-xs font-bold text-emerald-400 mt-1">{newOrderAlert.totalPrice.toLocaleString("ru-RU")} ₽</p>
+                {/* Bottom line mimicking modern phone */}
+                <div className="w-16 h-1 bg-zinc-800 rounded-full mx-auto mt-1"></div>
               </div>
             </div>
-            <button
-              onClick={() => setNewOrderAlert(null)}
-              className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors"
-            >
-              <XCircle size={18} />
-            </button>
           </div>
         </div>
       )}
 
-      {/* Модалка генератора QR-кодов и макетов столов */}
-      {selectedShop && (
-        <QrGeneratorModal
-          isOpen={isQrModalOpen}
-          onClose={() => setIsQrModalOpen(false)}
-          shopName={selectedShop.name}
-          shopSlug={selectedShop.slug}
-        />
-      )}
+      {/* QR Modal & Plan Modal */}
+      <QrGeneratorModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        shopName={selectedShop?.name || "My Shop"}
+        shopSlug={selectedShop?.slug || "shop"}
+      />
 
-      {/* Модалка выбора SaaS тарифов */}
       <PlanModal
         isOpen={isPlanModalOpen}
         onClose={() => setIsPlanModalOpen(false)}
@@ -2584,11 +2609,89 @@ export default function AdminPage() {
         token={token}
         onPlanUpdated={(newPlan) => {
           if (user) {
-            user.plan = newPlan;
+            user.plan = newPlan as any;
           }
-          fetchShops();
         }}
       />
+
+      {/* Custom Confirmation Modal */}
+      <AnimatePresence>
+        {confirmModal.isOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="max-w-sm w-full bg-[#141416] border border-zinc-800 rounded-2xl p-6 text-zinc-100 shadow-2xl space-y-5"
+            >
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
+                  <AlertCircle size={16} className={confirmModal.isDangerous ? "text-rose-500" : "text-amber-500"} />
+                  {confirmModal.title}
+                </h3>
+                <p className="text-xs text-zinc-400 leading-relaxed font-sans">
+                  {confirmModal.message}
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 bg-[#1c1c20] border border-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-800 text-xs font-mono transition-colors"
+                >
+                  {confirmModal.cancelText || "Отмена"}
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmModal.onConfirm}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono font-bold text-white transition-colors ${
+                    confirmModal.isDangerous 
+                      ? "bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-900/20" 
+                      : "bg-[#1c1c20] border border-zinc-800 hover:bg-zinc-800"
+                  }`}
+                >
+                  {confirmModal.confirmText || "Подтвердить"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Toast Notifications System */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
+        <AnimatePresence>
+          {toasts.map(toast => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className={`p-4 rounded-xl border shadow-lg pointer-events-auto flex items-start gap-3 backdrop-blur-md ${
+                toast.type === "success" 
+                  ? "bg-[#0b2518]/90 text-emerald-200 border-emerald-800/40" 
+                  : toast.type === "error" 
+                  ? "bg-[#2d0f13]/90 text-rose-200 border-rose-800/40" 
+                  : "bg-[#2d210f]/90 text-amber-200 border-amber-800/40"
+              }`}
+            >
+              <div className="mt-0.5 shrink-0">
+                {toast.type === "success" ? (
+                  <Check size={14} className="text-emerald-400" />
+                ) : toast.type === "error" ? (
+                  <AlertCircle size={14} className="text-rose-400" />
+                ) : (
+                  <AlertCircle size={14} className="text-amber-400" />
+                )}
+              </div>
+              <p className="text-xs font-sans leading-relaxed">{toast.message}</p>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

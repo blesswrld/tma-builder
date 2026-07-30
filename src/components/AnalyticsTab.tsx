@@ -8,12 +8,9 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
+  ResponsiveContainer
 } from "recharts";
-import { TrendingUp, ShoppingBag, DollarSign, Award, Clock, RefreshCw, BarChart2 } from "lucide-react";
+import { TrendingUp, ShoppingBag, DollarSign, Award, RefreshCw, BarChart2 } from "lucide-react";
 
 interface AnalyticsData {
   summary: {
@@ -31,7 +28,7 @@ interface AnalyticsTabProps {
   shopId: string;
 }
 
-const COLORS = ["#4f46e5", "#06b6d4", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#64748b"];
+const MONO_COLORS = ["var(--text-primary)", "var(--text-secondary)", "var(--text-muted)", "var(--border)"];
 
 export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -43,11 +40,11 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
     setError(null);
     try {
       const res = await fetch(`/api/shops/${shopId}/analytics`);
-      if (!res.ok) throw new Error("Не удалось загрузить данные аналитики");
+      if (!res.ok) throw new Error("Не удалось загрузить аналитический отчёт");
       const analyticsData = await res.json();
       setData(analyticsData);
     } catch (err: any) {
-      setError(err.message || "Ошибка загрузки отчета");
+      setError(err.message || "Ошибка при загрузке отчёта");
     } finally {
       setLoading(false);
     }
@@ -61,22 +58,22 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
 
   if (loading) {
     return (
-      <div className="p-12 text-center bg-white rounded-3xl border border-slate-100 shadow-xs flex flex-col items-center justify-center gap-3">
-        <RefreshCw size={24} className="animate-spin text-indigo-600" />
-        <p className="text-xs font-semibold text-slate-500">Расчет финансовых и операционных показателей...</p>
+      <div className="p-12 text-center bg-app-surface rounded-3xl border border-app-border flex flex-col items-center justify-center gap-3">
+        <RefreshCw size={22} className="animate-spin text-app-muted" />
+        <p className="text-xs font-mono text-app-muted">Расчёт показателей эффективности...</p>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="p-8 text-center bg-rose-50 rounded-3xl border border-rose-100 text-rose-700 space-y-3">
-        <p className="text-xs font-bold">{error || "Нет данных за выбранный период"}</p>
+      <div className="p-8 text-center bg-app-surface rounded-3xl border border-app-border text-app-secondary space-y-3">
+        <p className="text-xs font-mono text-app-muted">{error || "Данные отсутствуют"}</p>
         <button
           onClick={fetchAnalytics}
-          className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition-colors"
+          className="px-4 py-2 bg-app-accent text-app-primary font-mono font-bold rounded-xl text-xs hover:bg-app-hover transition-colors"
         >
-          Повторить попытку
+          Обновить данные
         </button>
       </div>
     );
@@ -86,76 +83,75 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Ключевые показатели (KPI Cards) */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center gap-4">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl shrink-0">
-            <DollarSign size={22} />
+        <div className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4">
+          <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
+            <DollarSign size={20} />
           </div>
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Выручка</p>
-            <h3 className="text-xl font-black text-slate-900 mt-0.5">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-app-muted">Общая выручка</p>
+            <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">
               {summary.totalRevenue.toLocaleString("ru-RU")} ₽
             </h3>
-            <p className="text-[10px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
-              <TrendingUp size={12} /> Завершенные заказы
+            <p className="text-[10px] text-emerald-500 font-mono mt-0.5 flex items-center gap-1">
+              <TrendingUp size={12} /> Выполненные заказы
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center gap-4">
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl shrink-0">
-            <ShoppingBag size={22} />
+        <div className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4">
+          <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
+            <ShoppingBag size={20} />
           </div>
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Всего заказов</p>
-            <h3 className="text-xl font-black text-slate-900 mt-0.5">{summary.totalOrders}</h3>
-            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-app-muted">Заказы</p>
+            <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">{summary.totalOrders}</h3>
+            <p className="text-[10px] text-app-secondary font-mono mt-0.5">
               {summary.completedOrders} выполнено ({summary.totalOrders > 0 ? Math.round((summary.completedOrders / summary.totalOrders) * 100) : 0}%)
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center gap-4">
-          <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl shrink-0">
-            <Award size={22} />
+        <div className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4">
+          <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
+            <Award size={20} />
           </div>
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Средний чек</p>
-            <h3 className="text-xl font-black text-slate-900 mt-0.5">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-app-muted">Средний чек</p>
+            <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">
               {summary.avgCheck.toLocaleString("ru-RU")} ₽
             </h3>
-            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">На 1 оплаченный чек</p>
+            <p className="text-[10px] text-app-secondary font-mono mt-0.5">На один заказ</p>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center gap-4">
-          <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl shrink-0">
-            <BarChart2 size={22} />
+        <div className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4">
+          <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
+            <BarChart2 size={20} />
           </div>
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Услуг в топе</p>
-            <h3 className="text-xl font-black text-slate-900 mt-0.5">{topServices.length}</h3>
-            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">Популярные позиции</p>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-app-muted">Размер каталога</p>
+            <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">{topServices.length}</h3>
+            <p className="text-[10px] text-app-secondary font-mono mt-0.5">Активные позиции</p>
           </div>
         </div>
       </div>
 
-      {/* Графики динамики выручки и топ продаж */}
+      {/* Revenue Chart + Top Services */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Динамика выручки (2 столбца) */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-xs space-y-4">
+        <div className="lg:col-span-2 bg-app-surface p-6 rounded-2xl border border-app-border space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold text-slate-900">Динамика выручки</h3>
-              <p className="text-xs text-slate-500">Доходы по дням на основе выполненных заказов</p>
+              <h3 className="text-sm font-semibold text-app-primary">Динамика выручки</h3>
+              <p className="text-xs text-app-muted font-mono">Ежедневный доход</p>
             </div>
             <button
               onClick={fetchAnalytics}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+              className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-lg transition-colors"
               title="Обновить"
             >
-              <RefreshCw size={16} />
+              <RefreshCw size={15} />
             </button>
           </div>
 
@@ -164,26 +160,26 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={dailyTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    <linearGradient id="colorRevenueDark" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--chart-line)" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="var(--chart-line)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
                   <XAxis
                     dataKey="date"
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
+                    tick={{ fontSize: 11, fill: "var(--text-muted)" }}
                     tickFormatter={val => val.slice(5)}
                   />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "var(--text-muted)" }} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#0f172a",
+                      backgroundColor: "var(--chart-tooltip-bg)",
                       borderRadius: "12px",
-                      color: "#fff",
-                      border: "none",
+                      color: "var(--chart-tooltip-text)",
+                      border: "1px solid var(--chart-tooltip-border)",
                       fontSize: "12px"
                     }}
                     formatter={(val: any) => [`${Number(val).toLocaleString("ru-RU")} ₽`, "Выручка"]}
@@ -192,26 +188,26 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
                   <Area
                     type="monotone"
                     dataKey="revenue"
-                    stroke="#6366f1"
-                    strokeWidth={2.5}
+                    stroke="var(--chart-line)"
+                    strokeWidth={2}
                     fillOpacity={1}
-                    fill="url(#colorRevenue)"
+                    fill="url(#colorRevenueDark)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-xs text-slate-400 italic">
-                Недостаточно данных для построения графика выручки
+              <div className="h-full flex items-center justify-center text-xs text-app-muted font-mono">
+                История выручки пока отсутствует
               </div>
             )}
           </div>
         </div>
 
-        {/* Топ блюд / услуг по продажам */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xs space-y-4">
+        {/* Top Services */}
+        <div className="bg-app-surface p-6 rounded-2xl border border-app-border space-y-4">
           <div>
-            <h3 className="text-base font-bold text-slate-900">Топ услуг</h3>
-            <p className="text-xs text-slate-500">Самые доходные позиции каталога</p>
+            <h3 className="text-sm font-semibold text-app-primary">Популярные позиции</h3>
+            <p className="text-xs text-app-muted font-mono">Лидеры продаж</p>
           </div>
 
           {topServices.length > 0 ? (
@@ -220,50 +216,50 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
                 <div key={idx} className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2.5 min-w-0 pr-2">
                     <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: MONO_COLORS[idx % MONO_COLORS.length] }}
                     />
-                    <span className="font-semibold text-slate-800 truncate">{service.title}</span>
+                    <span className="font-medium text-app-secondary truncate">{service.title}</span>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="font-bold text-slate-900">{service.total.toLocaleString("ru-RU")} ₽</span>
-                    <span className="text-[10px] text-slate-400 block">{service.count} шт.</span>
+                    <span className="font-semibold text-app-primary font-mono">{service.total.toLocaleString("ru-RU")} ₽</span>
+                    <span className="text-[10px] text-app-muted font-mono block">{service.count} шт</span>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="py-12 text-center text-xs text-slate-400 italic">
-              Продаж пока не зафиксировано
+            <div className="py-12 text-center text-xs text-app-muted font-mono">
+              Данные о продажах отсутствуют
             </div>
           )}
         </div>
       </div>
 
-      {/* Распределение по часам суточной активности */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xs space-y-4">
+      {/* Hourly Distribution */}
+      <div className="bg-app-surface p-6 rounded-2xl border border-app-border space-y-4">
         <div>
-          <h3 className="text-base font-bold text-slate-900">Пиковые часы заказов</h3>
-          <p className="text-xs text-slate-500">Загрузка персонала и кухни в течение суток (00:00 - 23:00)</p>
+          <h3 className="text-sm font-semibold text-app-primary">Пиковые часы</h3>
+          <p className="text-xs text-app-muted font-mono">Распределение заказов по времени суток</p>
         </div>
 
-        <div className="h-52 w-full">
+        <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={hourlyDistribution} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="hour" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
-              <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} allowDecimals={false} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
+              <XAxis dataKey="hour" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+              <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "var(--text-muted)" }} allowDecimals={false} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#0f172a",
+                  backgroundColor: "var(--chart-tooltip-bg)",
                   borderRadius: "12px",
-                  color: "#fff",
-                  border: "none",
+                  color: "var(--chart-tooltip-text)",
+                  border: "1px solid var(--chart-tooltip-border)",
                   fontSize: "12px"
                 }}
                 formatter={(val: any) => [`${val} заказов`, "Количество"]}
               />
-              <Bar dataKey="orders" fill="#0284c7" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="orders" fill="var(--chart-line)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
