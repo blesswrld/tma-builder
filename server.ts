@@ -105,6 +105,7 @@ async function ensureOrderSchema(db: PrismaClient) {
     await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "preferredTime" TEXT;`);
 
     await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "category" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "isAvailable" BOOLEAN DEFAULT true;`);
 
     await db.$executeRawUnsafe(`
@@ -604,7 +605,7 @@ app.post("/api/shops", async (req, res) => {
   app.post("/api/shops/:shopId/services", async (req, res) => {
     try {
       const { shopId } = req.params;
-      const { title, price, description, category } = req.body;
+      const { title, price, description, category, imageUrl } = req.body;
       const authUser = getAuthUser(req);
 
       if (!title || typeof title !== "string" || title.trim().length < 2) {
@@ -668,6 +669,7 @@ app.post("/api/shops", async (req, res) => {
           price: Math.round(parsedPrice),
           description: description?.trim() || null,
           category: category?.trim() || null,
+          imageUrl: imageUrl?.trim() || null,
           isAvailable: req.body.isAvailable !== undefined ? Boolean(req.body.isAvailable) : true
         }
       });
@@ -684,7 +686,7 @@ app.post("/api/shops", async (req, res) => {
   app.put("/api/services/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, price, description, category, isAvailable } = req.body;
+      const { title, price, description, category, imageUrl, isAvailable } = req.body;
       const authUser = getAuthUser(req);
 
       if (!title || typeof title !== "string" || title.trim().length < 2) {
@@ -718,6 +720,7 @@ app.post("/api/shops", async (req, res) => {
           price: Math.round(parsedPrice),
           description: description?.trim() || null,
           category: category?.trim() || null,
+          imageUrl: imageUrl?.trim() || null,
           ...(isAvailable !== undefined ? { isAvailable: Boolean(isAvailable) } : {})
         }
       });

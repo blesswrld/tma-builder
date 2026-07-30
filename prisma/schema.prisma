@@ -93,6 +93,7 @@ model Service {
   price       Int
   description String?
   category    String?
+  imageUrl    String?
   isAvailable Boolean  @default(true)
   createdAt   DateTime @default(now())
 }

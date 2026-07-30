@@ -21,6 +21,7 @@ interface Service {
   price: number;
   description: string | null;
   category?: string | null;
+  imageUrl?: string | null;
   isAvailable?: boolean;
 }
 
@@ -415,8 +416,12 @@ export default function ShopPage() {
         const data = await res.json();
         setMyOrders(data.orders || []);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
+        console.warn("Failed to fetch my orders (network offline):", e.message);
+      } else {
+        console.error(e);
+      }
     } finally {
       setMyOrdersLoading(false);
     }
@@ -700,62 +705,88 @@ export default function ShopPage() {
                   <motion.div 
                     key={service.id} 
                     layout
-                    className={`p-5 rounded-2xl border transition-all flex flex-col justify-between min-h-[160px] group ${
+                    className={`rounded-2xl border overflow-hidden transition-all flex flex-col justify-between group ${
                       isOutOfStock 
                         ? "bg-app-surface/50 border-app-border/40 opacity-50" 
                         : "bg-app-surface border-app-border hover:border-app-border hover:bg-app-card-hover"
                     }`}
                   >
-                    <div className="space-y-2 mb-4">
-                      <div className="flex justify-between items-start gap-3">
-                        <h3 className={`text-sm font-semibold tracking-tight ${isOutOfStock ? "text-app-muted" : "text-app-primary"}`}>
-                          {service.title}
-                        </h3>
-                        <span className="text-xs font-mono font-bold text-app-primary px-2 py-1 rounded-lg bg-app-card border border-app-border shrink-0">
-                          {service.price} ₽
-                        </span>
+                    {service.imageUrl && (
+                      <div className="h-40 w-full overflow-hidden bg-app-surface border-b border-app-border relative">
+                        <img
+                          src={service.imageUrl}
+                          alt={service.title}
+                          className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300"
+                          referrerPolicy="no-referrer"
+                        />
+                        {service.category && (
+                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 border border-white/10 text-[9px] font-mono text-zinc-300 uppercase tracking-wider backdrop-blur-md">
+                            {service.category}
+                          </span>
+                        )}
                       </div>
-                      {service.description && (
-                        <p className="text-app-secondary text-xs leading-relaxed line-clamp-3 font-normal">
-                          {service.description}
-                        </p>
-                      )}
-                    </div>
-                    
-                    <div className="flex justify-between items-center mt-auto pt-4 border-t border-app-border">
-                      {service.category ? (
-                        <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">
-                          {service.category}
-                        </span>
-                      ) : <div />}
+                    )}
+                    <div className="p-5 flex-1 flex flex-col justify-between">
+                      <div className="space-y-2 mb-4">
+                        <div className="flex justify-between items-start gap-3">
+                          <h3 className={`text-sm font-semibold tracking-tight ${isOutOfStock ? "text-app-muted" : "text-app-primary"}`}>
+                            {service.title}
+                          </h3>
+                          <span className="text-xs font-mono font-bold text-app-primary px-2 py-1 rounded-lg bg-app-card border border-app-border shrink-0">
+                            {service.price} ₽
+                          </span>
+                        </div>
+                        {!service.imageUrl && service.category && (
+                          <span className="inline-block px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-app-muted uppercase tracking-wider">
+                            {service.category}
+                          </span>
+                        )}
+                        {service.description && (
+                          <p className="text-app-secondary text-xs leading-relaxed line-clamp-3 font-normal">
+                            {service.description}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="flex justify-between items-center mt-auto pt-4 border-t border-app-border">
+                        {service.category && service.imageUrl ? (
+                          <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">
+                            {qty > 0 ? `В корзине: ${qty}` : ""}
+                          </span>
+                        ) : service.category ? (
+                          <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">
+                            {service.category}
+                          </span>
+                        ) : <div />}
 
-                      <div>
-                        {isOutOfStock ? (
-                          <span className="text-xs text-app-muted font-mono">Недоступно</span>
-                        ) : qty > 0 ? (
-                          <div className="flex items-center gap-2 bg-app-card rounded-xl p-1 border border-app-border">
-                            <button 
-                              onClick={() => handleRemoveFromCart(service.id)}
-                              className="w-7 h-7 flex items-center justify-center rounded-lg bg-app-secondary text-app-primary hover:bg-app-hover transition-colors"
-                            >
-                              <Minus size={12} />
-                            </button>
-                            <span className="text-xs font-mono font-bold w-5 text-center text-app-primary">{qty}</span>
+                        <div>
+                          {isOutOfStock ? (
+                            <span className="text-xs text-app-muted font-mono">Недоступно</span>
+                          ) : qty > 0 ? (
+                            <div className="flex items-center gap-2 bg-app-card rounded-xl p-1 border border-app-border">
+                              <button 
+                                onClick={() => handleRemoveFromCart(service.id)}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-app-secondary text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
+                              >
+                                <Minus size={12} />
+                              </button>
+                              <span className="text-xs font-mono font-bold w-5 text-center text-app-primary">{qty}</span>
+                              <button 
+                                onClick={() => handleAddToCart(service.id)}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-app-accent text-app-bg hover:bg-app-hover transition-colors cursor-pointer"
+                              >
+                                <Plus size={12} />
+                              </button>
+                            </div>
+                          ) : (
                             <button 
                               onClick={() => handleAddToCart(service.id)}
-                              className="w-7 h-7 flex items-center justify-center rounded-lg bg-app-accent text-app-bg hover:bg-app-hover transition-colors"
+                              className="px-4 py-1.5 rounded-xl bg-app-accent text-app-bg font-medium text-xs hover:bg-app-hover transition-all font-mono cursor-pointer"
                             >
-                              <Plus size={12} />
+                              + Добавить
                             </button>
-                          </div>
-                        ) : (
-                          <button 
-                            onClick={() => handleAddToCart(service.id)}
-                            className="px-4 py-1.5 rounded-xl bg-app-accent text-app-bg font-medium text-xs hover:bg-app-hover transition-all font-mono"
-                          >
-                            + Добавить
-                          </button>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   </motion.div>

@@ -22,6 +22,7 @@ interface Service {
   price: number;
   description: string | null;
   category?: string | null;
+  imageUrl?: string | null;
   isAvailable?: boolean;
 }
 
@@ -336,13 +337,13 @@ export default function AdminPage() {
 
   // Add Service
   const [isAddingService, setIsAddingService] = useState(false);
-  const [newServiceData, setNewServiceData] = useState({ title: "", price: "", description: "", category: "" });
+  const [newServiceData, setNewServiceData] = useState({ title: "", price: "", description: "", category: "", imageUrl: "" });
   const [serviceError, setServiceError] = useState<string | null>(null);
   const [serviceFieldErrors, setServiceFieldErrors] = useState<{ title?: string; price?: string; description?: string }>({});
 
   // Edit Service
   const [editingService, setEditingService] = useState<Service | null>(null);
-  const [editServiceData, setEditServiceData] = useState({ title: "", price: "", description: "", category: "" });
+  const [editServiceData, setEditServiceData] = useState({ title: "", price: "", description: "", category: "", imageUrl: "" });
   const [editServiceError, setEditServiceError] = useState<string | null>(null);
   const [editServiceFieldErrors, setEditServiceFieldErrors] = useState<{ title?: string; price?: string; description?: string }>({});
   const [isSavingEditService, setIsSavingEditService] = useState(false);
@@ -556,8 +557,12 @@ export default function AdminPage() {
         }
         return activeList.length > 0 ? activeList[0] : null;
       });
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      if (err instanceof TypeError || (err?.message && err.message.includes("Failed to fetch"))) {
+        console.warn("Failed to fetch shops (network offline):", err.message);
+      } else {
+        console.error(err);
+      }
     } finally {
       setLoading(false);
     }
@@ -587,8 +592,12 @@ export default function AdminPage() {
         prevOrdersCountRef.current = data.length;
         setOrders(data);
       }
-    } catch (err) {
-      console.error("Error loading orders:", err);
+    } catch (err: any) {
+      if (err instanceof TypeError || (err?.message && err.message.includes("Failed to fetch"))) {
+        console.warn("Error loading orders (network offline):", err.message);
+      } else {
+        console.error("Error loading orders:", err);
+      }
     } finally {
       if (!silent) setOrdersLoading(false);
     }
@@ -792,14 +801,15 @@ export default function AdminPage() {
           title: newServiceData.title.trim(),
           price: Number(newServiceData.price),
           description: newServiceData.description.trim() || undefined,
-          category: newServiceData.category.trim() || undefined
+          category: newServiceData.category.trim() || undefined,
+          imageUrl: newServiceData.imageUrl.trim() || undefined
         })
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to add service");
 
-      setNewServiceData({ title: "", price: "", description: "", category: "" });
+      setNewServiceData({ title: "", price: "", description: "", category: "", imageUrl: "" });
       setIsAddingService(false);
       await fetchShops();
     } catch (err: any) {
@@ -813,7 +823,8 @@ export default function AdminPage() {
       title: service.title,
       price: service.price.toString(),
       description: service.description || "",
-      category: service.category || ""
+      category: service.category || "",
+      imageUrl: service.imageUrl || ""
     });
     setEditServiceError(null);
   };
@@ -836,7 +847,8 @@ export default function AdminPage() {
           title: editServiceData.title.trim(),
           price: Number(editServiceData.price),
           description: editServiceData.description.trim() || undefined,
-          category: editServiceData.category.trim() || undefined
+          category: editServiceData.category.trim() || undefined,
+          imageUrl: editServiceData.imageUrl.trim() || undefined
         })
       });
 
@@ -903,8 +915,12 @@ export default function AdminPage() {
         const data = await res.json();
         setPromocodes(data);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
+        console.warn("Failed to fetch promocodes (network offline):", e.message);
+      } else {
+        console.error(e);
+      }
     } finally {
       setPromocodesLoading(false);
     }
@@ -970,8 +986,12 @@ export default function AdminPage() {
         const data = await res.json();
         setReviews(data.reviews || []);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
+        console.warn("Failed to fetch reviews (network offline):", e.message);
+      } else {
+        console.error(e);
+      }
     } finally {
       setReviewsLoading(false);
     }
@@ -986,8 +1006,12 @@ export default function AdminPage() {
         const data = await res.json();
         setBanners(data);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
+        console.warn("Failed to fetch banners (network offline):", e.message);
+      } else {
+        console.error(e);
+      }
     } finally {
       setBannersLoading(false);
     }
@@ -1048,8 +1072,12 @@ export default function AdminPage() {
         const data = await res.json();
         setBroadcasts(data);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
+        console.warn("Failed to fetch broadcasts (network offline):", e.message);
+      } else {
+        console.error(e);
+      }
     } finally {
       setBroadcastsLoading(false);
     }
@@ -1110,8 +1138,12 @@ export default function AdminPage() {
         const data = await res.json();
         setCustomers(data);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
+        console.warn("Failed to fetch customers (network offline):", e.message);
+      } else {
+        console.error(e);
+      }
     } finally {
       setCustomersLoading(false);
     }
@@ -1183,17 +1215,24 @@ export default function AdminPage() {
 
   const handleSendBotSimMessage = (text: string) => {
     if (!text.trim()) return;
-    const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const now = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
     const userMsg = { sender: "user" as const, text, time: now };
     
-    let botReplyText = "Please tap the button below to browse our menu and order:";
-    let buttonText = "📱 Open Menu";
+    let botReplyText = "Пожалуйста, нажмите на кнопку ниже, чтобы открыть интерактивное меню и оформить заказ:";
+    let buttonText = "📱 Открыть Меню";
 
-    if (text.toLowerCase().includes("/start")) {
-      botReplyText = `👋 Welcome to ${selectedShop?.name || "our shop"}!\n\nOrder online directly inside Telegram Mini App.`;
-    } else if (text.toLowerCase().includes("status") || text.toLowerCase().includes("order")) {
-      botReplyText = `📦 Order status: "Pending". We will notify you once confirmed!`;
-      buttonText = "📋 My Orders";
+    const textLower = text.toLowerCase();
+    if (textLower.includes("/start")) {
+      botReplyText = `👋 Добро пожаловать в ${selectedShop?.name || "наше заведение"}!\n\nОформляйте заказы, копите бонусы и оставляйте отзывы прямо внутри Telegram Mini App.`;
+    } else if (textLower.includes("статус") || textLower.includes("заказ") || textLower.includes("status") || textLower.includes("order")) {
+      botReplyText = `📦 Проверяю статус вашего последнего заказа в CRM... Вы можете отслеживать актуальный статус выполнения во вкладке «Мои Заказы» в меню!`;
+      buttonText = "📋 Мои Заказы";
+    } else if (textLower.includes("бонус") || textLower.includes("скидк") || textLower.includes("промо") || textLower.includes("bonus")) {
+      botReplyText = `🎁 У нас действует гибкая программа лояльности! Копите кешбэк с каждого заказа и используйте промокоды в корзине для получения скидок.`;
+      buttonText = "📱 Открыть Меню";
+    } else if (textLower.includes("отзыв") || textLower.includes("review") || textLower.includes("оценк")) {
+      botReplyText = `⭐ Ваше мнение очень важно для нас! Пожалуйста, перейдите в раздел отзывов в меню и поделитесь вашими впечатлениями.`;
+      buttonText = "⭐ Оставить отзыв";
     }
 
     const botMsg = { sender: "bot" as const, text: botReplyText, button: buttonText, time: now };
@@ -1557,49 +1596,71 @@ export default function AdminPage() {
                       {filteredServices.map(service => (
                         <div
                           key={service.id}
-                          className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+                          className={`rounded-2xl border overflow-hidden transition-all flex flex-col justify-between ${
                             service.isAvailable === false ? "bg-[#121215]/50 border-zinc-800/40 opacity-60" : "bg-[#121215] border-zinc-800 hover:border-zinc-700"
                           }`}
                         >
-                          <div className="space-y-2 mb-4">
-                            <div className="flex justify-between items-start gap-2">
-                              <h3 className="text-sm font-semibold text-white">{service.title}</h3>
-                              <span className="text-xs font-mono font-bold text-white px-2 py-0.5 rounded-md bg-white/5 border border-white/10">
-                                {service.price} ₽
-                              </span>
+                          {service.imageUrl && (
+                            <div className="h-36 w-full overflow-hidden bg-zinc-950 border-b border-zinc-800/60 relative">
+                              <img
+                                src={service.imageUrl}
+                                alt={service.title}
+                                className="w-full h-full object-cover transition-transform hover:scale-105 duration-300"
+                                referrerPolicy="no-referrer"
+                              />
+                              {service.category && (
+                                <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 border border-white/10 text-[9px] font-mono text-zinc-300 uppercase tracking-wider backdrop-blur-md">
+                                  {service.category}
+                                </span>
+                              )}
                             </div>
-                            {service.description && (
-                              <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">{service.description}</p>
-                            )}
-                          </div>
+                          )}
+                          <div className="p-5 flex-1 flex flex-col justify-between">
+                            <div className="space-y-2 mb-4">
+                              <div className="flex justify-between items-start gap-2">
+                                <h3 className="text-sm font-semibold text-white">{service.title}</h3>
+                                <span className="text-xs font-mono font-bold text-white px-2 py-0.5 rounded-md bg-white/5 border border-white/10 shrink-0">
+                                  {service.price} ₽
+                                </span>
+                              </div>
+                              {!service.imageUrl && service.category && (
+                                <span className="inline-block px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-zinc-400 uppercase tracking-wider">
+                                  {service.category}
+                                </span>
+                              )}
+                              {service.description && (
+                                <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">{service.description}</p>
+                              )}
+                            </div>
 
-                          <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80">
-                            <button
-                              onClick={() => handleToggleServiceAvailability(service.id, service.isAvailable)}
-                              className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border transition-all ${
-                                service.isAvailable !== false
-                                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                                  : "bg-rose-500/10 border-rose-500/20 text-rose-400"
-                              }`}
-                            >
-                              {service.isAvailable !== false ? "В наличии" : "Отключено"}
-                            </button>
+                            <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80">
+                              <button
+                                onClick={() => handleToggleServiceAvailability(service.id, service.isAvailable)}
+                                className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                                  service.isAvailable !== false
+                                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                    : "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                                }`}
+                              >
+                                {service.isAvailable !== false ? "В наличии" : "Отключено"}
+                              </button>
 
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => handleOpenEditService(service)}
-                                className="p-1.5 bg-[#18181c] hover:bg-zinc-800 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
-                                title="Редактировать"
-                              >
-                                <Edit3 size={13} />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteService(service.id)}
-                                className="p-1.5 bg-[#18181c] hover:bg-rose-900/30 border border-zinc-800 hover:border-rose-800 text-zinc-400 hover:text-rose-400 rounded-lg transition-colors"
-                                title="Удалить"
-                              >
-                                <Trash2 size={13} />
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => handleOpenEditService(service)}
+                                  className="p-1.5 bg-[#18181c] hover:bg-zinc-800 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                  title="Редактировать"
+                                >
+                                  <Edit3 size={13} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteService(service.id)}
+                                  className="p-1.5 bg-[#18181c] hover:bg-rose-900/30 border border-zinc-800 hover:border-rose-800 text-zinc-400 hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                                  title="Удалить"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -2132,6 +2193,62 @@ export default function AdminPage() {
                 placeholder="Описание..."
                 className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
               />
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] text-zinc-400 font-mono uppercase">Изображение (URL / пресеты)</span>
+                  {newServiceData.imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setNewServiceData(p => ({ ...p, imageUrl: "" }))}
+                      className="text-[9px] text-rose-400 font-mono hover:underline cursor-pointer"
+                    >
+                      Очистить
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={newServiceData.imageUrl}
+                  onChange={e => setNewServiceData(p => ({ ...p, imageUrl: e.target.value }))}
+                  placeholder="Вставьте ссылку на картинку..."
+                  className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    { label: "☕ Кофе", url: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=300" },
+                    { label: "🍰 Торт", url: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&q=80&w=300" },
+                    { label: "🍔 Бургер", url: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&q=80&w=300" },
+                    { label: "🍕 Пицца", url: "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&q=80&w=300" },
+                    { label: "💈 Стрижка", url: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=300" },
+                  ].map(pr => (
+                    <button
+                      key={pr.label}
+                      type="button"
+                      onClick={() => setNewServiceData(p => ({ ...p, imageUrl: pr.url }))}
+                      className={`px-2 py-0.5 rounded border text-[9px] font-mono transition-colors cursor-pointer ${
+                        newServiceData.imageUrl === pr.url
+                          ? "bg-white text-black border-transparent font-semibold"
+                          : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      {pr.label}
+                    </button>
+                  ))}
+                </div>
+                {newServiceData.imageUrl && (
+                  <div className="mt-1 flex items-center justify-center border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950/50 p-2">
+                    <img
+                      src={newServiceData.imageUrl}
+                      alt="Превью"
+                      className="max-h-24 object-cover rounded"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=300";
+                      }}
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                )}
+              </div>
               <button type="submit" className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
                 Сохранить позицию
               </button>
@@ -2180,6 +2297,62 @@ export default function AdminPage() {
                 placeholder="Описание..."
                 className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
               />
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] text-zinc-400 font-mono uppercase">Изображение (URL / пресеты)</span>
+                  {editServiceData.imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setEditServiceData(p => ({ ...p, imageUrl: "" }))}
+                      className="text-[9px] text-rose-400 font-mono hover:underline cursor-pointer"
+                    >
+                      Очистить
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={editServiceData.imageUrl}
+                  onChange={e => setEditServiceData(p => ({ ...p, imageUrl: e.target.value }))}
+                  placeholder="Вставьте ссылку на картинку..."
+                  className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    { label: "☕ Кофе", url: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=300" },
+                    { label: "🍰 Торт", url: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&q=80&w=300" },
+                    { label: "🍔 Бургер", url: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&q=80&w=300" },
+                    { label: "🍕 Пицца", url: "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&q=80&w=300" },
+                    { label: "💈 Стрижка", url: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=300" },
+                  ].map(pr => (
+                    <button
+                      key={pr.label}
+                      type="button"
+                      onClick={() => setEditServiceData(p => ({ ...p, imageUrl: pr.url }))}
+                      className={`px-2 py-0.5 rounded border text-[9px] font-mono transition-colors cursor-pointer ${
+                        editServiceData.imageUrl === pr.url
+                          ? "bg-white text-black border-transparent font-semibold"
+                          : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      {pr.label}
+                    </button>
+                  ))}
+                </div>
+                {editServiceData.imageUrl && (
+                  <div className="mt-1 flex items-center justify-center border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950/50 p-2">
+                    <img
+                      src={editServiceData.imageUrl}
+                      alt="Превью"
+                      className="max-h-24 object-cover rounded"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=300";
+                      }}
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                )}
+              </div>
               <button type="submit" disabled={isSavingEditService} className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
                 {isSavingEditService ? "Сохранение..." : "Обновить позицию"}
               </button>
