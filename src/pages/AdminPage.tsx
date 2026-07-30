@@ -513,7 +513,7 @@ export default function AdminPage() {
       setAuthName("");
       await fetchShops();
     } catch (err: any) {
-      setAuthError(err.message || "Auth error");
+      setAuthError(err.message || "Ошибка авторизации");
     } finally {
       setIsSubmittingAuth(false);
     }
@@ -692,15 +692,15 @@ export default function AdminPage() {
     const errors: { name?: string; slug?: string; description?: string } = {};
 
     if (!newShopData.name.trim() || newShopData.name.trim().length < 2) {
-      errors.name = "Name must be at least 2 characters";
+      errors.name = "Название должно содержать не менее 2 символов";
     }
 
     const cleanSlug = newShopData.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, "-");
     const slugRegex = /^[a-z0-9-]{2,30}$/;
     if (!cleanSlug) {
-      errors.slug = "Enter URL Slug";
+      errors.slug = "Введите адресную ссылку (Slug)";
     } else if (!slugRegex.test(cleanSlug)) {
-      errors.slug = "Slug must be 2-30 alphanumeric characters";
+      errors.slug = "Slug должен состоять из 2-30 букв латиницы, цифр или дефисов";
     }
 
     setCreateShopFieldErrors(errors);
@@ -732,10 +732,10 @@ export default function AdminPage() {
       try {
         data = JSON.parse(text);
       } catch {
-        throw new Error(`Server error (${res.status})`);
+        throw new Error(`Ошибка сервера (${res.status})`);
       }
 
-      if (!res.ok) throw new Error(data.error || "Failed to create shop");
+      if (!res.ok) throw new Error(data.error || "Не удалось создать заведение");
 
       if (data?.id) {
         linkShopToDevice(data.id);
@@ -766,7 +766,7 @@ export default function AdminPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(data.error || `Failed to delete shop`);
+        throw new Error(data.error || `Не удалось удалить заведение`);
       }
 
       unlinkShopFromDevice(shopToDelete.id);
@@ -774,7 +774,7 @@ export default function AdminPage() {
       setSelectedShop(null);
       await fetchShops();
     } catch (err: any) {
-      setDeleteShopError(err.message || "Error deleting shop");
+      setDeleteShopError(err.message || "Ошибка при удалении заведения");
     } finally {
       setIsDeletingShop(false);
     }
@@ -786,7 +786,7 @@ export default function AdminPage() {
     setServiceError(null);
 
     if (!newServiceData.title.trim() || !newServiceData.price) {
-      setServiceError("Please fill required fields");
+      setServiceError("Пожалуйста, заполните обязательные поля");
       return;
     }
 
@@ -807,7 +807,7 @@ export default function AdminPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to add service");
+      if (!res.ok) throw new Error(data.error || "Не удалось добавить позицию");
 
       setNewServiceData({ title: "", price: "", description: "", category: "", imageUrl: "" });
       setIsAddingService(false);
@@ -853,7 +853,7 @@ export default function AdminPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save changes");
+      if (!res.ok) throw new Error(data.error || "Не удалось сохранить изменения");
 
       setEditingService(null);
       await fetchShops();
@@ -944,7 +944,7 @@ export default function AdminPage() {
         })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create promo code");
+      if (!res.ok) throw new Error(data.error || "Не удалось создать промокод");
       setNewPromoData({ code: "", discountPercent: "", discountAmount: "", usageLimit: "" });
       setIsCreatingPromo(false);
       fetchPromocodes();
@@ -1030,7 +1030,7 @@ export default function AdminPage() {
         body: JSON.stringify(newBannerData)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create banner");
+      if (!res.ok) throw new Error(data.error || "Не удалось создать баннер");
       setNewBannerData({ title: "", subtitle: "", badge: "", bgGradient: "from-zinc-900 to-indigo-950" });
       setIsCreatingBanner(false);
       fetchBanners();
@@ -1096,8 +1096,8 @@ export default function AdminPage() {
         body: JSON.stringify(newBroadcastData)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create broadcast");
-      setNewBroadcastData({ title: "", message: "", imageUrl: "", buttonText: "📱 Open Menu", targetFilter: "ALL" });
+      if (!res.ok) throw new Error(data.error || "Не удалось создать рассылку");
+      setNewBroadcastData({ title: "", message: "", imageUrl: "", buttonText: "📱 Открыть меню", targetFilter: "ALL" });
       setIsCreatingBroadcast(false);
       fetchBroadcasts();
     } catch (err: any) {
@@ -1202,7 +1202,7 @@ export default function AdminPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update settings");
+      if (!res.ok) throw new Error(data.error || "Не удалось обновить настройки");
 
       setIsSettingsOpen(false);
       await fetchShops();
