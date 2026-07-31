@@ -194,9 +194,17 @@ html.light .bg-app-accent {
 }
 
 /* Ensure text and icons inside active accent or dark pills always contrast properly */
-html.light .bg-black *,
-html.light .bg-app-accent * {
+html.light .bg-black *:not(.bg-white):not(.bg-white *):not(.bg-white\/20):not(.bg-white\/20 *),
+html.light .bg-app-accent *:not(.bg-white):not(.bg-white *):not(.bg-white\/20):not(.bg-white\/20 *) {
   color: inherit;
+}
+
+html.light .bg-white, html.light .bg-white * {
+  color: #09090b !important;
+}
+
+html.light .bg-white\/20, html.light .bg-white\/20 * {
+  color: #ffffff !important;
 }
 
 html.light .bg-rose-500, html.light .bg-rose-500 *, html.light .bg-rose-600, html.light .bg-rose-600 * { color: #ffffff !important; }
@@ -255,4 +263,24 @@ html.light .hover\:bg-zinc-200:hover {
 
 .animate-pulse-glow {
   animation: pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes shimmerWave {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--card) 25%,
+    var(--hover) 50%,
+    var(--card) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmerWave 1.6s infinite ease-in-out;
 }

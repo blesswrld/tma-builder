@@ -8,6 +8,7 @@ import {
   Heart, Sun, Moon, Send, MessageSquare, ExternalLink, ThumbsUp
 } from "lucide-react";
 import NotFoundPage from "./NotFoundPage";
+import { ShopPageSkeleton, ReviewSkeletonList, SpinnerLoader } from "../components/Skeleton";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
 import { useTheme } from "../context/ThemeContext";
 import { jsPDF } from "jspdf";
@@ -532,12 +533,7 @@ export default function ShopPage() {
   if (notFound) return <NotFoundPage />;
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-app-bg flex flex-col items-center justify-center gap-3 text-app-muted font-sans">
-        <div className="w-6 h-6 border-2 border-app-border border-t-app-primary rounded-full animate-spin"></div>
-        <p className="text-xs font-mono tracking-wider text-app-muted uppercase">Загрузка витрины...</p>
-      </div>
-    );
+    return <ShopPageSkeleton />;
   }
 
   if (error || !shop) {
@@ -882,7 +878,7 @@ export default function ShopPage() {
                 disabled={isDownloadingPDF}
                 className="w-full h-11 border border-app-border hover:border-zinc-700 bg-app-card text-app-primary font-semibold text-xs rounded-xl transition-all uppercase tracking-wider font-mono flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                <Receipt size={14} className={isDownloadingPDF ? "animate-pulse" : ""} />
+                {isDownloadingPDF ? <SpinnerLoader size={14} /> : <Receipt size={14} />}
                 {isDownloadingPDF ? "Генерация PDF..." : "Скачать чек PDF"}
               </button>
             )}
@@ -1267,10 +1263,10 @@ export default function ShopPage() {
             className="w-full h-13 bg-app-accent text-app-bg rounded-2xl flex items-center justify-between px-5 shadow-2xl hover:scale-[1.01] transition-transform font-mono border border-app-border"
           >
             <div className="flex items-center gap-3">
-              <span className="w-6 h-6 bg-app-secondary text-app-primary rounded-lg flex items-center justify-center text-xs font-bold border border-app-border">
+              <span className="w-6 h-6 bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold border border-white/20 shrink-0">
                 {totalItems}
               </span>
-              <span className="text-xs font-semibold uppercase tracking-wider">Оформить заказ</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-app-accent-fg">Оформить заказ</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold">{totalPrice} ₽</span>
@@ -1337,9 +1333,10 @@ export default function ShopPage() {
                         type="button"
                         onClick={handleValidatePromo}
                         disabled={isValidatingPromo || !promocodeInput.trim()}
-                        className="px-4 bg-app-secondary hover:bg-app-hover text-app-primary text-xs rounded-xl transition-colors disabled:opacity-50 font-mono"
+                        className="px-4 bg-app-secondary hover:bg-app-hover text-app-primary text-xs rounded-xl transition-colors disabled:opacity-50 font-mono flex items-center justify-center gap-1.5"
                       >
-                        Применить
+                        {isValidatingPromo && <SpinnerLoader size={12} />}
+                        {isValidatingPromo ? "Проверка..." : "Применить"}
                       </button>
                     </div>
                     {promoError && <p className="text-xs text-rose-400 font-mono">{promoError}</p>}
@@ -1413,6 +1410,7 @@ export default function ShopPage() {
                     <div>
                       <input 
                         type="text" 
+                        maxLength={50}
                         value={formData.name} 
                         onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} 
                         placeholder="Ваше имя *" 
@@ -1423,6 +1421,7 @@ export default function ShopPage() {
                     <div>
                       <input 
                         type="tel" 
+                        maxLength={20}
                         value={formData.phone} 
                         onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))} 
                         placeholder="Номер телефона *" 
@@ -1433,6 +1432,7 @@ export default function ShopPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <input 
                         type="text" 
+                        maxLength={30}
                         value={formData.tableNumber} 
                         onChange={e => setFormData(p => ({ ...p, tableNumber: e.target.value }))} 
                         placeholder="№ стола (опционально)" 
@@ -1440,19 +1440,26 @@ export default function ShopPage() {
                       />
                       <input 
                         type="text" 
+                        maxLength={30}
                         value={formData.preferredTime} 
                         onChange={e => setFormData(p => ({ ...p, preferredTime: e.target.value }))} 
                         placeholder="Время (опционально)" 
                         className="w-full bg-app-input border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-border transition-colors" 
                       />
                     </div>
-                    <textarea 
-                      rows={2} 
-                      value={formData.note} 
-                      onChange={e => setFormData(p => ({ ...p, note: e.target.value }))} 
-                      placeholder="Комментарий к заказу..." 
-                      className="w-full bg-app-input border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-border transition-colors resize-none" 
-                    />
+                    <div className="relative">
+                      <textarea 
+                        rows={2} 
+                        maxLength={300}
+                        value={formData.note} 
+                        onChange={e => setFormData(p => ({ ...p, note: e.target.value }))} 
+                        placeholder="Комментарий к заказу (до 300 символов)..." 
+                        className="w-full bg-app-input border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-border transition-colors resize-none" 
+                      />
+                      <span className="absolute bottom-2 right-2 text-[10px] font-mono text-app-muted pointer-events-none">
+                        {formData.note.length}/300
+                      </span>
+                    </div>
                   </form>
                 </div>
               </div>
@@ -1462,9 +1469,10 @@ export default function ShopPage() {
                   form="checkout-form"
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-11 bg-app-accent text-app-bg font-semibold text-xs rounded-xl hover:bg-app-hover transition-colors disabled:opacity-50 flex items-center justify-center font-mono uppercase tracking-wider"
+                  className="w-full h-11 bg-app-accent text-app-bg font-semibold text-xs rounded-xl hover:bg-app-hover transition-colors disabled:opacity-50 flex items-center justify-center gap-2 font-mono uppercase tracking-wider"
                 >
-                  {isSubmitting ? "Обработка..." : `Подтвердить заказ (${finalTotalPrice} ₽)`}
+                  {isSubmitting && <SpinnerLoader size={16} />}
+                  {isSubmitting ? "Обработка заказа..." : `Подтвердить заказ (${finalTotalPrice} ₽)`}
                 </button>
               </div>
             </motion.div>
@@ -1535,7 +1543,7 @@ export default function ShopPage() {
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-app-muted font-mono">Оставить отзыв</h3>
                   {reviewSubmitError && <p className="text-xs text-rose-400 font-mono">{reviewSubmitError}</p>}
                   {reviewSubmitSuccess && <p className="text-xs text-emerald-500 font-mono">Спасибо за ваш отзыв!</p>}
-                  <input type="text" value={newReview.name} onChange={e => setNewReview(p => ({ ...p, name: e.target.value }))} placeholder="Ваше имя" className="w-full bg-app-input border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border" />
+                  <input type="text" maxLength={50} value={newReview.name} onChange={e => setNewReview(p => ({ ...p, name: e.target.value }))} placeholder="Ваше имя (до 50 симв.)" className="w-full bg-app-input border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border" />
                   <div className="flex gap-2">
                     {[1, 2, 3, 4, 5].map(r => (
                       <button key={r} type="button" onClick={() => setNewReview(p => ({ ...p, rating: r }))} className={`w-8 h-8 rounded-lg border text-xs font-mono flex items-center justify-center transition-colors ${newReview.rating >= r ? "bg-app-accent text-app-bg border-app-border font-bold" : "bg-app-surface text-app-muted border-app-border"}`}>
@@ -1543,15 +1551,21 @@ export default function ShopPage() {
                       </button>
                     ))}
                   </div>
-                  <textarea rows={3} value={newReview.comment} onChange={e => setNewReview(p => ({ ...p, comment: e.target.value }))} placeholder="Поделитесь впечатлениями..." className="w-full bg-app-input border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border resize-none" />
-                  <button type="submit" disabled={isSubmittingReview || !newReview.name.trim()} className="w-full py-2 bg-app-accent text-app-bg text-xs font-bold font-mono uppercase rounded-xl hover:bg-app-hover transition-colors disabled:opacity-50">
-                    Отправить отзыв
+                  <div className="relative">
+                    <textarea rows={3} maxLength={500} value={newReview.comment} onChange={e => setNewReview(p => ({ ...p, comment: e.target.value }))} placeholder="Поделитесь впечатлениями (до 500 символов)..." className="w-full bg-app-input border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border resize-none" />
+                    <span className="absolute bottom-2 right-2 text-[10px] font-mono text-app-muted pointer-events-none">
+                      {newReview.comment.length}/500
+                    </span>
+                  </div>
+                  <button type="submit" disabled={isSubmittingReview || !newReview.name.trim()} className="w-full py-2 bg-app-accent text-app-bg text-xs font-bold font-mono uppercase rounded-xl hover:bg-app-hover transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                    {isSubmittingReview && <SpinnerLoader size={14} />}
+                    {isSubmittingReview ? "Отправка..." : "Отправить отзыв"}
                   </button>
                 </form>
 
                 <div className="space-y-3">
                   {reviewsLoading ? (
-                    <p className="text-app-muted text-xs font-mono text-center">Загрузка...</p>
+                    <ReviewSkeletonList count={3} />
                   ) : reviews.length === 0 ? (
                     <p className="text-app-muted text-xs font-mono text-center">Отзывов пока нет.</p>
                   ) : (

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { X, Check, Crown, CreditCard, QrCode, Ticket, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { SpinnerLoader } from "./Skeleton";
 
 interface PlanModalProps {
   isOpen: boolean;
@@ -283,8 +284,9 @@ export default function PlanModal({
                 <button
                   disabled={loadingPlan}
                   onClick={handleProcessPayment}
-                  className="w-full py-3 bg-app-accent hover:bg-app-hover text-zinc-950 font-bold text-xs rounded-xl transition-all uppercase tracking-wider"
+                  className="w-full py-3 bg-app-accent hover:bg-app-hover text-zinc-950 font-bold text-xs rounded-xl transition-all uppercase tracking-wider flex items-center justify-center gap-2"
                 >
+                  {loadingPlan && <SpinnerLoader size={16} />}
                   {loadingPlan ? "Обработка..." : `Оплатить ${finalPrice.toLocaleString("ru-RU")} ₽`}
                 </button>
               </div>

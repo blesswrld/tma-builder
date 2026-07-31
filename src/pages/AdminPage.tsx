@@ -16,6 +16,7 @@ import { useTheme } from "../context/ThemeContext";
 import QrGeneratorModal from "../components/QrGeneratorModal";
 import PlanModal from "../components/PlanModal";
 import AnalyticsTab from "../components/AnalyticsTab";
+import { AdminPageSkeleton, ReviewSkeletonList, SpinnerLoader, Skeleton } from "../components/Skeleton";
 
 interface Service {
   id: string;
@@ -1545,6 +1546,8 @@ export default function AdminPage() {
 
         {/* Tab Views Content Container */}
         <div className="p-6 flex-1 space-y-6">
+          {loading && <AdminPageSkeleton />}
+
           {!selectedShop && !loading && (
             <div className="py-20 text-center bg-app-surface border border-dashed border-app-border rounded-3xl p-8 space-y-4 max-w-md mx-auto">
               <Store size={36} className="mx-auto text-app-muted" />
@@ -1735,7 +1738,20 @@ export default function AdminPage() {
                     ))}
                   </div>
 
-                  {filteredOrders.length === 0 ? (
+                  {ordersLoading ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="p-5 rounded-2xl bg-app-surface border border-app-border space-y-3">
+                          <div className="flex justify-between items-center">
+                            <Skeleton className="h-4 w-28 rounded-md" />
+                            <Skeleton className="h-6 w-24 rounded-full" />
+                          </div>
+                          <Skeleton className="h-4 w-3/4 rounded-md" />
+                          <Skeleton className="h-3.5 w-1/2 rounded-md" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : filteredOrders.length === 0 ? (
                     <div className="py-20 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
                       <ShoppingBag size={28} className="mx-auto text-zinc-600 mb-2" />
                       <p className="text-xs text-app-muted font-mono">Заказов не найдено.</p>
@@ -2134,7 +2150,8 @@ export default function AdminPage() {
                 placeholder="Пароль"
                 className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
               />
-              <button type="submit" disabled={isSubmittingAuth} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+              <button type="submit" disabled={isSubmittingAuth} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase flex items-center justify-center gap-2">
+                {isSubmittingAuth && <SpinnerLoader size={14} />}
                 {isSubmittingAuth ? "Загрузка..." : authMode === "login" ? "Войти" : "Зарегистрироваться"}
               </button>
             </form>
@@ -2397,7 +2414,8 @@ export default function AdminPage() {
                   </div>
                 )}
               </div>
-              <button type="submit" disabled={isSavingEditService} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+              <button type="submit" disabled={isSavingEditService} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase flex items-center justify-center gap-2">
+                {isSavingEditService && <SpinnerLoader size={14} />}
                 {isSavingEditService ? "Сохранение..." : "Обновить позицию"}
               </button>
             </form>
@@ -2518,7 +2536,8 @@ export default function AdminPage() {
                 />
                 <label htmlFor="isOpenCheck" className="text-xs font-mono text-app-secondary">Заведение открыто для заказов</label>
               </div>
-              <button type="submit" disabled={isSavingSettings} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase">
+              <button type="submit" disabled={isSavingSettings} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase flex items-center justify-center gap-2">
+                {isSavingSettings && <SpinnerLoader size={14} />}
                 {isSavingSettings ? "Сохранение..." : "Сохранить настройки"}
               </button>
             </form>

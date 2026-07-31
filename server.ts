@@ -693,9 +693,21 @@ app.post("/api/shops", async (req, res) => {
         return res.status(400).json({ error: "Название услуги должно содержать минимум 2 символа." });
       }
 
+      if (title.trim().length > 100) {
+        return res.status(400).json({ error: "Название услуги слишком длинное (макс. 100 символов)." });
+      }
+
+      if (description && typeof description === "string" && description.length > 500) {
+        return res.status(400).json({ error: "Описание услуги не должно превышать 500 символов." });
+      }
+
       const parsedPrice = Number(price);
       if (isNaN(parsedPrice) || parsedPrice <= 0) {
         return res.status(400).json({ error: "Укажите корректную положительную цену (больше 0 ₽)." });
+      }
+
+      if (parsedPrice > 10000000) {
+        return res.status(400).json({ error: "Цена превышает допустимый лимит (10,000,000 ₽)." });
       }
 
       const db = getPrismaClient();
@@ -910,10 +922,22 @@ app.post("/api/shops", async (req, res) => {
         return res.status(400).json({ error: "Корзина пуста. Выберите хотя бы одну услугу." });
       }
 
+      if (items.length > 50) {
+        return res.status(400).json({ error: "Превышено максимальное количество позиций в заказе (макс. 50)." });
+      }
+
       const parsedTotal = Number(totalPrice);
       if (isNaN(parsedTotal) || parsedTotal <= 0) {
         return res.status(400).json({ error: "Некорректная итоговая сумма заказа." });
       }
+
+      if (parsedTotal > 1000000) {
+        return res.status(400).json({ error: "Сумма заказа превышает допустимый лимит (1 000 000 ₽)." });
+      }
+
+      const cleanTableNumber = tableNumber ? String(tableNumber).trim().slice(0, 30) : null;
+      const cleanPreferredTime = preferredTime ? String(preferredTime).trim().slice(0, 30) : null;
+      const cleanNote = note ? String(note).trim().slice(0, 300) : null;
 
       // Получаем магазин для настроек Telegram
       const shop = await db.shop.findUnique({
@@ -926,9 +950,9 @@ app.post("/api/shops", async (req, res) => {
           shopId,
           customerName: customerName.trim(),
           customerPhone: cleanPhone,
-          tableNumber: tableNumber ? String(tableNumber).trim() : null,
-          preferredTime: preferredTime ? String(preferredTime).trim() : null,
-          note: note ? String(note).trim() : null,
+          tableNumber: cleanTableNumber,
+          preferredTime: cleanPreferredTime,
+          note: cleanNote,
           items: JSON.stringify(items),
           totalPrice: Math.round(parsedTotal),
           status: "PENDING"
@@ -1293,9 +1317,13 @@ app.post("/api/shops", async (req, res) => {
       if (!cleanCode || cleanCode.length < 2) {
         return res.status(400).json({ error: "Промокод должен содержать минимум 2 символа." });
       }
+      if (cleanCode.length > 20) {
+        return res.status(400).json({ error: "Длина промокода не должна превышать 20 символов." });
+      }
 
       const numPercent = Math.max(0, Math.min(100, Number(discountPercent) || 0));
-      const numAmount = Math.max(0, Number(discountAmount) || 0);
+      const numAmount = Math.max(0, Math.min(100000, Number(discountAmount) || 0));
+      const numMaxUses = Math.max(1, Math.min(100000, Number(maxUses) || 100));
 
       if (numPercent === 0 && numAmount === 0) {
         return res.status(400).json({ error: "Укажите либо процент скидки (% > 0), либо фиксированную сумму в рублях (₽ > 0)." });
@@ -1314,7 +1342,7 @@ app.post("/api/shops", async (req, res) => {
           code: cleanCode,
           discountPercent: numPercent,
           discountAmount: numAmount,
-          maxUses: Number(maxUses) || 100,
+          maxUses: numMaxUses,
           isActive: true
         }
       });
@@ -1437,21 +1465,29 @@ app.post("/api/shops", async (req, res) => {
 
       await ensureOrderSchema(db);
 
-      const cleanName = (customerName || "").trim();
-      if (!cleanName || cleanName.length < 2) {
-        return res.status(400).json({ error: "Пожалуйста, укажите ваше имя." });
+    const cleanName = (customerName || "").trim();
+    if (!cleanName || cleanName.length < 2) {
+      return res.status(400).json({ error: "Пожалуйста, укажите ваше имя (минимум 2 символа)." });
+    }
+    if (cleanName.length > 50) {
+      return res.status(400).json({ error: "Имя не должно превышать 50 символов." });
+    }
+
+    const cleanComment = comment ? String(comment).trim() : null;
+    if (cleanComment && cleanComment.length > 500) {
+      return res.status(400).json({ error: "Текст отзыва слишком длинный (максимум 500 символов)." });
+    }
+
+    const numRating = Math.max(1, Math.min(5, Number(rating) || 5));
+
+    const review = await db.review.create({
+      data: {
+        shopId,
+        customerName: cleanName,
+        rating: numRating,
+        comment: cleanComment
       }
-
-      const numRating = Math.max(1, Math.min(5, Number(rating) || 5));
-
-      const review = await db.review.create({
-        data: {
-          shopId,
-          customerName: cleanName,
-          rating: numRating,
-          comment: comment?.trim() || null
-        }
-      });
+    });
 
       broadcastEvent({ type: "REVIEW_CREATED", shopId, payload: review });
       res.status(201).json(review);
@@ -1480,9 +1516,14 @@ app.post("/api/shops", async (req, res) => {
         return res.status(403).json({ error: "У вас нет прав отвечать на отзывы этого заведения." });
       }
 
+      const cleanReply = reply ? String(reply).trim() : null;
+      if (cleanReply && cleanReply.length > 500) {
+        return res.status(400).json({ error: "Ответ на отзыв не должен превышать 500 символов." });
+      }
+
       const updated = await db.review.update({
         where: { id },
-        data: { reply: reply?.trim() || null }
+        data: { reply: cleanReply }
       });
 
       broadcastEvent({ type: "REVIEW_UPDATED", shopId: review.shopId, payload: updated });
@@ -1530,18 +1571,26 @@ app.post("/api/shops", async (req, res) => {
         return res.status(403).json({ error: "У вас нет прав на создание баннеров." });
       }
 
-      if (!title || typeof title !== "string" || !title.trim()) {
-        return res.status(400).json({ error: "Укажите заголовок баннера." });
+      const cleanTitle = title ? String(title).trim() : "";
+      if (!cleanTitle) {
+        return res.status(400).json({ error: "Укажите заголовок баннера (минимум 2 символа)." });
       }
+      if (cleanTitle.length > 80) {
+        return res.status(400).json({ error: "Заголовок баннера не должен превышать 80 символов." });
+      }
+
+      const cleanSubtitle = subtitle ? String(subtitle).trim().slice(0, 150) : null;
+      const cleanBadge = badge ? String(badge).trim().slice(0, 25) : null;
+      const cleanImageUrl = imageUrl ? String(imageUrl).trim().slice(0, 1000) : null;
 
       const banner = await db.banner.create({
         data: {
           shopId,
-          title: title.trim(),
-          subtitle: subtitle?.trim() || null,
-          imageUrl: imageUrl?.trim() || null,
-          badge: badge?.trim() || null,
-          bgGradient: bgGradient?.trim() || "from-slate-900 to-indigo-950"
+          title: cleanTitle,
+          subtitle: cleanSubtitle,
+          imageUrl: cleanImageUrl,
+          badge: cleanBadge,
+          bgGradient: bgGradient ? String(bgGradient).trim().slice(0, 100) : "from-slate-900 to-indigo-950"
         }
       });
 
@@ -1784,9 +1833,25 @@ app.post("/api/shops", async (req, res) => {
         return res.status(403).json({ error: "У вас нет прав на создание рассылки." });
       }
 
-      if (!title || !message) {
-        return res.status(400).json({ error: "Укажите заголовок и текст сообщения рассылки." });
+      const cleanTitle = title ? String(title).trim() : "";
+      const cleanMessage = message ? String(message).trim() : "";
+
+      if (!cleanTitle || cleanTitle.length < 2) {
+        return res.status(400).json({ error: "Укажите заголовок рассылки (минимум 2 символа)." });
       }
+      if (cleanTitle.length > 100) {
+        return res.status(400).json({ error: "Заголовок рассылки не должен превышать 100 символов." });
+      }
+
+      if (!cleanMessage || cleanMessage.length < 2) {
+        return res.status(400).json({ error: "Укажите текст сообщения (минимум 2 символа)." });
+      }
+      if (cleanMessage.length > 1000) {
+        return res.status(400).json({ error: "Текст рассылки слишком длинный (максимум 1000 символов)." });
+      }
+
+      const cleanButtonText = buttonText ? String(buttonText).trim().slice(0, 40) : null;
+      const cleanImageUrl = imageUrl ? String(imageUrl).trim().slice(0, 1000) : null;
 
       // Посчитаем количество получателей по гибким фильтрам
       let count = 0;
@@ -1815,10 +1880,10 @@ app.post("/api/shops", async (req, res) => {
       const broadcast = await db.broadcast.create({
         data: {
           shopId,
-          title: String(title).trim(),
-          message: String(message).trim(),
-          imageUrl: imageUrl ? String(imageUrl).trim() : null,
-          buttonText: buttonText ? String(buttonText).trim() : "📱 Открыть Меню",
+          title: cleanTitle,
+          message: cleanMessage,
+          imageUrl: cleanImageUrl,
+          buttonText: cleanButtonText || "📱 Открыть Меню",
           targetFilter: targetFilter || "ALL",
           sentCount: count,
           status: "SENT"

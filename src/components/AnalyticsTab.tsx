@@ -11,6 +11,7 @@ import {
   ResponsiveContainer
 } from "recharts";
 import { TrendingUp, ShoppingBag, DollarSign, Award, RefreshCw, BarChart2 } from "lucide-react";
+import { AnalyticsSkeleton } from "./Skeleton";
 
 interface AnalyticsData {
   summary: {
@@ -57,12 +58,7 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
   }, [shopId]);
 
   if (loading) {
-    return (
-      <div className="p-12 text-center bg-app-surface rounded-3xl border border-app-border flex flex-col items-center justify-center gap-3">
-        <RefreshCw size={22} className="animate-spin text-app-muted" />
-        <p className="text-xs font-mono text-app-muted">Расчёт показателей эффективности...</p>
-      </div>
-    );
+    return <AnalyticsSkeleton />;
   }
 
   if (error || !data) {
