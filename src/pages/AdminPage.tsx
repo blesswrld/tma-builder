@@ -1836,12 +1836,14 @@ export default function AdminPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {promocodes.map(promo => (
                         <div key={promo.id} className="p-5 rounded-2xl bg-app-surface border border-app-border flex justify-between items-start">
-                          <div className="space-y-2">
-                            <span className="px-2.5 py-1 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-lg uppercase">
-                              {promo.code}
-                            </span>
-                            <p className="text-xs text-app-secondary font-mono">
-                              Скидка: {promo.discountPercent > 0 ? `${promo.discountPercent}%` : `${promo.discountAmount} ₽`}
+                          <div className="space-y-2.5">
+                            <div>
+                              <span className="inline-block px-2.5 py-1 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-lg uppercase shadow-sm">
+                                {promo.code}
+                              </span>
+                            </div>
+                            <p className="text-xs text-app-primary font-mono">
+                              Скидка: <span className="font-semibold text-app-primary">{promo.discountPercent > 0 ? `${promo.discountPercent}%` : `${promo.discountAmount} ₽`}</span>
                             </p>
                             <p className="text-[11px] text-app-muted font-mono">
                               Использован: {promo.usedCount} раз {promo.usageLimit ? `/ лимит ${promo.usageLimit}` : ''}
@@ -1916,17 +1918,17 @@ export default function AdminPage() {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {banners.map(banner => (
-                        <div key={banner.id} className="p-6 rounded-2xl bg-gradient-to-br from-[#18181c] to-[#121215] border border-app-border space-y-3 relative">
-                          <button onClick={() => handleDeleteBanner(banner.id)} className="absolute top-4 right-4 p-1.5 text-app-muted hover:text-rose-400">
-                            <Trash2 size={14} />
+                        <div key={banner.id} className="p-6 rounded-2xl bg-app-surface border border-app-border space-y-3 relative shadow-sm">
+                          <button onClick={() => handleDeleteBanner(banner.id)} className="absolute top-4 right-4 p-1.5 text-app-muted hover:text-rose-500 transition-colors cursor-pointer" title="Удалить">
+                            <Trash2 size={15} />
                           </button>
                           {banner.badge && (
-                            <span className="px-2.5 py-0.5 bg-white/10 text-white font-mono text-[10px] rounded-full uppercase">
+                            <span className="inline-block px-2.5 py-0.5 bg-app-badge text-app-primary font-mono text-[10px] font-bold rounded-full uppercase tracking-wider border border-app-border">
                               {banner.badge}
                             </span>
                           )}
-                          <h3 className="text-base font-bold text-white">{banner.title}</h3>
-                          {banner.subtitle && <p className="text-xs text-app-muted">{banner.subtitle}</p>}
+                          <h3 className="text-base font-bold text-app-primary tracking-tight">{banner.title}</h3>
+                          {banner.subtitle && <p className="text-xs text-app-muted leading-relaxed">{banner.subtitle}</p>}
                         </div>
                       ))}
                     </div>
@@ -2881,16 +2883,16 @@ export default function AdminPage() {
       {/* Custom Confirmation Modal */}
       <AnimatePresence>
         {confirmModal.isOpen && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="max-w-sm w-full bg-[#141416] border border-app-border rounded-2xl p-6 text-app-primary shadow-2xl space-y-5"
+              className="max-w-sm w-full bg-app-card border border-app-border rounded-2xl p-6 text-app-primary shadow-2xl space-y-5"
             >
               <div className="space-y-2">
-                <h3 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
+                <h3 className="text-sm font-bold tracking-tight text-app-primary flex items-center gap-2">
                   <AlertCircle size={16} className={confirmModal.isDangerous ? "text-rose-500" : "text-amber-500"} />
                   {confirmModal.title}
                 </h3>
@@ -2903,17 +2905,17 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                  className="px-4 py-2 bg-[#1c1c20] border border-app-border text-app-secondary rounded-xl hover:bg-zinc-800 text-xs font-mono transition-colors"
+                  className="px-4 py-2 bg-app-surface border border-app-border text-app-primary rounded-xl hover:bg-app-hover text-xs font-mono transition-colors"
                 >
                   {confirmModal.cancelText || "Отмена"}
                 </button>
                 <button
                   type="button"
                   onClick={confirmModal.onConfirm}
-                  className={`px-4 py-2 rounded-xl text-xs font-mono font-bold text-white transition-colors ${
+                  className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-colors ${
                     confirmModal.isDangerous 
-                      ? "bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-900/20" 
-                      : "bg-[#1c1c20] border border-app-border hover:bg-zinc-800"
+                      ? "bg-rose-500 hover:bg-rose-600 text-white shadow-md shadow-rose-500/20" 
+                      : "bg-app-accent text-app-accent-fg hover:opacity-90"
                   }`}
                 >
                   {confirmModal.confirmText || "Подтвердить"}

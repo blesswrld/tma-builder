@@ -1768,16 +1768,16 @@ export default function ShopPage() {
       {/* Custom Confirmation Modal */}
       <AnimatePresence>
         {confirmModal.isOpen && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="max-w-sm w-full bg-[#141416] border border-app-border rounded-2xl p-6 text-app-primary shadow-2xl space-y-5"
+              className="max-w-sm w-full bg-app-card border border-app-border rounded-2xl p-6 text-app-primary shadow-2xl space-y-5"
             >
               <div className="space-y-2">
-                <h3 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
+                <h3 className="text-sm font-bold tracking-tight text-app-primary flex items-center gap-2">
                   <AlertCircle size={16} className={confirmModal.isDangerous ? "text-rose-500" : "text-amber-500"} />
                   {confirmModal.title}
                 </h3>
@@ -1790,17 +1790,17 @@ export default function ShopPage() {
                 <button
                   type="button"
                   onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                  className="px-4 py-2 bg-[#1c1c20] border border-app-border text-app-secondary rounded-xl hover:bg-app-hover text-xs font-mono transition-colors"
+                  className="px-4 py-2 bg-app-surface border border-app-border text-app-primary rounded-xl hover:bg-app-hover text-xs font-mono transition-colors"
                 >
                   {confirmModal.cancelText || "Отмена"}
                 </button>
                 <button
                   type="button"
                   onClick={confirmModal.onConfirm}
-                  className={`px-4 py-2 rounded-xl text-xs font-mono font-bold text-white transition-colors ${
+                  className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-colors ${
                     confirmModal.isDangerous 
-                      ? "bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-900/20" 
-                      : "bg-[#1c1c20] border border-app-border hover:bg-app-hover"
+                      ? "bg-rose-500 hover:bg-rose-600 text-white shadow-md shadow-rose-500/20" 
+                      : "bg-app-accent text-app-accent-fg hover:opacity-90"
                   }`}
                 >
                   {confirmModal.confirmText || "Подтвердить"}

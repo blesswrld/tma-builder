@@ -165,7 +165,7 @@ html.light .border-zinc-900 {
   border-color: var(--border-subtle) !important;
 }
 
-html.light .text-white:not(.bg-app-accent *):not(.bg-black *):not(.bg-rose-500 *):not(.bg-emerald-500 *):not(.bg-amber-500 *):not(.bg-indigo-600 *), 
+html.light .text-white:not(.bg-app-accent *):not(.bg-black *):not(.bg-rose-500 *):not(.bg-rose-600 *):not(.bg-emerald-500 *):not(.bg-amber-500 *):not(.bg-indigo-500 *):not(.bg-indigo-600 *):not(.bg-zinc-900 *):not(.bg-zinc-950 *), 
 html.light .text-zinc-100:not(.bg-app-accent *):not(.bg-black *) {
   color: var(--text-primary) !important;
 }
@@ -199,7 +199,7 @@ html.light .bg-app-accent * {
   color: inherit;
 }
 
-html.light .bg-rose-500, html.light .bg-rose-500 * { color: #ffffff !important; }
+html.light .bg-rose-500, html.light .bg-rose-500 *, html.light .bg-rose-600, html.light .bg-rose-600 * { color: #ffffff !important; }
 html.light .bg-emerald-500, html.light .bg-emerald-500 * { color: #ffffff !important; }
 html.light .bg-amber-500, html.light .bg-amber-500 * { color: #ffffff !important; }
 
