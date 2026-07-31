@@ -8,6 +8,17 @@ import {
 } from "lucide-react";
 import NotFoundPage from "./NotFoundPage";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
+import { jsPDF } from "jspdf";
+
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return typeof window !== "undefined" ? window.btoa(binary) : Buffer.from(binary, "binary").toString("base64");
+};
 
 declare global {
   interface Window {
@@ -160,6 +171,225 @@ export default function ShopPage() {
   });
   const [formErrors, setFormErrors] = useState<{ name?: string; phone?: string; general?: string }>({});
   const [orderSuccess, setOrderSuccess] = useState(false);
+  const [lastOrderReceipt, setLastOrderReceipt] = useState<any>(null);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+
+  const generateReceiptPDF = async (receiptData: any) => {
+    setIsDownloadingPDF(true);
+    try {
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4"
+      });
+
+      // Fetch Roboto font for Cyrillic support
+      const fontRes = await fetch("https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf");
+      if (!fontRes.ok) throw new Error("Не удалось загрузить стандартный шрифт");
+      const arrayBuffer = await fontRes.arrayBuffer();
+      const base64Font = arrayBufferToBase64(arrayBuffer);
+
+      doc.addFileToVFS("Roboto-Regular.ttf", base64Font);
+      doc.addFont("Roboto-Regular.ttf", "Roboto", "normal");
+
+      // Also fetch Roboto-Medium.ttf for bold elements
+      const boldFontRes = await fetch("https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Medium.ttf");
+      if (boldFontRes.ok) {
+        const boldArrayBuffer = await boldFontRes.arrayBuffer();
+        const boldBase64Font = arrayBufferToBase64(boldArrayBuffer);
+        doc.addFileToVFS("Roboto-Medium.ttf", boldBase64Font);
+        doc.addFont("Roboto-Medium.ttf", "Roboto", "bold");
+      }
+
+      doc.setFont("Roboto", "normal");
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = 25;
+
+      // Outer Border Frame
+      doc.setDrawColor(228, 228, 231);
+      doc.setLineWidth(0.5);
+      doc.rect(15, 15, pageWidth - 30, doc.internal.pageSize.getHeight() - 30);
+
+      // Decorative header bar
+      doc.setFillColor(15, 23, 42);
+      doc.rect(15, 15, pageWidth - 30, 8, "F");
+
+      // Shop Name
+      doc.setFont("Roboto", "bold");
+      doc.setFontSize(20);
+      doc.setTextColor(15, 23, 42);
+      doc.text(receiptData.shopName.toUpperCase(), pageWidth / 2, y + 8, { align: "center" });
+      
+      y += 16;
+
+      // Subtitle / Address & Phone
+      doc.setFont("Roboto", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(113, 113, 122);
+      let shopInfo = "";
+      if (receiptData.shopAddress) shopInfo += receiptData.shopAddress;
+      if (receiptData.shopPhone) shopInfo += (shopInfo ? " | Тел: " : "Тел: ") + receiptData.shopPhone;
+      if (shopInfo) {
+        doc.text(shopInfo, pageWidth / 2, y, { align: "center" });
+        y += 5;
+      }
+
+      doc.text(`Дата: ${receiptData.date}`, pageWidth / 2, y, { align: "center" });
+      y += 12;
+
+      // Separator Line
+      doc.setDrawColor(228, 228, 231);
+      doc.line(20, y, pageWidth - 20, y);
+      y += 10;
+
+      // Customer Info Section
+      doc.setFont("Roboto", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text("ИНФОРМАЦИЯ О ЗАКАЗЕ", 20, y);
+      y += 8;
+
+      doc.setFont("Roboto", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(63, 63, 70);
+
+      doc.text(`Номер заказа:`, 20, y);
+      doc.setFont("Roboto", "bold");
+      doc.text(`${receiptData.orderId}`, 50, y);
+      doc.setFont("Roboto", "normal");
+
+      doc.text(`Клиент:`, 110, y);
+      doc.setFont("Roboto", "bold");
+      doc.text(`${receiptData.customerName}`, 130, y);
+      doc.setFont("Roboto", "normal");
+
+      y += 6;
+
+      doc.text(`Телефон:`, 20, y);
+      doc.text(`${receiptData.customerPhone}`, 50, y);
+
+      if (receiptData.tableNumber) {
+        doc.text(`Стол №:`, 110, y);
+        doc.setFont("Roboto", "bold");
+        doc.text(`${receiptData.tableNumber}`, 130, y);
+        doc.setFont("Roboto", "normal");
+      } else if (receiptData.preferredTime) {
+        doc.text(`Время доставки:`, 110, y);
+        doc.setFont("Roboto", "bold");
+        doc.text(`${receiptData.preferredTime}`, 145, y);
+        doc.setFont("Roboto", "normal");
+      }
+
+      y += 12;
+
+      // Separator
+      doc.setDrawColor(228, 228, 231);
+      doc.line(20, y, pageWidth - 20, y);
+      y += 10;
+
+      // Items Section
+      doc.setFont("Roboto", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text("ПОЗИЦИИ В ЗАКАЗЕ", 20, y);
+      y += 8;
+
+      // Table Header
+      doc.setFillColor(244, 244, 245);
+      doc.rect(20, y, pageWidth - 40, 8, "F");
+      
+      doc.setFont("Roboto", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(63, 63, 70);
+      doc.text("Наименование", 24, y + 5.5);
+      doc.text("Кол-во", 115, y + 5.5, { align: "right" });
+      doc.text("Цена", 145, y + 5.5, { align: "right" });
+      doc.text("Сумма", 185, y + 5.5, { align: "right" });
+
+      y += 14;
+
+      doc.setFont("Roboto", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(24, 24, 27);
+
+      receiptData.items.forEach((item: any) => {
+        if (y > doc.internal.pageSize.getHeight() - 40) {
+          doc.addPage();
+          doc.setDrawColor(228, 228, 231);
+          doc.rect(15, 15, pageWidth - 30, doc.internal.pageSize.getHeight() - 30);
+          y = 25;
+        }
+
+        doc.setFont("Roboto", "bold");
+        doc.text(item.title, 24, y);
+        doc.setFont("Roboto", "normal");
+        
+        doc.text(`${item.quantity} шт`, 115, y, { align: "right" });
+        doc.text(`${item.price} ₽`, 145, y, { align: "right" });
+        doc.text(`${item.price * item.quantity} ₽`, 185, y, { align: "right" });
+
+        y += 8;
+      });
+
+      y += 4;
+      doc.setDrawColor(228, 228, 231);
+      doc.line(20, y, pageWidth - 20, y);
+      y += 10;
+
+      // Pricing Calculations
+      const summaryXLabel = 145;
+      const summaryXVal = 185;
+
+      doc.setFont("Roboto", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(113, 113, 122);
+      doc.text("Сумма без скидки:", summaryXLabel, y, { align: "right" });
+      doc.setFont("Roboto", "bold");
+      doc.setTextColor(24, 24, 27);
+      doc.text(`${receiptData.totalPrice} ₽`, summaryXVal, y, { align: "right" });
+      doc.setFont("Roboto", "normal");
+      y += 6;
+
+      if (receiptData.discountValue > 0) {
+        doc.setTextColor(113, 113, 122);
+        doc.text(`Скидка ${receiptData.appliedPromo ? `(${receiptData.appliedPromo})` : ""}:`, summaryXLabel, y, { align: "right" });
+        doc.setFont("Roboto", "bold");
+        doc.setTextColor(239, 68, 68);
+        doc.text(`- ${receiptData.discountValue} ₽`, summaryXVal, y, { align: "right" });
+        doc.setFont("Roboto", "normal");
+        y += 6;
+      }
+
+      doc.setDrawColor(228, 228, 231);
+      doc.line(110, y - 2, pageWidth - 20, y - 2);
+
+      doc.setFontSize(12);
+      doc.setFont("Roboto", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text("ИТОГО К ОПЛАТЕ:", summaryXLabel, y + 4, { align: "right" });
+      doc.text(`${receiptData.finalTotalPrice} ₽`, summaryXVal, y + 4, { align: "right" });
+
+      y += 20;
+
+      // Footer
+      doc.setFont("Roboto", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(113, 113, 122);
+      doc.text("Спасибо за ваш заказ!", pageWidth / 2, y, { align: "center" });
+      y += 5;
+      doc.setFontSize(8);
+      doc.text("Электронный чек сгенерирован автоматически.", pageWidth / 2, y, { align: "center" });
+
+      doc.save(`Receipt-${receiptData.orderId}.pdf`);
+      showToast("Чек успешно сохранен как PDF!", "success");
+    } catch (error) {
+      console.error("Ошибка при генерации PDF:", error);
+      showToast("Не удалось экспортировать PDF", "error");
+    } finally {
+      setIsDownloadingPDF(false);
+    }
+  };
 
   const { subscribeShop } = useRealtime();
   const isAnyShopModalOpen = Boolean(isCheckoutOpen || isMyOrdersOpen || isReviewsOpen || showInfoModal);
@@ -514,6 +744,28 @@ export default function ShopPage() {
         } catch (e) {}
       }
 
+      // Save last order receipt information before clearing cart and setting success
+      setLastOrderReceipt({
+        shopName: shop?.name || "Магазин",
+        shopAddress: shop?.address || "",
+        shopPhone: shop?.phone || "",
+        customerName: formData.name.trim(),
+        customerPhone: formData.phone.trim(),
+        tableNumber: formData.tableNumber.trim(),
+        preferredTime: formData.preferredTime.trim(),
+        items: items.map(item => ({
+          title: item.title || "",
+          price: item.price || 0,
+          quantity: item.quantity || 1
+        })),
+        totalPrice: totalPrice,
+        discountValue: discountValue,
+        finalTotalPrice: finalTotalPrice,
+        appliedPromo: appliedPromo ? appliedPromo.code : null,
+        date: new Date().toLocaleString("ru-RU"),
+        orderId: data.id ? String(data.id).slice(-6).toUpperCase() : `ORD-${Math.floor(1000 + Math.random() * 9000)}`
+      });
+
       setOrderSuccess(true);
       setCart({});
       showToast("Заказ успешно оформлен!", "success");
@@ -550,15 +802,30 @@ export default function ShopPage() {
           <div className="space-y-2">
             <h2 className="text-xl font-bold tracking-tight text-app-primary">Заказ принят</h2>
             <p className="text-app-secondary text-xs leading-relaxed">
-              Ваш заказ обрабатывается в {shop.name}. Отслеживайте статус во вкладке «Заказы».
+              Ваш заказ обрабатывается в {shop?.name}. Отслеживайте статус во вкладке «Заказы».
             </p>
           </div>
-          <button
-            onClick={handleFinishOrder}
-            className="w-full h-11 bg-app-accent text-app-bg font-semibold text-xs rounded-xl hover:bg-app-hover transition-all uppercase tracking-wider font-mono"
-          >
-            Готово
-          </button>
+          
+          <div className="space-y-2 pt-2">
+            {lastOrderReceipt && (
+              <button
+                type="button"
+                onClick={() => generateReceiptPDF(lastOrderReceipt)}
+                disabled={isDownloadingPDF}
+                className="w-full h-11 border border-app-border hover:border-zinc-700 bg-app-card text-app-primary font-semibold text-xs rounded-xl transition-all uppercase tracking-wider font-mono flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Receipt size={14} className={isDownloadingPDF ? "animate-pulse" : ""} />
+                {isDownloadingPDF ? "Генерация PDF..." : "Скачать чек PDF"}
+              </button>
+            )}
+
+            <button
+              onClick={handleFinishOrder}
+              className="w-full h-11 bg-app-accent text-app-bg font-semibold text-xs rounded-xl hover:bg-app-hover transition-all uppercase tracking-wider font-mono cursor-pointer"
+            >
+              Готово
+            </button>
+          </div>
         </motion.div>
       </div>
     );
