@@ -4,10 +4,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { 
   Plus, Minus, X, Check, Search, ShoppingBag, ArrowRight, Star, Clock, 
   MapPin, Phone as PhoneIcon, Receipt, Sparkles, Tag, ChevronRight, 
-  Info, ShieldCheck, CornerDownRight, Store, AlertCircle, ShoppingCart
+  Info, ShieldCheck, CornerDownRight, Store, AlertCircle, ShoppingCart,
+  Heart, Sun, Moon, Send, MessageSquare, ExternalLink, ThumbsUp
 } from "lucide-react";
 import NotFoundPage from "./NotFoundPage";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
+import { useTheme } from "../context/ThemeContext";
 import { jsPDF } from "jspdf";
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
@@ -80,11 +82,42 @@ interface Order {
 
 export default function ShopPage() {
   const { slug } = useParams<{ slug: string }>();
+  const { theme, toggleTheme } = useTheme();
   
   const [shop, setShop] = useState<Shop | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+
+  // Favorites state
+  const [favorites, setFavorites] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (shop?.id) {
+      try {
+        const savedFavs = JSON.parse(localStorage.getItem(`fav_${shop.id}`) || "[]");
+        setFavorites(savedFavs);
+      } catch (e) {}
+    }
+  }, [shop?.id]);
+
+  const toggleFavorite = (id: string) => {
+    if (!shop?.id) return;
+    const isFav = favorites.includes(id);
+    const updated = isFav ? favorites.filter(item => item !== id) : [...favorites, id];
+    setFavorites(updated);
+    try {
+      localStorage.setItem(`fav_${shop.id}`, JSON.stringify(updated));
+    } catch (e) {}
+    showToast(
+      !isFav ? "Добавлено в избранное ❤️" : "Удалено из избранного",
+      "success"
+    );
+  };
+
+  // Product Customizer Detail Modal State
+  const [selectedServiceDetail, setSelectedServiceDetail] = useState<Service | null>(null);
+  const [detailItemNote, setDetailItemNote] = useState("");
 
   // Custom Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{
@@ -137,8 +170,13 @@ export default function ShopPage() {
   
   const [banners, setBanners] = useState<Banner[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Tipping options
+  const [tipPercent, setTipPercent] = useState<number>(0);
+  const [customTip, setCustomTip] = useState<string>("");
 
   const [promocodeInput, setPromocodeInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountPercent: number; discountAmount: number } | null>(null);
@@ -513,8 +551,11 @@ export default function ShopPage() {
     );
   }
 
-  const handleAddToCart = (serviceId: string) => {
+  const handleAddToCart = (serviceId: string, customNote?: string) => {
     setCart(prev => ({ ...prev, [serviceId]: (prev[serviceId] || 0) + 1 }));
+    if (customNote) {
+      setItemNotes(prev => ({ ...prev, [serviceId]: customNote }));
+    }
   };
 
   const handleRemoveFromCart = (serviceId: string) => {
@@ -527,6 +568,28 @@ export default function ShopPage() {
       }
       return newCart;
     });
+  };
+
+  const getServiceBadges = (service: Service): string[] => {
+    const badges: string[] = [];
+    const text = `${service.title} ${service.description || ""} ${service.category || ""}`.toLowerCase();
+    
+    if (text.includes("остр") || text.includes("spicy") || text.includes("пепперони") || text.includes("чили")) {
+      badges.push("🌶️ Острое");
+    }
+    if (text.includes("вег") || text.includes("овощ") || text.includes("зелен") || text.includes("салат") || text.includes("постн")) {
+      badges.push("🌱 Вегетарианское");
+    }
+    if (text.includes("хит") || text.includes("специальн") || text.includes("фирменн") || text.includes("шеф")) {
+      badges.push("⭐ Хит");
+    }
+    if (text.includes("нов") || text.includes("new")) {
+      badges.push("🆕 Новинка");
+    }
+    if (text.includes("без глютен") || text.includes("gluten free")) {
+      badges.push("🌾 Без глютена");
+    }
+    return badges;
   };
 
   const totalItems: number = (Object.values(cart) as number[]).reduce((sum, qty) => sum + qty, 0);
@@ -543,7 +606,12 @@ export default function ShopPage() {
       discountValue = Math.min(totalPrice, appliedPromo.discountAmount);
     }
   }
-  const finalTotalPrice = Math.max(0, totalPrice - discountValue);
+
+  const tipAmount = tipPercent > 0 
+    ? Math.round((totalPrice * tipPercent) / 100) 
+    : (Number(customTip) || 0);
+
+  const finalTotalPrice = Math.max(0, totalPrice - discountValue + tipAmount);
 
   const handleValidatePromo = async () => {
     if (!promocodeInput.trim() || !shop) return;
@@ -831,10 +899,19 @@ export default function ShopPage() {
     );
   }
 
+  const activeOrder = myOrders.find(o => o.status === "PENDING" || o.status === "CONFIRMED");
+
   const allServices = shop.services || [];
   const categories = Array.from(new Set(allServices.map(s => s.category).filter(Boolean))) as string[];
+  
   const filteredServices = allServices.filter(service => {
-    const matchesCategory = selectedCategory === "ALL" || service.category === selectedCategory;
+    const isFav = favorites.includes(service.id);
+    const matchesCategory = selectedCategory === "ALL" 
+      ? true 
+      : selectedCategory === "FAVORITES" 
+      ? isFav 
+      : service.category === selectedCategory;
+      
     const matchesSearch = service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (service.description && service.description.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCategory && matchesSearch;
@@ -865,6 +942,15 @@ export default function ShopPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Theme Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-all border border-transparent hover:border-app-border cursor-pointer"
+              title={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
+            >
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+
             <button
               onClick={() => setShowInfoModal(true)}
               className="p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-all border border-transparent hover:border-app-border"
@@ -891,6 +977,54 @@ export default function ShopPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+        {/* Welcome Greeting Banner */}
+        {shop.description && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-app-card border border-app-border space-y-1.5 shadow-sm relative overflow-hidden">
+            <div className="flex items-center gap-2">
+              <Sparkles size={15} className="text-amber-500 shrink-0" />
+              <span className="text-xs font-mono font-bold text-app-muted uppercase tracking-wider">
+                Приветствие
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-app-primary leading-relaxed whitespace-pre-line">
+              {shop.description}
+            </p>
+          </div>
+        )}
+
+        {/* Active Order Tracker Banner if customer has an active order */}
+        {activeOrder && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 border border-amber-500/30 space-y-3 shadow-sm">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                </span>
+                <span className="text-xs font-bold font-mono text-app-primary">
+                  Активный заказ #{activeOrder.id.slice(-6).toUpperCase()}
+                </span>
+              </div>
+              <span className="text-xs font-mono text-amber-500 font-bold uppercase tracking-wider">
+                {activeOrder.status === "PENDING" ? "Принят" : "Готовится"}
+              </span>
+            </div>
+            <div className="w-full bg-app-card h-1.5 rounded-full overflow-hidden border border-app-border">
+              <div 
+                className={`h-full bg-amber-500 transition-all duration-500 ${
+                  activeOrder.status === "PENDING" ? "w-1/3" : "w-2/3"
+                }`} 
+              />
+            </div>
+            <div className="flex justify-between items-center text-[11px] font-mono text-app-muted">
+              <span>Сумма: {activeOrder.totalPrice} ₽</span>
+              <button onClick={handleOpenMyOrders} className="text-app-primary font-bold underline hover:text-amber-500 transition-colors">
+                Детали заказа →
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Banners Carousel / Highlight Cards */}
         {banners.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -928,6 +1062,20 @@ export default function ShopPage() {
               >
                 Все
               </button>
+              
+              {/* Favorites Category Tab */}
+              <button
+                onClick={() => setSelectedCategory("FAVORITES")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 border flex items-center gap-1.5 ${
+                  selectedCategory === "FAVORITES"
+                    ? "bg-rose-500 text-white border-rose-600 font-bold shadow-sm"
+                    : "bg-app-surface text-app-muted border-app-border hover:text-rose-400"
+                }`}
+              >
+                <Heart size={13} className={favorites.length > 0 ? "fill-current" : ""} />
+                <span>Избранное ({favorites.length})</span>
+              </button>
+
               {categories.map(cat => (
                 <button
                   key={cat}
@@ -967,6 +1115,8 @@ export default function ShopPage() {
               {filteredServices.map(service => {
                 const qty = cart[service.id] || 0;
                 const isOutOfStock = service.isAvailable === false;
+                const isFav = favorites.includes(service.id);
+                const badges = getServiceBadges(service);
                 
                 return (
                   <motion.div 
@@ -978,53 +1128,98 @@ export default function ShopPage() {
                         : "bg-app-surface border-app-border hover:border-app-border hover:bg-app-card-hover"
                     }`}
                   >
-                    {service.imageUrl && (
-                      <div className="h-40 w-full overflow-hidden bg-app-surface border-b border-app-border relative">
-                        <img
-                          src={service.imageUrl}
-                          alt={service.title}
-                          className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300"
-                          referrerPolicy="no-referrer"
-                        />
-                        {service.category && (
-                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 border border-white/10 text-[9px] font-mono text-zinc-300 uppercase tracking-wider backdrop-blur-md">
+                    {service.imageUrl ? (
+                      <div className="relative">
+                        <div 
+                          onClick={() => setSelectedServiceDetail(service)}
+                          className="h-40 w-full overflow-hidden bg-app-surface border-b border-app-border relative cursor-pointer"
+                        >
+                          <img
+                            src={service.imageUrl}
+                            alt={service.title}
+                            className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300"
+                            referrerPolicy="no-referrer"
+                          />
+                          {service.category && (
+                            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 border border-white/10 text-[9px] font-mono text-zinc-300 uppercase tracking-wider backdrop-blur-md">
+                              {service.category}
+                            </span>
+                          )}
+                        </div>
+                        {/* Favorite Heart Button over image */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(service.id);
+                          }}
+                          className="absolute top-2 right-2 p-2 rounded-xl bg-black/50 backdrop-blur-md border border-white/20 text-white hover:scale-110 transition-transform cursor-pointer z-10"
+                          title={isFav ? "Удалить из избранного" : "В избранное"}
+                        >
+                          <Heart size={14} className={isFav ? "fill-rose-500 text-rose-500" : "text-white"} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="pt-3.5 px-4 flex justify-between items-center gap-2">
+                        {service.category ? (
+                          <span className="inline-block px-2 py-0.5 rounded-md bg-app-card border border-app-border text-[9px] font-mono text-app-muted uppercase tracking-wider">
                             {service.category}
                           </span>
-                        )}
+                        ) : <div />}
+                        {/* Favorite Heart Button for card without image */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(service.id);
+                          }}
+                          className="p-1.5 rounded-xl bg-app-card hover:bg-app-hover border border-app-border text-app-primary hover:scale-105 transition-all cursor-pointer shrink-0"
+                          title={isFav ? "Удалить из избранного" : "В избранное"}
+                        >
+                          <Heart size={14} className={isFav ? "fill-rose-500 text-rose-500" : "text-app-muted"} />
+                        </button>
                       </div>
                     )}
-                    <div className="p-5 flex-1 flex flex-col justify-between">
+
+                    <div className="p-5 pt-2 flex-1 flex flex-col justify-between">
                       <div className="space-y-2 mb-4">
-                        <div className="flex justify-between items-start gap-3">
-                          <h3 className={`text-sm font-semibold tracking-tight ${isOutOfStock ? "text-app-muted" : "text-app-primary"}`}>
+                        <div 
+                          onClick={() => setSelectedServiceDetail(service)}
+                          className="flex justify-between items-start gap-3 cursor-pointer"
+                        >
+                          <h3 className={`text-sm font-semibold tracking-tight hover:underline ${isOutOfStock ? "text-app-muted" : "text-app-primary"}`}>
                             {service.title}
                           </h3>
                           <span className="text-xs font-mono font-bold text-app-primary px-2 py-1 rounded-lg bg-app-card border border-app-border shrink-0">
                             {service.price} ₽
                           </span>
                         </div>
-                        {!service.imageUrl && service.category && (
-                          <span className="inline-block px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-app-muted uppercase tracking-wider">
-                            {service.category}
-                          </span>
+
+                        {/* Dietary Badges */}
+                        {badges.length > 0 && (
+                          <div className="flex flex-wrap gap-1 py-1">
+                            {badges.map(badge => (
+                              <span key={badge} className="px-2 py-0.5 rounded-md bg-app-badge text-app-primary font-mono text-[9px] border border-app-border">
+                                {badge}
+                              </span>
+                            ))}
+                          </div>
                         )}
+
                         {service.description && (
-                          <p className="text-app-secondary text-xs leading-relaxed line-clamp-3 font-normal">
+                          <p 
+                            onClick={() => setSelectedServiceDetail(service)}
+                            className="text-app-secondary text-xs leading-relaxed line-clamp-2 font-normal cursor-pointer"
+                          >
                             {service.description}
                           </p>
                         )}
                       </div>
                       
                       <div className="flex justify-between items-center mt-auto pt-4 border-t border-app-border">
-                        {service.category && service.imageUrl ? (
-                          <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">
-                            {qty > 0 ? `В корзине: ${qty}` : ""}
-                          </span>
-                        ) : service.category ? (
-                          <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">
-                            {service.category}
-                          </span>
-                        ) : <div />}
+                        <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">
+                          {qty > 0 ? `В корзине: ${qty}` : ""}
+                        </span>
 
                         <div>
                           {isOutOfStock ? (
@@ -1047,10 +1242,10 @@ export default function ShopPage() {
                             </div>
                           ) : (
                             <button 
-                              onClick={() => handleAddToCart(service.id)}
+                              onClick={() => setSelectedServiceDetail(service)}
                               className="px-4 py-1.5 rounded-xl bg-app-accent text-app-bg font-medium text-xs hover:bg-app-hover transition-all font-mono cursor-pointer"
                             >
-                              + Добавить
+                              + Выбрать
                             </button>
                           )}
                         </div>
@@ -1156,9 +1351,54 @@ export default function ShopPage() {
                     )}
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-app-border flex justify-between items-center font-mono">
-                    <span className="text-xs text-app-muted uppercase">Итого</span>
-                    <span className="text-lg font-bold text-app-primary">{finalTotalPrice} ₽</span>
+                  {/* Tipping Options Section */}
+                  <div className="mt-6 pt-4 border-t border-app-border space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">Чаевые персоналу</span>
+                      {tipAmount > 0 && <span className="text-xs font-mono text-amber-500 font-bold">+{tipAmount} ₽</span>}
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[0, 5, 10, 15].map(p => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => {
+                            setTipPercent(p);
+                            setCustomTip("");
+                          }}
+                          className={`py-2 rounded-xl text-xs font-mono border transition-all cursor-pointer ${
+                            tipPercent === p && !customTip 
+                              ? "bg-amber-500/20 text-amber-400 border-amber-500/40 font-bold shadow-sm" 
+                              : "bg-app-surface text-app-secondary border-app-border hover:text-app-primary hover:bg-app-hover"
+                          }`}
+                        >
+                          {p === 0 ? "Без чаевых" : `${p}%`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-app-border space-y-1 font-mono">
+                    <div className="flex justify-between items-center text-xs text-app-muted">
+                      <span>Сумма заказа</span>
+                      <span>{totalPrice} ₽</span>
+                    </div>
+                    {discountValue > 0 && (
+                      <div className="flex justify-between items-center text-xs text-emerald-500">
+                        <span>Скидка</span>
+                        <span>-{discountValue} ₽</span>
+                      </div>
+                    )}
+                    {tipAmount > 0 && (
+                      <div className="flex justify-between items-center text-xs text-amber-500">
+                        <span>Чаевые</span>
+                        <span>+{tipAmount} ₽</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t border-app-border text-base font-bold text-app-primary">
+                      <span className="text-xs text-app-muted uppercase font-normal">К оплате</span>
+                      <span>{finalTotalPrice} ₽</span>
+                    </div>
                   </div>
                 </div>
 
@@ -1360,22 +1600,43 @@ export default function ShopPage() {
               <div className="space-y-3 pt-2 text-xs text-app-secondary font-mono">
                 {shop.workingHours && (
                   <div className="flex items-center gap-2.5">
-                    <Clock size={14} className="text-app-muted" />
+                    <Clock size={14} className="text-app-muted shrink-0" />
                     <span>{shop.workingHours}</span>
                   </div>
                 )}
                 {shop.address && (
                   <div className="flex items-center gap-2.5">
-                    <MapPin size={14} className="text-app-muted" />
+                    <MapPin size={14} className="text-app-muted shrink-0" />
                     <span>{shop.address}</span>
                   </div>
                 )}
                 {shop.phone && (
-                  <div className="flex items-center gap-2.5">
-                    <PhoneIcon size={14} className="text-app-muted" />
+                  <a href={`tel:${shop.phone}`} className="flex items-center gap-2.5 hover:text-app-primary transition-colors">
+                    <PhoneIcon size={14} className="text-app-muted shrink-0" />
                     <span>{shop.phone}</span>
-                  </div>
+                  </a>
                 )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                {shop.phone && (
+                  <a 
+                    href={`tel:${shop.phone}`}
+                    className="py-2.5 px-3 bg-app-card border border-app-border hover:bg-app-hover text-app-primary font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    <PhoneIcon size={14} />
+                    <span>Позвонить</span>
+                  </a>
+                )}
+                <a 
+                  href={`https://t.me/${shop.slug}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="py-2.5 px-3 bg-sky-500/20 text-sky-400 border border-sky-500/30 hover:bg-sky-500/30 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <Send size={14} />
+                  <span>Telegram</span>
+                </a>
               </div>
 
               <button 
@@ -1387,7 +1648,122 @@ export default function ShopPage() {
             </motion.div>
           </div>
         )}
-       </AnimatePresence>
+      </AnimatePresence>
+
+      {/* Product Detail Customizer Modal */}
+      <AnimatePresence>
+        {selectedServiceDetail && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="max-w-md w-full bg-app-modal border border-app-border rounded-3xl overflow-hidden text-app-primary shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              {selectedServiceDetail.imageUrl ? (
+                <div className="relative h-56 w-full shrink-0">
+                  <img
+                    src={selectedServiceDetail.imageUrl}
+                    alt={selectedServiceDetail.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    onClick={() => {
+                      setSelectedServiceDetail(null);
+                      setDetailItemNote("");
+                    }}
+                    className="absolute top-3 right-3 p-2 rounded-xl bg-black/60 backdrop-blur-md text-white hover:bg-black/80 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              ) : (
+                <div className="p-6 border-b border-app-border flex justify-between items-center bg-app-modal-header">
+                  <h3 className="text-base font-bold text-app-primary">{selectedServiceDetail.title}</h3>
+                  <button
+                    onClick={() => {
+                      setSelectedServiceDetail(null);
+                      setDetailItemNote("");
+                    }}
+                    className="text-app-muted hover:text-app-primary transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              )}
+
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                <div className="flex justify-between items-start gap-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-app-primary">{selectedServiceDetail.title}</h2>
+                    {selectedServiceDetail.category && (
+                      <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">
+                        Категория: {selectedServiceDetail.category}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-base font-bold font-mono text-app-primary px-3 py-1 bg-app-card border border-app-border rounded-xl">
+                    {selectedServiceDetail.price} ₽
+                  </span>
+                </div>
+
+                {/* Dietary Badges in Modal */}
+                {getServiceBadges(selectedServiceDetail).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {getServiceBadges(selectedServiceDetail).map(badge => (
+                      <span key={badge} className="px-2.5 py-1 rounded-lg bg-app-badge text-app-primary font-mono text-xs border border-app-border">
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {selectedServiceDetail.description && (
+                  <p className="text-xs text-app-secondary leading-relaxed">
+                    {selectedServiceDetail.description}
+                  </p>
+                )}
+
+                {/* Optional Note for Item */}
+                <div className="space-y-1.5 pt-2">
+                  <label className="text-[11px] font-mono text-app-muted uppercase">Пожелания к блюду / позиции</label>
+                  <input
+                    type="text"
+                    value={detailItemNote}
+                    onChange={e => setDetailItemNote(e.target.value)}
+                    placeholder="Например: без лука, погорячее..."
+                    className="w-full bg-app-input border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-border transition-colors font-sans"
+                  />
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-app-border bg-app-bg flex gap-3">
+                <button
+                  onClick={() => {
+                    toggleFavorite(selectedServiceDetail.id);
+                  }}
+                  className="p-3 rounded-2xl bg-app-surface border border-app-border hover:bg-app-hover text-app-primary transition-colors shrink-0"
+                  title="В избранное"
+                >
+                  <Heart size={18} className={favorites.includes(selectedServiceDetail.id) ? "fill-rose-500 text-rose-500" : "text-app-muted"} />
+                </button>
+                <button
+                  onClick={() => {
+                    handleAddToCart(selectedServiceDetail.id, detailItemNote);
+                    setSelectedServiceDetail(null);
+                    setDetailItemNote("");
+                    showToast(`"${selectedServiceDetail.title}" добавлено в корзину`, "success");
+                  }}
+                  className="flex-1 py-3 bg-app-accent text-app-bg font-bold font-mono text-xs uppercase rounded-2xl hover:bg-app-hover transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus size={16} />
+                  <span>В корзину • {selectedServiceDetail.price} ₽</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Custom Confirmation Modal */}
       <AnimatePresence>

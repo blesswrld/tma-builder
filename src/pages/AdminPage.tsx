@@ -8,10 +8,11 @@ import {
   LogIn, LogOut, ShieldCheck, Mail, Lock, QrCode, Download, Volume2, 
   VolumeX, Crown, FileSpreadsheet, Bell, Star, Sparkles, Smartphone, 
   Image as ImageIcon, Send, Users, Radio, Gift, ChevronDown, ChevronUp, 
-  Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap
+  Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
+import { useTheme } from "../context/ThemeContext";
 import QrGeneratorModal from "../components/QrGeneratorModal";
 import PlanModal from "../components/PlanModal";
 import AnalyticsTab from "../components/AnalyticsTab";
@@ -72,6 +73,7 @@ interface Shop {
 
 export default function AdminPage() {
   const { user, token, login, register, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   // Auth modal
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -1277,42 +1279,42 @@ export default function AdminPage() {
   const filteredOrders = orders.filter(o => orderStatusFilter === "ALL" || o.status === orderStatusFilter);
 
   return (
-    <div className="min-h-screen bg-[#08080a] text-zinc-100 font-sans flex flex-col md:flex-row selection:bg-zinc-800">
+    <div className="min-h-screen bg-app-bg text-app-primary font-sans flex flex-col md:flex-row selection:bg-zinc-800">
       {/* Mobile Top Navigation */}
-      <div className="md:hidden sticky top-0 z-40 bg-[#09090b]/90 backdrop-blur-xl border-b border-zinc-800/80 px-4 h-14 flex items-center justify-between">
+      <div className="md:hidden sticky top-0 z-40 bg-app-surface/90 backdrop-blur-xl border-b border-app-border px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-white text-black flex items-center justify-center font-mono font-bold text-xs">
+          <div className="w-6 h-6 rounded-lg bg-app-accent text-app-accent-fg flex items-center justify-center font-mono font-bold text-xs">
             ▲
           </div>
           <span className="font-semibold text-sm text-white font-mono">TMA BUILDER</span>
         </div>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-zinc-400 hover:text-white">
+        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-app-muted hover:text-white">
           {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
 
       {/* Sleek Vercel / Linear Left Sidebar Navigation */}
       <aside className={`
-        fixed md:sticky top-0 left-0 z-50 h-screen w-64 bg-[#0c0c0e] border-r border-zinc-800/80 flex flex-col justify-between p-4 transition-transform duration-200
+        fixed md:sticky top-0 left-0 z-50 h-screen w-64 bg-app-surface border-r border-app-border flex flex-col justify-between p-4 transition-transform duration-200
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
       `}>
         <div className="space-y-6">
           {/* Logo Brand Header */}
           <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-white text-black flex items-center justify-center font-mono font-bold text-xs shadow-md shadow-white/10">
+              <div className="w-7 h-7 rounded-xl bg-app-accent text-app-accent-fg flex items-center justify-center font-mono font-bold text-xs shadow-md shadow-white/10">
                 ▲
               </div>
-              <span className="font-bold text-sm tracking-tight text-white font-mono">TMA BUILDER</span>
+              <span className="font-bold text-sm tracking-tight text-app-primary font-mono">TMA BUILDER</span>
             </div>
-            <span className="px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-zinc-400 uppercase">
+            <span className="px-1.5 py-0.5 rounded-md bg-app-card border border-app-border text-[9px] font-mono text-app-muted uppercase">
               v2.4
             </span>
           </div>
 
           {/* Workspace / Shop Selector Dropdown */}
           <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 px-2 block">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-app-muted px-2 block">
               Активное заведение
             </label>
             <div className="relative">
@@ -1322,15 +1324,15 @@ export default function AdminPage() {
                   const found = shops.find(s => s.id === e.target.value);
                   if (found) setSelectedShop(found);
                 }}
-                className="w-full bg-[#141417] border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-white rounded-xl px-3 py-2.5 appearance-none focus:outline-none transition-colors cursor-pointer"
+                className="w-full bg-app-card border border-app-border hover:border-app-border text-xs font-medium text-white rounded-xl px-3 py-2.5 appearance-none focus:outline-none transition-colors cursor-pointer"
               >
                 {activeShops.map(s => (
-                  <option key={s.id} value={s.id} className="bg-[#141417] text-white">
+                  <option key={s.id} value={s.id} className="bg-app-card text-white">
                     {s.name} ({s.slug})
                   </option>
                 ))}
               </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-app-muted pointer-events-none" />
             </div>
 
             {/* Quick Actions Bar */}
@@ -1338,13 +1340,13 @@ export default function AdminPage() {
               <div className="flex items-center justify-between gap-1 px-1 pt-1">
                 <button
                   onClick={() => setIsCreatingShop(true)}
-                  className="flex-1 py-1.5 bg-[#141417] hover:bg-zinc-800 border border-zinc-800 text-[11px] font-mono text-zinc-300 rounded-lg transition-colors flex items-center justify-center gap-1"
+                  className="flex-1 py-1.5 bg-app-card hover:bg-zinc-800 border border-app-border text-[11px] font-mono text-app-secondary rounded-lg transition-colors flex items-center justify-center gap-1"
                 >
                   <Plus size={12} /> Заведение
                 </button>
                 <button
                   onClick={() => handleOpenSettings(selectedShop)}
-                  className="p-1.5 bg-[#141417] hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white rounded-lg transition-colors"
+                  className="p-1.5 bg-app-card hover:bg-zinc-800 border border-app-border text-app-muted hover:text-white rounded-lg transition-colors"
                   title="Настройки заведения"
                 >
                   <Settings size={13} />
@@ -1353,7 +1355,7 @@ export default function AdminPage() {
                   href={`/${selectedShop.slug}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="p-1.5 bg-[#141417] hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white rounded-lg transition-colors"
+                  className="p-1.5 bg-app-card hover:bg-zinc-800 border border-app-border text-app-muted hover:text-white rounded-lg transition-colors"
                   title="Открыть витрину"
                 >
                   <ExternalLink size={13} />
@@ -1386,17 +1388,21 @@ export default function AdminPage() {
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
                     isActive 
-                      ? "bg-white text-black font-bold shadow-md shadow-white/5" 
-                      : "text-zinc-400 hover:text-white hover:bg-[#141417]"
+                      ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" 
+                      : "text-app-muted hover:text-app-primary hover:bg-app-hover"
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon size={15} className={isActive ? "text-black" : "text-zinc-400"} />
+                    <Icon size={15} className={isActive ? "text-app-accent-fg" : "text-app-muted"} />
                     <span>{tab.label}</span>
                   </div>
                   {tab.badge !== undefined && tab.badge > 0 && (
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      tab.alert ? "bg-rose-500 text-white animate-pulse" : isActive ? "bg-black/10 text-black" : "bg-zinc-800 text-zinc-300"
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold transition-all ${
+                      tab.alert 
+                        ? "bg-rose-500 text-white animate-pulse" 
+                        : isActive 
+                          ? "bg-white/20 text-white dark:bg-black/20 dark:text-black border border-white/20 dark:border-black/10" 
+                          : "bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 border border-zinc-300/60 dark:border-zinc-700/60"
                     }`}>
                       {tab.badge}
                     </span>
@@ -1408,18 +1414,18 @@ export default function AdminPage() {
         </div>
 
         {/* Bottom Sidebar Footer */}
-        <div className="space-y-3 pt-4 border-t border-zinc-800/60 font-mono text-xs">
+        <div className="space-y-3 pt-4 border-t border-app-border font-mono text-xs">
           <div className="flex items-center justify-between px-1 gap-1">
             <button
               onClick={() => setIsAudioEnabled(!isAudioEnabled)}
-              className="p-2 bg-[#141417] hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors"
+              className="p-2 bg-app-card hover:bg-zinc-800 border border-app-border rounded-xl text-app-muted hover:text-white transition-colors"
               title={isAudioEnabled ? "Отключить звук уведомлений" : "Включить звук уведомлений"}
             >
               {isAudioEnabled ? <Volume2 size={14} className="text-emerald-400" /> : <VolumeX size={14} />}
             </button>
             <button
               onClick={() => setIsQrModalOpen(true)}
-              className="p-2 bg-[#141417] hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors"
+              className="p-2 bg-app-card hover:bg-zinc-800 border border-app-border rounded-xl text-app-muted hover:text-white transition-colors"
               title="Генератор QR-кодов"
             >
               <QrCode size={14} />
@@ -1433,22 +1439,22 @@ export default function AdminPage() {
             </button>
           </div>
 
-          <div className="p-3 bg-[#121215] border border-zinc-800 rounded-2xl flex items-center justify-between">
+          <div className="p-3 bg-app-surface border border-app-border rounded-2xl flex items-center justify-between">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-7 h-7 rounded-xl bg-zinc-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
                 {user?.email ? user.email.charAt(0).toUpperCase() : "А"}
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-medium text-white truncate">{user?.email || "Администратор"}</p>
-                <p className="text-[10px] text-zinc-500 truncate">{token ? "Авторизован" : "Локальный сеанс"}</p>
+                <p className="text-[10px] text-app-muted truncate">{token ? "Авторизован" : "Локальный сеанс"}</p>
               </div>
             </div>
             {token ? (
-              <button onClick={logout} className="p-1.5 text-zinc-400 hover:text-rose-400 transition-colors" title="Выйти">
+              <button onClick={logout} className="p-1.5 text-app-muted hover:text-rose-400 transition-colors" title="Выйти">
                 <LogOut size={14} />
               </button>
             ) : (
-              <button onClick={() => setIsAuthModalOpen(true)} className="p-1.5 text-zinc-400 hover:text-white transition-colors" title="Войти">
+              <button onClick={() => setIsAuthModalOpen(true)} className="p-1.5 text-app-muted hover:text-white transition-colors" title="Войти">
                 <LogIn size={14} />
               </button>
             )}
@@ -1459,10 +1465,10 @@ export default function AdminPage() {
       {/* Main Content Workspace */}
       <main className="flex-1 min-w-0 flex flex-col min-h-screen">
         {/* Workspace Top Bar Header */}
-        <header className="h-16 border-b border-zinc-800/80 px-6 flex items-center justify-between gap-4 bg-[#09090b]/80 backdrop-blur-md sticky top-0 z-30">
+        <header className="h-16 border-b border-app-border px-6 flex items-center justify-between gap-4 bg-app-surface/80 backdrop-blur-md sticky top-0 z-30">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-zinc-500 font-mono">Заведение /</span>
+              <span className="text-xs text-app-muted font-mono">Заведение /</span>
               <h2 className="text-sm font-semibold tracking-tight text-white font-mono">
                 {activeTab === "services" && "Меню и услуги"}
                 {activeTab === "orders" && "Заказы"}
@@ -1475,17 +1481,25 @@ export default function AdminPage() {
                 {activeTab === "botsim" && "Симулятор бота"}
               </h2>
             </div>
-            <p className="text-[11px] text-zinc-400 font-sans">
+            <p className="text-[11px] text-app-muted font-sans">
               Управление заведением {selectedShop?.name || ""}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Global Theme Switcher */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center justify-center"
+              title={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
+            >
+              {theme === "dark" ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-400" />}
+            </button>
 
             {activeTab === "services" && (
               <button
                 onClick={() => setIsAddingService(true)}
-                className="px-3.5 py-2 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-all flex items-center gap-1.5 shadow-md shadow-white/5"
+                className="px-3.5 py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm"
               >
                 <Plus size={14} /> Добавить услугу
               </button>
@@ -1494,7 +1508,7 @@ export default function AdminPage() {
             {activeTab === "orders" && (
               <button
                 onClick={exportOrdersToCsv}
-                className="px-3.5 py-2 bg-[#141417] hover:bg-zinc-800 border border-zinc-800 text-white font-mono text-xs rounded-xl transition-all flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-all flex items-center gap-1.5"
               >
                 <FileSpreadsheet size={14} /> Экспорт CSV
               </button>
@@ -1503,7 +1517,7 @@ export default function AdminPage() {
             {activeTab === "promocodes" && (
               <button
                 onClick={() => setIsCreatingPromo(true)}
-                className="px-3.5 py-2 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-all flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5"
               >
                 <Plus size={14} /> Новый промокод
               </button>
@@ -1512,7 +1526,7 @@ export default function AdminPage() {
             {activeTab === "banners" && (
               <button
                 onClick={() => setIsCreatingBanner(true)}
-                className="px-3.5 py-2 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-all flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5"
               >
                 <Plus size={14} /> Новый баннер
               </button>
@@ -1521,7 +1535,7 @@ export default function AdminPage() {
             {activeTab === "broadcasts" && (
               <button
                 onClick={() => setIsCreatingBroadcast(true)}
-                className="px-3.5 py-2 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-all flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5"
               >
                 <Plus size={14} /> Новая рассылка
               </button>
@@ -1532,15 +1546,15 @@ export default function AdminPage() {
         {/* Tab Views Content Container */}
         <div className="p-6 flex-1 space-y-6">
           {!selectedShop && !loading && (
-            <div className="py-20 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-3xl p-8 space-y-4 max-w-md mx-auto">
-              <Store size={36} className="mx-auto text-zinc-500" />
+            <div className="py-20 text-center bg-app-surface border border-dashed border-app-border rounded-3xl p-8 space-y-4 max-w-md mx-auto">
+              <Store size={36} className="mx-auto text-app-muted" />
               <h3 className="text-base font-semibold text-white">Заведение не создано</h3>
-              <p className="text-xs text-zinc-400 leading-relaxed">
+              <p className="text-xs text-app-muted leading-relaxed">
                 Создайте свое первое заведение в Telegram Mini App, чтобы начать управлять каталогом, заказами и акциями.
               </p>
               <button
                 onClick={() => setIsCreatingShop(true)}
-                className="px-5 py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-colors uppercase tracking-wider"
+                className="px-5 py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-colors uppercase tracking-wider"
               >
                 + Создать заведение
               </button>
@@ -1552,12 +1566,40 @@ export default function AdminPage() {
               {/* TAB 1: SERVICES / MENU */}
               {activeTab === "services" && (
                 <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-[#121215] p-3 rounded-2xl border border-zinc-800">
+                  {/* Shop Welcome Message Widget */}
+                  <div className="bg-app-surface border border-app-border rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-app-card border border-app-border flex items-center justify-center shrink-0 mt-0.5 text-amber-500">
+                        <Sparkles size={16} />
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[11px] font-mono font-bold text-app-muted uppercase tracking-wider">
+                          Приветственное сообщение для покупателей
+                        </span>
+                        <p className="text-xs text-app-primary leading-relaxed">
+                          {selectedShop.description || (
+                            <span className="text-app-muted italic">
+                              Приветственное сообщение не задано. Нажмите «Изменить», чтобы добавить описание для витрины.
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleOpenSettings(selectedShop)}
+                      className="px-3.5 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-semibold rounded-xl transition-all shrink-0 flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Edit3 size={13} />
+                      <span>Изменить</span>
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-app-surface p-3 rounded-2xl border border-app-border">
                     <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
                       <button
                         onClick={() => setSelectedCategoryFilter("ALL")}
                         className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all ${
-                          selectedCategoryFilter === "ALL" ? "bg-white text-black font-bold" : "text-zinc-400 hover:text-white"
+                          selectedCategoryFilter === "ALL" ? "bg-app-accent text-app-accent-fg font-bold" : "text-app-muted hover:text-app-primary"
                         }`}
                       >
                         ВСЕ
@@ -1567,7 +1609,7 @@ export default function AdminPage() {
                           key={cat}
                           onClick={() => setSelectedCategoryFilter(cat)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all ${
-                            selectedCategoryFilter === cat ? "bg-white text-black font-bold" : "text-zinc-400 hover:text-white"
+                            selectedCategoryFilter === cat ? "bg-app-accent text-app-accent-fg font-bold" : "text-app-muted hover:text-app-primary"
                           }`}
                         >
                           {cat}
@@ -1576,20 +1618,20 @@ export default function AdminPage() {
                     </div>
 
                     <div className="relative w-full sm:w-64">
-                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted" />
                       <input
                         type="text"
                         value={serviceSearchQuery}
                         onChange={e => setServiceSearchQuery(e.target.value)}
                         placeholder="Поиск по меню..."
-                        className="w-full bg-[#18181c] border border-zinc-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-600"
+                        className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-600"
                       />
                     </div>
                   </div>
 
                   {filteredServices.length === 0 ? (
-                    <div className="py-16 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
-                      <p className="text-xs text-zinc-400 font-mono">В меню пока нет позиций.</p>
+                    <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
+                      <p className="text-xs text-app-muted font-mono">В меню пока нет позиций.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1597,11 +1639,11 @@ export default function AdminPage() {
                         <div
                           key={service.id}
                           className={`rounded-2xl border overflow-hidden transition-all flex flex-col justify-between ${
-                            service.isAvailable === false ? "bg-[#121215]/50 border-zinc-800/40 opacity-60" : "bg-[#121215] border-zinc-800 hover:border-zinc-700"
+                            service.isAvailable === false ? "bg-app-surface/50 border-app-border opacity-60" : "bg-app-surface border-app-border hover:border-app-border"
                           }`}
                         >
                           {service.imageUrl && (
-                            <div className="h-36 w-full overflow-hidden bg-zinc-950 border-b border-zinc-800/60 relative">
+                            <div className="h-36 w-full overflow-hidden bg-zinc-950 border-b border-app-border relative">
                               <img
                                 src={service.imageUrl}
                                 alt={service.title}
@@ -1609,7 +1651,7 @@ export default function AdminPage() {
                                 referrerPolicy="no-referrer"
                               />
                               {service.category && (
-                                <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 border border-white/10 text-[9px] font-mono text-zinc-300 uppercase tracking-wider backdrop-blur-md">
+                                <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 border border-white/10 text-[9px] font-mono text-app-secondary uppercase tracking-wider backdrop-blur-md">
                                   {service.category}
                                 </span>
                               )}
@@ -1624,16 +1666,16 @@ export default function AdminPage() {
                                 </span>
                               </div>
                               {!service.imageUrl && service.category && (
-                                <span className="inline-block px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-zinc-400 uppercase tracking-wider">
+                                <span className="inline-block px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-app-muted uppercase tracking-wider">
                                   {service.category}
                                 </span>
                               )}
                               {service.description && (
-                                <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">{service.description}</p>
+                                <p className="text-xs text-app-muted line-clamp-2 leading-relaxed">{service.description}</p>
                               )}
                             </div>
 
-                            <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80">
+                            <div className="flex items-center justify-between pt-3 border-t border-app-border">
                               <button
                                 onClick={() => handleToggleServiceAvailability(service.id, service.isAvailable)}
                                 className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
@@ -1648,14 +1690,14 @@ export default function AdminPage() {
                               <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => handleOpenEditService(service)}
-                                  className="p-1.5 bg-[#18181c] hover:bg-zinc-800 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                  className="p-1.5 bg-app-card hover:bg-zinc-800 border border-app-border rounded-lg text-app-muted hover:text-white transition-colors cursor-pointer"
                                   title="Редактировать"
                                 >
                                   <Edit3 size={13} />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteService(service.id)}
-                                  className="p-1.5 bg-[#18181c] hover:bg-rose-900/30 border border-zinc-800 hover:border-rose-800 text-zinc-400 hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                                  className="p-1.5 bg-app-card hover:bg-rose-900/30 border border-app-border hover:border-rose-800 text-app-muted hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
                                   title="Удалить"
                                 >
                                   <Trash2 size={13} />
@@ -1673,7 +1715,7 @@ export default function AdminPage() {
               {/* TAB 2: LIVE ORDERS */}
               {activeTab === "orders" && (
                 <div className="space-y-6">
-                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-none bg-[#121215] p-3 rounded-2xl border border-zinc-800">
+                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-none bg-app-surface p-3 rounded-2xl border border-app-border">
                     {[
                       { key: "ALL", label: "ВСЕ" },
                       { key: "PENDING", label: "ОЖИДАЕТ" },
@@ -1685,7 +1727,7 @@ export default function AdminPage() {
                         key={statusObj.key}
                         onClick={() => setOrderStatusFilter(statusObj.key)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all ${
-                          orderStatusFilter === statusObj.key ? "bg-white text-black font-bold" : "text-zinc-400 hover:text-white"
+                          orderStatusFilter === statusObj.key ? "bg-app-accent text-app-accent-fg font-bold" : "text-app-muted hover:text-app-primary"
                         }`}
                       >
                         {statusObj.label}
@@ -1694,9 +1736,9 @@ export default function AdminPage() {
                   </div>
 
                   {filteredOrders.length === 0 ? (
-                    <div className="py-20 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
+                    <div className="py-20 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
                       <ShoppingBag size={28} className="mx-auto text-zinc-600 mb-2" />
-                      <p className="text-xs text-zinc-400 font-mono">Заказов не найдено.</p>
+                      <p className="text-xs text-app-muted font-mono">Заказов не найдено.</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -1707,13 +1749,13 @@ export default function AdminPage() {
                         } catch (e) {}
 
                         return (
-                          <div key={order.id} className="p-5 rounded-2xl bg-[#121215] border border-zinc-800 space-y-4">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800/80 pb-3 font-mono text-xs">
+                          <div key={order.id} className="p-5 rounded-2xl bg-app-surface border border-app-border space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-app-border pb-3 font-mono text-xs">
                               <div className="flex items-center gap-3">
                                 <span className="text-white font-bold">#{order.id.slice(-6)}</span>
-                                <span className="text-zinc-400">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <span className="text-app-muted">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 {order.tableNumber && (
-                                  <span className="px-2 py-0.5 bg-zinc-800 text-zinc-300 rounded font-bold">
+                                  <span className="px-2 py-0.5 bg-zinc-800 text-app-secondary rounded font-bold">
                                     Столик {order.tableNumber}
                                   </span>
                                 )}
@@ -1733,14 +1775,14 @@ export default function AdminPage() {
                                       order.status === st.key 
                                         ? st.key === 'COMPLETED' ? 'bg-emerald-500 text-black' :
                                           st.key === 'CONFIRMED' ? 'bg-amber-500 text-black' :
-                                          st.key === 'CANCELLED' ? 'bg-rose-500 text-white' : 'bg-white text-black'
-                                        : 'bg-[#18181c] text-zinc-400 hover:text-white border border-zinc-800'
+                                          st.key === 'CANCELLED' ? 'bg-rose-500 text-white' : 'bg-app-accent text-app-accent-fg'
+                                        : 'bg-app-card text-app-muted hover:text-white border border-app-border'
                                     }`}
                                   >
                                     {st.label}
                                   </button>
                                 ))}
-                                <button onClick={() => handleDeleteOrder(order.id)} className="p-1 text-zinc-500 hover:text-rose-400">
+                                <button onClick={() => handleDeleteOrder(order.id)} className="p-1 text-app-muted hover:text-rose-400">
                                   <Trash2 size={13} />
                                 </button>
                               </div>
@@ -1748,12 +1790,12 @@ export default function AdminPage() {
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               <div className="md:col-span-2 space-y-2">
-                                <p className="text-[10px] font-mono uppercase text-zinc-500">Позиции заказа</p>
+                                <p className="text-[10px] font-mono uppercase text-app-muted">Позиции заказа</p>
                                 <div className="space-y-1">
                                   {Array.isArray(parsedItems) && parsedItems.map((item, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-xs text-zinc-300 font-mono">
+                                    <div key={idx} className="flex justify-between items-center text-xs text-app-secondary font-mono">
                                       <span>{item.quantity}× {item.title}</span>
-                                      <span className="text-zinc-400">{(item.price || 0) * item.quantity} ₽</span>
+                                      <span className="text-app-muted">{(item.price || 0) * item.quantity} ₽</span>
                                     </div>
                                   ))}
                                 </div>
@@ -1764,11 +1806,11 @@ export default function AdminPage() {
                                 )}
                               </div>
 
-                              <div className="bg-[#18181c] p-3 rounded-xl border border-zinc-800 space-y-1 text-xs">
-                                <p className="text-[10px] font-mono uppercase text-zinc-500">Данные клиента</p>
+                              <div className="bg-app-card p-3 rounded-xl border border-app-border space-y-1 text-xs">
+                                <p className="text-[10px] font-mono uppercase text-app-muted">Данные клиента</p>
                                 <p className="font-semibold text-white">{order.customerName}</p>
-                                <p className="font-mono text-zinc-400">{order.customerPhone}</p>
-                                <div className="pt-2 border-t border-zinc-800 flex justify-between font-mono font-bold text-white text-sm">
+                                <p className="font-mono text-app-muted">{order.customerPhone}</p>
+                                <div className="pt-2 border-t border-app-border flex justify-between font-mono font-bold text-white text-sm">
                                   <span>Итого</span>
                                   <span>{order.totalPrice} ₽</span>
                                 </div>
@@ -1786,26 +1828,26 @@ export default function AdminPage() {
               {activeTab === "promocodes" && (
                 <div className="space-y-6">
                   {promocodes.length === 0 ? (
-                    <div className="py-16 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
+                    <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
                       <Tag size={28} className="mx-auto text-zinc-600 mb-2" />
-                      <p className="text-xs text-zinc-400 font-mono">Нет активных промокодов.</p>
+                      <p className="text-xs text-app-muted font-mono">Нет активных промокодов.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {promocodes.map(promo => (
-                        <div key={promo.id} className="p-5 rounded-2xl bg-[#121215] border border-zinc-800 flex justify-between items-start">
+                        <div key={promo.id} className="p-5 rounded-2xl bg-app-surface border border-app-border flex justify-between items-start">
                           <div className="space-y-2">
-                            <span className="px-2.5 py-1 bg-white text-black font-mono font-bold text-xs rounded-lg uppercase">
+                            <span className="px-2.5 py-1 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-lg uppercase">
                               {promo.code}
                             </span>
-                            <p className="text-xs text-zinc-300 font-mono">
+                            <p className="text-xs text-app-secondary font-mono">
                               Скидка: {promo.discountPercent > 0 ? `${promo.discountPercent}%` : `${promo.discountAmount} ₽`}
                             </p>
-                            <p className="text-[11px] text-zinc-500 font-mono">
+                            <p className="text-[11px] text-app-muted font-mono">
                               Использован: {promo.usedCount} раз {promo.usageLimit ? `/ лимит ${promo.usageLimit}` : ''}
                             </p>
                           </div>
-                          <button onClick={() => handleDeletePromocode(promo.id)} className="p-1.5 text-zinc-500 hover:text-rose-400">
+                          <button onClick={() => handleDeletePromocode(promo.id)} className="p-1.5 text-app-muted hover:text-rose-400">
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -1819,26 +1861,26 @@ export default function AdminPage() {
               {activeTab === "reviews" && (
                 <div className="space-y-4">
                   {reviews.length === 0 ? (
-                    <div className="py-16 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
-                      <p className="text-xs text-zinc-400 font-mono">Отзывов пока нет.</p>
+                    <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
+                      <p className="text-xs text-app-muted font-mono">Отзывов пока нет.</p>
                     </div>
                   ) : (
                     reviews.map(rev => (
-                      <div key={rev.id} className="p-5 rounded-2xl bg-[#121215] border border-zinc-800 space-y-3">
+                      <div key={rev.id} className="p-5 rounded-2xl bg-app-surface border border-app-border space-y-3">
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-xs text-white">{rev.customerName}</span>
                             <span className="text-xs text-amber-400 font-mono">★ {rev.rating}</span>
                           </div>
-                          <span className="text-[10px] text-zinc-500 font-mono">
+                          <span className="text-[10px] text-app-muted font-mono">
                             {new Date(rev.createdAt).toLocaleDateString()}
                           </span>
                         </div>
-                        {rev.comment && <p className="text-xs text-zinc-300 leading-relaxed">{rev.comment}</p>}
+                        {rev.comment && <p className="text-xs text-app-secondary leading-relaxed">{rev.comment}</p>}
                         {rev.reply ? (
-                          <div className="p-3 bg-[#18181c] rounded-xl border border-zinc-800 text-xs">
-                            <p className="text-[10px] text-zinc-500 font-mono uppercase mb-1">Ваш ответ</p>
-                            <p className="text-zinc-300">{rev.reply}</p>
+                          <div className="p-3 bg-app-card rounded-xl border border-app-border text-xs">
+                            <p className="text-[10px] text-app-muted font-mono uppercase mb-1">Ваш ответ</p>
+                            <p className="text-app-secondary">{rev.reply}</p>
                           </div>
                         ) : replyingReviewId === rev.id ? (
                           <div className="flex gap-2">
@@ -1847,14 +1889,14 @@ export default function AdminPage() {
                               value={replyText}
                               onChange={e => setReplyText(e.target.value)}
                               placeholder="Напишите ответ..."
-                              className="flex-1 bg-[#18181c] border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
+                              className="flex-1 bg-app-card border border-app-border rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
                             />
-                            <button onClick={() => handleReplyReview(rev.id)} className="px-3 py-1.5 bg-white text-black font-mono text-xs font-bold rounded-xl">
+                            <button onClick={() => handleReplyReview(rev.id)} className="px-3 py-1.5 bg-app-accent text-app-accent-fg font-mono text-xs font-bold rounded-xl">
                               Отправить
                             </button>
                           </div>
                         ) : (
-                          <button onClick={() => setReplyingReviewId(rev.id)} className="text-xs text-zinc-400 hover:text-white font-mono underline">
+                          <button onClick={() => setReplyingReviewId(rev.id)} className="text-xs text-app-muted hover:text-white font-mono underline">
                             + Ответить на отзыв
                           </button>
                         )}
@@ -1868,14 +1910,14 @@ export default function AdminPage() {
               {activeTab === "banners" && (
                 <div className="space-y-6">
                   {banners.length === 0 ? (
-                    <div className="py-16 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
-                      <p className="text-xs text-zinc-400 font-mono">Рекламные баннеры не настроены.</p>
+                    <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
+                      <p className="text-xs text-app-muted font-mono">Рекламные баннеры не настроены.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {banners.map(banner => (
-                        <div key={banner.id} className="p-6 rounded-2xl bg-gradient-to-br from-[#18181c] to-[#121215] border border-zinc-800 space-y-3 relative">
-                          <button onClick={() => handleDeleteBanner(banner.id)} className="absolute top-4 right-4 p-1.5 text-zinc-500 hover:text-rose-400">
+                        <div key={banner.id} className="p-6 rounded-2xl bg-gradient-to-br from-[#18181c] to-[#121215] border border-app-border space-y-3 relative">
+                          <button onClick={() => handleDeleteBanner(banner.id)} className="absolute top-4 right-4 p-1.5 text-app-muted hover:text-rose-400">
                             <Trash2 size={14} />
                           </button>
                           {banner.badge && (
@@ -1884,7 +1926,7 @@ export default function AdminPage() {
                             </span>
                           )}
                           <h3 className="text-base font-bold text-white">{banner.title}</h3>
-                          {banner.subtitle && <p className="text-xs text-zinc-400">{banner.subtitle}</p>}
+                          {banner.subtitle && <p className="text-xs text-app-muted">{banner.subtitle}</p>}
                         </div>
                       ))}
                     </div>
@@ -1896,8 +1938,8 @@ export default function AdminPage() {
               {activeTab === "broadcasts" && (
                 <div className="space-y-4">
                   {broadcasts.length === 0 ? (
-                    <div className="py-16 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
-                      <p className="text-xs text-zinc-400 font-mono">Рассылок пока не отправлялось.</p>
+                    <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
+                      <p className="text-xs text-app-muted font-mono">Рассылок пока не отправлялось.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1911,7 +1953,7 @@ export default function AdminPage() {
                           BONUS_HOLDERS: "С бонусами"
                         };
                         return (
-                          <div key={bc.id} className="p-5 rounded-2xl bg-[#121215] border border-zinc-800 flex flex-col justify-between space-y-4">
+                          <div key={bc.id} className="p-5 rounded-2xl bg-app-surface border border-app-border flex flex-col justify-between space-y-4">
                             <div className="space-y-3">
                               {/* Header row */}
                               <div className="flex justify-between items-start">
@@ -1920,13 +1962,13 @@ export default function AdminPage() {
                                     <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-mono rounded-md font-semibold">
                                       ✅ ОТПРАВЛЕНО
                                     </span>
-                                    <span className="px-2 py-0.5 bg-zinc-800 text-zinc-300 text-[9px] font-mono rounded-md">
+                                    <span className="px-2 py-0.5 bg-zinc-800 text-app-secondary text-[9px] font-mono rounded-md">
                                       🎯 {targetLabels[bc.targetFilter] || bc.targetFilter || "Все клиенты"}
                                     </span>
                                   </div>
                                   <h3 className="text-sm font-bold text-white font-mono pt-1">{bc.title}</h3>
                                 </div>
-                                <button onClick={() => handleDeleteBroadcast(bc.id)} className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/5 rounded-lg transition-colors">
+                                <button onClick={() => handleDeleteBroadcast(bc.id)} className="p-1.5 text-app-muted hover:text-rose-400 hover:bg-rose-500/5 rounded-lg transition-colors">
                                   <Trash2 size={14} />
                                 </button>
                               </div>
@@ -1938,16 +1980,16 @@ export default function AdminPage() {
                                 </div>
                               )}
 
-                              <p className="text-xs text-zinc-300 leading-relaxed font-sans line-clamp-3">{bc.message}</p>
+                              <p className="text-xs text-app-secondary leading-relaxed font-sans line-clamp-3">{bc.message}</p>
                             </div>
 
                             {/* Footer stats / buttons */}
-                            <div className="pt-3 border-t border-zinc-800/60 flex items-center justify-between text-[10px] font-mono text-zinc-400">
+                            <div className="pt-3 border-t border-app-border flex items-center justify-between text-[10px] font-mono text-app-muted">
                               <div>
                                 Получателей: <span className="text-white font-bold">{bc.sentCount || 1}</span>
                               </div>
                               {bc.buttonText && (
-                                <div className="px-2 py-1 bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-lg text-[9px]">
+                                <div className="px-2 py-1 bg-zinc-900 border border-app-border text-app-secondary rounded-lg text-[9px]">
                                   Button: {bc.buttonText}
                                 </div>
                               )}
@@ -1964,13 +2006,13 @@ export default function AdminPage() {
               {activeTab === "customers" && (
                 <div className="space-y-4">
                   {customers.length === 0 ? (
-                    <div className="py-16 text-center bg-[#121215] border border-dashed border-zinc-800 rounded-2xl p-6">
-                      <p className="text-xs text-zinc-400 font-mono">Клиенты пока не зарегистрированы.</p>
+                    <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
+                      <p className="text-xs text-app-muted font-mono">Клиенты пока не зарегистрированы.</p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-[#121215]">
+                    <div className="overflow-x-auto rounded-2xl border border-app-border bg-app-surface">
                       <table className="w-full text-left font-mono text-xs">
-                        <thead className="bg-[#18181c] border-b border-zinc-800 text-zinc-400 uppercase text-[10px]">
+                        <thead className="bg-app-card border-b border-app-border text-app-muted uppercase text-[10px]">
                           <tr>
                             <th className="p-3">Клиент</th>
                             <th className="p-3">Телефон</th>
@@ -1982,7 +2024,7 @@ export default function AdminPage() {
                           {customers.map(c => (
                             <tr key={c.id} className="hover:bg-white/5 transition-colors">
                               <td className="p-3 text-white font-semibold">{c.name || "Клиент"}</td>
-                              <td className="p-3 text-zinc-400">{c.phone}</td>
+                              <td className="p-3 text-app-muted">{c.phone}</td>
                               <td className="p-3 text-white">{c.ordersCount || 1}</td>
                               <td className="p-3 text-emerald-400 font-bold">{c.totalSpent || 0} ₽</td>
                             </tr>
@@ -2001,26 +2043,26 @@ export default function AdminPage() {
 
               {/* TAB 9: TELEGRAM BOT SIMULATOR */}
               {activeTab === "botsim" && (
-                <div className="max-w-md mx-auto p-4 rounded-3xl bg-[#121215] border border-zinc-800 shadow-2xl space-y-4 font-sans">
-                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <div className="max-w-md mx-auto p-4 rounded-3xl bg-app-surface border border-app-border shadow-2xl space-y-4 font-sans">
+                  <div className="flex items-center justify-between border-b border-app-border pb-3">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-emerald-500" />
                       <span className="text-xs font-semibold text-white font-mono">{selectedShop.name} Бот</span>
                     </div>
-                    <span className="text-[10px] text-zinc-500 font-mono">Telegram Симулятор</span>
+                    <span className="text-[10px] text-app-muted font-mono">Telegram Симулятор</span>
                   </div>
 
                   <div className="h-80 overflow-y-auto space-y-3 p-2 font-sans">
                     {botSimMessages.map((msg, idx) => (
                       <div key={idx} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
-                        <div className={`p-3 rounded-2xl max-w-[80%] text-xs ${msg.sender === 'user' ? 'bg-white text-black' : 'bg-[#18181c] text-white border border-zinc-800'}`}>
+                        <div className={`p-3 rounded-2xl max-w-[80%] text-xs ${msg.sender === 'user' ? 'bg-app-accent text-app-accent-fg' : 'bg-app-card text-white border border-app-border'}`}>
                           <p>{msg.text}</p>
                           {msg.button && (
                             <a
                               href={`/${selectedShop.slug}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="mt-2 block w-full py-2 bg-white text-black text-center rounded-xl font-mono text-xs font-bold hover:bg-zinc-200 transition-colors"
+                              className="mt-2 block w-full py-2 bg-app-accent text-app-accent-fg text-center rounded-xl font-mono text-xs font-bold hover:bg-zinc-200 transition-colors"
                             >
                               {msg.button}
                             </a>
@@ -2031,16 +2073,16 @@ export default function AdminPage() {
                     ))}
                   </div>
 
-                  <div className="flex gap-2 border-t border-zinc-800 pt-3">
+                  <div className="flex gap-2 border-t border-app-border pt-3">
                     <input
                       type="text"
                       value={botSimInput}
                       onChange={e => setBotSimInput(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleSendBotSimMessage(botSimInput)}
                       placeholder="Введите /start или сообщение..."
-                      className="flex-1 bg-[#18181c] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
                     />
-                    <button onClick={() => handleSendBotSimMessage(botSimInput)} className="px-3 py-2 bg-white text-black rounded-xl font-mono text-xs font-bold">
+                    <button onClick={() => handleSendBotSimMessage(botSimInput)} className="px-3 py-2 bg-app-accent text-app-accent-fg rounded-xl font-mono text-xs font-bold">
                       Отправить
                     </button>
                   </div>
@@ -2056,12 +2098,12 @@ export default function AdminPage() {
       {/* Auth Modal */}
       {isAuthModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-sm w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4">
+          <div className="max-w-sm w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-semibold tracking-tight uppercase font-mono">
                 {authMode === "login" ? "Вход в аккаунт" : "Регистрация"}
               </h3>
-              <button onClick={() => setIsAuthModalOpen(false)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setIsAuthModalOpen(false)} className="text-app-muted hover:text-white">
                 <X size={18} />
               </button>
             </div>
@@ -2073,7 +2115,7 @@ export default function AdminPage() {
                   value={authName}
                   onChange={e => setAuthName(e.target.value)}
                   placeholder="ФИО / Имя"
-                  className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
                 />
               )}
               <input
@@ -2081,23 +2123,23 @@ export default function AdminPage() {
                 value={authEmail}
                 onChange={e => setAuthEmail(e.target.value)}
                 placeholder="Электронная почта"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
               />
               <input
                 type="password"
                 value={authPassword}
                 onChange={e => setAuthPassword(e.target.value)}
                 placeholder="Пароль"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
               />
-              <button type="submit" disabled={isSubmittingAuth} className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+              <button type="submit" disabled={isSubmittingAuth} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
                 {isSubmittingAuth ? "Загрузка..." : authMode === "login" ? "Войти" : "Зарегистрироваться"}
               </button>
             </form>
             <div className="text-center pt-2">
               <button
                 onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
-                className="text-xs text-zinc-400 hover:text-white font-mono underline"
+                className="text-xs text-app-muted hover:text-white font-mono underline"
               >
                 {authMode === "login" ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти"}
               </button>
@@ -2109,10 +2151,10 @@ export default function AdminPage() {
       {/* Create Shop Modal */}
       {isCreatingShop && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4">
-            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4">
+            <div className="flex justify-between items-center border-b border-app-border pb-3">
               <h3 className="text-sm font-semibold tracking-tight font-mono">Создать заведение</h3>
-              <button onClick={() => setIsCreatingShop(false)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setIsCreatingShop(false)} className="text-app-muted hover:text-white">
                 <X size={18} />
               </button>
             </div>
@@ -2124,7 +2166,7 @@ export default function AdminPage() {
                   value={newShopData.name}
                   onChange={e => setNewShopData(p => ({ ...p, name: e.target.value }))}
                   placeholder="Название заведения *"
-                  className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
                 />
                 {createShopFieldErrors.name && <p className="text-[11px] text-rose-400 mt-1 font-mono">{createShopFieldErrors.name}</p>}
               </div>
@@ -2134,7 +2176,7 @@ export default function AdminPage() {
                   value={newShopData.slug}
                   onChange={e => setNewShopData(p => ({ ...p, slug: e.target.value }))}
                   placeholder="URL-слаг (напр. coffee-bar) *"
-                  className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
                 />
                 {createShopFieldErrors.slug && <p className="text-[11px] text-rose-400 mt-1 font-mono">{createShopFieldErrors.slug}</p>}
               </div>
@@ -2143,9 +2185,9 @@ export default function AdminPage() {
                 value={newShopData.description}
                 onChange={e => setNewShopData(p => ({ ...p, description: e.target.value }))}
                 placeholder="Описание заведения..."
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
               />
-              <button type="submit" className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
                 Создать заведение
               </button>
             </form>
@@ -2156,10 +2198,10 @@ export default function AdminPage() {
       {/* Add Service Modal */}
       {isAddingService && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4">
-            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4">
+            <div className="flex justify-between items-center border-b border-app-border pb-3">
               <h3 className="text-sm font-semibold font-mono">Новая услуга / позиция</h3>
-              <button onClick={() => setIsAddingService(false)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setIsAddingService(false)} className="text-app-muted hover:text-white">
                 <X size={18} />
               </button>
             </div>
@@ -2170,32 +2212,32 @@ export default function AdminPage() {
                 value={newServiceData.title}
                 onChange={e => setNewServiceData(p => ({ ...p, title: e.target.value }))}
                 placeholder="Название *"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
               />
               <input
                 type="number"
                 value={newServiceData.price}
                 onChange={e => setNewServiceData(p => ({ ...p, price: e.target.value }))}
                 placeholder="Цена (₽) *"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
               />
               <input
                 type="text"
                 value={newServiceData.category}
                 onChange={e => setNewServiceData(p => ({ ...p, category: e.target.value }))}
                 placeholder="Категория (напр. Кофе, Десерты)"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
               />
               <textarea
                 rows={2}
                 value={newServiceData.description}
                 onChange={e => setNewServiceData(p => ({ ...p, description: e.target.value }))}
                 placeholder="Описание..."
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
               />
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-zinc-400 font-mono uppercase">Изображение (URL / пресеты)</span>
+                  <span className="text-[10px] text-app-muted font-mono uppercase">Изображение (URL / пресеты)</span>
                   {newServiceData.imageUrl && (
                     <button
                       type="button"
@@ -2211,7 +2253,7 @@ export default function AdminPage() {
                   value={newServiceData.imageUrl}
                   onChange={e => setNewServiceData(p => ({ ...p, imageUrl: e.target.value }))}
                   placeholder="Вставьте ссылку на картинку..."
-                  className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
                 />
                 <div className="flex flex-wrap gap-1">
                   {[
@@ -2227,8 +2269,8 @@ export default function AdminPage() {
                       onClick={() => setNewServiceData(p => ({ ...p, imageUrl: pr.url }))}
                       className={`px-2 py-0.5 rounded border text-[9px] font-mono transition-colors cursor-pointer ${
                         newServiceData.imageUrl === pr.url
-                          ? "bg-white text-black border-transparent font-semibold"
-                          : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
+                          ? "bg-app-accent text-app-accent-fg border-transparent font-semibold"
+                          : "bg-zinc-900 border-app-border text-app-muted hover:text-white"
                       }`}
                     >
                       {pr.label}
@@ -2236,7 +2278,7 @@ export default function AdminPage() {
                   ))}
                 </div>
                 {newServiceData.imageUrl && (
-                  <div className="mt-1 flex items-center justify-center border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950/50 p-2">
+                  <div className="mt-1 flex items-center justify-center border border-app-border rounded-xl overflow-hidden bg-zinc-950/50 p-2">
                     <img
                       src={newServiceData.imageUrl}
                       alt="Превью"
@@ -2249,7 +2291,7 @@ export default function AdminPage() {
                   </div>
                 )}
               </div>
-              <button type="submit" className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
                 Сохранить позицию
               </button>
             </form>
@@ -2260,10 +2302,10 @@ export default function AdminPage() {
       {/* Edit Service Modal */}
       {editingService && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4">
-            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4">
+            <div className="flex justify-between items-center border-b border-app-border pb-3">
               <h3 className="text-sm font-semibold font-mono">Редактирование услуги</h3>
-              <button onClick={() => setEditingService(null)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setEditingService(null)} className="text-app-muted hover:text-white">
                 <X size={18} />
               </button>
             </div>
@@ -2274,32 +2316,32 @@ export default function AdminPage() {
                 value={editServiceData.title}
                 onChange={e => setEditServiceData(p => ({ ...p, title: e.target.value }))}
                 placeholder="Название *"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
               />
               <input
                 type="number"
                 value={editServiceData.price}
                 onChange={e => setEditServiceData(p => ({ ...p, price: e.target.value }))}
                 placeholder="Цена (₽) *"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
               />
               <input
                 type="text"
                 value={editServiceData.category}
                 onChange={e => setEditServiceData(p => ({ ...p, category: e.target.value }))}
                 placeholder="Категория"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
               />
               <textarea
                 rows={2}
                 value={editServiceData.description}
                 onChange={e => setEditServiceData(p => ({ ...p, description: e.target.value }))}
                 placeholder="Описание..."
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
               />
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-zinc-400 font-mono uppercase">Изображение (URL / пресеты)</span>
+                  <span className="text-[10px] text-app-muted font-mono uppercase">Изображение (URL / пресеты)</span>
                   {editServiceData.imageUrl && (
                     <button
                       type="button"
@@ -2315,7 +2357,7 @@ export default function AdminPage() {
                   value={editServiceData.imageUrl}
                   onChange={e => setEditServiceData(p => ({ ...p, imageUrl: e.target.value }))}
                   placeholder="Вставьте ссылку на картинку..."
-                  className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
                 />
                 <div className="flex flex-wrap gap-1">
                   {[
@@ -2331,8 +2373,8 @@ export default function AdminPage() {
                       onClick={() => setEditServiceData(p => ({ ...p, imageUrl: pr.url }))}
                       className={`px-2 py-0.5 rounded border text-[9px] font-mono transition-colors cursor-pointer ${
                         editServiceData.imageUrl === pr.url
-                          ? "bg-white text-black border-transparent font-semibold"
-                          : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
+                          ? "bg-app-accent text-app-accent-fg border-transparent font-semibold"
+                          : "bg-zinc-900 border-app-border text-app-muted hover:text-white"
                       }`}
                     >
                       {pr.label}
@@ -2340,7 +2382,7 @@ export default function AdminPage() {
                   ))}
                 </div>
                 {editServiceData.imageUrl && (
-                  <div className="mt-1 flex items-center justify-center border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950/50 p-2">
+                  <div className="mt-1 flex items-center justify-center border border-app-border rounded-xl overflow-hidden bg-zinc-950/50 p-2">
                     <img
                       src={editServiceData.imageUrl}
                       alt="Превью"
@@ -2353,7 +2395,7 @@ export default function AdminPage() {
                   </div>
                 )}
               </div>
-              <button type="submit" disabled={isSavingEditService} className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+              <button type="submit" disabled={isSavingEditService} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
                 {isSavingEditService ? "Сохранение..." : "Обновить позицию"}
               </button>
             </form>
@@ -2364,68 +2406,117 @@ export default function AdminPage() {
       {/* Settings Modal */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-app-border pb-3">
               <h3 className="text-sm font-semibold font-mono">Настройки заведения</h3>
-              <button onClick={() => setIsSettingsOpen(false)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setIsSettingsOpen(false)} className="text-app-muted hover:text-white">
                 <X size={18} />
               </button>
             </div>
             {settingsError && <p className="text-xs text-rose-400 font-mono">{settingsError}</p>}
             <form onSubmit={handleSaveSettings} className="space-y-3 font-sans">
-              <input
-                type="text"
-                value={settingsData.name}
-                onChange={e => setSettingsData(p => ({ ...p, name: e.target.value }))}
-                placeholder="Название заведения *"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
-              />
-              <input
-                type="text"
-                value={settingsData.botToken}
-                onChange={e => setSettingsData(p => ({ ...p, botToken: e.target.value }))}
-                placeholder="Токен Telegram бота"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
-              />
-              <input
-                type="text"
-                value={settingsData.adminChatId}
-                onChange={e => setSettingsData(p => ({ ...p, adminChatId: e.target.value }))}
-                placeholder="ID чата администратора"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
-              />
-              <input
-                type="text"
-                value={settingsData.workingHours}
-                onChange={e => setSettingsData(p => ({ ...p, workingHours: e.target.value }))}
-                placeholder="Часы работы (напр. 09:00 - 22:00)"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
-              />
-              <input
-                type="text"
-                value={settingsData.address}
-                onChange={e => setSettingsData(p => ({ ...p, address: e.target.value }))}
-                placeholder="Фактический адрес"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
-              />
-              <input
-                type="text"
-                value={settingsData.phone}
-                onChange={e => setSettingsData(p => ({ ...p, phone: e.target.value }))}
-                placeholder="Контактный телефон"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
-              />
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">
+                  Название заведения *
+                </label>
+                <input
+                  type="text"
+                  value={settingsData.name}
+                  onChange={e => setSettingsData(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Название заведения *"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">
+                  Приветственное сообщение / Описание (витрина)
+                </label>
+                <textarea
+                  rows={3}
+                  value={settingsData.description}
+                  onChange={e => setSettingsData(p => ({ ...p, description: e.target.value }))}
+                  placeholder="Приветственное сообщение или описание заведения, которое увидят клиенты на главной странице..."
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">
+                  Токен Telegram бота
+                </label>
+                <input
+                  type="text"
+                  value={settingsData.botToken}
+                  onChange={e => setSettingsData(p => ({ ...p, botToken: e.target.value }))}
+                  placeholder="Токен Telegram бота"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">
+                  ID чата администратора
+                </label>
+                <input
+                  type="text"
+                  value={settingsData.adminChatId}
+                  onChange={e => setSettingsData(p => ({ ...p, adminChatId: e.target.value }))}
+                  placeholder="ID чата администратора"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">
+                  Часы работы
+                </label>
+                <input
+                  type="text"
+                  value={settingsData.workingHours}
+                  onChange={e => setSettingsData(p => ({ ...p, workingHours: e.target.value }))}
+                  placeholder="Часы работы (напр. 09:00 - 22:00)"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">
+                  Фактический адрес
+                </label>
+                <input
+                  type="text"
+                  value={settingsData.address}
+                  onChange={e => setSettingsData(p => ({ ...p, address: e.target.value }))}
+                  placeholder="Фактический адрес"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">
+                  Контактный телефон
+                </label>
+                <input
+                  type="text"
+                  value={settingsData.phone}
+                  onChange={e => setSettingsData(p => ({ ...p, phone: e.target.value }))}
+                  placeholder="Контактный телефон"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
+                />
+              </div>
+
               <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
                   id="isOpenCheck"
                   checked={settingsData.isOpen}
                   onChange={e => setSettingsData(p => ({ ...p, isOpen: e.target.checked }))}
-                  className="rounded bg-[#18181c] border-zinc-800 text-white focus:ring-0"
+                  className="rounded bg-app-card border-app-border text-app-primary focus:ring-0"
                 />
-                <label htmlFor="isOpenCheck" className="text-xs font-mono text-zinc-300">Заведение открыто для заказов</label>
+                <label htmlFor="isOpenCheck" className="text-xs font-mono text-app-secondary">Заведение открыто для заказов</label>
               </div>
-              <button type="submit" disabled={isSavingSettings} className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+              <button type="submit" disabled={isSavingSettings} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase">
                 {isSavingSettings ? "Сохранение..." : "Сохранить настройки"}
               </button>
             </form>
@@ -2436,10 +2527,10 @@ export default function AdminPage() {
       {/* Create Promo Modal */}
       {isCreatingPromo && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4">
-            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4">
+            <div className="flex justify-between items-center border-b border-app-border pb-3">
               <h3 className="text-sm font-semibold font-mono">Создать промокод</h3>
-              <button onClick={() => setIsCreatingPromo(false)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setIsCreatingPromo(false)} className="text-app-muted hover:text-white">
                 <X size={18} />
               </button>
             </div>
@@ -2450,30 +2541,30 @@ export default function AdminPage() {
                 value={newPromoData.code}
                 onChange={e => setNewPromoData(p => ({ ...p, code: e.target.value.toUpperCase() }))}
                 placeholder="ПРОМОКОД (напр. SALE20) *"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono uppercase"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono uppercase"
               />
               <input
                 type="number"
                 value={newPromoData.discountPercent}
                 onChange={e => setNewPromoData(p => ({ ...p, discountPercent: e.target.value }))}
                 placeholder="Процент скидки (%)"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
               />
               <input
                 type="number"
                 value={newPromoData.discountAmount}
                 onChange={e => setNewPromoData(p => ({ ...p, discountAmount: e.target.value }))}
                 placeholder="Фиксированная скидка (₽)"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
               />
               <input
                 type="number"
                 value={newPromoData.usageLimit}
                 onChange={e => setNewPromoData(p => ({ ...p, usageLimit: e.target.value }))}
                 placeholder="Лимит использований (опционально)"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
               />
-              <button type="submit" className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
                 Создать промокод
               </button>
             </form>
@@ -2484,10 +2575,10 @@ export default function AdminPage() {
       {/* Create Banner Modal */}
       {isCreatingBanner && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white space-y-4">
-            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4">
+            <div className="flex justify-between items-center border-b border-app-border pb-3">
               <h3 className="text-sm font-semibold font-mono">Создать баннер</h3>
-              <button onClick={() => setIsCreatingBanner(false)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setIsCreatingBanner(false)} className="text-app-muted hover:text-white">
                 <X size={18} />
               </button>
             </div>
@@ -2498,23 +2589,23 @@ export default function AdminPage() {
                 value={newBannerData.title}
                 onChange={e => setNewBannerData(p => ({ ...p, title: e.target.value }))}
                 placeholder="Заголовок *"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
               />
               <input
                 type="text"
                 value={newBannerData.subtitle}
                 onChange={e => setNewBannerData(p => ({ ...p, subtitle: e.target.value }))}
                 placeholder="Подзаголовок"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
               />
               <input
                 type="text"
                 value={newBannerData.badge}
                 onChange={e => setNewBannerData(p => ({ ...p, badge: e.target.value }))}
                 placeholder="Текст бейджа (напр. АКЦИЯ, НОВИНКА)"
-                className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
               />
-              <button type="submit" className="w-full py-2.5 bg-white text-black font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
                 Сохранить баннер
               </button>
             </form>
@@ -2525,15 +2616,15 @@ export default function AdminPage() {
       {/* Create Broadcast Modal */}
       {isCreatingBroadcast && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-4xl w-full bg-[#121215] border border-zinc-800 rounded-3xl p-6 text-white flex flex-col md:flex-row gap-6 max-h-[90vh] overflow-y-auto">
+          <div className="max-w-4xl w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white flex flex-col md:flex-row gap-6 max-h-[90vh] overflow-y-auto">
             {/* Left Column: Form Settings */}
             <div className="flex-1 space-y-4">
-              <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+              <div className="flex justify-between items-center border-b border-app-border pb-3">
                 <div className="space-y-0.5">
                   <h3 className="text-sm font-semibold font-mono text-white">Гибкий конструктор рассылки</h3>
-                  <p className="text-[11px] text-zinc-400 font-sans">Настройте таргетинг, шаблоны и интерактивные кнопки</p>
+                  <p className="text-[11px] text-app-muted font-sans">Настройте таргетинг, шаблоны и интерактивные кнопки</p>
                 </div>
-                <button onClick={() => setIsCreatingBroadcast(false)} className="text-zinc-500 hover:text-white md:hidden">
+                <button onClick={() => setIsCreatingBroadcast(false)} className="text-app-muted hover:text-white md:hidden">
                   <X size={18} />
                 </button>
               </div>
@@ -2543,20 +2634,20 @@ export default function AdminPage() {
               <form onSubmit={handleCreateBroadcast} className="space-y-4 font-sans text-xs">
                 {/* Campaign Name */}
                 <div className="space-y-1">
-                  <label className="block text-[11px] text-zinc-400 font-mono uppercase tracking-wider">Заголовок кампании *</label>
+                  <label className="block text-[11px] text-app-muted font-mono uppercase tracking-wider">Заголовок кампании *</label>
                   <input
                     type="text"
                     value={newBroadcastData.title}
                     onChange={e => setNewBroadcastData(p => ({ ...p, title: e.target.value }))}
                     placeholder="Например: Спецпредложение для постоянных клиентов! 🔥"
-                    className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-zinc-700"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-app-border"
                     required
                   />
                 </div>
 
                 {/* Target Audience selection */}
                 <div className="space-y-1.5">
-                  <label className="block text-[11px] text-zinc-400 font-mono uppercase tracking-wider">Целевая аудитория (Таргетинг)</label>
+                  <label className="block text-[11px] text-app-muted font-mono uppercase tracking-wider">Целевая аудитория (Таргетинг)</label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {[
                       { id: "ALL", label: "Все клиенты", desc: "Вся база CRM" },
@@ -2572,12 +2663,12 @@ export default function AdminPage() {
                         onClick={() => setNewBroadcastData(p => ({ ...p, targetFilter: target.id }))}
                         className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
                           newBroadcastData.targetFilter === target.id
-                            ? "bg-white text-black border-white font-bold animate-pulse-subtle"
-                            : "bg-[#18181c] border-zinc-800 text-zinc-300 hover:border-zinc-700"
+                            ? "bg-app-accent text-app-accent-fg border-white font-bold animate-pulse-subtle"
+                            : "bg-app-card border-app-border text-app-secondary hover:border-app-border"
                         }`}
                       >
                         <span className="font-semibold block text-[11px] font-mono">{target.label}</span>
-                        <span className={`text-[9px] block ${newBroadcastData.targetFilter === target.id ? "text-zinc-600" : "text-zinc-500"}`}>{target.desc}</span>
+                        <span className={`text-[9px] block ${newBroadcastData.targetFilter === target.id ? "text-zinc-600" : "text-app-muted"}`}>{target.desc}</span>
                       </button>
                     ))}
                   </div>
@@ -2586,36 +2677,36 @@ export default function AdminPage() {
                 {/* Message Text with variable helpers */}
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-baseline">
-                    <label className="block text-[11px] text-zinc-400 font-mono uppercase tracking-wider">Текст сообщения *</label>
-                    <span className="text-[10px] text-zinc-500 font-mono">Переменная: {"{name}"}</span>
+                    <label className="block text-[11px] text-app-muted font-mono uppercase tracking-wider">Текст сообщения *</label>
+                    <span className="text-[10px] text-app-muted font-mono">Переменная: {"{name}"}</span>
                   </div>
                   <textarea
                     rows={4}
                     value={newBroadcastData.message}
                     onChange={e => setNewBroadcastData(p => ({ ...p, message: e.target.value }))}
                     placeholder="Привет, {name}! Мы приготовили для вас специальный бонус..."
-                    className="w-full bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-zinc-700 resize-none leading-relaxed"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-app-border resize-none leading-relaxed"
                     required
                   />
-                  <p className="text-[10px] text-zinc-500 italic">Используйте {"{name}"}, чтобы автоматически подставить имя клиента при отправке.</p>
+                  <p className="text-[10px] text-app-muted italic">Используйте {"{name}"}, чтобы автоматически подставить имя клиента при отправке.</p>
                 </div>
 
                 {/* Banner Image link or Presets */}
                 <div className="space-y-1.5">
-                  <label className="block text-[11px] text-zinc-400 font-mono uppercase tracking-wider">Изображение (URL или шаблон)</label>
+                  <label className="block text-[11px] text-app-muted font-mono uppercase tracking-wider">Изображение (URL или шаблон)</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={newBroadcastData.imageUrl || ""}
                       onChange={e => setNewBroadcastData(p => ({ ...p, imageUrl: e.target.value }))}
                       placeholder="Вставьте ссылку на картинку..."
-                      className="flex-1 bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-zinc-700 font-mono"
+                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-app-border font-mono"
                     />
                     {newBroadcastData.imageUrl && (
                       <button
                         type="button"
                         onClick={() => setNewBroadcastData(p => ({ ...p, imageUrl: "" }))}
-                        className="px-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-zinc-300 font-mono"
+                        className="px-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-app-secondary font-mono"
                       >
                         Очистить
                       </button>
@@ -2635,7 +2726,7 @@ export default function AdminPage() {
                         className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono transition-colors ${
                           newBroadcastData.imageUrl === preset.url
                             ? "bg-zinc-200 text-black border-transparent font-semibold"
-                            : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
+                            : "bg-zinc-900 border-app-border text-app-muted hover:text-white"
                         }`}
                       >
                         {preset.label}
@@ -2646,14 +2737,14 @@ export default function AdminPage() {
 
                 {/* Interactive Action Button Label */}
                 <div className="space-y-1">
-                  <label className="block text-[11px] text-zinc-400 font-mono uppercase tracking-wider">Интерактивная кнопка</label>
+                  <label className="block text-[11px] text-app-muted font-mono uppercase tracking-wider">Интерактивная кнопка</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={newBroadcastData.buttonText || ""}
                       onChange={e => setNewBroadcastData(p => ({ ...p, buttonText: e.target.value }))}
                       placeholder="Например: 🛒 Открыть Меню"
-                      className="flex-1 bg-[#18181c] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-zinc-700"
+                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-app-border"
                     />
                     <div className="flex gap-1">
                       {["🛒 Заказать", "⭐ Оставить отзыв", "🎁 Забрать бонус"].map(btnPreset => (
@@ -2661,7 +2752,7 @@ export default function AdminPage() {
                           key={btnPreset}
                           type="button"
                           onClick={() => setNewBroadcastData(p => ({ ...p, buttonText: btnPreset }))}
-                          className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] rounded-lg text-zinc-300 transition-colors"
+                          className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] rounded-lg text-app-secondary transition-colors"
                         >
                           {btnPreset.split(" ")[1] || btnPreset}
                         </button>
@@ -2671,17 +2762,17 @@ export default function AdminPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-3 pt-3 border-t border-zinc-800">
+                <div className="flex gap-3 pt-3 border-t border-app-border">
                   <button
                     type="button"
                     onClick={() => setIsCreatingBroadcast(false)}
-                    className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono font-bold rounded-xl transition-colors uppercase tracking-wider"
+                    className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-app-secondary font-mono font-bold rounded-xl transition-colors uppercase tracking-wider"
                   >
                     Отмена
                   </button>
                   <button
                     type="submit"
-                    className="flex-[2] py-2.5 bg-white text-black hover:bg-zinc-200 font-mono font-bold rounded-xl transition-colors uppercase tracking-wider"
+                    className="flex-[2] py-2.5 bg-app-accent text-app-accent-fg hover:bg-zinc-200 font-mono font-bold rounded-xl transition-colors uppercase tracking-wider"
                   >
                     🚀 Запустить рассылку
                   </button>
@@ -2690,10 +2781,10 @@ export default function AdminPage() {
             </div>
 
             {/* Right Column: Live Telegram Smartphone Preview */}
-            <div className="w-full md:w-80 flex flex-col bg-[#141416] border border-zinc-800 rounded-3xl p-4 space-y-4">
-              <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-widest">Интерактивный Превью</span>
-                <button onClick={() => setIsCreatingBroadcast(false)} className="text-zinc-500 hover:text-white hidden md:block">
+            <div className="w-full md:w-80 flex flex-col bg-[#141416] border border-app-border rounded-3xl p-4 space-y-4">
+              <div className="flex justify-between items-center border-b border-app-border pb-2">
+                <span className="text-[11px] font-mono text-app-muted uppercase tracking-widest">Интерактивный Превью</span>
+                <button onClick={() => setIsCreatingBroadcast(false)} className="text-app-muted hover:text-white hidden md:block">
                   <X size={18} />
                 </button>
               </div>
@@ -2701,7 +2792,7 @@ export default function AdminPage() {
               {/* Smartphone Shell */}
               <div className="flex-1 bg-[#0d0d0f] rounded-2xl p-3 flex flex-col justify-between border border-zinc-900 shadow-inner relative overflow-hidden min-h-[380px]">
                 {/* Simulated status bar */}
-                <div className="flex justify-between items-center text-[9px] text-zinc-500 font-mono px-1">
+                <div className="flex justify-between items-center text-[9px] text-app-muted font-mono px-1">
                   <span>12:30 📱</span>
                   <span>LTE 🔋</span>
                 </div>
@@ -2709,9 +2800,9 @@ export default function AdminPage() {
                 {/* Simulated Telegram Message Area */}
                 <div className="flex-1 flex flex-col justify-end py-4">
                   {/* Message Bubble Container */}
-                  <div className="bg-[#18181c] rounded-2xl p-3 border border-zinc-800/80 space-y-3 shadow-xl w-full relative">
+                  <div className="bg-app-card rounded-2xl p-3 border border-app-border space-y-3 shadow-xl w-full relative">
                     {/* Bot Title Header */}
-                    <div className="flex items-center gap-1.5 pb-1 border-b border-zinc-800/40">
+                    <div className="flex items-center gap-1.5 pb-1 border-b border-app-border">
                       <div className="w-5 h-5 bg-zinc-700 rounded-full flex items-center justify-center text-[10px] font-bold text-white font-mono">
                         {selectedShop?.name?.substring(0,1) || "Б"}
                       </div>
@@ -2723,7 +2814,7 @@ export default function AdminPage() {
 
                     {/* Image Preview if provided */}
                     {newBroadcastData.imageUrl && (
-                      <div className="rounded-lg overflow-hidden border border-zinc-800 bg-[#121215] aspect-[1.9/1] flex items-center justify-center">
+                      <div className="rounded-lg overflow-hidden border border-app-border bg-app-surface aspect-[1.9/1] flex items-center justify-center">
                         <img
                           src={newBroadcastData.imageUrl}
                           alt="Banner Preview"
@@ -2738,7 +2829,7 @@ export default function AdminPage() {
                       <div className="text-xs font-bold text-white leading-tight">
                         {newBroadcastData.title || "Заголовок рассылки"}
                       </div>
-                      <div className="text-[11px] text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                      <div className="text-[11px] text-app-secondary leading-relaxed whitespace-pre-wrap">
                         {newBroadcastData.message
                           ? newBroadcastData.message.replace(/\{name\}/g, "Александр")
                           : "Здесь будет отображаться текст вашего сообщения. Поддерживается переменная имени."}
@@ -2796,14 +2887,14 @@ export default function AdminPage() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="max-w-sm w-full bg-[#141416] border border-zinc-800 rounded-2xl p-6 text-zinc-100 shadow-2xl space-y-5"
+              className="max-w-sm w-full bg-[#141416] border border-app-border rounded-2xl p-6 text-app-primary shadow-2xl space-y-5"
             >
               <div className="space-y-2">
                 <h3 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
                   <AlertCircle size={16} className={confirmModal.isDangerous ? "text-rose-500" : "text-amber-500"} />
                   {confirmModal.title}
                 </h3>
-                <p className="text-xs text-zinc-400 leading-relaxed font-sans">
+                <p className="text-xs text-app-muted leading-relaxed font-sans">
                   {confirmModal.message}
                 </p>
               </div>
@@ -2812,7 +2903,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                  className="px-4 py-2 bg-[#1c1c20] border border-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-800 text-xs font-mono transition-colors"
+                  className="px-4 py-2 bg-[#1c1c20] border border-app-border text-app-secondary rounded-xl hover:bg-zinc-800 text-xs font-mono transition-colors"
                 >
                   {confirmModal.cancelText || "Отмена"}
                 </button>
@@ -2822,7 +2913,7 @@ export default function AdminPage() {
                   className={`px-4 py-2 rounded-xl text-xs font-mono font-bold text-white transition-colors ${
                     confirmModal.isDangerous 
                       ? "bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-900/20" 
-                      : "bg-[#1c1c20] border border-zinc-800 hover:bg-zinc-800"
+                      : "bg-[#1c1c20] border border-app-border hover:bg-zinc-800"
                   }`}
                 >
                   {confirmModal.confirmText || "Подтвердить"}

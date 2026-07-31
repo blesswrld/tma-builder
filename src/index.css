@@ -130,6 +130,7 @@
 .text-app-primary { color: var(--text-primary); }
 .text-app-secondary { color: var(--text-secondary); }
 .text-app-muted { color: var(--text-muted); }
+.text-app-accent-fg { color: var(--accent-fg); }
 
 /* Global overrides ensuring 100% theme consistency across all legacy utility classes */
 html.light .bg-\[\#09090b\], html.light .bg-\[\#000000\] {
@@ -164,7 +165,8 @@ html.light .border-zinc-900 {
   border-color: var(--border-subtle) !important;
 }
 
-html.light .text-white, html.light .text-zinc-100 {
+html.light .text-white:not(.bg-app-accent *):not(.bg-black *):not(.bg-rose-500 *):not(.bg-emerald-500 *):not(.bg-amber-500 *):not(.bg-indigo-600 *), 
+html.light .text-zinc-100:not(.bg-app-accent *):not(.bg-black *) {
   color: var(--text-primary) !important;
 }
 
@@ -185,20 +187,21 @@ html.light .bg-zinc-900, html.light .bg-zinc-900\/50 {
   background-color: var(--surface) !important;
 }
 
-html.light .bg-black {
+html.light .bg-black,
+html.light .bg-app-accent {
   background-color: var(--accent) !important;
   color: var(--accent-fg) !important;
 }
 
-html.light .bg-white {
-  background-color: var(--accent) !important;
-  color: var(--accent-fg) !important;
+/* Ensure text and icons inside active accent or dark pills always contrast properly */
+html.light .bg-black *,
+html.light .bg-app-accent * {
+  color: inherit;
 }
 
-html.light .bg-white.text-black, html.light .bg-black.text-white {
-  background-color: var(--accent) !important;
-  color: var(--accent-fg) !important;
-}
+html.light .bg-rose-500, html.light .bg-rose-500 * { color: #ffffff !important; }
+html.light .bg-emerald-500, html.light .bg-emerald-500 * { color: #ffffff !important; }
+html.light .bg-amber-500, html.light .bg-amber-500 * { color: #ffffff !important; }
 
 html.light .hover\:bg-zinc-800:hover, html.light .hover\:bg-zinc-700:hover {
   background-color: var(--hover) !important;
