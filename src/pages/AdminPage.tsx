@@ -72,6 +72,33 @@ interface Shop {
   };
 }
 
+export function transliterateToSlug(str: string): string {
+  if (!str) return "";
+  const ruMap: Record<string, string> = {
+    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo',
+    'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+    'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+    'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'shch',
+    'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+    'і': 'i', 'ї': 'yi', 'є': 'ye', 'ґ': 'g'
+  };
+
+  const transliterated = String(str)
+    .toLowerCase()
+    .split('')
+    .map(char => ruMap[char] !== undefined ? ruMap[char] : char)
+    .join('');
+
+  return transliterated
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s_]+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+export function cleanSlugForSubmit(str: string): string {
+  return transliterateToSlug(str).replace(/^-+|-+$/g, '');
+}
+
 export default function AdminPage() {
   const { user, token, login, register, logout, sendCode, verifyCode, resetPassword } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -357,6 +384,7 @@ export default function AdminPage() {
 
   // Create Shop
   const [isCreatingShop, setIsCreatingShop] = useState(false);
+  const [isSlugCustomized, setIsSlugCustomized] = useState(false);
   const [newShopData, setNewShopData] = useState({ name: "", slug: "", description: "" });
   const [createShopError, setCreateShopError] = useState<string | null>(null);
   const [createShopFieldErrors, setCreateShopFieldErrors] = useState<{ name?: string; slug?: string; description?: string }>({});
@@ -385,6 +413,7 @@ export default function AdminPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsData, setSettingsData] = useState({
     name: "",
+    slug: "",
     description: "",
     botToken: "",
     adminChatId: "",
@@ -800,6 +829,14 @@ export default function AdminPage() {
     );
   };
 
+  const handleOpenCreateShop = () => {
+    setIsSlugCustomized(false);
+    setNewShopData({ name: "", slug: "", description: "" });
+    setCreateShopError(null);
+    setCreateShopFieldErrors({});
+    setIsCreatingShop(true);
+  };
+
   const validateCreateShop = () => {
     const errors: { name?: string; slug?: string; description?: string } = {};
 
@@ -807,7 +844,7 @@ export default function AdminPage() {
       errors.name = "Название должно содержать не менее 2 символов";
     }
 
-    const cleanSlug = newShopData.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, "-");
+    const cleanSlug = cleanSlugForSubmit(newShopData.slug);
     const slugRegex = /^[a-z0-9-]{2,30}$/;
     if (!cleanSlug) {
       errors.slug = "Введите адресную ссылку (Slug)";
@@ -834,7 +871,7 @@ export default function AdminPage() {
         headers,
         body: JSON.stringify({
           name: newShopData.name.trim(),
-          slug: newShopData.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, "-"),
+          slug: cleanSlugForSubmit(newShopData.slug),
           description: newShopData.description.trim() || undefined
         })
       });
@@ -864,32 +901,39 @@ export default function AdminPage() {
     }
   };
 
-  const confirmDeleteShop = async () => {
-    if (!shopToDelete) return;
+  const handleDeleteShop = (shop: Shop) => {
+    requestConfirm(
+      "Удалить заведение?",
+      `Вы действительно хотите навсегда удалить заведение «${shop.name}»? Все позиции меню, история заказов, отзывы и настройки этого заведения будут безвозвратно удалены.`,
+      async () => {
+        try {
+          const headers: Record<string, string> = {};
+          if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    setIsDeletingShop(true);
-    setDeleteShopError(null);
+          const res = await fetch(`/api/shops/${shop.id}`, { method: "DELETE", headers });
+          const data = await res.json().catch(() => ({}));
 
-    try {
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+          if (!res.ok) {
+            throw new Error(data.error || "Не удалось удалить заведение");
+          }
 
-      const res = await fetch(`/api/shops/${shopToDelete.id}`, { method: "DELETE", headers });
-      const data = await res.json().catch(() => ({}));
+          unlinkShopFromDevice(shop.id);
+          setIsSettingsOpen(false);
+          showToast(`Заведение «${shop.name}» успешно удалено`, "success");
 
-      if (!res.ok) {
-        throw new Error(data.error || `Не удалось удалить заведение`);
-      }
-
-      unlinkShopFromDevice(shopToDelete.id);
-      setShopToDelete(null);
-      setSelectedShop(null);
-      await fetchShops();
-    } catch (err: any) {
-      setDeleteShopError(err.message || "Ошибка при удалении заведения");
-    } finally {
-      setIsDeletingShop(false);
-    }
+          const updatedShops = shops.filter(s => s.id !== shop.id);
+          setShops(updatedShops);
+          if (selectedShop?.id === shop.id) {
+            setSelectedShop(updatedShops.length > 0 ? updatedShops[0] : null);
+          }
+          await fetchShops();
+        } catch (err: any) {
+          showToast(err.message || "Ошибка при удалении заведения", "error");
+        }
+      },
+      "Удалить заведение",
+      true
+    );
   };
 
   const handleAddService = async (e: FormEvent) => {
@@ -1274,6 +1318,7 @@ export default function AdminPage() {
   const handleOpenSettings = (shop: Shop) => {
     setSettingsData({
       name: shop.name,
+      slug: shop.slug || "",
       description: shop.description || "",
       botToken: shop.botToken || "",
       adminChatId: shop.adminChatId || "",
@@ -1294,6 +1339,13 @@ export default function AdminPage() {
     setIsSavingSettings(true);
     setSettingsError(null);
 
+    const cleanSlug = cleanSlugForSubmit(settingsData.slug);
+    if (!cleanSlug || cleanSlug.length < 2) {
+      setSettingsError("URL заведения (slug) должен содержать от 2 до 30 латинских символов, цифр или дефисов");
+      setIsSavingSettings(false);
+      return;
+    }
+
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -1303,6 +1355,7 @@ export default function AdminPage() {
         headers,
         body: JSON.stringify({
           name: settingsData.name.trim(),
+          slug: cleanSlug,
           description: settingsData.description.trim() || undefined,
           botToken: settingsData.botToken.trim() || undefined,
           adminChatId: settingsData.adminChatId.trim() || undefined,
@@ -1317,6 +1370,7 @@ export default function AdminPage() {
       if (!res.ok) throw new Error(data.error || "Не удалось обновить настройки");
 
       setIsSettingsOpen(false);
+      showToast("Настройки заведения сохранены", "success");
       await fetchShops();
     } catch (err: any) {
       setSettingsError(err.message);
@@ -1449,7 +1503,7 @@ export default function AdminPage() {
             {selectedShop && (
               <div className="flex items-center justify-between gap-1 px-1 pt-1">
                 <button
-                  onClick={() => setIsCreatingShop(true)}
+                  onClick={handleOpenCreateShop}
                   className="flex-1 py-1.5 bg-app-card hover:bg-zinc-800 border border-app-border text-[11px] font-mono text-app-secondary rounded-lg transition-colors flex items-center justify-center gap-1"
                 >
                   <Plus size={12} /> Заведение
@@ -1470,6 +1524,13 @@ export default function AdminPage() {
                 >
                   <ExternalLink size={13} />
                 </a>
+                <button
+                  onClick={() => handleDeleteShop(selectedShop)}
+                  className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg transition-colors"
+                  title="Удалить заведение"
+                >
+                  <Trash2 size={13} />
+                </button>
               </div>
             )}
           </div>
@@ -1665,7 +1726,7 @@ export default function AdminPage() {
                 Создайте свое первое заведение в Telegram Mini App, чтобы начать управлять каталогом, заказами и акциями.
               </p>
               <button
-                onClick={() => setIsCreatingShop(true)}
+                onClick={handleOpenCreateShop}
                 className="px-5 py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-colors uppercase tracking-wider"
               >
                 + Создать заведение
@@ -2513,21 +2574,44 @@ export default function AdminPage() {
                 <input
                   type="text"
                   value={newShopData.name}
-                  onChange={e => setNewShopData(p => ({ ...p, name: e.target.value }))}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setNewShopData(p => ({
+                      ...p,
+                      name: val,
+                      slug: isSlugCustomized ? p.slug : transliterateToSlug(val)
+                    }));
+                  }}
                   placeholder="Название заведения *"
                   className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
                 />
                 {createShopFieldErrors.name && <p className="text-[11px] text-rose-400 mt-1 font-mono">{createShopFieldErrors.name}</p>}
               </div>
               <div>
-                <input
-                  type="text"
-                  value={newShopData.slug}
-                  onChange={e => setNewShopData(p => ({ ...p, slug: e.target.value }))}
-                  placeholder="URL-слаг (напр. coffee-bar) *"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
-                />
+                <label className="block text-[11px] font-mono text-app-muted mb-1">
+                  URL-адрес (Slug) *
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-xs text-app-muted font-mono select-none">/</span>
+                  <input
+                    type="text"
+                    value={newShopData.slug}
+                    onChange={e => {
+                      const val = e.target.value;
+                      const cleanVal = transliterateToSlug(val);
+                      setIsSlugCustomized(cleanVal.length > 0);
+                      setNewShopData(p => ({ ...p, slug: cleanVal }));
+                    }}
+                    placeholder="coffee-bar"
+                    className="w-full bg-app-card border border-app-border rounded-xl pl-6 pr-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                  />
+                </div>
                 {createShopFieldErrors.slug && <p className="text-[11px] text-rose-400 mt-1 font-mono">{createShopFieldErrors.slug}</p>}
+                {newShopData.slug && (
+                  <p className="text-[10px] text-app-muted mt-1 font-mono">
+                    Ссылка на витрину: <span className="text-emerald-400 font-bold">/{cleanSlugForSubmit(newShopData.slug)}</span>
+                  </p>
+                )}
               </div>
               <textarea
                 rows={2}
@@ -2780,6 +2864,28 @@ export default function AdminPage() {
 
               <div>
                 <label className="block text-[11px] font-mono text-app-muted mb-1">
+                  URL-адрес заведения (Slug) *
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-xs text-app-muted font-mono select-none">/</span>
+                  <input
+                    type="text"
+                    value={settingsData.slug}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setSettingsData(p => ({ ...p, slug: transliterateToSlug(val) }));
+                    }}
+                    placeholder="my-shop"
+                    className="w-full bg-app-card border border-app-border rounded-xl pl-6 pr-3.5 py-2 text-xs text-emerald-400 font-bold focus:outline-none font-mono"
+                  />
+                </div>
+                <p className="text-[10px] text-app-muted mt-1 font-mono">
+                  Ссылка для клиентов: <span className="text-emerald-400 font-bold">/{cleanSlugForSubmit(settingsData.slug) || "slug"}</span>
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">
                   Приветственное сообщение / Описание (витрина)
                 </label>
                 <textarea
@@ -2870,6 +2976,27 @@ export default function AdminPage() {
                 {isSavingSettings && <SpinnerLoader size={14} />}
                 {isSavingSettings ? "Сохранение..." : "Сохранить настройки"}
               </button>
+
+              <div className="pt-4 border-t border-rose-500/20 mt-4 space-y-2">
+                <label className="block text-[11px] font-mono text-rose-400 uppercase tracking-wider font-semibold">
+                  Опасная зона
+                </label>
+                <p className="text-[11px] text-app-muted leading-relaxed">
+                  Удаление заведения приведёт к каскадному удалению всех его услуг, истории заказов, отзывов и баннеров.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedShop) {
+                      handleDeleteShop(selectedShop);
+                    }
+                  }}
+                  className="w-full py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-mono font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Trash2 size={14} />
+                  Удалить заведение
+                </button>
+              </div>
             </form>
           </div>
         </div>

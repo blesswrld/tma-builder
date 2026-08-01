@@ -40,6 +40,30 @@ function getAuthUser(req: express.Request) {
   }
 }
 
+function transliterateToSlug(str: string): string {
+  if (!str) return "";
+  const ruMap: Record<string, string> = {
+    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo',
+    'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+    'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+    'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'shch',
+    'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+    'і': 'i', 'ї': 'yi', 'є': 'ye', 'ґ': 'g'
+  };
+
+  const transliterated = String(str)
+    .toLowerCase()
+    .split('')
+    .map(char => ruMap[char] !== undefined ? ruMap[char] : char)
+    .join('');
+
+  return transliterated
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function getPrismaClient(): PrismaClient | null {
@@ -774,7 +798,7 @@ app.post("/api/shops", async (req, res) => {
       return res.status(400).json({ error: "URL / Slug должен содержать минимум 2 символа." });
     }
 
-    const formattedSlug = slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, "-");
+    const formattedSlug = transliterateToSlug(slug);
 
     if (formattedSlug.length < 2 || formattedSlug.length > 30) {
       return res.status(400).json({ error: "Slug должен содержать от 2 до 30 латинских символов, цифр или дефисов." });
@@ -1109,7 +1133,7 @@ app.post("/api/shops", async (req, res) => {
   app.put("/api/shops/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, description, botToken, adminChatId, workingHours, address, phone, isOpen } = req.body;
+      const { name, slug, description, botToken, adminChatId, workingHours, address, phone, isOpen } = req.body;
       const authUser = getAuthUser(req);
       
       const db = getPrismaClient();
@@ -1127,10 +1151,27 @@ app.post("/api/shops", async (req, res) => {
         return res.status(403).json({ error: "У вас нет прав на редактирование настроек этого заведения." });
       }
 
+      let updatedSlug = shop.slug;
+      if (slug !== undefined && slug !== null && String(slug).trim() !== "") {
+        const formattedSlug = transliterateToSlug(String(slug));
+        if (formattedSlug.length < 2 || formattedSlug.length > 30) {
+          return res.status(400).json({ error: "Slug должен содержать от 2 до 30 латинских символов, цифр или дефисов." });
+        }
+
+        if (formattedSlug !== shop.slug) {
+          const existingShop = await db.shop.findUnique({ where: { slug: formattedSlug } });
+          if (existingShop && existingShop.id !== id) {
+            return res.status(400).json({ error: "Заведение с таким URL (slug) уже существует." });
+          }
+          updatedSlug = formattedSlug;
+        }
+      }
+
       const updatedShop = await db.shop.update({
         where: { id },
         data: {
           name: name !== undefined ? name : shop.name,
+          slug: updatedSlug,
           description: description !== undefined ? description : shop.description,
           botToken: botToken !== undefined ? botToken : shop.botToken,
           adminChatId: adminChatId !== undefined ? adminChatId : shop.adminChatId,
