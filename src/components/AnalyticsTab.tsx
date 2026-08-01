@@ -67,7 +67,7 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
         <p className="text-xs font-mono text-app-muted">{error || "Данные отсутствуют"}</p>
         <button
           onClick={fetchAnalytics}
-          className="px-4 py-2 bg-app-accent text-app-primary font-mono font-bold rounded-xl text-xs hover:bg-app-hover transition-colors"
+          className="px-4 py-2 bg-app-accent text-zinc-950 font-mono font-bold rounded-xl text-xs hover:bg-app-hover transition-colors"
         >
           Обновить данные
         </button>

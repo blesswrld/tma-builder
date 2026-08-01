@@ -7,6 +7,11 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
+import { 
+  validateShopName, validateSlug, validateCisPhone, 
+  validateCustomerName, validateTelegramBotToken, validateTelegramChatId,
+  validateEmail, validatePassword, validateItemTitle, validatePrice
+} from "./src/lib/validation.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "smart-menu-secret-key-2026";
 
@@ -1216,20 +1221,16 @@ app.post("/api/shops", async (req, res) => {
         return res.status(400).json({ error: "Идентификатор магазина не указан." });
       }
 
-      if (!customerName || typeof customerName !== "string" || customerName.trim().length < 2) {
-        return res.status(400).json({ error: "Укажите корректное имя (минимум 2 символа)." });
+      const nameRes = validateCustomerName(customerName);
+      if (!nameRes.isValid) {
+        return res.status(400).json({ error: nameRes.error });
       }
 
-      if (customerName.trim().length > 60) {
-        return res.status(400).json({ error: "Имя клиента слишком длинное (макс. 60 символов)." });
+      const phoneRes = validateCisPhone(customerPhone);
+      if (!phoneRes.isValid) {
+        return res.status(400).json({ error: phoneRes.error });
       }
-
-      // Проверка номера телефона
-      const cleanPhone = String(customerPhone || "").trim();
-      const phoneRegex = /^[\+0-9\s\-\(\)]{7,20}$/;
-      if (!cleanPhone || !phoneRegex.test(cleanPhone)) {
-        return res.status(400).json({ error: "Укажите действительный номер телефона (например, +7 (999) 000-00-00)." });
-      }
+      const cleanPhone = phoneRes.formatted;
 
       if (!Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: "Корзина пуста. Выберите хотя бы одну услугу." });

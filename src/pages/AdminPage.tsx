@@ -17,6 +17,11 @@ import QrGeneratorModal from "../components/QrGeneratorModal";
 import PlanModal from "../components/PlanModal";
 import AnalyticsTab from "../components/AnalyticsTab";
 import { AdminPageSkeleton, ReviewSkeletonList, SpinnerLoader, Skeleton } from "../components/Skeleton";
+import { 
+  validateShopName, validateSlug, cleanSlugForSubmit, transliterateToSlug, validateCisPhone, 
+  validateTelegramBotToken, validateTelegramChatId, validateItemTitle, 
+  validatePrice, validatePromoCodeData, validateAddress 
+} from "../lib/validation";
 
 interface Service {
   id: string;
@@ -70,33 +75,6 @@ interface Shop {
   _count?: {
     orders: number;
   };
-}
-
-export function transliterateToSlug(str: string): string {
-  if (!str) return "";
-  const ruMap: Record<string, string> = {
-    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo',
-    'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
-    'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-    'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'shch',
-    'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
-    'і': 'i', 'ї': 'yi', 'є': 'ye', 'ґ': 'g'
-  };
-
-  const transliterated = String(str)
-    .toLowerCase()
-    .split('')
-    .map(char => ruMap[char] !== undefined ? ruMap[char] : char)
-    .join('');
-
-  return transliterated
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/[\s_]+/g, '-')
-    .replace(/-+/g, '-');
-}
-
-export function cleanSlugForSubmit(str: string): string {
-  return transliterateToSlug(str).replace(/^-+|-+$/g, '');
 }
 
 export default function AdminPage() {
@@ -840,16 +818,18 @@ export default function AdminPage() {
   const validateCreateShop = () => {
     const errors: { name?: string; slug?: string; description?: string } = {};
 
-    if (!newShopData.name.trim() || newShopData.name.trim().length < 2) {
-      errors.name = "Название должно содержать не менее 2 символов";
+    const nameRes = validateShopName(newShopData.name);
+    if (!nameRes.isValid) {
+      errors.name = nameRes.error;
     }
 
-    const cleanSlug = cleanSlugForSubmit(newShopData.slug);
-    const slugRegex = /^[a-z0-9-]{2,30}$/;
-    if (!cleanSlug) {
-      errors.slug = "Введите адресную ссылку (Slug)";
-    } else if (!slugRegex.test(cleanSlug)) {
-      errors.slug = "Slug должен состоять из 2-30 букв латиницы, цифр или дефисов";
+    const slugRes = validateSlug(newShopData.slug);
+    if (!slugRes.isValid) {
+      errors.slug = slugRes.error;
+    }
+
+    if (newShopData.description && newShopData.description.trim().length > 300) {
+      errors.description = "Описание не должно превышать 300 символов";
     }
 
     setCreateShopFieldErrors(errors);
@@ -941,8 +921,15 @@ export default function AdminPage() {
     if (!selectedShop) return;
     setServiceError(null);
 
-    if (!newServiceData.title.trim() || !newServiceData.price) {
-      setServiceError("Пожалуйста, заполните обязательные поля");
+    const titleRes = validateItemTitle(newServiceData.title);
+    if (!titleRes.isValid) {
+      setServiceError(titleRes.error || "Укажите название");
+      return;
+    }
+
+    const priceRes = validatePrice(newServiceData.price);
+    if (!priceRes.isValid) {
+      setServiceError(priceRes.error || "Укажите цену");
       return;
     }
 
@@ -954,8 +941,8 @@ export default function AdminPage() {
         method: "POST",
         headers,
         body: JSON.stringify({
-          title: newServiceData.title.trim(),
-          price: Number(newServiceData.price),
+          title: titleRes.title,
+          price: priceRes.price,
           description: newServiceData.description.trim() || undefined,
           category: newServiceData.category.trim() || undefined,
           imageUrl: newServiceData.imageUrl.trim() || undefined
@@ -989,6 +976,18 @@ export default function AdminPage() {
     e.preventDefault();
     if (!editingService) return;
 
+    const titleRes = validateItemTitle(editServiceData.title);
+    if (!titleRes.isValid) {
+      setEditServiceError(titleRes.error || "Укажите название");
+      return;
+    }
+
+    const priceRes = validatePrice(editServiceData.price);
+    if (!priceRes.isValid) {
+      setEditServiceError(priceRes.error || "Укажите цену");
+      return;
+    }
+
     setIsSavingEditService(true);
     setEditServiceError(null);
 
@@ -1000,8 +999,8 @@ export default function AdminPage() {
         method: "PUT",
         headers,
         body: JSON.stringify({
-          title: editServiceData.title.trim(),
-          price: Number(editServiceData.price),
+          title: titleRes.title,
+          price: priceRes.price,
           description: editServiceData.description.trim() || undefined,
           category: editServiceData.category.trim() || undefined,
           imageUrl: editServiceData.imageUrl.trim() || undefined
@@ -1084,8 +1083,18 @@ export default function AdminPage() {
 
   const handleCreatePromocode = async (e: FormEvent) => {
     e.preventDefault();
-    if (!selectedShop || !newPromoData.code.trim()) return;
+    if (!selectedShop) return;
     setPromoError(null);
+
+    const discountVal = Number(newPromoData.discountPercent) || Number(newPromoData.discountAmount) || 0;
+    const discountType = Number(newPromoData.discountPercent) > 0 ? "percent" : "fixed";
+
+    const promoRes = validatePromoCodeData(newPromoData.code, discountVal, discountType);
+    if (!promoRes.isValid) {
+      setPromoError(promoRes.error || "Проверьте данные промокода");
+      return;
+    }
+
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -1336,15 +1345,46 @@ export default function AdminPage() {
     e.preventDefault();
     if (!selectedShop) return;
 
-    setIsSavingSettings(true);
-    setSettingsError(null);
-
-    const cleanSlug = cleanSlugForSubmit(settingsData.slug);
-    if (!cleanSlug || cleanSlug.length < 2) {
-      setSettingsError("URL заведения (slug) должен содержать от 2 до 30 латинских символов, цифр или дефисов");
-      setIsSavingSettings(false);
+    const nameRes = validateShopName(settingsData.name);
+    if (!nameRes.isValid) {
+      setSettingsError(nameRes.error || "Некорректное название");
       return;
     }
+
+    const slugRes = validateSlug(settingsData.slug);
+    if (!slugRes.isValid) {
+      setSettingsError(slugRes.error || "Некорректный slug");
+      return;
+    }
+
+    if (settingsData.botToken && settingsData.botToken.trim()) {
+      const botRes = validateTelegramBotToken(settingsData.botToken);
+      if (!botRes.isValid) {
+        setSettingsError(botRes.error || "Некорректный Bot Token");
+        return;
+      }
+    }
+
+    if (settingsData.adminChatId && settingsData.adminChatId.trim()) {
+      const chatRes = validateTelegramChatId(settingsData.adminChatId);
+      if (!chatRes.isValid) {
+        setSettingsError(chatRes.error || "Некорректный Chat ID");
+        return;
+      }
+    }
+
+    let formattedPhone = settingsData.phone.trim();
+    if (formattedPhone) {
+      const phoneRes = validateCisPhone(formattedPhone);
+      if (!phoneRes.isValid) {
+        setSettingsError(phoneRes.error || "Некорректный номер телефона");
+        return;
+      }
+      formattedPhone = phoneRes.formatted;
+    }
+
+    setIsSavingSettings(true);
+    setSettingsError(null);
 
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -1354,14 +1394,14 @@ export default function AdminPage() {
         method: "PUT",
         headers,
         body: JSON.stringify({
-          name: settingsData.name.trim(),
-          slug: cleanSlug,
+          name: nameRes.name,
+          slug: slugRes.cleanSlug,
           description: settingsData.description.trim() || undefined,
           botToken: settingsData.botToken.trim() || undefined,
           adminChatId: settingsData.adminChatId.trim() || undefined,
           workingHours: settingsData.workingHours.trim() || undefined,
           address: settingsData.address.trim() || undefined,
-          phone: settingsData.phone.trim() || undefined,
+          phone: formattedPhone || undefined,
           isOpen: settingsData.isOpen
         })
       });

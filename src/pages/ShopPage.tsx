@@ -12,6 +12,7 @@ import { ShopPageSkeleton, ReviewSkeletonList, SpinnerLoader } from "../componen
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
 import { useTheme } from "../context/ThemeContext";
 import { jsPDF } from "jspdf";
+import { validateCustomerName, validateCisPhone } from "../lib/validation";
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   let binary = "";
@@ -661,7 +662,14 @@ export default function ShopPage() {
 
   const handleSubmitReview = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newReview.name.trim() || !shop) return;
+    if (!shop) return;
+
+    const nameRes = validateCustomerName(newReview.name);
+    if (!nameRes.isValid) {
+      setReviewSubmitError(nameRes.error || "Укажите имя");
+      return;
+    }
+
     setIsSubmittingReview(true);
     setReviewSubmitError(null);
     try {
@@ -669,7 +677,7 @@ export default function ShopPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerName: newReview.name.trim(),
+          customerName: nameRes.formatted,
           rating: newReview.rating,
           comment: newReview.comment.trim()
         })
@@ -747,13 +755,20 @@ export default function ShopPage() {
 
   const validateForm = () => {
     const errors: { name?: string; phone?: string } = {};
-    if (!formData.name.trim() || formData.name.trim().length < 2) {
-      errors.name = "Укажите ваше имя";
+
+    const nameRes = validateCustomerName(formData.name);
+    if (!nameRes.isValid) {
+      errors.name = nameRes.error;
     }
-    const cleanPhone = formData.phone.trim();
-    if (!cleanPhone) {
-      errors.phone = "Укажите номер телефона";
+
+    const phoneRes = validateCisPhone(formData.phone);
+    if (!phoneRes.isValid) {
+      errors.phone = phoneRes.error;
+    } else {
+      // Автоматически форматируем телефон в красивый международный стандарт
+      setFormData(prev => ({ ...prev, phone: phoneRes.formatted }));
     }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };

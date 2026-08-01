@@ -143,7 +143,7 @@ export default function PlanModal({
 
           {successPaid ? (
             <div className="py-12 text-center space-y-4 font-mono">
-              <div className="w-14 h-14 bg-app-accent text-app-primary rounded-full flex items-center justify-center mx-auto shadow-md">
+              <div className="w-14 h-14 bg-app-accent text-zinc-950 rounded-full flex items-center justify-center mx-auto shadow-md">
                 <CheckCircle2 size={32} />
               </div>
               <div>
@@ -336,7 +336,7 @@ export default function PlanModal({
               <div className={`rounded-2xl p-5 border transition-all flex flex-col justify-between bg-app-card relative ${
                 currentPlan === "PRO" ? "border-app-primary" : "border-app-border"
               }`}>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-app-accent text-app-primary text-[9px] font-mono font-bold px-2.5 py-0.5 rounded-full uppercase border border-app-border">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-app-accent text-zinc-950 text-[10px] font-mono font-bold px-3 py-0.5 rounded-full uppercase border border-app-border shadow-sm">
                   Популярный
                 </div>
 

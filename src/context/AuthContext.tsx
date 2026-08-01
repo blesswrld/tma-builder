@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { validateEmail, validatePassword } from "../lib/validation";
 
 export interface User {
   id: string;
@@ -63,10 +64,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
+    const emailRes = validateEmail(email);
+    if (!emailRes.isValid) throw new Error(emailRes.error);
+
+    const passRes = validatePassword(password);
+    if (!passRes.isValid) throw new Error(passRes.error);
+
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email: emailRes.email, password })
     });
 
     const data = await res.json();
@@ -80,10 +87,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (email: string, password: string, name?: string) => {
+    const emailRes = validateEmail(email);
+    if (!emailRes.isValid) throw new Error(emailRes.error);
+
+    const passRes = validatePassword(password);
+    if (!passRes.isValid) throw new Error(passRes.error);
+
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name })
+      body: JSON.stringify({ email: emailRes.email, password, name: name ? name.trim() : undefined })
     });
 
     const data = await res.json();
@@ -97,10 +110,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const sendCode = async (email: string, type: "LOGIN" | "REGISTER" | "RESET_PASSWORD" = "LOGIN") => {
+    const emailRes = validateEmail(email);
+    if (!emailRes.isValid) throw new Error(emailRes.error);
+
     const res = await fetch("/api/auth/send-code", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, type })
+      body: JSON.stringify({ email: emailRes.email, type })
     });
 
     const data = await res.json();
