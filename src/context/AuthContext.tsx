@@ -5,6 +5,10 @@ export interface User {
   id: string;
   email: string;
   name?: string | null;
+  phone?: string | null;
+  avatarUrl?: string | null;
+  telegramHandle?: string | null;
+  companyName?: string | null;
   plan?: string;
   subscriptionExpiresAt?: string | null;
 }
@@ -18,6 +22,15 @@ interface AuthContextType {
   sendCode: (email: string, type?: "LOGIN" | "REGISTER" | "RESET_PASSWORD") => Promise<{ devCode?: string; message: string }>;
   verifyCode: (params: { email: string; code: string; name?: string; password?: string }) => Promise<void>;
   resetPassword: (params: { email: string; code: string; newPassword: string }) => Promise<{ message: string }>;
+  updateProfile: (data: {
+    name?: string;
+    phone?: string;
+    avatarUrl?: string;
+    telegramHandle?: string;
+    companyName?: string;
+    currentPassword?: string;
+    newPassword?: string;
+  }) => Promise<User>;
   logout: () => void;
 }
 
@@ -159,6 +172,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { message: data.message };
   };
 
+  const updateProfile = async (profileData: {
+    name?: string;
+    phone?: string;
+    avatarUrl?: string;
+    telegramHandle?: string;
+    companyName?: string;
+    currentPassword?: string;
+    newPassword?: string;
+  }) => {
+    const storedToken = localStorage.getItem("auth_token");
+    if (!storedToken) throw new Error("Пользователь не авторизован");
+
+    const res = await fetch("/api/user/profile", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${storedToken}`
+      },
+      body: JSON.stringify(profileData)
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Не удалось обновить профиль");
+    }
+
+    setUser(data.user);
+    return data.user;
+  };
+
   const logout = () => {
     localStorage.removeItem("auth_token");
     setToken(null);
@@ -166,7 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, sendCode, verifyCode, resetPassword, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, sendCode, verifyCode, resetPassword, updateProfile, logout }}>
       {children}
     </AuthContext.Provider>
   );

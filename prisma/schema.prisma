@@ -15,6 +15,10 @@ model User {
   name                  String?
   plan                  String    @default("FREE") // FREE, PRO, ENTERPRISE
   subscriptionExpiresAt DateTime?
+  avatarUrl             String?
+  phone                 String?
+  telegramHandle        String?
+  companyName           String?
   shops                 Shop[]
   createdAt             DateTime  @default(now())
 }
@@ -29,29 +33,35 @@ model VerificationCode {
 }
 
 model Shop {
-  id          String    @id @default(cuid())
-  slug        String    @unique
-  name        String
-  description String?
-  logoUrl     String?
-  botToken    String?
-  adminChatId String?
-  workingHours String?
-  address     String?
-  phone       String?
-  isOpen      Boolean   @default(true)
-  ownerId     String?
-  maxServices Int       @default(15)
-  cashbackPercent Int      @default(5)
-  owner       User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  services    Service[]
-  orders      Order[]
-  promocodes  Promocode[]
-  reviews     Review[]
-  banners     Banner[]
-  broadcasts  Broadcast[]
-  customers   Customer[]
-  createdAt   DateTime    @default(now())
+  id                  String      @id @default(cuid())
+  slug                String      @unique
+  name                String
+  description         String?
+  logoUrl             String?
+  bannerUrl           String?
+  botToken            String?
+  adminChatId         String?
+  workingHours        String?
+  address             String?
+  phone               String?
+  currency            String?     @default("RUB")
+  currencySymbol      String?     @default("₽")
+  socialLinks         String?
+  deliveryOptions     String?
+  paymentInstructions String?
+  isOpen              Boolean     @default(true)
+  ownerId             String?
+  maxServices         Int         @default(15)
+  cashbackPercent     Int         @default(5)
+  owner               User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  services            Service[]
+  orders              Order[]
+  promocodes          Promocode[]
+  reviews             Review[]
+  banners             Banner[]
+  broadcasts          Broadcast[]
+  customers           Customer[]
+  createdAt           DateTime    @default(now())
 }
 
 model Broadcast {
@@ -100,9 +110,15 @@ model Service {
   shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   title       String
   price       Int
+  oldPrice    Int?
   description String?
   category    String?
   imageUrl    String?
+  gallery     String?
+  badge       String?
+  tags        String?
+  prepTime    String?
+  weight      String?
   isAvailable Boolean  @default(true)
   createdAt   DateTime @default(now())
 }

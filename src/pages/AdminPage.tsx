@@ -8,7 +8,7 @@ import {
   LogIn, LogOut, ShieldCheck, Mail, Lock, QrCode, Download, Volume2, 
   VolumeX, Crown, FileSpreadsheet, Bell, Star, Sparkles, Smartphone, 
   Image as ImageIcon, Send, Users, Radio, Gift, ChevronDown, ChevronUp, 
-  Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon
+  Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon, Globe
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -17,6 +17,7 @@ import QrGeneratorModal from "../components/QrGeneratorModal";
 import PlanModal from "../components/PlanModal";
 import AnalyticsTab from "../components/AnalyticsTab";
 import { AdminPageSkeleton, ReviewSkeletonList, SpinnerLoader, Skeleton } from "../components/Skeleton";
+import ImageUploader from "../components/ImageUploader";
 import { 
   validateShopName, validateSlug, cleanSlugForSubmit, transliterateToSlug, validateCisPhone, 
   validateTelegramBotToken, validateTelegramChatId, validateItemTitle, 
@@ -27,9 +28,15 @@ interface Service {
   id: string;
   title: string;
   price: number;
+  oldPrice?: number | null;
   description: string | null;
   category?: string | null;
   imageUrl?: string | null;
+  gallery?: string | null;
+  badge?: string | null;
+  tags?: string | null;
+  prepTime?: string | null;
+  weight?: string | null;
   isAvailable?: boolean;
 }
 
@@ -64,7 +71,15 @@ interface Shop {
   workingHours?: string | null;
   address?: string | null;
   phone?: string | null;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  currency?: string | null;
+  currencySymbol?: string | null;
+  socialLinks?: string | null;
+  deliveryOptions?: string | null;
+  paymentInstructions?: string | null;
   isOpen?: boolean;
+  cashbackPercent?: number;
   ownerId?: string | null;
   owner?: {
     id: string;
@@ -78,7 +93,7 @@ interface Shop {
 }
 
 export default function AdminPage() {
-  const { user, token, login, register, logout, sendCode, verifyCode, resetPassword } = useAuth();
+  const { user, token, login, register, logout, sendCode, verifyCode, resetPassword, updateProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   // Auth modal
@@ -367,15 +382,56 @@ export default function AdminPage() {
   const [createShopError, setCreateShopError] = useState<string | null>(null);
   const [createShopFieldErrors, setCreateShopFieldErrors] = useState<{ name?: string; slug?: string; description?: string }>({});
 
+  // User Profile
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [profileData, setProfileData] = useState({
+    name: "",
+    phone: "",
+    avatarUrl: "",
+    telegramHandle: "",
+    companyName: "",
+    currentPassword: "",
+    newPassword: ""
+  });
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
   // Add Service
   const [isAddingService, setIsAddingService] = useState(false);
-  const [newServiceData, setNewServiceData] = useState({ title: "", price: "", description: "", category: "", imageUrl: "" });
+  const [newServiceData, setNewServiceData] = useState({
+    title: "",
+    price: "",
+    oldPrice: "",
+    description: "",
+    category: "",
+    imageUrl: "",
+    gallery: [] as string[],
+    badge: "",
+    tags: "",
+    prepTime: "",
+    weight: "",
+    isAvailable: true
+  });
   const [serviceError, setServiceError] = useState<string | null>(null);
   const [serviceFieldErrors, setServiceFieldErrors] = useState<{ title?: string; price?: string; description?: string }>({});
 
   // Edit Service
   const [editingService, setEditingService] = useState<Service | null>(null);
-  const [editServiceData, setEditServiceData] = useState({ title: "", price: "", description: "", category: "", imageUrl: "" });
+  const [editServiceData, setEditServiceData] = useState({
+    title: "",
+    price: "",
+    oldPrice: "",
+    description: "",
+    category: "",
+    imageUrl: "",
+    gallery: [] as string[],
+    badge: "",
+    tags: "",
+    prepTime: "",
+    weight: "",
+    isAvailable: true
+  });
   const [editServiceError, setEditServiceError] = useState<string | null>(null);
   const [editServiceFieldErrors, setEditServiceFieldErrors] = useState<{ title?: string; price?: string; description?: string }>({});
   const [isSavingEditService, setIsSavingEditService] = useState(false);
@@ -389,6 +445,7 @@ export default function AdminPage() {
 
   // Settings
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsActiveTab, setSettingsActiveTab] = useState<"general" | "branding" | "currency" | "delivery" | "social" | "telegram">("general");
   const [settingsData, setSettingsData] = useState({
     name: "",
     slug: "",
@@ -398,6 +455,13 @@ export default function AdminPage() {
     workingHours: "",
     address: "",
     phone: "",
+    logoUrl: "",
+    bannerUrl: "",
+    currency: "RUB",
+    currencySymbol: "₽",
+    socialLinks: { telegram: "", instagram: "", whatsapp: "", vk: "", website: "" },
+    deliveryOptions: { pickup: true, courier: true, shipping: false, minOrder: "0", deliveryFee: "0" },
+    paymentInstructions: "",
     cashbackPercent: 5,
     isOpen: true
   });
@@ -943,17 +1007,38 @@ export default function AdminPage() {
         body: JSON.stringify({
           title: titleRes.title,
           price: priceRes.price,
+          oldPrice: newServiceData.oldPrice ? Number(newServiceData.oldPrice) : undefined,
           description: newServiceData.description.trim() || undefined,
           category: newServiceData.category.trim() || undefined,
-          imageUrl: newServiceData.imageUrl.trim() || undefined
+          imageUrl: newServiceData.imageUrl.trim() || undefined,
+          gallery: newServiceData.gallery.length > 0 ? JSON.stringify(newServiceData.gallery) : undefined,
+          badge: newServiceData.badge.trim() || undefined,
+          tags: newServiceData.tags.trim() || undefined,
+          prepTime: newServiceData.prepTime.trim() || undefined,
+          weight: newServiceData.weight.trim() || undefined,
+          isAvailable: newServiceData.isAvailable
         })
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Не удалось добавить позицию");
 
-      setNewServiceData({ title: "", price: "", description: "", category: "", imageUrl: "" });
+      setNewServiceData({
+        title: "",
+        price: "",
+        oldPrice: "",
+        description: "",
+        category: "",
+        imageUrl: "",
+        gallery: [],
+        badge: "",
+        tags: "",
+        prepTime: "",
+        weight: "",
+        isAvailable: true
+      });
       setIsAddingService(false);
+      showToast("Услуга успешно добавлена в меню", "success");
       await fetchShops();
     } catch (err: any) {
       setServiceError(err.message);
@@ -961,13 +1046,29 @@ export default function AdminPage() {
   };
 
   const handleOpenEditService = (service: Service) => {
+    let parsedGallery: string[] = [];
+    if (service.gallery) {
+      try {
+        parsedGallery = JSON.parse(service.gallery);
+      } catch {
+        parsedGallery = service.gallery.split(",").map(s => s.trim()).filter(Boolean);
+      }
+    }
+
     setEditingService(service);
     setEditServiceData({
       title: service.title,
       price: service.price.toString(),
+      oldPrice: service.oldPrice ? service.oldPrice.toString() : "",
       description: service.description || "",
       category: service.category || "",
-      imageUrl: service.imageUrl || ""
+      imageUrl: service.imageUrl || "",
+      gallery: parsedGallery,
+      badge: service.badge || "",
+      tags: service.tags || "",
+      prepTime: service.prepTime || "",
+      weight: service.weight || "",
+      isAvailable: service.isAvailable !== false
     });
     setEditServiceError(null);
   };
@@ -1001,9 +1102,16 @@ export default function AdminPage() {
         body: JSON.stringify({
           title: titleRes.title,
           price: priceRes.price,
+          oldPrice: editServiceData.oldPrice ? Number(editServiceData.oldPrice) : undefined,
           description: editServiceData.description.trim() || undefined,
           category: editServiceData.category.trim() || undefined,
-          imageUrl: editServiceData.imageUrl.trim() || undefined
+          imageUrl: editServiceData.imageUrl.trim() || undefined,
+          gallery: editServiceData.gallery.length > 0 ? JSON.stringify(editServiceData.gallery) : undefined,
+          badge: editServiceData.badge.trim() || undefined,
+          tags: editServiceData.tags.trim() || undefined,
+          prepTime: editServiceData.prepTime.trim() || undefined,
+          weight: editServiceData.weight.trim() || undefined,
+          isAvailable: editServiceData.isAvailable
         })
       });
 
@@ -1011,6 +1119,7 @@ export default function AdminPage() {
       if (!res.ok) throw new Error(data.error || "Не удалось сохранить изменения");
 
       setEditingService(null);
+      showToast("Услуга успешно обновлена", "success");
       await fetchShops();
     } catch (err: any) {
       setEditServiceError(err.message);
@@ -1324,7 +1433,78 @@ export default function AdminPage() {
     }
   }, [selectedShop?.id]);
 
+  const handleOpenProfile = () => {
+    if (user) {
+      setProfileData({
+        name: user.name || "",
+        phone: user.phone || "",
+        avatarUrl: user.avatarUrl || "",
+        telegramHandle: user.telegramHandle || "",
+        companyName: user.companyName || "",
+        currentPassword: "",
+        newPassword: ""
+      });
+    }
+    setProfileError(null);
+    setProfileSuccess(null);
+    setIsProfileOpen(true);
+  };
+
+  const handleSaveProfile = async (e: FormEvent) => {
+    e.preventDefault();
+    setProfileError(null);
+    setProfileSuccess(null);
+
+    let formattedPhone = profileData.phone.trim();
+    if (formattedPhone) {
+      const phoneRes = validateCisPhone(formattedPhone);
+      if (!phoneRes.isValid) {
+        setProfileError(phoneRes.error || "Укажите корректный номер телефона");
+        return;
+      }
+      formattedPhone = phoneRes.formatted;
+    }
+
+    setIsSavingProfile(true);
+
+    try {
+      await updateProfile({
+        name: profileData.name.trim() || undefined,
+        phone: formattedPhone || undefined,
+        avatarUrl: profileData.avatarUrl.trim() || undefined,
+        telegramHandle: profileData.telegramHandle.trim() || undefined,
+        companyName: profileData.companyName.trim() || undefined,
+        currentPassword: profileData.currentPassword.trim() || undefined,
+        newPassword: profileData.newPassword.trim() || undefined
+      });
+
+      setProfileSuccess("Ваш профиль успешно сохранен!");
+      showToast("Профиль успешно обновлен", "success");
+      setTimeout(() => {
+        setIsProfileOpen(false);
+      }, 1000);
+    } catch (err: any) {
+      setProfileError(err.message || "Не удалось обновить профиль");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   const handleOpenSettings = (shop: Shop) => {
+    let parsedSocials = { telegram: "", instagram: "", whatsapp: "", vk: "", website: "" };
+    if (shop.socialLinks) {
+      try {
+        parsedSocials = { ...parsedSocials, ...JSON.parse(shop.socialLinks) };
+      } catch {}
+    }
+
+    let parsedDelivery = { pickup: true, courier: true, shipping: false, minOrder: "0", deliveryFee: "0" };
+    if (shop.deliveryOptions) {
+      try {
+        parsedDelivery = { ...parsedDelivery, ...JSON.parse(shop.deliveryOptions) };
+      } catch {}
+    }
+
     setSettingsData({
       name: shop.name,
       slug: shop.slug || "",
@@ -1334,9 +1514,17 @@ export default function AdminPage() {
       workingHours: shop.workingHours || "",
       address: shop.address || "",
       phone: shop.phone || "",
-      cashbackPercent: 5,
+      logoUrl: shop.logoUrl || "",
+      bannerUrl: shop.bannerUrl || "",
+      currency: shop.currency || "RUB",
+      currencySymbol: shop.currencySymbol || "₽",
+      socialLinks: parsedSocials,
+      deliveryOptions: parsedDelivery,
+      paymentInstructions: shop.paymentInstructions || "",
+      cashbackPercent: shop.cashbackPercent || 5,
       isOpen: shop.isOpen !== false
     });
+    setSettingsActiveTab("general");
     setSettingsError(null);
     setIsSettingsOpen(true);
   };
@@ -1402,6 +1590,14 @@ export default function AdminPage() {
           workingHours: settingsData.workingHours.trim() || undefined,
           address: settingsData.address.trim() || undefined,
           phone: formattedPhone || undefined,
+          logoUrl: settingsData.logoUrl.trim() || undefined,
+          bannerUrl: settingsData.bannerUrl.trim() || undefined,
+          currency: settingsData.currency,
+          currencySymbol: settingsData.currencySymbol,
+          socialLinks: JSON.stringify(settingsData.socialLinks),
+          deliveryOptions: JSON.stringify(settingsData.deliveryOptions),
+          paymentInstructions: settingsData.paymentInstructions.trim() || undefined,
+          cashbackPercent: Number(settingsData.cashbackPercent) || 5,
           isOpen: settingsData.isOpen
         })
       });
@@ -1410,7 +1606,7 @@ export default function AdminPage() {
       if (!res.ok) throw new Error(data.error || "Не удалось обновить настройки");
 
       setIsSettingsOpen(false);
-      showToast("Настройки заведения сохранены", "success");
+      showToast("Настройки заведения успешно сохранены", "success");
       await fetchShops();
     } catch (err: any) {
       setSettingsError(err.message);
@@ -1651,24 +1847,41 @@ export default function AdminPage() {
           </div>
 
           <div className="p-3 bg-app-surface border border-app-border rounded-2xl flex items-center justify-between">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-xl bg-zinc-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                {user?.email ? user.email.charAt(0).toUpperCase() : "А"}
+            <button 
+              onClick={handleOpenProfile}
+              className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity flex-1 mr-2"
+              title="Настройки профиля"
+            >
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="Avatar" className="w-8 h-8 rounded-xl object-cover border border-app-border shrink-0" />
+              ) : (
+                <div className="w-8 h-8 rounded-xl bg-app-accent/20 border border-app-accent/30 flex items-center justify-center text-app-accent-fg text-xs font-bold shrink-0">
+                  {user?.name ? user.name.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : "А")}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-app-primary truncate">{user?.name || user?.email || "Администратор"}</p>
+                <p className="text-[10px] text-app-muted truncate">{user?.companyName || (token ? "Авторизован" : "Локальный сеанс")}</p>
               </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-white truncate">{user?.email || "Администратор"}</p>
-                <p className="text-[10px] text-app-muted truncate">{token ? "Авторизован" : "Локальный сеанс"}</p>
-              </div>
+            </button>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={handleOpenProfile}
+                className="p-1.5 text-app-muted hover:text-app-primary transition-colors cursor-pointer"
+                title="Редактировать профиль"
+              >
+                <User size={14} />
+              </button>
+              {token ? (
+                <button onClick={handleLogoutRequest} className="p-1.5 text-app-muted hover:text-rose-400 transition-colors cursor-pointer" title="Выйти из аккаунта">
+                  <LogOut size={14} />
+                </button>
+              ) : (
+                <button onClick={() => setIsAuthModalOpen(true)} className="p-1.5 text-app-muted hover:text-app-primary transition-colors cursor-pointer" title="Войти">
+                  <LogIn size={14} />
+                </button>
+              )}
             </div>
-            {token ? (
-              <button onClick={handleLogoutRequest} className="p-1.5 text-app-muted hover:text-rose-400 transition-colors" title="Выйти из аккаунта">
-                <LogOut size={14} />
-              </button>
-            ) : (
-              <button onClick={() => setIsAuthModalOpen(true)} className="p-1.5 text-app-muted hover:text-white transition-colors" title="Войти">
-                <LogIn size={14} />
-              </button>
-            )}
           </div>
         </div>
       </aside>
@@ -2671,101 +2884,141 @@ export default function AdminPage() {
       {/* Add Service Modal */}
       {isAddingService && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4">
+          <div className="max-w-lg w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center border-b border-app-border pb-3">
               <h3 className="text-sm font-semibold font-mono">Новая услуга / позиция</h3>
-              <button onClick={() => setIsAddingService(false)} className="text-app-muted hover:text-white">
+              <button onClick={() => setIsAddingService(false)} className="text-app-muted hover:text-white cursor-pointer">
                 <X size={18} />
               </button>
             </div>
             {serviceError && <p className="text-xs text-rose-400 font-mono">{serviceError}</p>}
-            <form onSubmit={handleAddService} className="space-y-3 font-sans">
-              <input
-                type="text"
-                value={newServiceData.title}
-                onChange={e => setNewServiceData(p => ({ ...p, title: e.target.value }))}
-                placeholder="Название *"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
-              />
-              <input
-                type="number"
-                value={newServiceData.price}
-                onChange={e => setNewServiceData(p => ({ ...p, price: e.target.value }))}
-                placeholder="Цена (₽) *"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
-              />
-              <input
-                type="text"
-                value={newServiceData.category}
-                onChange={e => setNewServiceData(p => ({ ...p, category: e.target.value }))}
-                placeholder="Категория (напр. Кофе, Десерты)"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
-              />
-              <textarea
-                rows={2}
-                value={newServiceData.description}
-                onChange={e => setNewServiceData(p => ({ ...p, description: e.target.value }))}
-                placeholder="Описание..."
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
-              />
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-app-muted font-mono uppercase">Изображение (URL / пресеты)</span>
-                  {newServiceData.imageUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setNewServiceData(p => ({ ...p, imageUrl: "" }))}
-                      className="text-[9px] text-rose-400 font-mono hover:underline cursor-pointer"
-                    >
-                      Очистить
-                    </button>
-                  )}
-                </div>
+            <form onSubmit={handleAddService} className="space-y-4 font-sans">
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">Название позиции *</label>
                 <input
                   type="text"
+                  value={newServiceData.title}
+                  onChange={e => setNewServiceData(p => ({ ...p, title: e.target.value }))}
+                  placeholder="Например: Двойной Эспрессо"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">Текущая цена ({selectedShop?.currencySymbol || "₽"}) *</label>
+                  <input
+                    type="number"
+                    value={newServiceData.price}
+                    onChange={e => setNewServiceData(p => ({ ...p, price: e.target.value }))}
+                    placeholder="350"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">Старая цена (зачеркнута)</label>
+                  <input
+                    type="number"
+                    value={newServiceData.oldPrice}
+                    onChange={e => setNewServiceData(p => ({ ...p, oldPrice: e.target.value }))}
+                    placeholder="450"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-muted focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">Категория</label>
+                  <input
+                    type="text"
+                    value={newServiceData.category}
+                    onChange={e => setNewServiceData(p => ({ ...p, category: e.target.value }))}
+                    placeholder="Кофе, Десерты, Стрижки..."
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">Плашка (Бейдж)</label>
+                  <input
+                    type="text"
+                    value={newServiceData.badge}
+                    onChange={e => setNewServiceData(p => ({ ...p, badge: e.target.value }))}
+                    placeholder="🔥 Хит, NEW, -20%"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">Время пригот. / сеанса</label>
+                  <input
+                    type="text"
+                    value={newServiceData.prepTime}
+                    onChange={e => setNewServiceData(p => ({ ...p, prepTime: e.target.value }))}
+                    placeholder="10-15 мин"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">Вес / Объём</label>
+                  <input
+                    type="text"
+                    value={newServiceData.weight}
+                    onChange={e => setNewServiceData(p => ({ ...p, weight: e.target.value }))}
+                    placeholder="250 мл / 300 г"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">Описание позиции</label>
+                <textarea
+                  rows={2}
+                  value={newServiceData.description}
+                  onChange={e => setNewServiceData(p => ({ ...p, description: e.target.value }))}
+                  placeholder="Состав, особенности приготовления или детали услуги..."
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-app-muted uppercase mb-2">Главное фото товара</label>
+                <ImageUploader
                   value={newServiceData.imageUrl}
-                  onChange={e => setNewServiceData(p => ({ ...p, imageUrl: e.target.value }))}
-                  placeholder="Вставьте ссылку на картинку..."
+                  onChange={(url) => setNewServiceData(p => ({ ...p, imageUrl: url }))}
+                  type="product"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">Теги (через запятую)</label>
+                <input
+                  type="text"
+                  value={newServiceData.tags}
+                  onChange={e => setNewServiceData(p => ({ ...p, tags: e.target.value }))}
+                  placeholder="без сахара, веган, горячий"
                   className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
                 />
-                <div className="flex flex-wrap gap-1">
-                  {[
-                    { label: "☕ Кофе", url: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=300" },
-                    { label: "🍰 Торт", url: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&q=80&w=300" },
-                    { label: "🍔 Бургер", url: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&q=80&w=300" },
-                    { label: "🍕 Пицца", url: "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&q=80&w=300" },
-                    { label: "💈 Стрижка", url: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=300" },
-                  ].map(pr => (
-                    <button
-                      key={pr.label}
-                      type="button"
-                      onClick={() => setNewServiceData(p => ({ ...p, imageUrl: pr.url }))}
-                      className={`px-2 py-0.5 rounded border text-[9px] font-mono transition-colors cursor-pointer ${
-                        newServiceData.imageUrl === pr.url
-                          ? "bg-app-accent text-app-accent-fg border-transparent font-semibold"
-                          : "bg-zinc-900 border-app-border text-app-muted hover:text-white"
-                      }`}
-                    >
-                      {pr.label}
-                    </button>
-                  ))}
-                </div>
-                {newServiceData.imageUrl && (
-                  <div className="mt-1 flex items-center justify-center border border-app-border rounded-xl overflow-hidden bg-zinc-950/50 p-2">
-                    <img
-                      src={newServiceData.imageUrl}
-                      alt="Превью"
-                      className="max-h-24 object-cover rounded"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=300";
-                      }}
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                )}
               </div>
-              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
-                Сохранить позицию
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="newServiceAvailable"
+                  checked={newServiceData.isAvailable}
+                  onChange={e => setNewServiceData(p => ({ ...p, isAvailable: e.target.checked }))}
+                  className="rounded bg-app-card border-app-border text-app-primary cursor-pointer"
+                />
+                <label htmlFor="newServiceAvailable" className="text-xs font-mono text-app-secondary cursor-pointer">Позиция доступна для заказа</label>
+              </div>
+
+              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase cursor-pointer">
+                Добавить в меню
               </button>
             </form>
           </div>
@@ -2775,100 +3028,140 @@ export default function AdminPage() {
       {/* Edit Service Modal */}
       {editingService && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4">
+          <div className="max-w-lg w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center border-b border-app-border pb-3">
               <h3 className="text-sm font-semibold font-mono">Редактирование услуги</h3>
-              <button onClick={() => setEditingService(null)} className="text-app-muted hover:text-white">
+              <button onClick={() => setEditingService(null)} className="text-app-muted hover:text-white cursor-pointer">
                 <X size={18} />
               </button>
             </div>
             {editServiceError && <p className="text-xs text-rose-400 font-mono">{editServiceError}</p>}
-            <form onSubmit={handleSaveEditService} className="space-y-3 font-sans">
-              <input
-                type="text"
-                value={editServiceData.title}
-                onChange={e => setEditServiceData(p => ({ ...p, title: e.target.value }))}
-                placeholder="Название *"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
-              />
-              <input
-                type="number"
-                value={editServiceData.price}
-                onChange={e => setEditServiceData(p => ({ ...p, price: e.target.value }))}
-                placeholder="Цена (₽) *"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
-              />
-              <input
-                type="text"
-                value={editServiceData.category}
-                onChange={e => setEditServiceData(p => ({ ...p, category: e.target.value }))}
-                placeholder="Категория"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
-              />
-              <textarea
-                rows={2}
-                value={editServiceData.description}
-                onChange={e => setEditServiceData(p => ({ ...p, description: e.target.value }))}
-                placeholder="Описание..."
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
-              />
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-app-muted font-mono uppercase">Изображение (URL / пресеты)</span>
-                  {editServiceData.imageUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setEditServiceData(p => ({ ...p, imageUrl: "" }))}
-                      className="text-[9px] text-rose-400 font-mono hover:underline cursor-pointer"
-                    >
-                      Очистить
-                    </button>
-                  )}
-                </div>
+            <form onSubmit={handleSaveEditService} className="space-y-4 font-sans">
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">Название позиции *</label>
                 <input
                   type="text"
+                  value={editServiceData.title}
+                  onChange={e => setEditServiceData(p => ({ ...p, title: e.target.value }))}
+                  placeholder="Название *"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">Текущая цена ({selectedShop?.currencySymbol || "₽"}) *</label>
+                  <input
+                    type="number"
+                    value={editServiceData.price}
+                    onChange={e => setEditServiceData(p => ({ ...p, price: e.target.value }))}
+                    placeholder="Цена *"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">Старая цена</label>
+                  <input
+                    type="number"
+                    value={editServiceData.oldPrice}
+                    onChange={e => setEditServiceData(p => ({ ...p, oldPrice: e.target.value }))}
+                    placeholder="450"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-muted focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">Категория</label>
+                  <input
+                    type="text"
+                    value={editServiceData.category}
+                    onChange={e => setEditServiceData(p => ({ ...p, category: e.target.value }))}
+                    placeholder="Категория"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">Плашка (Бейдж)</label>
+                  <input
+                    type="text"
+                    value={editServiceData.badge}
+                    onChange={e => setEditServiceData(p => ({ ...p, badge: e.target.value }))}
+                    placeholder="🔥 Хит"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">Время приготовления</label>
+                  <input
+                    type="text"
+                    value={editServiceData.prepTime}
+                    onChange={e => setEditServiceData(p => ({ ...p, prepTime: e.target.value }))}
+                    placeholder="10 мин"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">Вес / Объём</label>
+                  <input
+                    type="text"
+                    value={editServiceData.weight}
+                    onChange={e => setEditServiceData(p => ({ ...p, weight: e.target.value }))}
+                    placeholder="300 г"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">Описание</label>
+                <textarea
+                  rows={2}
+                  value={editServiceData.description}
+                  onChange={e => setEditServiceData(p => ({ ...p, description: e.target.value }))}
+                  placeholder="Описание..."
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-app-muted uppercase mb-2">Главное фото товара</label>
+                <ImageUploader
                   value={editServiceData.imageUrl}
-                  onChange={e => setEditServiceData(p => ({ ...p, imageUrl: e.target.value }))}
-                  placeholder="Вставьте ссылку на картинку..."
+                  onChange={(url) => setEditServiceData(p => ({ ...p, imageUrl: url }))}
+                  type="product"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-app-muted mb-1">Теги (через запятую)</label>
+                <input
+                  type="text"
+                  value={editServiceData.tags}
+                  onChange={e => setEditServiceData(p => ({ ...p, tags: e.target.value }))}
+                  placeholder="тег1, тег2"
                   className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
                 />
-                <div className="flex flex-wrap gap-1">
-                  {[
-                    { label: "☕ Кофе", url: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=300" },
-                    { label: "🍰 Торт", url: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&q=80&w=300" },
-                    { label: "🍔 Бургер", url: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&q=80&w=300" },
-                    { label: "🍕 Пицца", url: "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&q=80&w=300" },
-                    { label: "💈 Стрижка", url: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=300" },
-                  ].map(pr => (
-                    <button
-                      key={pr.label}
-                      type="button"
-                      onClick={() => setEditServiceData(p => ({ ...p, imageUrl: pr.url }))}
-                      className={`px-2 py-0.5 rounded border text-[9px] font-mono transition-colors cursor-pointer ${
-                        editServiceData.imageUrl === pr.url
-                          ? "bg-app-accent text-app-accent-fg border-transparent font-semibold"
-                          : "bg-zinc-900 border-app-border text-app-muted hover:text-white"
-                      }`}
-                    >
-                      {pr.label}
-                    </button>
-                  ))}
-                </div>
-                {editServiceData.imageUrl && (
-                  <div className="mt-1 flex items-center justify-center border border-app-border rounded-xl overflow-hidden bg-zinc-950/50 p-2">
-                    <img
-                      src={editServiceData.imageUrl}
-                      alt="Превью"
-                      className="max-h-24 object-cover rounded"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=300";
-                      }}
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                )}
               </div>
-              <button type="submit" disabled={isSavingEditService} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase flex items-center justify-center gap-2">
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="editServiceAvailable"
+                  checked={editServiceData.isAvailable}
+                  onChange={e => setEditServiceData(p => ({ ...p, isAvailable: e.target.checked }))}
+                  className="rounded bg-app-card border-app-border text-app-primary cursor-pointer"
+                />
+                <label htmlFor="editServiceAvailable" className="text-xs font-mono text-app-secondary cursor-pointer">Позиция доступна для заказа</label>
+              </div>
+
+              <button type="submit" disabled={isSavingEditService} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase flex items-center justify-center gap-2 cursor-pointer">
                 {isSavingEditService && <SpinnerLoader size={14} />}
                 {isSavingEditService ? "Сохранение..." : "Обновить позицию"}
               </button>
@@ -2880,139 +3173,348 @@ export default function AdminPage() {
       {/* Settings Modal */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="max-w-xl w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center border-b border-app-border pb-3">
-              <h3 className="text-sm font-semibold font-mono">Настройки заведения</h3>
-              <button onClick={() => setIsSettingsOpen(false)} className="text-app-muted hover:text-white">
+              <div>
+                <h3 className="text-sm font-semibold font-mono flex items-center gap-2">
+                  <Settings size={16} className="text-app-accent-fg" />
+                  Настройки заведения
+                </h3>
+                <p className="text-[11px] text-app-muted mt-0.5 font-sans">Управление параметрами, брендингом и интеграциями</p>
+              </div>
+              <button onClick={() => setIsSettingsOpen(false)} className="text-app-muted hover:text-white cursor-pointer p-1 rounded-xl hover:bg-app-card">
                 <X size={18} />
               </button>
             </div>
-            {settingsError && <p className="text-xs text-rose-400 font-mono">{settingsError}</p>}
-            <form onSubmit={handleSaveSettings} className="space-y-3 font-sans">
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1">
-                  Название заведения *
-                </label>
-                <input
-                  type="text"
-                  value={settingsData.name}
-                  onChange={e => setSettingsData(p => ({ ...p, name: e.target.value }))}
-                  placeholder="Название заведения *"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
-                />
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1">
-                  URL-адрес заведения (Slug) *
-                </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-3 text-xs text-app-muted font-mono select-none">/</span>
-                  <input
-                    type="text"
-                    value={settingsData.slug}
-                    onChange={e => {
-                      const val = e.target.value;
-                      setSettingsData(p => ({ ...p, slug: transliterateToSlug(val) }));
-                    }}
-                    placeholder="my-shop"
-                    className="w-full bg-app-card border border-app-border rounded-xl pl-6 pr-3.5 py-2 text-xs text-emerald-400 font-bold focus:outline-none font-mono"
-                  />
+            {/* Navigation Tabs for Settings */}
+            <div className="flex gap-1 border-b border-app-border pb-2 overflow-x-auto scrollbar-none font-mono text-xs">
+              {[
+                { id: "general", label: "Основное", icon: Store },
+                { id: "branding", label: "Брендинг", icon: ImageIcon },
+                { id: "integrations", label: "Telegram", icon: Send },
+                { id: "delivery", label: "Доставка и Соцсети", icon: Globe }
+              ].map(t => {
+                const Icon = t.icon;
+                const isActive = settingsActiveTab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSettingsActiveTab(t.id as any)}
+                    className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer text-nowrap ${
+                      isActive ? "bg-app-accent text-app-accent-fg font-bold" : "text-app-muted hover:text-white hover:bg-app-card"
+                    }`}
+                  >
+                    <Icon size={13} />
+                    <span>{t.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {settingsError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs flex items-center gap-2 font-mono">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>{settingsError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveSettings} className="space-y-4 font-sans">
+              {/* TAB 1: GENERAL */}
+              {settingsActiveTab === "general" && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-app-muted mb-1">
+                      Название заведения *
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsData.name}
+                      onChange={e => setSettingsData(p => ({ ...p, name: e.target.value }))}
+                      placeholder="Название заведения *"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-app-muted mb-1">
+                      URL-адрес заведения (Slug) *
+                    </label>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3 text-xs text-app-muted font-mono select-none">/</span>
+                      <input
+                        type="text"
+                        value={settingsData.slug}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setSettingsData(p => ({ ...p, slug: transliterateToSlug(val) }));
+                        }}
+                        placeholder="my-shop"
+                        className="w-full bg-app-card border border-app-border rounded-xl pl-6 pr-3.5 py-2 text-xs text-emerald-400 font-bold focus:outline-none font-mono"
+                      />
+                    </div>
+                    <p className="text-[10px] text-app-muted mt-1 font-mono">
+                      Ссылка для клиентов: <span className="text-emerald-400 font-bold">/{cleanSlugForSubmit(settingsData.slug) || "slug"}</span>
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-app-muted mb-1">
+                      Приветственное сообщение / Описание (витрина)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={settingsData.description}
+                      onChange={e => setSettingsData(p => ({ ...p, description: e.target.value }))}
+                      placeholder="Приветственное сообщение или описание заведения, которое увидят клиенты на главной странице..."
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-mono text-app-muted mb-1">
+                        Часы работы
+                      </label>
+                      <input
+                        type="text"
+                        value={settingsData.workingHours}
+                        onChange={e => setSettingsData(p => ({ ...p, workingHours: e.target.value }))}
+                        placeholder="09:00 - 22:00"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-app-muted mb-1">
+                        Контактный телефон (СНГ)
+                      </label>
+                      <input
+                        type="text"
+                        value={settingsData.phone}
+                        onChange={e => setSettingsData(p => ({ ...p, phone: e.target.value }))}
+                        placeholder="+7 701 123 4567"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-app-muted mb-1">
+                      Фактический адрес
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsData.address}
+                      onChange={e => setSettingsData(p => ({ ...p, address: e.target.value }))}
+                      placeholder="г. Алматы, пр. Абая 150"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <input
+                      type="checkbox"
+                      id="isOpenCheck"
+                      checked={settingsData.isOpen}
+                      onChange={e => setSettingsData(p => ({ ...p, isOpen: e.target.checked }))}
+                      className="rounded bg-app-card border-app-border text-app-primary focus:ring-0 cursor-pointer"
+                    />
+                    <label htmlFor="isOpenCheck" className="text-xs font-mono text-app-secondary cursor-pointer">Заведение открыто для заказов</label>
+                  </div>
                 </div>
-                <p className="text-[10px] text-app-muted mt-1 font-mono">
-                  Ссылка для клиентов: <span className="text-emerald-400 font-bold">/{cleanSlugForSubmit(settingsData.slug) || "slug"}</span>
-                </p>
-              </div>
+              )}
 
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1">
-                  Приветственное сообщение / Описание (витрина)
-                </label>
-                <textarea
-                  rows={3}
-                  value={settingsData.description}
-                  onChange={e => setSettingsData(p => ({ ...p, description: e.target.value }))}
-                  placeholder="Приветственное сообщение или описание заведения, которое увидят клиенты на главной странице..."
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none resize-none"
-                />
-              </div>
+              {/* TAB 2: BRANDING */}
+              {settingsActiveTab === "branding" && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-mono text-app-muted uppercase mb-2">Логотип Заведения</label>
+                    <ImageUploader
+                      value={settingsData.logoUrl}
+                      onChange={(url) => setSettingsData(p => ({ ...p, logoUrl: url }))}
+                      type="avatar"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1">
-                  Токен Telegram бота
-                </label>
-                <input
-                  type="text"
-                  value={settingsData.botToken}
-                  onChange={e => setSettingsData(p => ({ ...p, botToken: e.target.value }))}
-                  placeholder="Токен Telegram бота"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
-                />
-              </div>
+                  <div>
+                    <label className="block text-xs font-mono text-app-muted uppercase mb-2">Баннер / Шапка Витрины</label>
+                    <ImageUploader
+                      value={settingsData.bannerUrl}
+                      onChange={(url) => setSettingsData(p => ({ ...p, bannerUrl: url }))}
+                      type="banner"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1">
-                  ID чата администратора
-                </label>
-                <input
-                  type="text"
-                  value={settingsData.adminChatId}
-                  onChange={e => setSettingsData(p => ({ ...p, adminChatId: e.target.value }))}
-                  placeholder="ID чата администратора"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
-                />
-              </div>
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-[11px] font-mono text-app-muted mb-1">Валюта</label>
+                      <select
+                        value={settingsData.currency}
+                        onChange={e => {
+                          const val = e.target.value;
+                          const sym = val === "KZT" ? "₸" : val === "BYN" ? "Br" : val === "USD" ? "$" : val === "EUR" ? "€" : "₽";
+                          setSettingsData(p => ({ ...p, currency: val, currencySymbol: sym }));
+                        }}
+                        className="w-full bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary font-mono focus:outline-none"
+                      >
+                        <option value="RUB">RUB (Российский рубль ₽)</option>
+                        <option value="KZT">KZT (Казахстанский тенге ₸)</option>
+                        <option value="BYN">BYN (Белорусский рубль Br)</option>
+                        <option value="USD">USD (Доллар США $)</option>
+                        <option value="EUR">EUR (Евро €)</option>
+                      </select>
+                    </div>
 
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1">
-                  Часы работы
-                </label>
-                <input
-                  type="text"
-                  value={settingsData.workingHours}
-                  onChange={e => setSettingsData(p => ({ ...p, workingHours: e.target.value }))}
-                  placeholder="Часы работы (напр. 09:00 - 22:00)"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
-                />
-              </div>
+                    <div>
+                      <label className="block text-[11px] font-mono text-app-muted mb-1">Кэшбэк бонусами (%)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={50}
+                        value={settingsData.cashbackPercent}
+                        onChange={e => setSettingsData(p => ({ ...p, cashbackPercent: Number(e.target.value) }))}
+                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1">
-                  Фактический адрес
-                </label>
-                <input
-                  type="text"
-                  value={settingsData.address}
-                  onChange={e => setSettingsData(p => ({ ...p, address: e.target.value }))}
-                  placeholder="Фактический адрес"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
-                />
-              </div>
+              {/* TAB 3: INTEGRATIONS */}
+              {settingsActiveTab === "integrations" && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-app-muted mb-1">
+                      Токен Telegram бота (из @BotFather)
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsData.botToken}
+                      onChange={e => setSettingsData(p => ({ ...p, botToken: e.target.value }))}
+                      placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyZ"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
+                    />
+                    <p className="text-[10px] text-app-muted mt-1">Позволяет боту автоматически отправлять уведомления и принимать заказы в ТГ.</p>
+                  </div>
 
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1">
-                  Контактный телефон
-                </label>
-                <input
-                  type="text"
-                  value={settingsData.phone}
-                  onChange={e => setSettingsData(p => ({ ...p, phone: e.target.value }))}
-                  placeholder="Контактный телефон"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
-                />
-              </div>
+                  <div>
+                    <label className="block text-[11px] font-mono text-app-muted mb-1">
+                      ID чата администратора (или группы)
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsData.adminChatId}
+                      onChange={e => setSettingsData(p => ({ ...p, adminChatId: e.target.value }))}
+                      placeholder="987654321 или -100123456789"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
+                    />
+                    <p className="text-[10px] text-app-muted mt-1">Укажите ваш личный Chat ID или ID рабочей группы заказов.</p>
+                  </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="isOpenCheck"
-                  checked={settingsData.isOpen}
-                  onChange={e => setSettingsData(p => ({ ...p, isOpen: e.target.checked }))}
-                  className="rounded bg-app-card border-app-border text-app-primary focus:ring-0"
-                />
-                <label htmlFor="isOpenCheck" className="text-xs font-mono text-app-secondary">Заведение открыто для заказов</label>
-              </div>
-              <button type="submit" disabled={isSavingSettings} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase flex items-center justify-center gap-2">
+                  <div>
+                    <label className="block text-[11px] font-mono text-app-muted mb-1">
+                      Инструкция к оплате (при переводе)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={settingsData.paymentInstructions}
+                      onChange={e => setSettingsData(p => ({ ...p, paymentInstructions: e.target.value }))}
+                      placeholder="Перевод по номеру Каспи / Сбербанк / Т-Банк: +7 900 123 45 67..."
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none resize-none font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: DELIVERY & SOCIALS */}
+              {settingsActiveTab === "delivery" && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold font-mono uppercase text-app-muted">Социальные сети и контакты</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={settingsData.socialLinks.telegram || ""}
+                        onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, telegram: e.target.value } }))}
+                        placeholder="Telegram channel / chat"
+                        className="bg-app-card border border-app-border rounded-xl px-3 py-1.5 text-xs font-mono text-app-primary focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={settingsData.socialLinks.instagram || ""}
+                        onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, instagram: e.target.value } }))}
+                        placeholder="Instagram handle / link"
+                        className="bg-app-card border border-app-border rounded-xl px-3 py-1.5 text-xs font-mono text-app-primary focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={settingsData.socialLinks.whatsapp || ""}
+                        onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, whatsapp: e.target.value } }))}
+                        placeholder="WhatsApp номер (+7...)"
+                        className="bg-app-card border border-app-border rounded-xl px-3 py-1.5 text-xs font-mono text-app-primary focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={settingsData.socialLinks.vk || ""}
+                        onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, vk: e.target.value } }))}
+                        placeholder="VK группа / профиль"
+                        className="bg-app-card border border-app-border rounded-xl px-3 py-1.5 text-xs font-mono text-app-primary focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-app-border space-y-2">
+                    <p className="text-xs font-bold font-mono uppercase text-app-muted">Варианты получения заказа</p>
+                    <div className="flex flex-wrap gap-4 text-xs font-mono">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settingsData.deliveryOptions.pickup}
+                          onChange={e => setSettingsData(p => ({ ...p, deliveryOptions: { ...p.deliveryOptions, pickup: e.target.checked } }))}
+                          className="rounded bg-app-card border-app-border"
+                        />
+                        <span>Самовывоз</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settingsData.deliveryOptions.courier}
+                          onChange={e => setSettingsData(p => ({ ...p, deliveryOptions: { ...p.deliveryOptions, courier: e.target.checked } }))}
+                          className="rounded bg-app-card border-app-border"
+                        />
+                        <span>Курьерская доставка</span>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <div>
+                        <label className="block text-[11px] font-mono text-app-muted mb-1">Мин. сумма заказа</label>
+                        <input
+                          type="text"
+                          value={settingsData.deliveryOptions.minOrder}
+                          onChange={e => setSettingsData(p => ({ ...p, deliveryOptions: { ...p.deliveryOptions, minOrder: e.target.value } }))}
+                          placeholder="0 ₽"
+                          className="w-full bg-app-card border border-app-border rounded-xl px-3 py-1.5 text-xs font-mono text-app-primary focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-app-muted mb-1">Стоимость доставки</label>
+                        <input
+                          type="text"
+                          value={settingsData.deliveryOptions.deliveryFee}
+                          onChange={e => setSettingsData(p => ({ ...p, deliveryOptions: { ...p.deliveryOptions, deliveryFee: e.target.value } }))}
+                          placeholder="0 ₽"
+                          className="w-full bg-app-card border border-app-border rounded-xl px-3 py-1.5 text-xs font-mono text-app-primary focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" disabled={isSavingSettings} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase flex items-center justify-center gap-2 cursor-pointer">
                 {isSavingSettings && <SpinnerLoader size={14} />}
                 {isSavingSettings ? "Сохранение..." : "Сохранить настройки"}
               </button>

@@ -238,8 +238,27 @@ async function ensureOrderSchema(db: PrismaClient) {
     await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "address" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "phone" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "isOpen" BOOLEAN DEFAULT true;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "bannerUrl" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "currency" TEXT DEFAULT 'RUB';`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "currencySymbol" TEXT DEFAULT '₽';`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "socialLinks" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "deliveryOptions" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "paymentInstructions" TEXT;`);
+
     await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "plan" TEXT DEFAULT 'FREE';`);
     await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "subscriptionExpiresAt" TIMESTAMP(3);`);
+    await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarUrl" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "phone" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegramHandle" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "companyName" TEXT;`);
+
+    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "oldPrice" INTEGER;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "gallery" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "badge" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "tags" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "prepTime" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "weight" TEXT;`);
     orderSchemaChecked = true;
   } catch (e) {
     console.warn("ensureOrderSchema warning:", e);
@@ -639,14 +658,91 @@ app.get("/api/auth/me", async (req, res) => {
     const db = getPrismaClient();
     if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
 
+    await ensureOrderSchema(db);
+
     const user = await db.user.findUnique({ where: { id: authUser.id } });
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден." });
     }
 
-    res.json({ id: user.id, email: user.email, name: user.name, plan: user.plan || "FREE", subscriptionExpiresAt: user.subscriptionExpiresAt });
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      phone: (user as any).phone || null,
+      avatarUrl: (user as any).avatarUrl || null,
+      telegramHandle: (user as any).telegramHandle || null,
+      companyName: (user as any).companyName || null,
+      plan: user.plan || "FREE",
+      subscriptionExpiresAt: user.subscriptionExpiresAt
+    });
   } catch (error: any) {
     res.status(500).json({ error: "Ошибка получения профиля." });
+  }
+});
+
+// Auth Route: Обновить профиль пользователя
+app.put("/api/user/profile", async (req, res) => {
+  try {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: "Сначала войдите в аккаунт." });
+    }
+
+    const { name, phone, avatarUrl, telegramHandle, companyName, currentPassword, newPassword } = req.body;
+
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка базы данных." });
+
+    await ensureOrderSchema(db);
+
+    const user = await db.user.findUnique({ where: { id: authUser.id } });
+    if (!user) return res.status(404).json({ error: "Пользователь не найден." });
+
+    let updatedPassword = user.password;
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: "Укажите текущий пароль для подтверждения смены." });
+      }
+      const isMatch = await bcrypt.compare(String(currentPassword), user.password);
+      if (!isMatch) {
+        return res.status(400).json({ error: "Текущий пароль указан неверно." });
+      }
+      if (String(newPassword).length < 6) {
+        return res.status(400).json({ error: "Новый пароль должен содержать минимум 6 символов." });
+      }
+      updatedPassword = await bcrypt.hash(String(newPassword), 10);
+    }
+
+    const updated = await db.user.update({
+      where: { id: authUser.id },
+      data: {
+        name: name !== undefined ? (name ? String(name).trim() : null) : user.name,
+        phone: phone !== undefined ? (phone ? String(phone).trim() : null) : (user as any).phone,
+        avatarUrl: avatarUrl !== undefined ? (avatarUrl ? String(avatarUrl).trim() : null) : (user as any).avatarUrl,
+        telegramHandle: telegramHandle !== undefined ? (telegramHandle ? String(telegramHandle).trim() : null) : (user as any).telegramHandle,
+        companyName: companyName !== undefined ? (companyName ? String(companyName).trim() : null) : (user as any).companyName,
+        password: updatedPassword
+      } as any
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: updated.id,
+        email: updated.email,
+        name: updated.name,
+        phone: (updated as any).phone,
+        avatarUrl: (updated as any).avatarUrl,
+        telegramHandle: (updated as any).telegramHandle,
+        companyName: (updated as any).companyName,
+        plan: updated.plan || "FREE",
+        subscriptionExpiresAt: updated.subscriptionExpiresAt
+      }
+    });
+  } catch (error: any) {
+    console.error("Profile update error:", error);
+    res.status(500).json({ error: "Не удалось обновить профиль." });
   }
 });
 
@@ -906,7 +1002,7 @@ app.post("/api/shops", async (req, res) => {
   app.post("/api/shops/:shopId/services", async (req, res) => {
     try {
       const { shopId } = req.params;
-      const { title, price, description, category, imageUrl } = req.body;
+      const { title, price, oldPrice, description, category, imageUrl, gallery, badge, tags, prepTime, weight, isAvailable } = req.body;
       const authUser = getAuthUser(req);
 
       if (!title || typeof title !== "string" || title.trim().length < 2) {
@@ -968,10 +1064,16 @@ app.post("/api/shops", async (req, res) => {
           shopId,
           title: title.trim(),
           price: Math.round(parsedPrice),
+          oldPrice: oldPrice ? Math.round(Number(oldPrice)) : null,
           description: description?.trim() || null,
           category: category?.trim() || null,
           imageUrl: imageUrl?.trim() || null,
-          isAvailable: req.body.isAvailable !== undefined ? Boolean(req.body.isAvailable) : true
+          gallery: gallery ? (typeof gallery === "string" ? gallery : JSON.stringify(gallery)) : null,
+          badge: badge?.trim() || null,
+          tags: tags?.trim() || null,
+          prepTime: prepTime?.trim() || null,
+          weight: weight?.trim() || null,
+          isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : true
         }
       });
 
@@ -987,7 +1089,7 @@ app.post("/api/shops", async (req, res) => {
   app.put("/api/services/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, price, description, category, imageUrl, isAvailable } = req.body;
+      const { title, price, oldPrice, description, category, imageUrl, gallery, badge, tags, prepTime, weight, isAvailable } = req.body;
       const authUser = getAuthUser(req);
 
       if (!title || typeof title !== "string" || title.trim().length < 2) {
@@ -1026,14 +1128,20 @@ app.post("/api/shops", async (req, res) => {
         return res.status(403).json({ error: "У вас нет прав на изменение услуг этого заведения." });
       }
 
-      const updatedService = await db.service.update({
+      const updatedService = await (db as any).service.update({
         where: { id },
         data: {
           title: title.trim(),
           price: Math.round(parsedPrice),
+          oldPrice: oldPrice ? Math.round(Number(oldPrice)) : null,
           description: description?.trim() || null,
           category: category?.trim() || null,
           imageUrl: imageUrl?.trim() || null,
+          gallery: gallery ? (typeof gallery === "string" ? gallery : JSON.stringify(gallery)) : null,
+          badge: badge?.trim() || null,
+          tags: tags?.trim() || null,
+          prepTime: prepTime?.trim() || null,
+          weight: weight?.trim() || null,
           ...(isAvailable !== undefined ? { isAvailable: Boolean(isAvailable) } : {})
         }
       });
@@ -1138,7 +1246,24 @@ app.post("/api/shops", async (req, res) => {
   app.put("/api/shops/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, slug, description, botToken, adminChatId, workingHours, address, phone, isOpen } = req.body;
+      const {
+        name,
+        slug,
+        description,
+        botToken,
+        adminChatId,
+        workingHours,
+        address,
+        phone,
+        isOpen,
+        logoUrl,
+        bannerUrl,
+        currency,
+        currencySymbol,
+        socialLinks,
+        deliveryOptions,
+        paymentInstructions
+      } = req.body;
       const authUser = getAuthUser(req);
       
       const db = getPrismaClient();
@@ -1180,12 +1305,19 @@ app.post("/api/shops", async (req, res) => {
           description: description !== undefined ? description : shop.description,
           botToken: botToken !== undefined ? botToken : shop.botToken,
           adminChatId: adminChatId !== undefined ? adminChatId : shop.adminChatId,
-          workingHours: workingHours !== undefined ? workingHours : (shop as any).workingHours,
-          address: address !== undefined ? address : (shop as any).address,
-          phone: phone !== undefined ? phone : (shop as any).phone,
-          cashbackPercent: req.body.cashbackPercent !== undefined ? Number(req.body.cashbackPercent) : ((shop as any).cashbackPercent || 5),
-          isOpen: isOpen !== undefined ? Boolean(isOpen) : ((shop as any).isOpen !== undefined ? (shop as any).isOpen : true)
-        } as any,
+          workingHours: workingHours !== undefined ? workingHours : shop.workingHours,
+          address: address !== undefined ? address : shop.address,
+          phone: phone !== undefined ? phone : shop.phone,
+          cashbackPercent: req.body.cashbackPercent !== undefined ? Number(req.body.cashbackPercent) : (shop.cashbackPercent || 5),
+          isOpen: isOpen !== undefined ? Boolean(isOpen) : (shop.isOpen !== undefined ? shop.isOpen : true),
+          logoUrl: logoUrl !== undefined ? (logoUrl ? String(logoUrl).trim() : null) : shop.logoUrl,
+          bannerUrl: bannerUrl !== undefined ? (bannerUrl ? String(bannerUrl).trim() : null) : shop.bannerUrl,
+          currency: currency !== undefined ? String(currency).trim() : (shop.currency || "RUB"),
+          currencySymbol: currencySymbol !== undefined ? String(currencySymbol).trim() : (shop.currencySymbol || "₽"),
+          socialLinks: socialLinks !== undefined ? (typeof socialLinks === "string" ? socialLinks : JSON.stringify(socialLinks)) : shop.socialLinks,
+          deliveryOptions: deliveryOptions !== undefined ? (typeof deliveryOptions === "string" ? deliveryOptions : JSON.stringify(deliveryOptions)) : shop.deliveryOptions,
+          paymentInstructions: paymentInstructions !== undefined ? (paymentInstructions ? String(paymentInstructions).trim() : null) : shop.paymentInstructions
+        },
         include: {
           services: true,
           owner: { select: { id: true, email: true, name: true } },

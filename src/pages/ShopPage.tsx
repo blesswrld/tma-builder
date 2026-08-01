@@ -34,9 +34,15 @@ interface Service {
   id: string;
   title: string;
   price: number;
+  oldPrice?: number | null;
   description: string | null;
   category?: string | null;
   imageUrl?: string | null;
+  gallery?: string | null;
+  badge?: string | null;
+  tags?: string | null;
+  prepTime?: string | null;
+  weight?: string | null;
   isAvailable?: boolean;
 }
 
@@ -46,9 +52,15 @@ interface Shop {
   name: string;
   description: string | null;
   logoUrl: string | null;
+  bannerUrl?: string | null;
   workingHours?: string | null;
   address?: string | null;
   phone?: string | null;
+  currency?: string | null;
+  currencySymbol?: string | null;
+  socialLinks?: string | null;
+  deliveryOptions?: string | null;
+  paymentInstructions?: string | null;
   isOpen?: boolean;
   cashbackPercent?: number;
   services: Service[];
