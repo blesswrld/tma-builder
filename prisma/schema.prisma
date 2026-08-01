@@ -19,6 +19,15 @@ model User {
   createdAt             DateTime  @default(now())
 }
 
+model VerificationCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  type      String   @default("LOGIN") // REGISTER, LOGIN, RESET_PASSWORD
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
 model Shop {
   id          String    @id @default(cuid())
   slug        String    @unique

@@ -73,13 +73,42 @@ interface Shop {
 }
 
 export default function AdminPage() {
-  const { user, token, login, register, logout } = useAuth();
+  const { user, token, login, register, logout, sendCode, verifyCode, resetPassword } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   // Auth modal
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  
-  // Custom Confirmation Modal State
+  const [authMode, setAuthMode] = useState<"login" | "register" | "otp" | "reset">("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authName, setAuthName] = useState("");
+  const [authOtpCode, setAuthOtpCode] = useState("");
+  const [authDevCode, setAuthDevCode] = useState<string | null>(null);
+  const [otpStep, setOtpStep] = useState<"email" | "code">("email");
+  const [resendTimer, setResendTimer] = useState(0);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+
+  const handleLogoutRequest = () => {
+    requestConfirm(
+      "Выход из аккаунта",
+      "Вы уверены, что хотите выйти из текущего аккаунта? Потребуется повторный вход по паролю или коду из E-mail.",
+      () => {
+        logout();
+        showToast("Вы успешно вышли из системы", "warning");
+      },
+      "Выйти из аккаунта",
+      true
+    );
+  };
+
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(t => t - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendTimer]);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -127,12 +156,6 @@ export default function AdminPage() {
       isDangerous
     });
   };
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authName, setAuthName] = useState("");
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
 
   const [shops, setShops] = useState<Shop[]>([]);
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
@@ -499,21 +522,107 @@ export default function AdminPage() {
     }
   };
 
+  const handleSendOtpCode = async (type: "LOGIN" | "REGISTER" | "RESET_PASSWORD" = "LOGIN") => {
+    if (!authEmail || !authEmail.includes("@")) {
+      setAuthError("Введите корректный E-mail адрес.");
+      return;
+    }
+    if (type === "REGISTER") {
+      if (!authName || authName.trim().length < 2) {
+        setAuthError("Укажите ФИО или Название организации.");
+        return;
+      }
+      if (!authPassword || authPassword.length < 6) {
+        setAuthError("Пароль должен быть не менее 6 символов.");
+        return;
+      }
+    }
+    setAuthError(null);
+    setAuthSuccessMsg(null);
+    setIsSubmittingAuth(true);
+    try {
+      const result = await sendCode(authEmail, type);
+      setAuthSuccessMsg(result.message);
+      if (result.devCode) {
+        setAuthDevCode(result.devCode);
+        showToast(`Код отправлен! (SMTP не настроен: ${result.devCode})`, "warning");
+      } else {
+        setAuthDevCode(null);
+        showToast(result.message, "success");
+      }
+      setOtpStep("code");
+      setResendTimer(60);
+    } catch (err: any) {
+      setAuthError(err.message || "Ошибка отправки кода.");
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
+
+  const handleVerifyOtpCode = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
+    if (!authOtpCode || authOtpCode.trim().length !== 6) {
+      setAuthError("Введите 6-значный код из письма.");
+      return;
+    }
+    setAuthError(null);
+    setIsSubmittingAuth(true);
+    try {
+      if (authMode === "reset") {
+        const res = await resetPassword({ email: authEmail, code: authOtpCode, newPassword: authPassword });
+        showToast(res.message, "success");
+        setAuthMode("login");
+        setOtpStep("email");
+        setAuthOtpCode("");
+        setAuthPassword("");
+      } else {
+        await verifyCode({
+          email: authEmail,
+          code: authOtpCode,
+          name: authName,
+          password: authPassword
+        });
+        showToast(authMode === "register" ? "Регистрация завершена! Вы вошли в аккаунт." : "Вы успешно авторизованы!", "success");
+        setIsAuthModalOpen(false);
+        setAuthOtpCode("");
+        setAuthEmail("");
+        setAuthPassword("");
+        setAuthName("");
+        setOtpStep("email");
+        await fetchShops();
+      }
+    } catch (err: any) {
+      setAuthError(err.message || "Ошибка проверки кода.");
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
+
   const handleAuthSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setAuthError(null);
+    setAuthSuccessMsg(null);
+
+    if (authMode === "otp" || otpStep === "code") {
+      return handleVerifyOtpCode(e);
+    }
+
+    if (authMode === "register") {
+      return handleSendOtpCode("REGISTER");
+    }
+
     setIsSubmittingAuth(true);
 
     try {
       if (authMode === "login") {
         await login(authEmail, authPassword);
-      } else {
-        await register(authEmail, authPassword, authName);
       }
+      showToast("Вы успешно авторизованы!", "success");
       setIsAuthModalOpen(false);
       setAuthEmail("");
       setAuthPassword("");
       setAuthName("");
+      setOtpStep("email");
       await fetchShops();
     } catch (err: any) {
       setAuthError(err.message || "Ошибка авторизации");
@@ -1451,7 +1560,7 @@ export default function AdminPage() {
               </div>
             </div>
             {token ? (
-              <button onClick={logout} className="p-1.5 text-app-muted hover:text-rose-400 transition-colors" title="Выйти">
+              <button onClick={handleLogoutRequest} className="p-1.5 text-app-muted hover:text-rose-400 transition-colors" title="Выйти из аккаунта">
                 <LogOut size={14} />
               </button>
             ) : (
@@ -2116,52 +2225,268 @@ export default function AdminPage() {
       {/* Auth Modal */}
       {isAuthModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-sm w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-semibold tracking-tight uppercase font-mono">
-                {authMode === "login" ? "Вход в аккаунт" : "Регистрация"}
-              </h3>
-              <button onClick={() => setIsAuthModalOpen(false)} className="text-app-muted hover:text-white">
+          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-app-border pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={18} className="text-emerald-400" />
+                <h3 className="text-sm font-semibold tracking-tight uppercase font-mono">
+                  {authMode === "otp" && "Вход по коду из E-mail"}
+                  {authMode === "login" && "Вход по паролю"}
+                  {authMode === "register" && "Регистрация аккаунта"}
+                  {authMode === "reset" && "Восстановление пароля"}
+                </h3>
+              </div>
+              <button onClick={() => { setIsAuthModalOpen(false); setAuthError(null); setAuthSuccessMsg(null); }} className="text-app-muted hover:text-white p-1 rounded-lg">
                 <X size={18} />
               </button>
             </div>
-            {authError && <p className="text-xs text-rose-400 font-mono">{authError}</p>}
-            <form onSubmit={handleAuthSubmit} className="space-y-3 font-sans">
-              {authMode === "register" && (
-                <input
-                  type="text"
-                  value={authName}
-                  onChange={e => setAuthName(e.target.value)}
-                  placeholder="ФИО / Имя"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
-                />
-              )}
-              <input
-                type="email"
-                value={authEmail}
-                onChange={e => setAuthEmail(e.target.value)}
-                placeholder="Электронная почта"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
-              />
-              <input
-                type="password"
-                value={authPassword}
-                onChange={e => setAuthPassword(e.target.value)}
-                placeholder="Пароль"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
-              />
-              <button type="submit" disabled={isSubmittingAuth} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase flex items-center justify-center gap-2">
-                {isSubmittingAuth && <SpinnerLoader size={14} />}
-                {isSubmittingAuth ? "Загрузка..." : authMode === "login" ? "Войти" : "Зарегистрироваться"}
-              </button>
-            </form>
-            <div className="text-center pt-2">
+
+            {/* Mode Switcher Tabs */}
+            <div className="grid grid-cols-3 gap-1 bg-app-card p-1 rounded-xl border border-app-border text-xs font-mono">
               <button
-                onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
-                className="text-xs text-app-muted hover:text-white font-mono underline"
+                type="button"
+                onClick={() => { setAuthMode("otp"); setOtpStep("email"); setAuthError(null); setAuthSuccessMsg(null); }}
+                className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 ${
+                  authMode === "otp" ? "bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30" : "text-app-muted hover:text-white"
+                }`}
               >
-                {authMode === "login" ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти"}
+                <Mail size={12} />
+                <span>E-mail код</span>
               </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode("login"); setAuthError(null); setAuthSuccessMsg(null); }}
+                className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 ${
+                  authMode === "login" ? "bg-app-primary/20 text-app-accent-fg font-bold border border-app-border" : "text-app-muted hover:text-white"
+                }`}
+              >
+                <Lock size={12} />
+                <span>Пароль</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode("register"); setAuthError(null); setAuthSuccessMsg(null); }}
+                className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 ${
+                  authMode === "register" ? "bg-app-primary/20 text-app-accent-fg font-bold border border-app-border" : "text-app-muted hover:text-white"
+                }`}
+              >
+                <User size={12} />
+                <span>Создать</span>
+              </button>
+            </div>
+
+            {authError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 text-rose-400 text-xs">
+                <AlertCircle size={15} className="shrink-0" />
+                <span>{authError}</span>
+              </div>
+            )}
+
+            {authSuccessMsg && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-emerald-400 text-xs">
+                <CheckCircle2 size={15} className="shrink-0" />
+                <span>{authSuccessMsg}</span>
+              </div>
+            )}
+
+            {/* OTP Code Step (Unified for OTP Login, Registration, and Password Reset) */}
+            {otpStep === "code" ? (
+              <form onSubmit={handleVerifyOtpCode} className="space-y-3 font-sans">
+                <p className="text-xs text-app-muted">
+                  {authMode === "register" && (
+                    <>Код подтверждения отправлен на <strong className="text-white">{authEmail}</strong> для завершения регистрации.</>
+                  )}
+                  {authMode === "reset" && (
+                    <>Код подтверждения отправлен на <strong className="text-white">{authEmail}</strong> для сброса пароля.</>
+                  )}
+                  {authMode === "otp" && (
+                    <>Код отправлен на <strong className="text-white">{authEmail}</strong>.</>
+                  )}
+                </p>
+
+                {authDevCode ? (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs space-y-2">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-amber-200">
+                          SMTP-сервер не настроен в <code>.env</code>
+                        </p>
+                        <p className="text-[11px] text-amber-300/80 mt-0.5">
+                          В тестовом контейнере нет почтового сервера, поэтому код сгенерирован локально:
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between bg-black/40 p-2 rounded-lg border border-amber-500/20 font-mono">
+                      <span className="text-sm font-bold text-white tracking-widest">{authDevCode}</span>
+                      <button
+                        type="button"
+                        onClick={() => setAuthOtpCode(authDevCode)}
+                        className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[10px] rounded border border-amber-500/40 font-mono transition-colors"
+                      >
+                        Вставить код
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-300 text-[11px] flex items-center gap-2">
+                    <CheckCircle2 size={15} className="shrink-0 text-emerald-400" />
+                    <span>Письмо успешно отправлено по SMTP на {authEmail}. Проверьте папку «Входящие» или «Спам».</span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-[11px] text-app-muted font-mono mb-1 block">6-значный код подтверждения</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={authOtpCode}
+                    onChange={e => setAuthOtpCode(e.target.value)}
+                    placeholder="123456"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-3 text-center text-lg font-mono font-bold tracking-[8px] text-emerald-400 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingAuth || authOtpCode.length !== 6}
+                  className="w-full py-2.5 bg-emerald-500 text-black font-mono font-bold text-xs rounded-xl hover:bg-emerald-400 transition-colors uppercase flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmittingAuth ? <SpinnerLoader size={14} /> : <ShieldCheck size={14} />}
+                  {isSubmittingAuth
+                    ? "Проверка..."
+                    : authMode === "register"
+                    ? "Подтвердить и зарегистрироваться"
+                    : authMode === "reset"
+                    ? "Сохранить новый пароль"
+                    : "Подтвердить и войти"}
+                </button>
+
+                <div className="flex justify-between items-center text-xs pt-1">
+                  <button
+                    type="button"
+                    disabled={resendTimer > 0 || isSubmittingAuth}
+                    onClick={() => handleSendOtpCode(authMode === "register" ? "REGISTER" : authMode === "reset" ? "RESET_PASSWORD" : "LOGIN")}
+                    className="text-app-muted hover:text-white font-mono text-[11px] flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <RefreshCw size={12} className={isSubmittingAuth ? "animate-spin" : ""} />
+                    {resendTimer > 0 ? `Повтор через ${resendTimer}с` : "Отправить код повторно"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setOtpStep("email"); setAuthOtpCode(""); }}
+                    className="text-app-muted hover:text-white font-mono text-[11px] underline"
+                  >
+                    Изменить данные
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* Email / Credentials Forms Step */
+              <>
+                {/* E-mail OTP Login Tab */}
+                {authMode === "otp" && (
+                  <div className="space-y-3 font-sans">
+                    <p className="text-xs text-app-muted">
+                      Введите ваш E-mail. Мы мгновенно отправим 6-значный одноразовый код для входа.
+                    </p>
+                    <input
+                      type="email"
+                      value={authEmail}
+                      onChange={e => setAuthEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500/50"
+                    />
+                    <button
+                      type="button"
+                      disabled={isSubmittingAuth}
+                      onClick={() => handleSendOtpCode("LOGIN")}
+                      className="w-full py-2.5 bg-emerald-500 text-black font-mono font-bold text-xs rounded-xl hover:bg-emerald-400 transition-colors uppercase flex items-center justify-center gap-2"
+                    >
+                      {isSubmittingAuth ? <SpinnerLoader size={14} /> : <Mail size={14} />}
+                      {isSubmittingAuth ? "Отправка кода..." : "Получить код на E-mail"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Password Login / Registration / Reset Tabs */}
+                {authMode !== "otp" && (
+                  <form onSubmit={handleAuthSubmit} className="space-y-3 font-sans">
+                    {authMode === "register" && (
+                      <input
+                        type="text"
+                        value={authName}
+                        onChange={e => setAuthName(e.target.value)}
+                        placeholder="ФИО / Название организации"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
+                      />
+                    )}
+                    <input
+                      type="email"
+                      value={authEmail}
+                      onChange={e => setAuthEmail(e.target.value)}
+                      placeholder="Электронная почта"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
+                    />
+                    {authMode !== "reset" && (
+                      <input
+                        type="password"
+                        value={authPassword}
+                        onChange={e => setAuthPassword(e.target.value)}
+                        placeholder="Пароль (мин. 6 символов)"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
+                      />
+                    )}
+
+                    {authMode === "reset" && (
+                      <input
+                        type="password"
+                        value={authPassword}
+                        onChange={e => setAuthPassword(e.target.value)}
+                        placeholder="Новый пароль (мин. 6 символов)"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
+                      />
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isSubmittingAuth}
+                      className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase flex items-center justify-center gap-2"
+                    >
+                      {isSubmittingAuth && <SpinnerLoader size={14} />}
+                      {isSubmittingAuth
+                        ? "Отправка..."
+                        : authMode === "login"
+                        ? "Войти в аккаунт"
+                        : authMode === "register"
+                        ? "Зарегистрироваться"
+                        : "Получить код сброса"}
+                    </button>
+                  </form>
+                )}
+              </>
+            )}
+
+            <div className="text-center pt-2 flex items-center justify-center gap-4 text-xs font-mono text-app-muted">
+              {authMode === "login" && (
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode("reset"); setAuthError(null); setAuthSuccessMsg(null); }}
+                  className="hover:text-white underline"
+                >
+                  Забыли пароль?
+                </button>
+              )}
+              {authMode === "reset" && (
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode("login"); setAuthError(null); setAuthSuccessMsg(null); }}
+                  className="hover:text-white underline"
+                >
+                  Вернуться ко входу
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 
 const JWT_SECRET = process.env.JWT_SECRET || "smart-menu-secret-key-2026";
 
@@ -186,6 +187,17 @@ async function ensureOrderSchema(db: PrismaClient) {
       );
     `);
 
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "VerificationCode" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "email" TEXT NOT NULL,
+        "code" TEXT NOT NULL,
+        "type" TEXT NOT NULL DEFAULT 'LOGIN',
+        "expiresAt" TIMESTAMP(3) NOT NULL,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "cashbackPercent" INTEGER DEFAULT 5;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "ownerId" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "workingHours" TEXT;`);
@@ -236,7 +248,262 @@ export const app = express();
 
 app.use(express.json());
 
-// Auth Route: Регистрация нового администратора
+// Helper for sending email verification codes via Nodemailer
+async function sendVerificationEmail(toEmail: string, code: string, typeName: string) {
+  try {
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = Number(process.env.SMTP_PORT) || 587;
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+
+    if (smtpHost && smtpUser && smtpPass) {
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: { user: smtpUser, pass: smtpPass }
+      });
+
+      await transporter.sendMail({
+        from: `"${process.env.SMTP_FROM_NAME || "Mini App Studio"}" <${smtpUser}>`,
+        to: toEmail,
+        subject: `${code} — Ваш код подтверждения`,
+        text: `Ваш код для ${typeName}: ${code}. Срок действия: 10 минут.`,
+        html: `
+          <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 28px; border: 1px solid #3f3f46; border-radius: 20px; background-color: #18181b; color: #f4f4f5;">
+            <h2 style="color: #ffffff; font-size: 20px; font-weight: 700; margin-top: 0; margin-bottom: 8px;">Код подтверждения</h2>
+            <p style="color: #a1a1aa; font-size: 14px; line-height: 1.5; margin-bottom: 24px;">
+              Вы запросили код для <strong>${typeName}</strong>.
+            </p>
+            <div style="background-color: #27272a; border: 1px solid #52525b; padding: 18px; text-align: center; border-radius: 16px; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #f4f4f5; font-family: monospace;">
+              ${code}
+            </div>
+            <p style="color: #71717a; font-size: 12px; margin-top: 24px; margin-bottom: 0; text-align: center;">
+              Срок действия кода: 10 минут. Если вы не запрашивали код, проигнорируйте это письмо.
+            </p>
+          </div>
+        `
+      });
+      console.log(`[EMAIL SENT] Code ${code} sent to ${toEmail}`);
+      return { success: true, sentViaSmtp: true };
+    } else {
+      console.log(`[EMAIL SIMULATED / LOG] Code for ${toEmail} (${typeName}): ${code}`);
+      return { success: true, sentViaSmtp: false };
+    }
+  } catch (err) {
+    console.warn("Nodemailer error:", err);
+    return { success: false, error: String(err) };
+  }
+}
+
+// Auth Route: Отправить одноразовый код на почту
+app.post("/api/auth/send-code", async (req, res) => {
+  try {
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const { email, type = "LOGIN" } = req.body;
+
+    if (!email || typeof email !== "string" || !email.includes("@")) {
+      return res.status(400).json({ error: "Введите корректный E-mail адрес." });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const typeNames: Record<string, string> = {
+      LOGIN: "входа в систему",
+      REGISTER: "регистрации аккаунта",
+      RESET_PASSWORD: "сброса пароля"
+    };
+    const typeName = typeNames[type] || "подтверждения E-mail";
+
+    // Если тип RESET_PASSWORD или LOGIN, проверяем существование пользователя при необходимости
+    if (type === "RESET_PASSWORD") {
+      const user = await db.user.findUnique({ where: { email: cleanEmail } });
+      if (!user) {
+        return res.status(400).json({ error: "Пользователь с такой почтой не найден." });
+      }
+    }
+
+    if (type === "REGISTER") {
+      const user = await db.user.findUnique({ where: { email: cleanEmail } });
+      if (user) {
+        return res.status(400).json({ error: "Пользователь с таким E-mail уже зарегистрирован. Выполните вход." });
+      }
+    }
+
+    // Генерация 6-значного кода
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 минут
+
+    // Удаляем прошлые неиспользованные коды
+    try {
+      await db.$executeRawUnsafe(`DELETE FROM "VerificationCode" WHERE "email" = $1;`, cleanEmail);
+    } catch (e) {
+      // Игнорируем
+    }
+
+    // Создаем новый код
+    const codeId = "vc_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+    await db.$executeRawUnsafe(
+      `INSERT INTO "VerificationCode" ("id", "email", "code", "type", "expiresAt", "createdAt") VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP);`,
+      codeId,
+      cleanEmail,
+      code,
+      type,
+      expiresAt
+    );
+
+    const emailResult = await sendVerificationEmail(cleanEmail, code, typeName);
+
+    res.json({
+      success: true,
+      message: `Код подтверждения отправлен на ${cleanEmail}!`,
+      email: cleanEmail,
+      devCode: emailResult.sentViaSmtp ? undefined : code
+    });
+  } catch (error: any) {
+    console.error("Send auth code error:", error);
+    res.status(500).json({ error: "Не удалось отправить код на указанный E-mail." });
+  }
+});
+
+// Auth Route: Проверить код из письма и авторизоваться
+app.post("/api/auth/verify-code", async (req, res) => {
+  try {
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const { email, code, name, password } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({ error: "Заполните E-mail и 6-значный код." });
+    }
+
+    const cleanEmail = String(email).toLowerCase().trim();
+    const cleanCode = String(code).trim();
+
+    // Проверяем код в БД
+    const validCodes: any[] = await db.$queryRawUnsafe(
+      `SELECT * FROM "VerificationCode" WHERE "email" = $1 AND "code" = $2 AND "expiresAt" > CURRENT_TIMESTAMP LIMIT 1;`,
+      cleanEmail,
+      cleanCode
+    );
+
+    if (!validCodes || validCodes.length === 0) {
+      return res.status(400).json({ error: "Неверный или просроченный код из письма. Запросите новый." });
+    }
+
+    // Удаляем использованный код
+    await db.$executeRawUnsafe(`DELETE FROM "VerificationCode" WHERE "email" = $1;`, cleanEmail).catch(() => {});
+
+    // Находим или создаем пользователя
+    let user = await db.user.findUnique({ where: { email: cleanEmail } });
+
+    if (!user) {
+      const defaultPassword = password && password.length >= 6 ? password : "Pass_" + Math.random().toString(36).slice(2, 10);
+      const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+      user = await db.user.create({
+        data: {
+          email: cleanEmail,
+          password: hashedPassword,
+          name: name ? String(name).trim() : cleanEmail.split("@")[0]
+        }
+      });
+    } else {
+      // Если передали новый пароль
+      if (password && password.length >= 6) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        user = await db.user.update({
+          where: { id: user.id },
+          data: { password: hashedPassword, name: name ? String(name).trim() : user.name }
+        });
+      }
+    }
+
+    // Автоматически привязываем неназначенные заведения к этому пользователю
+    await db.shop.updateMany({
+      where: { ownerId: null },
+      data: { ownerId: user.id }
+    }).catch(() => {});
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, name: user.name },
+      JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        plan: user.plan || "FREE",
+        subscriptionExpiresAt: user.subscriptionExpiresAt
+      }
+    });
+  } catch (error: any) {
+    console.error("Verify code error:", error);
+    res.status(500).json({ error: "Ошибка при проверке кода." });
+  }
+});
+
+// Auth Route: Сброс пароля по коду
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ error: "Заполните E-mail, код и новый пароль." });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: "Новый пароль должен быть не менее 6 символов." });
+    }
+
+    const cleanEmail = String(email).toLowerCase().trim();
+    const cleanCode = String(code).trim();
+
+    // Проверяем код
+    const validCodes: any[] = await db.$queryRawUnsafe(
+      `SELECT * FROM "VerificationCode" WHERE "email" = $1 AND "code" = $2 AND "expiresAt" > CURRENT_TIMESTAMP LIMIT 1;`,
+      cleanEmail,
+      cleanCode
+    );
+
+    if (!validCodes || validCodes.length === 0) {
+      return res.status(400).json({ error: "Неверный или просроченный код из письма." });
+    }
+
+    // Ищем пользователя
+    const user = await db.user.findUnique({ where: { email: cleanEmail } });
+    if (!user) {
+      return res.status(404).json({ error: "Пользователь с такой почтой не найден." });
+    }
+
+    // Хешируем и обновляем пароль
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword }
+    });
+
+    // Удаляем код
+    await db.$executeRawUnsafe(`DELETE FROM "VerificationCode" WHERE "email" = $1;`, cleanEmail).catch(() => {});
+
+    res.json({ message: "Пароль успешно изменён! Теперь вы можете войти в аккаунт." });
+  } catch (error: any) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ error: "Не удалось сбросить пароль." });
+  }
+});
 app.post("/api/auth/register", async (req, res) => {
   try {
     const db = getPrismaClient();

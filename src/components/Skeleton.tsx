@@ -1,6 +1,7 @@
 import React from "react";
 
 interface SkeletonProps {
+  key?: React.Key;
   className?: string;
   style?: React.CSSProperties;
 }
