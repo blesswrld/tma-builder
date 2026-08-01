@@ -2340,6 +2340,7 @@ export default function AdminPage() {
                   <input
                     type="text"
                     maxLength={6}
+                    autoComplete="one-time-code"
                     value={authOtpCode}
                     onChange={e => setAuthOtpCode(e.target.value)}
                     placeholder="123456"
@@ -2416,6 +2417,7 @@ export default function AdminPage() {
                     {authMode === "register" && (
                       <input
                         type="text"
+                        autoComplete="name"
                         value={authName}
                         onChange={e => setAuthName(e.target.value)}
                         placeholder="ФИО / Название организации"
@@ -2424,6 +2426,7 @@ export default function AdminPage() {
                     )}
                     <input
                       type="email"
+                      autoComplete="email"
                       value={authEmail}
                       onChange={e => setAuthEmail(e.target.value)}
                       placeholder="Электронная почта"
@@ -2432,6 +2435,7 @@ export default function AdminPage() {
                     {authMode !== "reset" && (
                       <input
                         type="password"
+                        autoComplete={authMode === "register" ? "new-password" : "current-password"}
                         value={authPassword}
                         onChange={e => setAuthPassword(e.target.value)}
                         placeholder="Пароль (мин. 6 символов)"
@@ -2442,6 +2446,7 @@ export default function AdminPage() {
                     {authMode === "reset" && (
                       <input
                         type="password"
+                        autoComplete="new-password"
                         value={authPassword}
                         onChange={e => setAuthPassword(e.target.value)}
                         placeholder="Новый пароль (мин. 6 символов)"
