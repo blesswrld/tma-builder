@@ -29,6 +29,8 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
   useEffect(() => {
     let reconnectTimeout: any = null;
 
+    let retryCount = 0;
+
     const connect = () => {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const wsUrl = `${protocol}//${window.location.host}/ws`;
@@ -39,6 +41,7 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
 
         ws.onopen = () => {
           setIsConnected(true);
+          retryCount = 0;
           if (subscribedShopIdRef.current) {
             ws.send(JSON.stringify({ type: "subscribe", shopId: subscribedShopIdRef.current }));
           }
@@ -61,16 +64,20 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
 
         ws.onclose = () => {
           setIsConnected(false);
-          reconnectTimeout = setTimeout(connect, 3000);
+          retryCount++;
+          // Увеличиваем интервал при сбоях (3s, 6s, 12s, max 30s)
+          const delay = Math.min(3000 * Math.pow(1.5, Math.min(retryCount, 6)), 30000);
+          reconnectTimeout = setTimeout(connect, delay);
         };
 
-        ws.onerror = (err) => {
-          console.warn("WebSocket error:", err);
+        ws.onerror = () => {
+          // Игнорируем детальный лог ошибки WS на бессерверных платформах
           ws.close();
         };
       } catch (err) {
-        console.warn("WebSocket creation error:", err);
-        reconnectTimeout = setTimeout(connect, 3000);
+        retryCount++;
+        const delay = Math.min(3000 * Math.pow(1.5, Math.min(retryCount, 6)), 30000);
+        reconnectTimeout = setTimeout(connect, delay);
       }
     };
 

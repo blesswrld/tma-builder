@@ -49,6 +49,11 @@ function getPrismaClient(): PrismaClient | null {
     let dbUrl = process.env.DATABASE_URL || "";
     if (!dbUrl) return null;
 
+    // Автоматическая замена порта Session Mode (5432) на Transaction Mode (6543) для Supabase Pooler
+    if (dbUrl.includes("pooler.supabase.com:5432")) {
+      dbUrl = dbUrl.replace("pooler.supabase.com:5432", "pooler.supabase.com:6543");
+    }
+
     // Автоматическая настройка параметров для Supabase
     if (!dbUrl.includes("sslmode=")) {
       dbUrl += (dbUrl.includes("?") ? "&" : "?") + "sslmode=require";
@@ -58,9 +63,9 @@ function getPrismaClient(): PrismaClient | null {
       dbUrl += "&pgbouncer=true";
     }
 
-    // Ограничиваем пул подключений до 3 штук, чтобы избежать превышения лимита pool_size=15
+    // Ограничиваем пул подключений до 2 штук, чтобы избежать превышения лимитов пулера
     if (!dbUrl.includes("connection_limit=")) {
-      dbUrl += "&connection_limit=3";
+      dbUrl += "&connection_limit=2";
     }
 
     // Таймауты подключения
