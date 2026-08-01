@@ -391,11 +391,15 @@ export default function AdminPage() {
     telegramHandle: "",
     companyName: "",
     currentPassword: "",
-    newPassword: ""
+    newPassword: "",
+    emailCode: ""
   });
+  const [passwordChangeMethod, setPasswordChangeMethod] = useState<"password" | "code">("password");
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSendingProfileCode, setIsSendingProfileCode] = useState(false);
+  const [profileCodeSentMsg, setProfileCodeSentMsg] = useState<string | null>(null);
 
   // Add Service
   const [isAddingService, setIsAddingService] = useState(false);
@@ -1442,12 +1446,40 @@ export default function AdminPage() {
         telegramHandle: user.telegramHandle || "",
         companyName: user.companyName || "",
         currentPassword: "",
-        newPassword: ""
+        newPassword: "",
+        emailCode: ""
       });
     }
     setProfileError(null);
     setProfileSuccess(null);
+    setProfileCodeSentMsg(null);
     setIsProfileOpen(true);
+  };
+
+  const handleSendProfileCode = async () => {
+    if (!user?.email) return;
+    setIsSendingProfileCode(true);
+    setProfileError(null);
+    setProfileCodeSentMsg(null);
+    try {
+      const res = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email, type: "CHANGE_PASSWORD" })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Не удалось отправить код");
+      setProfileCodeSentMsg(
+        data.devCode
+          ? `Код отправлен на ${user.email} (Тестовый код: ${data.devCode})`
+          : `Код подтверждения отправлен на ${user.email}!`
+      );
+      showToast("Код подтверждения отправлен на почту", "success");
+    } catch (err: any) {
+      setProfileError(err.message || "Ошибка отправки кода на почту");
+    } finally {
+      setIsSendingProfileCode(false);
+    }
   };
 
   const handleSaveProfile = async (e: FormEvent) => {
@@ -1465,29 +1497,72 @@ export default function AdminPage() {
       formattedPhone = phoneRes.formatted;
     }
 
+    if (profileData.newPassword.trim() || profileData.currentPassword.trim() || profileData.emailCode.trim()) {
+      if (!profileData.newPassword.trim() || profileData.newPassword.trim().length < 6) {
+        setProfileError("Укажите новый пароль (минимум 6 символов)");
+        return;
+      }
+
+      if (passwordChangeMethod === "password") {
+        if (!profileData.currentPassword.trim()) {
+          setProfileError("Укажите текущий пароль для подтверждения смены");
+          return;
+        }
+        if (profileData.newPassword.trim() === profileData.currentPassword.trim()) {
+          setProfileError("Новый пароль не должен совпадать с текущим паролем");
+          return;
+        }
+      } else if (passwordChangeMethod === "code") {
+        if (!profileData.emailCode.trim()) {
+          setProfileError("Запросите и введите 6-значный код подтверждения из письма");
+          return;
+        }
+      }
+    }
+
     setIsSavingProfile(true);
 
     try {
       await updateProfile({
-        name: profileData.name.trim() || undefined,
-        phone: formattedPhone || undefined,
-        avatarUrl: profileData.avatarUrl.trim() || undefined,
-        telegramHandle: profileData.telegramHandle.trim() || undefined,
-        companyName: profileData.companyName.trim() || undefined,
-        currentPassword: profileData.currentPassword.trim() || undefined,
-        newPassword: profileData.newPassword.trim() || undefined
+        name: profileData.name.trim(),
+        phone: formattedPhone,
+        avatarUrl: profileData.avatarUrl.trim(),
+        telegramHandle: profileData.telegramHandle.trim(),
+        companyName: profileData.companyName.trim(),
+        currentPassword: (passwordChangeMethod === "password" && profileData.newPassword.trim()) ? profileData.currentPassword.trim() : undefined,
+        newPassword: profileData.newPassword.trim() || undefined,
+        emailCode: (passwordChangeMethod === "code" && profileData.newPassword.trim()) ? profileData.emailCode.trim() : undefined
       });
 
-      setProfileSuccess("Ваш профиль успешно сохранен!");
+      setProfileSuccess("Ваш профиль и пароль успешно обновлены!");
       showToast("Профиль успешно обновлен", "success");
+      setProfileData(p => ({ ...p, currentPassword: "", newPassword: "", emailCode: "" }));
+      setProfileCodeSentMsg(null);
       setTimeout(() => {
         setIsProfileOpen(false);
-      }, 1000);
+      }, 1200);
     } catch (err: any) {
       setProfileError(err.message || "Не удалось обновить профиль");
     } finally {
       setIsSavingProfile(false);
     }
+  };
+
+  const handleClearProfileFields = () => {
+    setProfileData(p => ({
+      ...p,
+      name: "",
+      phone: "",
+      avatarUrl: "",
+      telegramHandle: "",
+      companyName: "",
+      currentPassword: "",
+      newPassword: "",
+      emailCode: ""
+    }));
+    setProfileError(null);
+    setProfileCodeSentMsg(null);
+    setProfileSuccess("Поля формы очищены. Нажмите «Сохранить профиль» для сброса данных.");
   };
 
   const handleOpenSettings = (shop: Shop) => {
@@ -1527,6 +1602,24 @@ export default function AdminPage() {
     setSettingsActiveTab("general");
     setSettingsError(null);
     setIsSettingsOpen(true);
+  };
+
+  const handleClearSettingsFields = () => {
+    setSettingsData(p => ({
+      ...p,
+      description: "",
+      botToken: "",
+      adminChatId: "",
+      workingHours: "",
+      address: "",
+      phone: "",
+      logoUrl: "",
+      bannerUrl: "",
+      paymentInstructions: "",
+      socialLinks: { telegram: "", instagram: "", whatsapp: "", vk: "", website: "" }
+    }));
+    setSettingsError(null);
+    showToast("Опциональные поля заведения очищены", "warning");
   };
 
   const handleSaveSettings = async (e: FormEvent) => {
@@ -1584,19 +1677,19 @@ export default function AdminPage() {
         body: JSON.stringify({
           name: nameRes.name,
           slug: slugRes.cleanSlug,
-          description: settingsData.description.trim() || undefined,
-          botToken: settingsData.botToken.trim() || undefined,
-          adminChatId: settingsData.adminChatId.trim() || undefined,
-          workingHours: settingsData.workingHours.trim() || undefined,
-          address: settingsData.address.trim() || undefined,
-          phone: formattedPhone || undefined,
-          logoUrl: settingsData.logoUrl.trim() || undefined,
-          bannerUrl: settingsData.bannerUrl.trim() || undefined,
+          description: settingsData.description.trim(),
+          botToken: settingsData.botToken.trim(),
+          adminChatId: settingsData.adminChatId.trim(),
+          workingHours: settingsData.workingHours.trim(),
+          address: settingsData.address.trim(),
+          phone: formattedPhone,
+          logoUrl: settingsData.logoUrl.trim(),
+          bannerUrl: settingsData.bannerUrl.trim(),
           currency: settingsData.currency,
           currencySymbol: settingsData.currencySymbol,
           socialLinks: JSON.stringify(settingsData.socialLinks),
           deliveryOptions: JSON.stringify(settingsData.deliveryOptions),
-          paymentInstructions: settingsData.paymentInstructions.trim() || undefined,
+          paymentInstructions: settingsData.paymentInstructions.trim(),
           cashbackPercent: Number(settingsData.cashbackPercent) || 5,
           isOpen: settingsData.isOpen
         })
@@ -1808,8 +1901,8 @@ export default function AdminPage() {
                       tab.alert 
                         ? "bg-rose-500 text-white animate-pulse" 
                         : isActive 
-                          ? "bg-white/20 text-white dark:bg-black/20 dark:text-black border border-white/20 dark:border-black/10" 
-                          : "bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 border border-zinc-300/60 dark:border-zinc-700/60"
+                          ? "bg-app-accent-fg/20 text-app-accent-fg border border-app-accent-fg/20" 
+                          : "bg-app-card text-app-muted border border-app-border"
                     }`}>
                       {tab.badge}
                     </span>
@@ -1825,59 +1918,63 @@ export default function AdminPage() {
           <div className="flex items-center justify-between px-1 gap-1">
             <button
               onClick={() => setIsAudioEnabled(!isAudioEnabled)}
-              className="p-2 bg-app-card hover:bg-zinc-800 border border-app-border rounded-xl text-app-muted hover:text-white transition-colors"
+              className="p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-muted hover:text-app-primary transition-colors cursor-pointer"
               title={isAudioEnabled ? "Отключить звук уведомлений" : "Включить звук уведомлений"}
             >
               {isAudioEnabled ? <Volume2 size={14} className="text-emerald-400" /> : <VolumeX size={14} />}
             </button>
             <button
               onClick={() => setIsQrModalOpen(true)}
-              className="p-2 bg-app-card hover:bg-zinc-800 border border-app-border rounded-xl text-app-muted hover:text-white transition-colors"
+              className="p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-muted hover:text-app-primary transition-colors cursor-pointer"
               title="Генератор QR-кодов"
             >
               <QrCode size={14} />
             </button>
             <button
               onClick={() => setIsPlanModalOpen(true)}
-              className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 border border-white/10 text-white rounded-xl text-[10px] font-bold uppercase transition-all flex items-center gap-1"
+              className="px-2.5 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl text-[10px] font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
             >
               <Crown size={12} className="text-amber-400" />
               <span>{user?.plan || "БЕСПЛАТНЫЙ"}</span>
             </button>
           </div>
 
-          <div className="p-3 bg-app-surface border border-app-border rounded-2xl flex items-center justify-between">
+          <div className="p-3 bg-app-surface border border-app-border rounded-2xl flex items-center justify-between shadow-sm">
             <button 
               onClick={handleOpenProfile}
-              className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity flex-1 mr-2"
+              className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity flex-1 mr-2 cursor-pointer group"
               title="Настройки профиля"
             >
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl} alt="Avatar" className="w-8 h-8 rounded-xl object-cover border border-app-border shrink-0" />
               ) : (
-                <div className="w-8 h-8 rounded-xl bg-app-accent/20 border border-app-accent/30 flex items-center justify-center text-app-accent-fg text-xs font-bold shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-app-accent text-app-accent-fg border border-app-border flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
                   {user?.name ? user.name.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : "А")}
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-app-primary truncate">{user?.name || user?.email || "Администратор"}</p>
-                <p className="text-[10px] text-app-muted truncate">{user?.companyName || (token ? "Авторизован" : "Локальный сеанс")}</p>
+                <p className="text-xs font-semibold text-app-primary truncate group-hover:text-app-accent transition-colors">
+                  {user?.name || user?.email || "Администратор"}
+                </p>
+                <p className="text-[10px] text-app-muted truncate font-mono">
+                  {user?.companyName || (token ? "Авторизован" : "Локальный сеанс")}
+                </p>
               </div>
             </button>
             <div className="flex items-center gap-1">
               <button 
                 onClick={handleOpenProfile}
-                className="p-1.5 text-app-muted hover:text-app-primary transition-colors cursor-pointer"
+                className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-card rounded-lg transition-colors cursor-pointer"
                 title="Редактировать профиль"
               >
-                <User size={14} />
+                <User size={14} className="text-app-primary" />
               </button>
               {token ? (
-                <button onClick={handleLogoutRequest} className="p-1.5 text-app-muted hover:text-rose-400 transition-colors cursor-pointer" title="Выйти из аккаунта">
+                <button onClick={handleLogoutRequest} className="p-1.5 text-app-muted hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer" title="Выйти из аккаунта">
                   <LogOut size={14} />
                 </button>
               ) : (
-                <button onClick={() => setIsAuthModalOpen(true)} className="p-1.5 text-app-muted hover:text-app-primary transition-colors cursor-pointer" title="Войти">
+                <button onClick={() => setIsAuthModalOpen(true)} className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-card rounded-lg transition-colors cursor-pointer" title="Войти">
                   <LogIn size={14} />
                 </button>
               )}
@@ -1974,13 +2071,13 @@ export default function AdminPage() {
           {!selectedShop && !loading && (
             <div className="py-20 text-center bg-app-surface border border-dashed border-app-border rounded-3xl p-8 space-y-4 max-w-md mx-auto">
               <Store size={36} className="mx-auto text-app-muted" />
-              <h3 className="text-base font-semibold text-white">Заведение не создано</h3>
+              <h3 className="text-base font-semibold text-app-primary">Заведение не создано</h3>
               <p className="text-xs text-app-muted leading-relaxed">
                 Создайте свое первое заведение в Telegram Mini App, чтобы начать управлять каталогом, заказами и акциями.
               </p>
               <button
                 onClick={handleOpenCreateShop}
-                className="px-5 py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 transition-colors uppercase tracking-wider"
+                className="px-5 py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-colors uppercase tracking-wider"
               >
                 + Создать заведение
               </button>
@@ -2050,7 +2147,7 @@ export default function AdminPage() {
                         value={serviceSearchQuery}
                         onChange={e => setServiceSearchQuery(e.target.value)}
                         placeholder="Поиск по меню..."
-                        className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-600"
+                        className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3 py-1.5 text-xs text-app-primary focus:outline-none focus:border-app-border"
                       />
                     </div>
                   </div>
@@ -2069,7 +2166,7 @@ export default function AdminPage() {
                           }`}
                         >
                           {service.imageUrl && (
-                            <div className="h-36 w-full overflow-hidden bg-zinc-950 border-b border-app-border relative">
+                            <div className="h-36 w-full overflow-hidden bg-app-card border-b border-app-border relative">
                               <img
                                 src={service.imageUrl}
                                 alt={service.title}
@@ -2077,7 +2174,7 @@ export default function AdminPage() {
                                 referrerPolicy="no-referrer"
                               />
                               {service.category && (
-                                <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 border border-white/10 text-[9px] font-mono text-app-secondary uppercase tracking-wider backdrop-blur-md">
+                                <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 border border-white/10 text-[9px] font-mono text-white keep-white uppercase tracking-wider backdrop-blur-md">
                                   {service.category}
                                 </span>
                               )}
@@ -2086,13 +2183,13 @@ export default function AdminPage() {
                           <div className="p-5 flex-1 flex flex-col justify-between">
                             <div className="space-y-2 mb-4">
                               <div className="flex justify-between items-start gap-2">
-                                <h3 className="text-sm font-semibold text-white">{service.title}</h3>
-                                <span className="text-xs font-mono font-bold text-white px-2 py-0.5 rounded-md bg-white/5 border border-white/10 shrink-0">
+                                <h3 className="text-sm font-semibold text-app-primary">{service.title}</h3>
+                                <span className="text-xs font-mono font-bold text-app-primary px-2 py-0.5 rounded-md bg-app-card border border-app-border shrink-0">
                                   {service.price} ₽
                                 </span>
                               </div>
                               {!service.imageUrl && service.category && (
-                                <span className="inline-block px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-app-muted uppercase tracking-wider">
+                                <span className="inline-block px-1.5 py-0.5 rounded-md bg-app-card border border-app-border text-[9px] font-mono text-app-muted uppercase tracking-wider">
                                   {service.category}
                                 </span>
                               )}
@@ -2106,8 +2203,8 @@ export default function AdminPage() {
                                 onClick={() => handleToggleServiceAvailability(service.id, service.isAvailable)}
                                 className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
                                   service.isAvailable !== false
-                                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                                    : "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                                    : "bg-rose-500/10 border-rose-500/20 text-rose-500"
                                 }`}
                               >
                                 {service.isAvailable !== false ? "В наличии" : "Отключено"}
@@ -2116,7 +2213,7 @@ export default function AdminPage() {
                               <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => handleOpenEditService(service)}
-                                  className="p-1.5 bg-app-card hover:bg-zinc-800 border border-app-border rounded-lg text-app-muted hover:text-white transition-colors cursor-pointer"
+                                  className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-lg text-app-muted hover:text-app-primary transition-colors cursor-pointer"
                                   title="Редактировать"
                                 >
                                   <Edit3 size={13} />
@@ -2176,7 +2273,7 @@ export default function AdminPage() {
                     </div>
                   ) : filteredOrders.length === 0 ? (
                     <div className="py-20 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
-                      <ShoppingBag size={28} className="mx-auto text-zinc-600 mb-2" />
+                      <ShoppingBag size={28} className="mx-auto text-app-muted mb-2" />
                       <p className="text-xs text-app-muted font-mono">Заказов не найдено.</p>
                     </div>
                   ) : (
@@ -2191,10 +2288,10 @@ export default function AdminPage() {
                           <div key={order.id} className="p-5 rounded-2xl bg-app-surface border border-app-border space-y-4">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-app-border pb-3 font-mono text-xs">
                               <div className="flex items-center gap-3">
-                                <span className="text-white font-bold">#{order.id.slice(-6)}</span>
+                                <span className="text-app-primary font-bold">#{order.id.slice(-6)}</span>
                                 <span className="text-app-muted">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 {order.tableNumber && (
-                                  <span className="px-2 py-0.5 bg-zinc-800 text-app-secondary rounded font-bold">
+                                  <span className="px-2 py-0.5 bg-app-card border border-app-border text-app-secondary rounded font-bold">
                                     Столик {order.tableNumber}
                                   </span>
                                 )}
@@ -2215,7 +2312,7 @@ export default function AdminPage() {
                                         ? st.key === 'COMPLETED' ? 'bg-emerald-500 text-black' :
                                           st.key === 'CONFIRMED' ? 'bg-amber-500 text-black' :
                                           st.key === 'CANCELLED' ? 'bg-rose-500 text-white' : 'bg-app-accent text-app-accent-fg'
-                                        : 'bg-app-card text-app-muted hover:text-white border border-app-border'
+                                        : 'bg-app-card text-app-muted hover:text-app-primary border border-app-border'
                                     }`}
                                   >
                                     {st.label}
@@ -2247,9 +2344,9 @@ export default function AdminPage() {
 
                               <div className="bg-app-card p-3 rounded-xl border border-app-border space-y-1 text-xs">
                                 <p className="text-[10px] font-mono uppercase text-app-muted">Данные клиента</p>
-                                <p className="font-semibold text-white">{order.customerName}</p>
+                                <p className="font-semibold text-app-primary">{order.customerName}</p>
                                 <p className="font-mono text-app-muted">{order.customerPhone}</p>
-                                <div className="pt-2 border-t border-app-border flex justify-between font-mono font-bold text-white text-sm">
+                                <div className="pt-2 border-t border-app-border flex justify-between font-mono font-bold text-app-primary text-sm">
                                   <span>Итого</span>
                                   <span>{order.totalPrice} ₽</span>
                                 </div>
@@ -2268,7 +2365,7 @@ export default function AdminPage() {
                 <div className="space-y-6">
                   {promocodes.length === 0 ? (
                     <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
-                      <Tag size={28} className="mx-auto text-zinc-600 mb-2" />
+                      <Tag size={28} className="mx-auto text-app-muted mb-2" />
                       <p className="text-xs text-app-muted font-mono">Нет активных промокодов.</p>
                     </div>
                   ) : (
@@ -2310,7 +2407,7 @@ export default function AdminPage() {
                       <div key={rev.id} className="p-5 rounded-2xl bg-app-surface border border-app-border space-y-3">
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-xs text-white">{rev.customerName}</span>
+                            <span className="font-semibold text-xs text-app-primary">{rev.customerName}</span>
                             <span className="text-xs text-amber-400 font-mono">★ {rev.rating}</span>
                           </div>
                           <span className="text-[10px] text-app-muted font-mono">
@@ -2330,14 +2427,14 @@ export default function AdminPage() {
                               value={replyText}
                               onChange={e => setReplyText(e.target.value)}
                               placeholder="Напишите ответ..."
-                              className="flex-1 bg-app-card border border-app-border rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
+                              className="flex-1 bg-app-card border border-app-border rounded-xl px-3 py-1.5 text-xs text-app-primary focus:outline-none"
                             />
                             <button onClick={() => handleReplyReview(rev.id)} className="px-3 py-1.5 bg-app-accent text-app-accent-fg font-mono text-xs font-bold rounded-xl">
                               Отправить
                             </button>
                           </div>
                         ) : (
-                          <button onClick={() => setReplyingReviewId(rev.id)} className="text-xs text-app-muted hover:text-white font-mono underline">
+                          <button onClick={() => setReplyingReviewId(rev.id)} className="text-xs text-app-muted hover:text-app-primary font-mono underline">
                             + Ответить на отзыв
                           </button>
                         )}
@@ -2403,11 +2500,11 @@ export default function AdminPage() {
                                     <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-mono rounded-md font-semibold">
                                       ✅ ОТПРАВЛЕНО
                                     </span>
-                                    <span className="px-2 py-0.5 bg-zinc-800 text-app-secondary text-[9px] font-mono rounded-md">
+                                    <span className="px-2 py-0.5 bg-app-card border border-app-border text-app-secondary text-[9px] font-mono rounded-md">
                                       🎯 {targetLabels[bc.targetFilter] || bc.targetFilter || "Все клиенты"}
                                     </span>
                                   </div>
-                                  <h3 className="text-sm font-bold text-white font-mono pt-1">{bc.title}</h3>
+                                  <h3 className="text-sm font-bold text-app-primary font-mono pt-1">{bc.title}</h3>
                                 </div>
                                 <button onClick={() => handleDeleteBroadcast(bc.id)} className="p-1.5 text-app-muted hover:text-rose-400 hover:bg-rose-500/5 rounded-lg transition-colors">
                                   <Trash2 size={14} />
@@ -2416,8 +2513,8 @@ export default function AdminPage() {
 
                               {/* Image preset if exists */}
                               {bc.imageUrl && (
-                                <div className="rounded-xl overflow-hidden h-24 bg-zinc-950 border border-zinc-900">
-                                  <img src={bc.imageUrl} alt={bc.title} className="w-full h-full object-cover opacity-85" />
+                                <div className="rounded-xl overflow-hidden h-24 bg-app-card border border-app-border">
+                                  <img src={bc.imageUrl} alt={bc.title} className="w-full h-full object-cover" />
                                 </div>
                               )}
 
@@ -2427,10 +2524,10 @@ export default function AdminPage() {
                             {/* Footer stats / buttons */}
                             <div className="pt-3 border-t border-app-border flex items-center justify-between text-[10px] font-mono text-app-muted">
                               <div>
-                                Получателей: <span className="text-white font-bold">{bc.sentCount || 1}</span>
+                                Получателей: <span className="text-app-primary font-bold">{bc.sentCount || 1}</span>
                               </div>
                               {bc.buttonText && (
-                                <div className="px-2 py-1 bg-zinc-900 border border-app-border text-app-secondary rounded-lg text-[9px]">
+                                <div className="px-2 py-1 bg-app-card border border-app-border text-app-secondary rounded-lg text-[9px]">
                                   Button: {bc.buttonText}
                                 </div>
                               )}
@@ -2461,13 +2558,13 @@ export default function AdminPage() {
                             <th className="p-3">Всего потрачено</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800">
+                        <tbody className="divide-y divide-app-border">
                           {customers.map(c => (
-                            <tr key={c.id} className="hover:bg-white/5 transition-colors">
-                              <td className="p-3 text-white font-semibold">{c.name || "Клиент"}</td>
+                            <tr key={c.id} className="hover:bg-app-hover transition-colors">
+                              <td className="p-3 text-app-primary font-semibold">{c.name || "Клиент"}</td>
                               <td className="p-3 text-app-muted">{c.phone}</td>
-                              <td className="p-3 text-white">{c.ordersCount || 1}</td>
-                              <td className="p-3 text-emerald-400 font-bold">{c.totalSpent || 0} ₽</td>
+                              <td className="p-3 text-app-primary">{c.ordersCount || 1}</td>
+                              <td className="p-3 text-emerald-500 font-bold">{c.totalSpent || 0} ₽</td>
                             </tr>
                           ))}
                         </tbody>
@@ -2488,7 +2585,7 @@ export default function AdminPage() {
                   <div className="flex items-center justify-between border-b border-app-border pb-3">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                      <span className="text-xs font-semibold text-white font-mono">{selectedShop.name} Бот</span>
+                      <span className="text-xs font-semibold text-app-primary font-mono">{selectedShop.name} Бот</span>
                     </div>
                     <span className="text-[10px] text-app-muted font-mono">Telegram Симулятор</span>
                   </div>
@@ -2496,20 +2593,20 @@ export default function AdminPage() {
                   <div className="h-80 overflow-y-auto space-y-3 p-2 font-sans">
                     {botSimMessages.map((msg, idx) => (
                       <div key={idx} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
-                        <div className={`p-3 rounded-2xl max-w-[80%] text-xs ${msg.sender === 'user' ? 'bg-app-accent text-app-accent-fg' : 'bg-app-card text-white border border-app-border'}`}>
+                        <div className={`p-3 rounded-2xl max-w-[80%] text-xs ${msg.sender === 'user' ? 'bg-app-accent text-app-accent-fg' : 'bg-app-card text-app-primary border border-app-border'}`}>
                           <p>{msg.text}</p>
                           {msg.button && (
                             <a
                               href={`/${selectedShop.slug}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="mt-2 block w-full py-2 bg-app-accent text-app-accent-fg text-center rounded-xl font-mono text-xs font-bold hover:bg-zinc-200 transition-colors"
+                              className="mt-2 block w-full py-2 bg-app-accent text-app-accent-fg text-center rounded-xl font-mono text-xs font-bold hover:opacity-90 transition-colors"
                             >
                               {msg.button}
                             </a>
                           )}
                         </div>
-                        <span className="text-[9px] text-zinc-600 font-mono mt-1">{msg.time}</span>
+                        <span className="text-[9px] text-app-muted font-mono mt-1">{msg.time}</span>
                       </div>
                     ))}
                   </div>
@@ -2521,7 +2618,7 @@ export default function AdminPage() {
                       onChange={e => setBotSimInput(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleSendBotSimMessage(botSimInput)}
                       placeholder="Введите /start или сообщение..."
-                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none"
                     />
                     <button onClick={() => handleSendBotSimMessage(botSimInput)} className="px-3 py-2 bg-app-accent text-app-accent-fg rounded-xl font-mono text-xs font-bold">
                       Отправить
@@ -2539,7 +2636,7 @@ export default function AdminPage() {
       {/* Auth Modal */}
       {isAuthModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4 shadow-2xl">
+          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-app-border pb-3">
               <div className="flex items-center gap-2">
                 <ShieldCheck size={18} className="text-emerald-400" />
@@ -2711,7 +2808,7 @@ export default function AdminPage() {
                       value={authEmail}
                       onChange={e => setAuthEmail(e.target.value)}
                       placeholder="name@example.com"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500/50"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-emerald-500/50"
                     />
                     <button
                       type="button"
@@ -2735,7 +2832,7 @@ export default function AdminPage() {
                         value={authName}
                         onChange={e => setAuthName(e.target.value)}
                         placeholder="ФИО / Название организации"
-                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
                       />
                     )}
                     <input
@@ -2744,7 +2841,7 @@ export default function AdminPage() {
                       value={authEmail}
                       onChange={e => setAuthEmail(e.target.value)}
                       placeholder="Электронная почта"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
                     />
                     {authMode !== "reset" && (
                       <input
@@ -2753,7 +2850,7 @@ export default function AdminPage() {
                         value={authPassword}
                         onChange={e => setAuthPassword(e.target.value)}
                         placeholder="Пароль (мин. 6 символов)"
-                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
                       />
                     )}
 
@@ -2764,7 +2861,7 @@ export default function AdminPage() {
                         value={authPassword}
                         onChange={e => setAuthPassword(e.target.value)}
                         placeholder="Новый пароль (мин. 6 символов)"
-                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
                       />
                     )}
 
@@ -2814,10 +2911,10 @@ export default function AdminPage() {
       {/* Create Shop Modal */}
       {isCreatingShop && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4">
+          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4">
             <div className="flex justify-between items-center border-b border-app-border pb-3">
-              <h3 className="text-sm font-semibold tracking-tight font-mono">Создать заведение</h3>
-              <button onClick={() => setIsCreatingShop(false)} className="text-app-muted hover:text-white">
+              <h3 className="text-sm font-semibold tracking-tight font-mono text-app-primary">Создать заведение</h3>
+              <button onClick={() => setIsCreatingShop(false)} className="text-app-muted hover:text-app-primary cursor-pointer">
                 <X size={18} />
               </button>
             </div>
@@ -2836,7 +2933,7 @@ export default function AdminPage() {
                     }));
                   }}
                   placeholder="Название заведения *"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
                 />
                 {createShopFieldErrors.name && <p className="text-[11px] text-rose-400 mt-1 font-mono">{createShopFieldErrors.name}</p>}
               </div>
@@ -2856,7 +2953,7 @@ export default function AdminPage() {
                       setNewShopData(p => ({ ...p, slug: cleanVal }));
                     }}
                     placeholder="coffee-bar"
-                    className="w-full bg-app-card border border-app-border rounded-xl pl-6 pr-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                    className="w-full bg-app-card border border-app-border rounded-xl pl-6 pr-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
                   />
                 </div>
                 {createShopFieldErrors.slug && <p className="text-[11px] text-rose-400 mt-1 font-mono">{createShopFieldErrors.slug}</p>}
@@ -2871,9 +2968,9 @@ export default function AdminPage() {
                 value={newShopData.description}
                 onChange={e => setNewShopData(p => ({ ...p, description: e.target.value }))}
                 placeholder="Описание заведения..."
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none resize-none"
               />
-              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 uppercase cursor-pointer">
                 Создать заведение
               </button>
             </form>
@@ -2884,10 +2981,10 @@ export default function AdminPage() {
       {/* Add Service Modal */}
       {isAddingService && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-lg w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="max-w-lg w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center border-b border-app-border pb-3">
-              <h3 className="text-sm font-semibold font-mono">Новая услуга / позиция</h3>
-              <button onClick={() => setIsAddingService(false)} className="text-app-muted hover:text-white cursor-pointer">
+              <h3 className="text-sm font-semibold font-mono text-app-primary">Новая услуга / позиция</h3>
+              <button onClick={() => setIsAddingService(false)} className="text-app-muted hover:text-app-primary cursor-pointer">
                 <X size={18} />
               </button>
             </div>
@@ -2900,7 +2997,7 @@ export default function AdminPage() {
                   value={newServiceData.title}
                   onChange={e => setNewServiceData(p => ({ ...p, title: e.target.value }))}
                   placeholder="Например: Двойной Эспрессо"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
                   required
                 />
               </div>
@@ -2913,7 +3010,7 @@ export default function AdminPage() {
                     value={newServiceData.price}
                     onChange={e => setNewServiceData(p => ({ ...p, price: e.target.value }))}
                     placeholder="350"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
                     required
                   />
                 </div>
@@ -2937,7 +3034,7 @@ export default function AdminPage() {
                     value={newServiceData.category}
                     onChange={e => setNewServiceData(p => ({ ...p, category: e.target.value }))}
                     placeholder="Кофе, Десерты, Стрижки..."
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
                   />
                 </div>
                 <div>
@@ -2947,7 +3044,7 @@ export default function AdminPage() {
                     value={newServiceData.badge}
                     onChange={e => setNewServiceData(p => ({ ...p, badge: e.target.value }))}
                     placeholder="🔥 Хит, NEW, -20%"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -2960,7 +3057,7 @@ export default function AdminPage() {
                     value={newServiceData.prepTime}
                     onChange={e => setNewServiceData(p => ({ ...p, prepTime: e.target.value }))}
                     placeholder="10-15 мин"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
                   />
                 </div>
                 <div>
@@ -2970,7 +3067,7 @@ export default function AdminPage() {
                     value={newServiceData.weight}
                     onChange={e => setNewServiceData(p => ({ ...p, weight: e.target.value }))}
                     placeholder="250 мл / 300 г"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -2982,7 +3079,7 @@ export default function AdminPage() {
                   value={newServiceData.description}
                   onChange={e => setNewServiceData(p => ({ ...p, description: e.target.value }))}
                   placeholder="Состав, особенности приготовления или детали услуги..."
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none resize-none"
                 />
               </div>
 
@@ -3002,7 +3099,7 @@ export default function AdminPage() {
                   value={newServiceData.tags}
                   onChange={e => setNewServiceData(p => ({ ...p, tags: e.target.value }))}
                   placeholder="без сахара, веган, горячий"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
                 />
               </div>
 
@@ -3017,7 +3114,7 @@ export default function AdminPage() {
                 <label htmlFor="newServiceAvailable" className="text-xs font-mono text-app-secondary cursor-pointer">Позиция доступна для заказа</label>
               </div>
 
-              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase cursor-pointer">
+              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 uppercase cursor-pointer">
                 Добавить в меню
               </button>
             </form>
@@ -3028,10 +3125,10 @@ export default function AdminPage() {
       {/* Edit Service Modal */}
       {editingService && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-lg w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="max-w-lg w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center border-b border-app-border pb-3">
-              <h3 className="text-sm font-semibold font-mono">Редактирование услуги</h3>
-              <button onClick={() => setEditingService(null)} className="text-app-muted hover:text-white cursor-pointer">
+              <h3 className="text-sm font-semibold font-mono text-app-primary">Редактирование услуги</h3>
+              <button onClick={() => setEditingService(null)} className="text-app-muted hover:text-app-primary cursor-pointer">
                 <X size={18} />
               </button>
             </div>
@@ -3044,7 +3141,7 @@ export default function AdminPage() {
                   value={editServiceData.title}
                   onChange={e => setEditServiceData(p => ({ ...p, title: e.target.value }))}
                   placeholder="Название *"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
                   required
                 />
               </div>
@@ -3057,7 +3154,7 @@ export default function AdminPage() {
                     value={editServiceData.price}
                     onChange={e => setEditServiceData(p => ({ ...p, price: e.target.value }))}
                     placeholder="Цена *"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
                     required
                   />
                 </div>
@@ -3081,7 +3178,7 @@ export default function AdminPage() {
                     value={editServiceData.category}
                     onChange={e => setEditServiceData(p => ({ ...p, category: e.target.value }))}
                     placeholder="Категория"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
                   />
                 </div>
                 <div>
@@ -3091,7 +3188,7 @@ export default function AdminPage() {
                     value={editServiceData.badge}
                     onChange={e => setEditServiceData(p => ({ ...p, badge: e.target.value }))}
                     placeholder="🔥 Хит"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -3104,7 +3201,7 @@ export default function AdminPage() {
                     value={editServiceData.prepTime}
                     onChange={e => setEditServiceData(p => ({ ...p, prepTime: e.target.value }))}
                     placeholder="10 мин"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
                   />
                 </div>
                 <div>
@@ -3114,7 +3211,7 @@ export default function AdminPage() {
                     value={editServiceData.weight}
                     onChange={e => setEditServiceData(p => ({ ...p, weight: e.target.value }))}
                     placeholder="300 г"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -3126,7 +3223,7 @@ export default function AdminPage() {
                   value={editServiceData.description}
                   onChange={e => setEditServiceData(p => ({ ...p, description: e.target.value }))}
                   placeholder="Описание..."
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none resize-none"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none resize-none"
                 />
               </div>
 
@@ -3146,7 +3243,7 @@ export default function AdminPage() {
                   value={editServiceData.tags}
                   onChange={e => setEditServiceData(p => ({ ...p, tags: e.target.value }))}
                   placeholder="тег1, тег2"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
                 />
               </div>
 
@@ -3173,16 +3270,16 @@ export default function AdminPage() {
       {/* Settings Modal */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-xl w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="max-w-xl w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center border-b border-app-border pb-3">
               <div>
-                <h3 className="text-sm font-semibold font-mono flex items-center gap-2">
-                  <Settings size={16} className="text-app-accent-fg" />
+                <h3 className="text-sm font-semibold font-mono flex items-center gap-2 text-app-primary">
+                  <Settings size={16} className="text-app-primary" />
                   Настройки заведения
                 </h3>
                 <p className="text-[11px] text-app-muted mt-0.5 font-sans">Управление параметрами, брендингом и интеграциями</p>
               </div>
-              <button onClick={() => setIsSettingsOpen(false)} className="text-app-muted hover:text-white cursor-pointer p-1 rounded-xl hover:bg-app-card">
+              <button onClick={() => setIsSettingsOpen(false)} className="text-app-muted hover:text-app-primary cursor-pointer p-1 rounded-xl hover:bg-app-card transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -3203,10 +3300,10 @@ export default function AdminPage() {
                     type="button"
                     onClick={() => setSettingsActiveTab(t.id as any)}
                     className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer text-nowrap ${
-                      isActive ? "bg-app-accent text-app-accent-fg font-bold" : "text-app-muted hover:text-white hover:bg-app-card"
+                      isActive ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" : "text-app-muted hover:text-app-primary hover:bg-app-card"
                     }`}
                   >
-                    <Icon size={13} />
+                    <Icon size={13} className={isActive ? "text-app-accent-fg" : "text-app-muted"} />
                     <span>{t.label}</span>
                   </button>
                 );
@@ -3514,10 +3611,25 @@ export default function AdminPage() {
                 </div>
               )}
 
-              <button type="submit" disabled={isSavingSettings} className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase flex items-center justify-center gap-2 cursor-pointer">
-                {isSavingSettings && <SpinnerLoader size={14} />}
-                {isSavingSettings ? "Сохранение..." : "Сохранить настройки"}
-              </button>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleClearSettingsFields}
+                  className="px-3 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-mono text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  title="Очистить доп. поля заведения (описание, контакты, соцсети)"
+                >
+                  <Trash2 size={14} />
+                  <span>Очистить доп. поля</span>
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingSettings}
+                  className="flex-1 py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                >
+                  {isSavingSettings && <SpinnerLoader size={14} />}
+                  {isSavingSettings ? "Сохранение..." : "Сохранить настройки"}
+                </button>
+              </div>
 
               <div className="pt-4 border-t border-rose-500/20 mt-4 space-y-2">
                 <label className="block text-[11px] font-mono text-rose-400 uppercase tracking-wider font-semibold">
@@ -3547,10 +3659,10 @@ export default function AdminPage() {
       {/* Create Promo Modal */}
       {isCreatingPromo && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4">
+          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4">
             <div className="flex justify-between items-center border-b border-app-border pb-3">
               <h3 className="text-sm font-semibold font-mono">Создать промокод</h3>
-              <button onClick={() => setIsCreatingPromo(false)} className="text-app-muted hover:text-white">
+              <button onClick={() => setIsCreatingPromo(false)} className="text-app-muted hover:text-app-primary">
                 <X size={18} />
               </button>
             </div>
@@ -3561,30 +3673,30 @@ export default function AdminPage() {
                 value={newPromoData.code}
                 onChange={e => setNewPromoData(p => ({ ...p, code: e.target.value.toUpperCase() }))}
                 placeholder="ПРОМОКОД (напр. SALE20) *"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono uppercase"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono uppercase"
               />
               <input
                 type="number"
                 value={newPromoData.discountPercent}
                 onChange={e => setNewPromoData(p => ({ ...p, discountPercent: e.target.value }))}
                 placeholder="Процент скидки (%)"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
               />
               <input
                 type="number"
                 value={newPromoData.discountAmount}
                 onChange={e => setNewPromoData(p => ({ ...p, discountAmount: e.target.value }))}
                 placeholder="Фиксированная скидка (₽)"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
               />
               <input
                 type="number"
                 value={newPromoData.usageLimit}
                 onChange={e => setNewPromoData(p => ({ ...p, usageLimit: e.target.value }))}
                 placeholder="Лимит использований (опционально)"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
               />
-              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 uppercase">
                 Создать промокод
               </button>
             </form>
@@ -3595,10 +3707,10 @@ export default function AdminPage() {
       {/* Create Banner Modal */}
       {isCreatingBanner && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white space-y-4">
+          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4">
             <div className="flex justify-between items-center border-b border-app-border pb-3">
               <h3 className="text-sm font-semibold font-mono">Создать баннер</h3>
-              <button onClick={() => setIsCreatingBanner(false)} className="text-app-muted hover:text-white">
+              <button onClick={() => setIsCreatingBanner(false)} className="text-app-muted hover:text-app-primary">
                 <X size={18} />
               </button>
             </div>
@@ -3609,23 +3721,23 @@ export default function AdminPage() {
                 value={newBannerData.title}
                 onChange={e => setNewBannerData(p => ({ ...p, title: e.target.value }))}
                 placeholder="Заголовок *"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
               />
               <input
                 type="text"
                 value={newBannerData.subtitle}
                 onChange={e => setNewBannerData(p => ({ ...p, subtitle: e.target.value }))}
                 placeholder="Подзаголовок"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
               />
               <input
                 type="text"
                 value={newBannerData.badge}
                 onChange={e => setNewBannerData(p => ({ ...p, badge: e.target.value }))}
                 placeholder="Текст бейджа (напр. АКЦИЯ, НОВИНКА)"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
               />
-              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase">
+              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 uppercase">
                 Сохранить баннер
               </button>
             </form>
@@ -3636,15 +3748,15 @@ export default function AdminPage() {
       {/* Create Broadcast Modal */}
       {isCreatingBroadcast && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-4xl w-full bg-app-surface border border-app-border rounded-3xl p-6 text-white flex flex-col md:flex-row gap-6 max-h-[90vh] overflow-y-auto">
+          <div className="max-w-4xl w-full bg-app-modal border border-app-border rounded-3xl p-6 text-app-primary flex flex-col md:flex-row gap-6 max-h-[90vh] overflow-y-auto">
             {/* Left Column: Form Settings */}
             <div className="flex-1 space-y-4">
               <div className="flex justify-between items-center border-b border-app-border pb-3">
                 <div className="space-y-0.5">
-                  <h3 className="text-sm font-semibold font-mono text-white">Гибкий конструктор рассылки</h3>
+                  <h3 className="text-sm font-semibold font-mono text-app-primary">Гибкий конструктор рассылки</h3>
                   <p className="text-[11px] text-app-muted font-sans">Настройте таргетинг, шаблоны и интерактивные кнопки</p>
                 </div>
-                <button onClick={() => setIsCreatingBroadcast(false)} className="text-app-muted hover:text-white md:hidden">
+                <button onClick={() => setIsCreatingBroadcast(false)} className="text-app-muted hover:text-app-primary md:hidden">
                   <X size={18} />
                 </button>
               </div>
@@ -3660,7 +3772,7 @@ export default function AdminPage() {
                     value={newBroadcastData.title}
                     onChange={e => setNewBroadcastData(p => ({ ...p, title: e.target.value }))}
                     placeholder="Например: Спецпредложение для постоянных клиентов! 🔥"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-app-border"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border"
                     required
                   />
                 </div>
@@ -3683,12 +3795,12 @@ export default function AdminPage() {
                         onClick={() => setNewBroadcastData(p => ({ ...p, targetFilter: target.id }))}
                         className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
                           newBroadcastData.targetFilter === target.id
-                            ? "bg-app-accent text-app-accent-fg border-white font-bold animate-pulse-subtle"
+                            ? "bg-app-accent text-app-accent-fg border-app-border font-bold animate-pulse-subtle"
                             : "bg-app-card border-app-border text-app-secondary hover:border-app-border"
                         }`}
                       >
                         <span className="font-semibold block text-[11px] font-mono">{target.label}</span>
-                        <span className={`text-[9px] block ${newBroadcastData.targetFilter === target.id ? "text-zinc-600" : "text-app-muted"}`}>{target.desc}</span>
+                        <span className={`text-[9px] block ${newBroadcastData.targetFilter === target.id ? "text-app-accent-fg/80" : "text-app-muted"}`}>{target.desc}</span>
                       </button>
                     ))}
                   </div>
@@ -3705,7 +3817,7 @@ export default function AdminPage() {
                     value={newBroadcastData.message}
                     onChange={e => setNewBroadcastData(p => ({ ...p, message: e.target.value }))}
                     placeholder="Привет, {name}! Мы приготовили для вас специальный бонус..."
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-app-border resize-none leading-relaxed"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border resize-none leading-relaxed"
                     required
                   />
                   <p className="text-[10px] text-app-muted italic">Используйте {"{name}"}, чтобы автоматически подставить имя клиента при отправке.</p>
@@ -3720,13 +3832,13 @@ export default function AdminPage() {
                       value={newBroadcastData.imageUrl || ""}
                       onChange={e => setNewBroadcastData(p => ({ ...p, imageUrl: e.target.value }))}
                       placeholder="Вставьте ссылку на картинку..."
-                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-app-border font-mono"
+                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border font-mono"
                     />
                     {newBroadcastData.imageUrl && (
                       <button
                         type="button"
                         onClick={() => setNewBroadcastData(p => ({ ...p, imageUrl: "" }))}
-                        className="px-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-app-secondary font-mono"
+                        className="px-3 bg-app-secondary hover:bg-app-hover rounded-xl text-app-primary font-mono transition-colors"
                       >
                         Очистить
                       </button>
@@ -3745,8 +3857,8 @@ export default function AdminPage() {
                         onClick={() => setNewBroadcastData(p => ({ ...p, imageUrl: preset.url }))}
                         className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono transition-colors ${
                           newBroadcastData.imageUrl === preset.url
-                            ? "bg-zinc-200 text-black border-transparent font-semibold"
-                            : "bg-zinc-900 border-app-border text-app-muted hover:text-white"
+                            ? "bg-app-accent text-app-accent-fg border-transparent font-semibold"
+                            : "bg-app-card border-app-border text-app-muted hover:text-app-primary"
                         }`}
                       >
                         {preset.label}
@@ -3764,7 +3876,7 @@ export default function AdminPage() {
                       value={newBroadcastData.buttonText || ""}
                       onChange={e => setNewBroadcastData(p => ({ ...p, buttonText: e.target.value }))}
                       placeholder="Например: 🛒 Открыть Меню"
-                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-app-border"
+                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border"
                     />
                     <div className="flex gap-1">
                       {["🛒 Заказать", "⭐ Оставить отзыв", "🎁 Забрать бонус"].map(btnPreset => (
@@ -3772,7 +3884,7 @@ export default function AdminPage() {
                           key={btnPreset}
                           type="button"
                           onClick={() => setNewBroadcastData(p => ({ ...p, buttonText: btnPreset }))}
-                          className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] rounded-lg text-app-secondary transition-colors"
+                          className="px-2 py-1 bg-app-secondary hover:bg-app-hover text-[10px] rounded-lg text-app-primary transition-colors"
                         >
                           {btnPreset.split(" ")[1] || btnPreset}
                         </button>
@@ -3786,13 +3898,13 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => setIsCreatingBroadcast(false)}
-                    className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-app-secondary font-mono font-bold rounded-xl transition-colors uppercase tracking-wider"
+                    className="flex-1 py-2.5 bg-app-secondary hover:bg-app-hover text-app-primary font-mono font-bold rounded-xl transition-colors uppercase tracking-wider"
                   >
                     Отмена
                   </button>
                   <button
                     type="submit"
-                    className="flex-[2] py-2.5 bg-app-accent text-app-accent-fg hover:bg-zinc-200 font-mono font-bold rounded-xl transition-colors uppercase tracking-wider"
+                    className="flex-[2] py-2.5 bg-app-accent text-app-accent-fg hover:opacity-90 font-mono font-bold rounded-xl transition-colors uppercase tracking-wider"
                   >
                     🚀 Запустить рассылку
                   </button>
@@ -3801,16 +3913,16 @@ export default function AdminPage() {
             </div>
 
             {/* Right Column: Live Telegram Smartphone Preview */}
-            <div className="w-full md:w-80 flex flex-col bg-[#141416] border border-app-border rounded-3xl p-4 space-y-4">
+            <div className="w-full md:w-80 flex flex-col bg-app-card border border-app-border rounded-3xl p-4 space-y-4">
               <div className="flex justify-between items-center border-b border-app-border pb-2">
                 <span className="text-[11px] font-mono text-app-muted uppercase tracking-widest">Интерактивный Превью</span>
-                <button onClick={() => setIsCreatingBroadcast(false)} className="text-app-muted hover:text-white hidden md:block">
+                <button onClick={() => setIsCreatingBroadcast(false)} className="text-app-muted hover:text-app-primary hidden md:block">
                   <X size={18} />
                 </button>
               </div>
 
               {/* Smartphone Shell */}
-              <div className="flex-1 bg-[#0d0d0f] rounded-2xl p-3 flex flex-col justify-between border border-zinc-900 shadow-inner relative overflow-hidden min-h-[380px]">
+              <div className="flex-1 bg-app-surface rounded-2xl p-3 flex flex-col justify-between border border-app-border shadow-inner relative overflow-hidden min-h-[380px]">
                 {/* Simulated status bar */}
                 <div className="flex justify-between items-center text-[9px] text-app-muted font-mono px-1">
                   <span>12:30 📱</span>
@@ -3823,11 +3935,11 @@ export default function AdminPage() {
                   <div className="bg-app-card rounded-2xl p-3 border border-app-border space-y-3 shadow-xl w-full relative">
                     {/* Bot Title Header */}
                     <div className="flex items-center gap-1.5 pb-1 border-b border-app-border">
-                      <div className="w-5 h-5 bg-zinc-700 rounded-full flex items-center justify-center text-[10px] font-bold text-white font-mono">
+                      <div className="w-5 h-5 bg-app-accent text-app-accent-fg rounded-full flex items-center justify-center text-[10px] font-bold font-mono">
                         {selectedShop?.name?.substring(0,1) || "Б"}
                       </div>
                       <div>
-                        <div className="text-[10px] font-bold leading-none text-white">{selectedShop?.name || "Бот-Ассистент"}</div>
+                        <div className="text-[10px] font-bold leading-none text-app-primary">{selectedShop?.name || "Бот-Ассистент"}</div>
                         <div className="text-[8px] text-sky-400 leading-none">bot</div>
                       </div>
                     </div>
@@ -3874,6 +3986,280 @@ export default function AdminPage() {
                 <div className="w-16 h-1 bg-zinc-800 rounded-full mx-auto mt-1"></div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Profile Modal */}
+      {isProfileOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="max-w-lg w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-5 max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex justify-between items-center border-b border-app-border pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-app-card border border-app-border flex items-center justify-center text-app-primary shadow-sm">
+                  <User size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold font-mono flex items-center gap-2 text-app-primary">
+                    Настройки профиля
+                  </h3>
+                  <p className="text-[11px] text-app-muted mt-0.5 font-sans">
+                    {user?.email || "Управление личными данными и аккаунтом"}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsProfileOpen(false)} 
+                className="text-app-muted hover:text-app-primary cursor-pointer p-1.5 rounded-xl hover:bg-app-card transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {profileError && (
+              <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs flex items-center gap-2 font-mono">
+                <AlertCircle size={15} className="shrink-0" />
+                <span>{profileError}</span>
+              </div>
+            )}
+
+            {profileSuccess && (
+              <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs flex items-center gap-2 font-mono">
+                <Check size={15} className="shrink-0" />
+                <span>{profileSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveProfile} className="space-y-4 font-sans text-xs">
+              {/* Avatar Section */}
+              <div className="p-4 bg-app-card/60 border border-app-border rounded-2xl space-y-3">
+                <label className="block text-[11px] font-mono text-app-muted">
+                  Аватар профиля
+                </label>
+                <div className="flex items-center gap-4">
+                  {profileData.avatarUrl ? (
+                    <img src={profileData.avatarUrl} alt="Avatar" className="w-14 h-14 rounded-2xl object-cover border border-app-border shrink-0 shadow-sm" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-2xl bg-app-accent text-app-accent-fg border border-app-border flex items-center justify-center text-lg font-bold shrink-0 shadow-sm">
+                      {profileData.name ? profileData.name.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : "А")}
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      type="text"
+                      value={profileData.avatarUrl}
+                      onChange={e => setProfileData(p => ({ ...p, avatarUrl: e.target.value }))}
+                      placeholder="https://example.com/avatar.png"
+                      className="w-full bg-app-surface border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                    />
+                    <ImageUploader 
+                      value={profileData.avatarUrl}
+                      onChange={(url) => setProfileData(p => ({ ...p, avatarUrl: url }))} 
+                      type="avatar"
+                      label="Загрузить изображение аватара"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Personal Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">
+                    Имя / Отображаемый ник
+                  </label>
+                  <input
+                    type="text"
+                    value={profileData.name}
+                    onChange={e => setProfileData(p => ({ ...p, name: e.target.value }))}
+                    placeholder="Например, Тамерлан"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">
+                    Название компании / Проекта
+                  </label>
+                  <input
+                    type="text"
+                    value={profileData.companyName}
+                    onChange={e => setProfileData(p => ({ ...p, companyName: e.target.value }))}
+                    placeholder="ООО Рога и Копыта"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                  />
+                </div>
+              </div>
+
+              {/* Contacts */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">
+                    Телефон (СНГ, например +7...)
+                  </label>
+                  <input
+                    type="text"
+                    value={profileData.phone}
+                    onChange={e => setProfileData(p => ({ ...p, phone: e.target.value }))}
+                    placeholder="+7 (999) 000-00-00"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-mono text-app-muted mb-1">
+                    Telegram Username
+                  </label>
+                  <input
+                    type="text"
+                    value={profileData.telegramHandle}
+                    onChange={e => setProfileData(p => ({ ...p, telegramHandle: e.target.value }))}
+                    placeholder="@username"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                  />
+                </div>
+              </div>
+
+              {/* Password Change */}
+              <div className="pt-3 border-t border-app-border space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <p className="text-[11px] font-mono font-semibold text-app-secondary">
+                    Смена пароля
+                  </p>
+                  <div className="flex items-center gap-1 bg-app-card p-1 rounded-xl border border-app-border self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => { setPasswordChangeMethod("password"); setProfileError(null); }}
+                      className={`px-2.5 py-1 text-[10px] font-mono rounded-lg transition-all cursor-pointer ${
+                        passwordChangeMethod === "password"
+                          ? "bg-app-accent text-app-accent-fg font-bold shadow-sm"
+                          : "text-app-muted hover:text-app-primary"
+                      }`}
+                    >
+                      По текущему паролю
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setPasswordChangeMethod("code"); setProfileError(null); }}
+                      className={`px-2.5 py-1 text-[10px] font-mono rounded-lg transition-all cursor-pointer ${
+                        passwordChangeMethod === "code"
+                          ? "bg-app-accent text-app-accent-fg font-bold shadow-sm"
+                          : "text-app-muted hover:text-app-primary"
+                      }`}
+                    >
+                      Забыл пароль (код на E-mail)
+                    </button>
+                  </div>
+                </div>
+
+                {passwordChangeMethod === "password" ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-app-card/50 border border-app-border rounded-2xl">
+                    <div>
+                      <label className="block text-[10px] font-mono text-app-muted mb-1">
+                        Текущий пароль
+                      </label>
+                      <input
+                        type="password"
+                        value={profileData.currentPassword}
+                        onChange={e => setProfileData(p => ({ ...p, currentPassword: e.target.value }))}
+                        placeholder="••••••••"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-mono text-app-muted mb-1">
+                        Новый пароль
+                      </label>
+                      <input
+                        type="password"
+                        value={profileData.newPassword}
+                        onChange={e => setProfileData(p => ({ ...p, newPassword: e.target.value }))}
+                        placeholder="Мин. 6 символов (не совпадает с текущим)"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 p-3 bg-app-card/50 border border-app-border rounded-2xl">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-mono text-app-muted">
+                        Нажмите кнопку для отправки кода на {user?.email}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleSendProfileCode}
+                        disabled={isSendingProfileCode}
+                        className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 text-[10px] font-mono rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+                      >
+                        {isSendingProfileCode && <SpinnerLoader size={12} />}
+                        <Send size={12} />
+                        <span>{isSendingProfileCode ? "Отправка..." : "Запросить код на E-mail"}</span>
+                      </button>
+                    </div>
+
+                    {profileCodeSentMsg && (
+                      <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-[11px] font-mono flex items-center gap-2">
+                        <Check size={14} className="shrink-0" />
+                        <span>{profileCodeSentMsg}</span>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-mono text-app-muted mb-1">
+                          Код из письма
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={6}
+                          value={profileData.emailCode}
+                          onChange={e => setProfileData(p => ({ ...p, emailCode: e.target.value }))}
+                          placeholder="123456"
+                          className="w-full bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono tracking-widest text-center"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-mono text-app-muted mb-1">
+                          Новый пароль
+                        </label>
+                        <input
+                          type="password"
+                          value={profileData.newPassword}
+                          onChange={e => setProfileData(p => ({ ...p, newPassword: e.target.value }))}
+                          placeholder="Мин. 6 символов"
+                          className="w-full bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleClearProfileFields}
+                  className="px-3 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-mono text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  title="Очистить все поля профиля"
+                >
+                  <Trash2 size={14} />
+                  <span>Очистить поля</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsProfileOpen(false)}
+                  className="flex-1 py-2.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="flex-[2] py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                >
+                  {isSavingProfile && <SpinnerLoader size={14} />}
+                  {isSavingProfile ? "Сохранение..." : "Сохранить профиль"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

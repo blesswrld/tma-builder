@@ -62,33 +62,33 @@
     --card-hover: #f1f3f5;
     --hover: #f1f3f5;
     --input-bg: #ffffff;
-    --input-border: #e4e4e7;
-    --input-focus-border: #a1a1aa;
+    --input-border: #d4d4d8;
+    --input-focus-border: #71717a;
     
-    --border: #e4e4e7;
-    --border-subtle: rgba(0, 0, 0, 0.08);
+    --border: #d4d4d8;
+    --border-subtle: rgba(0, 0, 0, 0.12);
     
     --text-primary: #09090b;
-    --text-secondary: #52525b;
-    --text-muted: #71717a;
+    --text-secondary: #27272a;
+    --text-muted: #52525b;
     
     --accent: #09090b;
     --accent-fg: #ffffff;
     --accent-hover: #27272a;
     
-    --btn-secondary-bg: #f4f4f6;
+    --btn-secondary-bg: #e4e4e7;
     --btn-secondary-fg: #09090b;
-    --btn-secondary-hover: #e4e4e7;
+    --btn-secondary-hover: #d4d4d8;
 
     --badge-bg: #e4e4e7;
-    --badge-fg: #18181b;
+    --badge-fg: #09090b;
 
     --modal-bg: #ffffff;
     --modal-header-bg: #f8f9fa;
-    --modal-overlay: rgba(0, 0, 0, 0.45);
+    --modal-overlay: rgba(0, 0, 0, 0.5);
     
-    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
+    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.12);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
     --glow: rgba(0, 0, 0, 0.08);
 
     --chart-grid: #e4e4e7;
@@ -138,7 +138,7 @@
 .text-app-muted { color: var(--text-muted); }
 .text-app-accent-fg { color: var(--accent-fg); }
 
-/* Global overrides ensuring 100% theme consistency across all legacy utility classes */
+/* Global overrides ensuring theme consistency across legacy utility classes without breaking child elements */
 html.light .bg-\[\#09090b\], html.light .bg-\[\#000000\] {
   background-color: var(--background) !important;
 }
@@ -159,11 +159,9 @@ html.light .border-zinc-800,
 html.light .border-zinc-800\/80,
 html.light .border-zinc-800\/50,
 html.light .border-zinc-800\/60,
-html.light .border-zinc-800\/40 {
-  border-color: var(--border) !important;
-}
-
-html.light .border-zinc-700, html.light .border-zinc-700\/60 {
+html.light .border-zinc-800\/40,
+html.light .border-zinc-700,
+html.light .border-zinc-700\/60 {
   border-color: var(--border) !important;
 }
 
@@ -171,17 +169,12 @@ html.light .border-zinc-900 {
   border-color: var(--border-subtle) !important;
 }
 
-html.light .text-white:not(.bg-app-accent *):not(.bg-black *):not(.bg-rose-500 *):not(.bg-rose-600 *):not(.bg-emerald-500 *):not(.bg-amber-500 *):not(.bg-indigo-500 *):not(.bg-indigo-600 *):not(.bg-zinc-900 *):not(.bg-zinc-950 *), 
-html.light .text-zinc-100:not(.bg-app-accent *):not(.bg-black *) {
-  color: var(--text-primary) !important;
+.keep-white {
+  color: #ffffff !important;
 }
 
-html.light .text-zinc-200, html.light .text-zinc-300 {
-  color: var(--text-secondary) !important;
-}
-
-html.light .text-zinc-400, html.light .text-zinc-500 {
-  color: var(--text-muted) !important;
+.keep-black {
+  color: #09090b !important;
 }
 
 html.light .bg-zinc-800 {
@@ -199,30 +192,36 @@ html.light .bg-app-accent {
   color: var(--accent-fg) !important;
 }
 
-/* Ensure text and icons inside active accent or dark pills always contrast properly */
-html.light .bg-black *:not(.bg-white):not(.bg-white *):not(.bg-white\/20):not(.bg-white\/20 *),
-html.light .bg-app-accent *:not(.bg-white):not(.bg-white *):not(.bg-white\/20):not(.bg-white\/20 *) {
-  color: inherit;
-}
-
-html.light .bg-white, html.light .bg-white * {
-  color: #09090b !important;
-}
-
-html.light .bg-white\/20, html.light .bg-white\/20 * {
-  color: #ffffff !important;
-}
-
-html.light .bg-rose-500, html.light .bg-rose-500 *, html.light .bg-rose-600, html.light .bg-rose-600 * { color: #ffffff !important; }
-html.light .bg-emerald-500, html.light .bg-emerald-500 * { color: #ffffff !important; }
-html.light .bg-amber-500, html.light .bg-amber-500 * { color: #ffffff !important; }
-
 html.light .hover\:bg-zinc-800:hover, html.light .hover\:bg-zinc-700:hover {
   background-color: var(--hover) !important;
 }
 
 html.light .hover\:bg-zinc-200:hover {
   background-color: var(--accent-hover) !important;
+}
+
+/* Fallbacks preventing invisible or white-on-white text in light mode */
+html.light .bg-app-surface,
+html.light .bg-app-card,
+html.light .bg-app-bg,
+html.light .bg-app-input,
+html.light .bg-app-modal {
+  color: var(--text-primary);
+}
+
+html.light .text-white:not(.keep-white):not(.bg-black *):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-rose-600 *):not(.bg-emerald-500 *):not(.bg-emerald-600 *):not(.bg-indigo-600 *) {
+  color: var(--text-primary) !important;
+}
+
+html.light .text-zinc-100:not(.keep-white),
+html.light .text-zinc-200:not(.keep-white),
+html.light .text-zinc-300:not(.keep-white) {
+  color: var(--text-secondary) !important;
+}
+
+html.light .text-zinc-400:not(.keep-white),
+html.light .text-zinc-500:not(.keep-white) {
+  color: var(--text-muted) !important;
 }
 
 /* Linear style glow effects */

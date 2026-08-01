@@ -180,6 +180,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     companyName?: string;
     currentPassword?: string;
     newPassword?: string;
+    emailCode?: string;
   }) => {
     const storedToken = localStorage.getItem("auth_token");
     if (!storedToken) throw new Error("Пользователь не авторизован");

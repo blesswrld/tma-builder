@@ -107,7 +107,7 @@ export default function PlanModal({
                 <ArrowLeft size={18} />
               </button>
             ) : (
-              <div className="p-2 bg-app-accent text-zinc-950 rounded-xl">
+              <div className="p-2 bg-app-accent text-app-accent-fg rounded-xl">
                 <Crown size={20} />
               </div>
             )}
@@ -143,7 +143,7 @@ export default function PlanModal({
 
           {successPaid ? (
             <div className="py-12 text-center space-y-4 font-mono">
-              <div className="w-14 h-14 bg-app-accent text-zinc-950 rounded-full flex items-center justify-center mx-auto shadow-md">
+              <div className="w-14 h-14 bg-app-accent text-app-accent-fg rounded-full flex items-center justify-center mx-auto shadow-md">
                 <CheckCircle2 size={32} />
               </div>
               <div>
@@ -163,7 +163,7 @@ export default function PlanModal({
                       onClick={() => setPaymentMethod("card")}
                       className={`p-3 rounded-xl border text-left flex flex-col justify-between gap-2 transition-all font-mono ${
                         paymentMethod === "card"
-                          ? "border-app-border bg-app-accent text-zinc-950 font-bold"
+                          ? "border-app-border bg-app-accent text-app-accent-fg font-bold"
                           : "border-app-border bg-app-card text-app-secondary hover:text-app-primary"
                       }`}
                     >
@@ -176,7 +176,7 @@ export default function PlanModal({
                       onClick={() => setPaymentMethod("sbp")}
                       className={`p-3 rounded-xl border text-left flex flex-col justify-between gap-2 transition-all font-mono ${
                         paymentMethod === "sbp"
-                          ? "border-app-border bg-app-accent text-zinc-950 font-bold"
+                          ? "border-app-border bg-app-accent text-app-accent-fg font-bold"
                           : "border-app-border bg-app-card text-app-secondary hover:text-app-primary"
                       }`}
                     >
@@ -189,7 +189,7 @@ export default function PlanModal({
                       onClick={() => setPaymentMethod("promo")}
                       className={`p-3 rounded-xl border text-left flex flex-col justify-between gap-2 transition-all font-mono ${
                         paymentMethod === "promo"
-                          ? "border-app-border bg-app-accent text-zinc-950 font-bold"
+                          ? "border-app-border bg-app-accent text-app-accent-fg font-bold"
                           : "border-app-border bg-app-card text-app-secondary hover:text-app-primary"
                       }`}
                     >
@@ -248,7 +248,7 @@ export default function PlanModal({
                       <button
                         type="button"
                         onClick={handleApplyPromo}
-                        className="px-4 py-2 bg-app-accent text-zinc-950 font-bold text-xs rounded-xl hover:bg-app-hover transition-colors"
+                        className="px-4 py-2 bg-app-accent text-app-accent-fg font-bold text-xs rounded-xl hover:opacity-90 transition-colors"
                       >
                         Применить
                       </button>
@@ -284,7 +284,7 @@ export default function PlanModal({
                 <button
                   disabled={loadingPlan}
                   onClick={handleProcessPayment}
-                  className="w-full py-3 bg-app-accent hover:bg-app-hover text-zinc-950 font-bold text-xs rounded-xl transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-app-accent hover:opacity-90 text-app-accent-fg font-bold text-xs rounded-xl transition-all uppercase tracking-wider flex items-center justify-center gap-2"
                 >
                   {loadingPlan && <SpinnerLoader size={16} />}
                   {loadingPlan ? "Обработка..." : `Оплатить ${finalPrice.toLocaleString("ru-RU")} ₽`}
@@ -336,7 +336,7 @@ export default function PlanModal({
               <div className={`rounded-2xl p-5 border transition-all flex flex-col justify-between bg-app-card relative ${
                 currentPlan === "PRO" ? "border-app-primary" : "border-app-border"
               }`}>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-app-accent text-zinc-950 text-[10px] font-mono font-bold px-3 py-0.5 rounded-full uppercase border border-app-border shadow-sm">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-app-accent text-app-accent-fg text-[10px] font-mono font-bold px-3 py-0.5 rounded-full uppercase border border-app-border shadow-sm">
                   Популярный
                 </div>
 
@@ -370,7 +370,7 @@ export default function PlanModal({
                 <button
                   disabled={currentPlan === "PRO"}
                   onClick={() => setSelectedPlan("PRO")}
-                  className="w-full mt-6 py-2.5 bg-app-accent text-zinc-950 font-mono font-bold text-xs rounded-xl hover:bg-app-hover transition-colors uppercase"
+                  className="w-full mt-6 py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-colors uppercase"
                 >
                   {currentPlan === "PRO" ? "Текущий тариф" : "Перейти на PRO (990 ₽)"}
                 </button>

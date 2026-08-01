@@ -366,12 +366,13 @@ app.post("/api/auth/send-code", async (req, res) => {
     const typeNames: Record<string, string> = {
       LOGIN: "входа в систему",
       REGISTER: "регистрации аккаунта",
-      RESET_PASSWORD: "сброса пароля"
+      RESET_PASSWORD: "сброса пароля",
+      CHANGE_PASSWORD: "смены пароля в профиле"
     };
     const typeName = typeNames[type] || "подтверждения E-mail";
 
-    // Если тип RESET_PASSWORD или LOGIN, проверяем существование пользователя при необходимости
-    if (type === "RESET_PASSWORD") {
+    // Если тип RESET_PASSWORD, CHANGE_PASSWORD или LOGIN, проверяем существование пользователя при необходимости
+    if (type === "RESET_PASSWORD" || type === "CHANGE_PASSWORD") {
       const user = await db.user.findUnique({ where: { email: cleanEmail } });
       if (!user) {
         return res.status(400).json({ error: "Пользователь с такой почтой не найден." });
@@ -689,7 +690,7 @@ app.put("/api/user/profile", async (req, res) => {
       return res.status(401).json({ error: "Сначала войдите в аккаунт." });
     }
 
-    const { name, phone, avatarUrl, telegramHandle, companyName, currentPassword, newPassword } = req.body;
+    const { name, phone, avatarUrl, telegramHandle, companyName, currentPassword, newPassword, emailCode } = req.body;
 
     const db = getPrismaClient();
     if (!db) return res.status(500).json({ error: "Ошибка базы данных." });
@@ -701,17 +702,46 @@ app.put("/api/user/profile", async (req, res) => {
 
     let updatedPassword = user.password;
     if (newPassword) {
-      if (!currentPassword) {
-        return res.status(400).json({ error: "Укажите текущий пароль для подтверждения смены." });
-      }
-      const isMatch = await bcrypt.compare(String(currentPassword), user.password);
-      if (!isMatch) {
-        return res.status(400).json({ error: "Текущий пароль указан неверно." });
-      }
-      if (String(newPassword).length < 6) {
+      if (!newPassword || String(newPassword).length < 6) {
         return res.status(400).json({ error: "Новый пароль должен содержать минимум 6 символов." });
       }
-      updatedPassword = await bcrypt.hash(String(newPassword), 10);
+
+      // Проверка: новый пароль не должен совпадать с текущим
+      const isSameAsOld = await bcrypt.compare(String(newPassword), user.password);
+      if (isSameAsOld) {
+        return res.status(400).json({ error: "Новый пароль не должен совпадать с вашим текущим паролем." });
+      }
+
+      // Вариант 1: Через текущий пароль
+      if (currentPassword && !emailCode) {
+        const isMatch = await bcrypt.compare(String(currentPassword), user.password);
+        if (!isMatch) {
+          return res.status(400).json({ error: "Текущий пароль указан неверно!" });
+        }
+        if (String(newPassword).trim().toLowerCase() === String(currentPassword).trim().toLowerCase()) {
+          return res.status(400).json({ error: "Новый пароль не должен совпадать с текущим паролем." });
+        }
+        updatedPassword = await bcrypt.hash(String(newPassword), 10);
+      } 
+      // Вариант 2: Через код из письма (если забыли пароль)
+      else if (emailCode) {
+        const cleanCode = String(emailCode).trim();
+        const validCodes: any[] = await db.$queryRawUnsafe(
+          `SELECT * FROM "VerificationCode" WHERE "email" = $1 AND "code" = $2 AND "expiresAt" > CURRENT_TIMESTAMP LIMIT 1;`,
+          user.email.toLowerCase().trim(),
+          cleanCode
+        );
+
+        if (!validCodes || validCodes.length === 0) {
+          return res.status(400).json({ error: "Неверный или просроченный код из письма. Нажмите «Запросить код»." });
+        }
+
+        // Удаляем использованный код
+        await db.$executeRawUnsafe(`DELETE FROM "VerificationCode" WHERE "email" = $1;`, user.email.toLowerCase().trim()).catch(() => {});
+        updatedPassword = await bcrypt.hash(String(newPassword), 10);
+      } else {
+        return res.status(400).json({ error: "Укажите текущий пароль или введите 6-значный код из письма для смены пароля." });
+      }
     }
 
     const updated = await db.user.update({
@@ -1300,14 +1330,14 @@ app.post("/api/shops", async (req, res) => {
       const updatedShop = await db.shop.update({
         where: { id },
         data: {
-          name: name !== undefined ? name : shop.name,
+          name: name !== undefined ? String(name).trim() : shop.name,
           slug: updatedSlug,
-          description: description !== undefined ? description : shop.description,
-          botToken: botToken !== undefined ? botToken : shop.botToken,
-          adminChatId: adminChatId !== undefined ? adminChatId : shop.adminChatId,
-          workingHours: workingHours !== undefined ? workingHours : shop.workingHours,
-          address: address !== undefined ? address : shop.address,
-          phone: phone !== undefined ? phone : shop.phone,
+          description: description !== undefined ? (description ? String(description).trim() : null) : shop.description,
+          botToken: botToken !== undefined ? (botToken ? String(botToken).trim() : null) : shop.botToken,
+          adminChatId: adminChatId !== undefined ? (adminChatId ? String(adminChatId).trim() : null) : shop.adminChatId,
+          workingHours: workingHours !== undefined ? (workingHours ? String(workingHours).trim() : null) : shop.workingHours,
+          address: address !== undefined ? (address ? String(address).trim() : null) : shop.address,
+          phone: phone !== undefined ? (phone ? String(phone).trim() : null) : shop.phone,
           cashbackPercent: req.body.cashbackPercent !== undefined ? Number(req.body.cashbackPercent) : (shop.cashbackPercent || 5),
           isOpen: isOpen !== undefined ? Boolean(isOpen) : (shop.isOpen !== undefined ? shop.isOpen : true),
           logoUrl: logoUrl !== undefined ? (logoUrl ? String(logoUrl).trim() : null) : shop.logoUrl,

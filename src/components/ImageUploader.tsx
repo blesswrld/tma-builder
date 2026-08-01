@@ -125,7 +125,7 @@ export default function ImageUploader({
           type="button"
           onClick={() => setTab("file")}
           className={`flex-1 py-1 px-2 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
-            tab === "file" ? "bg-app-accent text-zinc-950 font-bold shadow-sm" : "text-app-muted hover:text-white"
+            tab === "file" ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" : "text-app-muted hover:text-app-primary"
           }`}
         >
           <Upload size={12} /> Загрузить файл
@@ -134,7 +134,7 @@ export default function ImageUploader({
           type="button"
           onClick={() => setTab("presets")}
           className={`flex-1 py-1 px-2 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
-            tab === "presets" ? "bg-app-accent text-zinc-950 font-bold shadow-sm" : "text-app-muted hover:text-white"
+            tab === "presets" ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" : "text-app-muted hover:text-app-primary"
           }`}
         >
           <Sparkles size={12} /> Галерея пресетов
@@ -143,7 +143,7 @@ export default function ImageUploader({
           type="button"
           onClick={() => setTab("link")}
           className={`flex-1 py-1 px-2 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
-            tab === "link" ? "bg-app-accent text-zinc-950 font-bold shadow-sm" : "text-app-muted hover:text-white"
+            tab === "link" ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" : "text-app-muted hover:text-app-primary"
           }`}
         >
           <LinkIcon size={12} /> Вставить URL
@@ -163,10 +163,10 @@ export default function ImageUploader({
             accept="image/*"
             className="hidden"
           />
-          <div className="w-8 h-8 bg-zinc-800 text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-sm">
+          <div className="w-8 h-8 bg-app-card text-emerald-500 border border-app-border rounded-full flex items-center justify-center mx-auto shadow-sm">
             {isCompressing ? <Sparkles size={16} className="animate-spin" /> : <Upload size={16} />}
           </div>
-          <p className="text-xs text-white font-medium">
+          <p className="text-xs text-app-primary font-medium">
             {isCompressing ? "Сжатие и обработка..." : "Нажмите или перетащите фото сюда"}
           </p>
           <p className="text-[10px] text-app-muted font-mono">PNG, JPG, WEBP (авто-сжатие до 800px)</p>
@@ -182,11 +182,11 @@ export default function ImageUploader({
               onClick={() => onChange(pr.url)}
               className={`p-1.5 rounded-xl border text-[10px] font-mono transition-all flex items-center gap-1.5 text-left cursor-pointer ${
                 value === pr.url
-                  ? "bg-app-accent text-zinc-950 border-emerald-400 font-bold shadow-sm"
-                  : "bg-app-card border-app-border text-app-secondary hover:text-white hover:border-zinc-700"
+                  ? "bg-app-accent text-app-accent-fg border-emerald-400 font-bold shadow-sm"
+                  : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:border-app-border"
               }`}
             >
-              <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0 bg-zinc-900 border border-zinc-800">
+              <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0 bg-app-card border border-app-border">
                 <img src={pr.url} alt="" className="w-full h-full object-cover" />
               </div>
               <span className="truncate">{pr.label}</span>
@@ -201,7 +201,7 @@ export default function ImageUploader({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+          className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
         />
       )}
 
@@ -234,10 +234,10 @@ export default function ImageUploader({
           <button
             type="button"
             onClick={() => onChange("")}
-            className="absolute top-3 right-3 p-1.5 bg-black/70 text-white rounded-full hover:bg-rose-600 transition-colors cursor-pointer shadow-lg"
+            className="absolute top-3 right-3 p-1.5 bg-black/70 text-white keep-white rounded-full hover:bg-rose-600 transition-colors cursor-pointer shadow-lg"
             title="Удалить фото"
           >
-            <X size={14} />
+            <X size={14} className="keep-white text-white" />
           </button>
         </div>
       )}

@@ -16,7 +16,7 @@ export default function NotFoundPage() {
       </button>
 
       <div className="max-w-sm w-full bg-app-card border border-app-border p-8 rounded-2xl space-y-6 shadow-sm">
-        <div className="w-12 h-12 bg-app-accent text-zinc-950 rounded-xl flex items-center justify-center mx-auto">
+        <div className="w-12 h-12 bg-app-accent text-app-accent-fg rounded-xl flex items-center justify-center mx-auto">
           <Store size={24} />
         </div>
         
@@ -32,7 +32,7 @@ export default function NotFoundPage() {
         
         <Link 
           to="/"
-          className="w-full inline-flex items-center justify-center py-2.5 px-4 rounded-xl bg-app-accent text-zinc-950 font-medium text-xs hover:bg-app-hover transition-colors"
+          className="w-full inline-flex items-center justify-center py-2.5 px-4 rounded-xl bg-app-accent text-app-accent-fg font-medium text-xs hover:opacity-90 transition-colors"
         >
           Вернуться на главную
         </Link>

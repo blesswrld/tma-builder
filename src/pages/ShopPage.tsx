@@ -1176,10 +1176,10 @@ export default function ShopPage() {
                             e.stopPropagation();
                             toggleFavorite(service.id);
                           }}
-                          className="absolute top-2 right-2 p-2 rounded-xl bg-black/50 backdrop-blur-md border border-white/20 text-white hover:scale-110 transition-transform cursor-pointer z-10"
+                          className="absolute top-2 right-2 p-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/20 text-white keep-white hover:scale-110 transition-transform cursor-pointer z-10"
                           title={isFav ? "Удалить из избранного" : "В избранное"}
                         >
-                          <Heart size={14} className={isFav ? "fill-rose-500 text-rose-500" : "text-white"} />
+                          <Heart size={14} className={isFav ? "fill-rose-500 text-rose-500" : "text-white keep-white"} />
                         </button>
                       </div>
                     ) : (
@@ -1287,15 +1287,15 @@ export default function ShopPage() {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4">
           <button
             onClick={() => setIsCheckoutOpen(true)}
-            className="w-full h-13 bg-app-accent text-app-bg rounded-2xl flex items-center justify-between px-5 shadow-2xl hover:scale-[1.01] transition-transform font-mono border border-app-border"
+            className="w-full h-13 bg-app-accent text-app-accent-fg rounded-2xl flex items-center justify-between px-5 shadow-2xl hover:scale-[1.01] transition-transform font-mono border border-app-border cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <span className="w-6 h-6 bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold border border-white/20 shrink-0">
+              <span className="w-7 h-7 bg-app-accent-fg/20 text-app-accent-fg rounded-xl flex items-center justify-center text-xs font-bold shrink-0">
                 {totalItems}
               </span>
-              <span className="text-xs font-semibold uppercase tracking-wider text-app-accent-fg">Оформить заказ</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-app-accent-fg">Оформить заказ</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 text-app-accent-fg">
               <span className="text-sm font-bold">{totalPrice} ₽</span>
               <ArrowRight size={16} />
             </div>
@@ -1496,10 +1496,19 @@ export default function ShopPage() {
                   form="checkout-form"
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-11 bg-app-accent text-app-bg font-semibold text-xs rounded-xl hover:bg-app-hover transition-colors disabled:opacity-50 flex items-center justify-center gap-2 font-mono uppercase tracking-wider"
+                  className="w-full h-12 bg-app-accent text-app-accent-fg font-bold text-xs rounded-2xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2.5 font-mono uppercase tracking-wider cursor-pointer shadow-lg"
                 >
-                  {isSubmitting && <SpinnerLoader size={16} />}
-                  {isSubmitting ? "Обработка заказа..." : `Подтвердить заказ (${finalTotalPrice} ₽)`}
+                  {isSubmitting ? (
+                    <>
+                      <SpinnerLoader size={16} />
+                      <span>Обработка заказа...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingBag size={16} className="text-app-accent-fg" />
+                      <span>Подтвердить заказ ({finalTotalPrice} ₽)</span>
+                    </>
+                  )}
                 </button>
               </div>
             </motion.div>
@@ -1713,9 +1722,9 @@ export default function ShopPage() {
                       setSelectedServiceDetail(null);
                       setDetailItemNote("");
                     }}
-                    className="absolute top-3 right-3 p-2 rounded-xl bg-black/60 backdrop-blur-md text-white hover:bg-black/80 transition-colors"
+                    className="absolute top-3 right-3 p-2 rounded-xl bg-black/60 backdrop-blur-md text-white keep-white hover:bg-black/80 transition-colors cursor-pointer"
                   >
-                    <X size={18} />
+                    <X size={18} className="text-white keep-white" />
                   </button>
                 </div>
               ) : (

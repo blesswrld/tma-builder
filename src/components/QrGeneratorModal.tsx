@@ -124,7 +124,7 @@ export default function QrGeneratorModal({
         {/* Header */}
         <div className="px-6 py-4 border-b border-app-border flex items-center justify-between bg-app-modal-header">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-app-accent text-zinc-950 rounded-xl">
+            <div className="p-2 bg-app-accent text-app-accent-fg rounded-xl">
               <QrCode size={18} />
             </div>
             <div>
@@ -336,7 +336,7 @@ export default function QrGeneratorModal({
 
           <button
             onClick={handlePrint}
-            className="px-5 py-2 bg-app-accent text-zinc-950 font-bold rounded-xl text-xs flex items-center gap-2 transition-colors uppercase"
+            className="px-5 py-2 bg-app-accent text-app-accent-fg font-bold rounded-xl text-xs flex items-center gap-2 transition-colors uppercase"
           >
             <Printer size={15} />
             <span>Печать листа</span>
