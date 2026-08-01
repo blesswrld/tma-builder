@@ -444,7 +444,7 @@ export default function ShopPage() {
   };
 
   const { subscribeShop } = useRealtime();
-  const isAnyShopModalOpen = Boolean(isCheckoutOpen || isMyOrdersOpen || isReviewsOpen || showInfoModal);
+  const isAnyShopModalOpen = Boolean(isCheckoutOpen || isMyOrdersOpen || isReviewsOpen || showInfoModal || selectedServiceDetail);
 
   useEffect(() => {
     if (isAnyShopModalOpen) {
@@ -944,56 +944,62 @@ export default function ShopPage() {
     <div className="min-h-screen bg-app-bg text-app-primary font-sans pb-32">
       {/* Sleek Vercel / Linear Top Header */}
       <header className="sticky top-0 z-40 bg-app-bg/80 backdrop-blur-xl border-b border-app-border">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-app-card border border-app-border flex items-center justify-center font-mono font-bold text-sm text-app-primary shrink-0">
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 min-h-[3.75rem] sm:h-16 py-2 sm:py-0 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-app-card border border-app-border flex items-center justify-center font-mono font-bold text-xs sm:text-sm text-app-primary shrink-0 shadow-sm">
               {shop.logoUrl ? (
                 <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover rounded-xl" />
               ) : (
                 shop.name.charAt(0).toUpperCase()
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm font-semibold tracking-tight text-app-primary">{shop.name}</h1>
-                <span className={`w-2 h-2 rounded-full ${shop.isOpen !== false ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-rose-500"}`} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h1 className="text-xs sm:text-sm font-semibold tracking-tight text-app-primary truncate">{shop.name}</h1>
+                <span className={`w-2 h-2 rounded-full shrink-0 ${shop.isOpen !== false ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-rose-500"}`} />
               </div>
-              <p className="text-[11px] text-app-muted font-mono truncate max-w-[180px] sm:max-w-xs">
+              <p className="text-[10px] sm:text-[11px] text-app-muted font-mono truncate max-w-[120px] sm:max-w-xs">
                 {shop.workingHours || (shop.isOpen !== false ? "Открыто" : "Закрыто")}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* Theme Toggle Button */}
             <button
+              type="button"
               onClick={toggleTheme}
-              className="p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-all border border-transparent hover:border-app-border cursor-pointer"
+              className="p-1.5 sm:p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-all border border-transparent hover:border-app-border cursor-pointer shrink-0"
               title={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
             >
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              {theme === "dark" ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-400" />}
             </button>
 
             <button
+              type="button"
               onClick={() => setShowInfoModal(true)}
-              className="p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-all border border-transparent hover:border-app-border"
+              className="p-1.5 sm:p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-all border border-transparent hover:border-app-border cursor-pointer shrink-0"
               title="Информация и контакты"
             >
-              <Info size={16} />
+              <Info size={15} />
             </button>
+
             <button
+              type="button"
               onClick={handleOpenReviews}
-              className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border hover:border-app-border text-xs text-app-secondary hover:text-app-primary transition-all flex items-center gap-1.5 font-mono"
+              className="px-2.5 py-1.5 rounded-xl bg-app-surface border border-app-border hover:border-app-border text-xs text-app-secondary hover:text-app-primary transition-all flex items-center gap-1 sm:gap-1.5 font-mono cursor-pointer shrink-0"
             >
-              <Star size={13} className="text-amber-500 fill-amber-500" />
-              <span>Отзывы</span>
+              <Star size={13} className="text-amber-500 fill-amber-500 shrink-0" />
+              <span className="hidden xs:inline sm:inline">Отзывы</span>
             </button>
+
             <button
+              type="button"
               onClick={handleOpenMyOrders}
-              className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border hover:border-app-border text-xs text-app-secondary hover:text-app-primary transition-all flex items-center gap-1.5 font-mono"
+              className="px-2.5 py-1.5 rounded-xl bg-app-surface border border-app-border hover:border-app-border text-xs text-app-secondary hover:text-app-primary transition-all flex items-center gap-1 sm:gap-1.5 font-mono cursor-pointer shrink-0"
             >
-              <Receipt size={13} className="text-app-muted" />
-              <span>Заказы</span>
+              <Receipt size={13} className="text-app-muted shrink-0" />
+              <span className="hidden xs:inline sm:inline">Заказы</span>
             </button>
           </div>
         </div>
@@ -1074,44 +1080,47 @@ export default function ShopPage() {
         <section className="space-y-6">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-app-border pb-4">
             {/* Category Pill Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
-              <button
-                onClick={() => setSelectedCategory("ALL")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-medium font-mono transition-all shrink-0 border ${
-                  selectedCategory === "ALL"
-                    ? "bg-app-accent text-app-bg border-app-border font-bold shadow-sm"
-                    : "bg-app-surface text-app-muted border-app-border hover:text-app-primary"
-                }`}
-              >
-                Все
-              </button>
-              
-              {/* Favorites Category Tab */}
-              <button
-                onClick={() => setSelectedCategory("FAVORITES")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 border flex items-center gap-1.5 ${
-                  selectedCategory === "FAVORITES"
-                    ? "bg-rose-500 text-white border-rose-600 font-bold shadow-sm"
-                    : "bg-app-surface text-app-muted border-app-border hover:text-rose-400"
-                }`}
-              >
-                <Heart size={13} className={favorites.length > 0 ? "fill-current" : ""} />
-                <span>Избранное ({favorites.length})</span>
-              </button>
-
-              {categories.map(cat => (
+            <div className="relative flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1 touch-pan-x w-full pr-8">
                 <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 border ${
-                    selectedCategory === cat
-                      ? "bg-app-accent text-app-bg border-app-border shadow-sm font-semibold"
+                  onClick={() => setSelectedCategory("ALL")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-medium font-mono transition-all shrink-0 border ${
+                    selectedCategory === "ALL"
+                      ? "bg-app-accent text-app-bg border-app-border font-bold shadow-sm"
                       : "bg-app-surface text-app-muted border-app-border hover:text-app-primary"
                   }`}
                 >
-                  {cat}
+                  Все
                 </button>
-              ))}
+                
+                {/* Favorites Category Tab */}
+                <button
+                  onClick={() => setSelectedCategory("FAVORITES")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 border flex items-center gap-1.5 ${
+                    selectedCategory === "FAVORITES"
+                      ? "bg-rose-500 text-white border-rose-600 font-bold shadow-sm"
+                      : "bg-app-surface text-app-muted border-app-border hover:text-rose-400"
+                  }`}
+                >
+                  <Heart size={13} className={favorites.length > 0 ? "fill-current" : ""} />
+                  <span>Избранное ({favorites.length})</span>
+                </button>
+
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 border ${
+                      selectedCategory === cat
+                        ? "bg-app-accent text-app-bg border-app-border shadow-sm font-semibold"
+                        : "bg-app-surface text-app-muted border-app-border hover:text-app-primary"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-app-bg to-transparent pointer-events-none" />
             </div>
 
             {/* Search Box */}
@@ -1134,7 +1143,7 @@ export default function ShopPage() {
               <p className="text-app-muted text-xs font-mono">По вашему запросу ничего не найдено.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredServices.map(service => {
                 const qty = cart[service.id] || 0;
                 const isOutOfStock = service.isAvailable === false;

@@ -494,9 +494,73 @@ export default function AdminPage() {
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Custom Shop Selector Dropdown State
+  const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
+  const shopDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (shopDropdownRef.current && !shopDropdownRef.current.contains(event.target as Node)) {
+        setIsShopDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
   const prevOrdersCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const isAnyModalOpen = Boolean(
+      isAuthModalOpen ||
+      isCreatingBroadcast ||
+      isCreatingBanner ||
+      isCreatingPromo ||
+      isCreatingShop ||
+      isProfileOpen ||
+      isAddingService ||
+      editingService ||
+      isTgGuideOpen ||
+      isSettingsOpen ||
+      shopToDelete ||
+      isDeletingShop ||
+      isQrModalOpen ||
+      isPlanModalOpen ||
+      isSidebarOpen ||
+      confirmModal?.isOpen ||
+      newOrderAlert
+    );
+
+    if (isAnyModalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [
+    isAuthModalOpen,
+    isCreatingBroadcast,
+    isCreatingBanner,
+    isCreatingPromo,
+    isCreatingShop,
+    isProfileOpen,
+    isAddingService,
+    editingService,
+    isTgGuideOpen,
+    isSettingsOpen,
+    shopToDelete,
+    isDeletingShop,
+    isQrModalOpen,
+    isPlanModalOpen,
+    isSidebarOpen,
+    confirmModal?.isOpen,
+    newOrderAlert
+  ]);
 
   const playOrderChime = () => {
     if (!isAudioEnabled) return;
@@ -1772,18 +1836,46 @@ export default function AdminPage() {
   const filteredOrders = orders.filter(o => orderStatusFilter === "ALL" || o.status === orderStatusFilter);
 
   return (
-    <div className="min-h-screen bg-app-bg text-app-primary font-sans flex flex-col md:flex-row selection:bg-zinc-800">
+    <div className="min-h-screen bg-app-bg text-app-primary font-sans flex flex-col md:flex-row selection:bg-zinc-800 relative">
+      {/* Mobile Sidebar Overlay Backdrop */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity cursor-pointer"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Mobile Top Navigation */}
-      <div className="md:hidden sticky top-0 z-40 bg-app-surface/90 backdrop-blur-xl border-b border-app-border px-4 h-14 flex items-center justify-between">
+      <div className="md:hidden sticky top-0 z-40 bg-app-surface/90 backdrop-blur-xl border-b border-app-border px-4 h-14 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg bg-app-accent text-app-accent-fg flex items-center justify-center font-mono font-bold text-xs">
             ▲
           </div>
-          <span className="font-semibold text-sm text-white font-mono">TMA BUILDER</span>
+          <span className="font-semibold text-sm text-app-primary font-mono">TMA BUILDER</span>
         </div>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-app-muted hover:text-white">
-          {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="p-1.5 text-app-muted hover:text-app-primary bg-app-card border border-app-border rounded-lg transition-colors cursor-pointer"
+            title="Переключить тему"
+          >
+            {theme === "dark" ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-400" />}
+          </button>
+          <button 
+            type="button"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+            className="p-1.5 text-app-muted hover:text-app-primary bg-app-card border border-app-border rounded-lg transition-colors cursor-pointer"
+            aria-label="Открыть меню"
+          >
+            {isSidebarOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+        </div>
       </div>
 
       {/* Sleek Vercel / Linear Left Sidebar Navigation */}
@@ -1805,27 +1897,114 @@ export default function AdminPage() {
             </span>
           </div>
 
-          {/* Workspace / Shop Selector Dropdown */}
+          {/* Workspace / Custom Shop Selector Dropdown */}
           <div className="space-y-2">
             <label className="text-[10px] font-mono uppercase tracking-wider text-app-muted px-2 block">
               Активное заведение
             </label>
-            <div className="relative">
-              <select
-                value={selectedShop?.id || ""}
-                onChange={(e) => {
-                  const found = shops.find(s => s.id === e.target.value);
-                  if (found) setSelectedShop(found);
-                }}
-                className="w-full bg-app-card border border-app-border hover:border-app-border text-xs font-medium text-white rounded-xl px-3 py-2.5 appearance-none focus:outline-none transition-colors cursor-pointer"
+
+            <div className="relative" ref={shopDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
+                className="w-full bg-app-card hover:bg-app-hover border border-app-border text-xs font-medium text-app-primary rounded-xl px-3 py-2.5 flex items-center justify-between gap-2 transition-all cursor-pointer shadow-sm focus:outline-none"
               >
-                {activeShops.map(s => (
-                  <option key={s.id} value={s.id} className="bg-app-card text-white">
-                    {s.name} ({s.slug})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-app-muted pointer-events-none" />
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                  <span className="truncate font-semibold text-app-primary">
+                    {selectedShop ? selectedShop.name : "Выберите заведение"}
+                  </span>
+                  {selectedShop && (
+                    <span className="text-[10px] text-app-muted font-mono shrink-0">
+                      ({selectedShop.slug})
+                    </span>
+                  )}
+                </div>
+                <ChevronDown
+                  size={14}
+                  className={`text-app-muted shrink-0 transition-transform duration-200 ${
+                    isShopDropdownOpen ? "rotate-180 text-app-primary" : ""
+                  }`}
+                />
+              </button>
+
+              <AnimatePresence>
+                {isShopDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-app-modal border border-app-border rounded-2xl shadow-2xl p-1.5 space-y-1 backdrop-blur-xl"
+                  >
+                    <div className="px-2 py-1 flex items-center justify-between text-[10px] font-mono text-app-muted border-b border-app-border pb-1.5 mb-1">
+                      <span>Список заведений ({activeShops.length})</span>
+                      {shops.length > activeShops.length && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShopFilterMode(shopFilterMode === "my" ? "all" : "my");
+                          }}
+                          className="text-app-accent hover:underline cursor-pointer"
+                        >
+                          {shopFilterMode === "my" ? "Все заведения" : "Мои заведения"}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-56 overflow-y-auto space-y-1 pr-0.5 custom-scrollbar">
+                      {activeShops.length === 0 ? (
+                        <div className="p-3 text-center text-xs text-app-muted font-mono">
+                          Заведений не найдено
+                        </div>
+                      ) : (
+                        activeShops.map((s) => {
+                          const isSelected = selectedShop?.id === s.id;
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedShop(s);
+                                setIsShopDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-mono transition-all cursor-pointer text-left ${
+                                isSelected
+                                  ? "bg-app-accent text-app-accent-fg font-bold shadow-sm"
+                                  : "text-app-secondary hover:text-app-primary hover:bg-app-hover"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0 pr-2">
+                                <Store size={14} className={isSelected ? "text-app-accent-fg shrink-0" : "text-app-muted shrink-0"} />
+                                <span className="truncate">{s.name}</span>
+                                <span className={`text-[10px] ${isSelected ? "text-app-accent-fg/80" : "text-app-muted"} shrink-0`}>
+                                  ({s.slug})
+                                </span>
+                              </div>
+                              {isSelected && <Check size={14} className="text-app-accent-fg shrink-0" />}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <div className="pt-1.5 border-t border-app-border">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsShopDropdownOpen(false);
+                          handleOpenCreateShop();
+                        }}
+                        className="w-full py-2 px-2.5 rounded-xl text-xs font-mono font-bold bg-app-card hover:bg-app-hover text-app-primary border border-app-border flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <Plus size={14} className="text-emerald-500" />
+                        <span>Создать новое заведение</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Quick Actions Bar */}
@@ -1833,13 +2012,13 @@ export default function AdminPage() {
               <div className="flex items-center justify-between gap-1 px-1 pt-1">
                 <button
                   onClick={handleOpenCreateShop}
-                  className="flex-1 py-1.5 bg-app-card hover:bg-zinc-800 border border-app-border text-[11px] font-mono text-app-secondary rounded-lg transition-colors flex items-center justify-center gap-1"
+                  className="flex-1 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-[11px] font-mono text-app-secondary hover:text-app-primary rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
                 >
                   <Plus size={12} /> Заведение
                 </button>
                 <button
                   onClick={() => handleOpenSettings(selectedShop)}
-                  className="p-1.5 bg-app-card hover:bg-zinc-800 border border-app-border text-app-muted hover:text-white rounded-lg transition-colors"
+                  className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-colors cursor-pointer"
                   title="Настройки заведения"
                 >
                   <Settings size={13} />
@@ -1848,14 +2027,14 @@ export default function AdminPage() {
                   href={`/${selectedShop.slug}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="p-1.5 bg-app-card hover:bg-zinc-800 border border-app-border text-app-muted hover:text-white rounded-lg transition-colors"
+                  className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-colors"
                   title="Открыть витрину"
                 >
                   <ExternalLink size={13} />
                 </a>
                 <button
                   onClick={() => handleDeleteShop(selectedShop)}
-                  className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg transition-colors"
+                  className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg transition-colors cursor-pointer"
                   title="Удалить заведение"
                 >
                   <Trash2 size={13} />
@@ -1956,26 +2135,36 @@ export default function AdminPage() {
                 <p className="text-xs font-semibold text-app-primary truncate group-hover:text-app-accent transition-colors">
                   {user?.name || user?.email || "Администратор"}
                 </p>
-                <p className="text-[10px] text-app-muted truncate font-mono">
-                  {user?.companyName || (token ? "Авторизован" : "Локальный сеанс")}
-                </p>
+                <div className="flex items-center gap-1.5 text-[10px] text-app-muted truncate font-mono">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${token ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+                  <span className="truncate">
+                    {user?.companyName || (token ? "Авторизован (Онлайн)" : "Гость (Не авторизован)")}
+                  </span>
+                </div>
               </div>
             </button>
-            <div className="flex items-center gap-1">
-              <button 
-                onClick={handleOpenProfile}
-                className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-card rounded-lg transition-colors cursor-pointer"
-                title="Редактировать профиль"
-              >
-                <User size={14} className="text-app-primary" />
-              </button>
+            <div className="flex items-center gap-1 shrink-0">
               {token ? (
-                <button onClick={handleLogoutRequest} className="p-1.5 text-app-muted hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer" title="Выйти из аккаунта">
-                  <LogOut size={14} />
-                </button>
+                <>
+                  <button 
+                    onClick={handleOpenProfile}
+                    className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-card rounded-lg transition-colors cursor-pointer"
+                    title="Редактировать профиль"
+                  >
+                    <User size={14} className="text-app-primary" />
+                  </button>
+                  <button onClick={handleLogoutRequest} className="p-1.5 text-app-muted hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer" title="Выйти из аккаунта">
+                    <LogOut size={14} />
+                  </button>
+                </>
               ) : (
-                <button onClick={() => setIsAuthModalOpen(true)} className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-card rounded-lg transition-colors cursor-pointer" title="Войти">
-                  <LogIn size={14} />
+                <button 
+                  onClick={() => setIsAuthModalOpen(true)} 
+                  className="px-2.5 py-1.5 bg-app-accent text-app-accent-fg font-mono font-bold text-[10px] rounded-lg hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1 shrink-0" 
+                  title="Войти в аккаунт"
+                >
+                  <LogIn size={12} />
+                  <span>Войти</span>
                 </button>
               )}
             </div>
@@ -1986,11 +2175,11 @@ export default function AdminPage() {
       {/* Main Content Workspace */}
       <main className="flex-1 min-w-0 flex flex-col min-h-screen">
         {/* Workspace Top Bar Header */}
-        <header className="h-16 border-b border-app-border px-6 flex items-center justify-between gap-4 bg-app-surface/80 backdrop-blur-md sticky top-0 z-30">
+        <header className="min-h-[4rem] border-b border-app-border px-4 sm:px-6 py-2.5 sm:py-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-app-surface/80 backdrop-blur-md sticky top-0 z-30 shadow-sm">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-app-muted font-mono">Заведение /</span>
-              <h2 className="text-sm font-semibold tracking-tight text-white font-mono">
+              <h2 className="text-sm font-semibold tracking-tight text-app-primary font-mono">
                 {activeTab === "services" && "Меню и услуги"}
                 {activeTab === "orders" && "Заказы"}
                 {activeTab === "promocodes" && "Промокоды"}
@@ -2002,16 +2191,16 @@ export default function AdminPage() {
                 {activeTab === "botsim" && "Симулятор бота"}
               </h2>
             </div>
-            <p className="text-[11px] text-app-muted font-sans">
+            <p className="text-[11px] text-app-muted font-sans truncate max-w-[200px] sm:max-w-xs">
               Управление заведением {selectedShop?.name || ""}
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Global Theme Switcher */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            {/* Global Theme Switcher (Desktop Only - Mobile has it in mobile top bar) */}
             <button
               onClick={toggleTheme}
-              className="p-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center justify-center"
+              className="p-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer hidden md:flex items-center justify-center shrink-0"
               title={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
             >
               {theme === "dark" ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-400" />}
@@ -2020,52 +2209,52 @@ export default function AdminPage() {
             {activeTab === "services" && (
               <button
                 onClick={() => setIsAddingService(true)}
-                className="px-3.5 py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm"
+                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
-                <Plus size={14} /> Добавить услугу
+                <Plus size={14} /> <span>Добавить услугу</span>
               </button>
             )}
 
             {activeTab === "orders" && (
               <button
                 onClick={exportOrdersToCsv}
-                className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-all flex items-center gap-1.5"
+                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <FileSpreadsheet size={14} /> Экспорт CSV
+                <FileSpreadsheet size={14} /> <span>Экспорт CSV</span>
               </button>
             )}
 
             {activeTab === "promocodes" && (
               <button
                 onClick={() => setIsCreatingPromo(true)}
-                className="px-3.5 py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5"
+                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <Plus size={14} /> Новый промокод
+                <Plus size={14} /> <span>Новый промокод</span>
               </button>
             )}
 
             {activeTab === "banners" && (
               <button
                 onClick={() => setIsCreatingBanner(true)}
-                className="px-3.5 py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5"
+                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <Plus size={14} /> Новый баннер
+                <Plus size={14} /> <span>Новый баннер</span>
               </button>
             )}
 
             {activeTab === "broadcasts" && (
               <button
                 onClick={() => setIsCreatingBroadcast(true)}
-                className="px-3.5 py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5"
+                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <Plus size={14} /> Новая рассылка
+                <Plus size={14} /> <span>Новая рассылка</span>
               </button>
             )}
           </div>
         </header>
 
         {/* Tab Views Content Container */}
-        <div className="p-6 flex-1 space-y-6">
+        <div className="p-4 sm:p-6 flex-1 space-y-6">
           {loading && <AdminPageSkeleton />}
 
           {!selectedShop && !loading && (
@@ -2117,27 +2306,34 @@ export default function AdminPage() {
                     </button>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-app-surface p-3 rounded-2xl border border-app-border">
-                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-                      <button
-                        onClick={() => setSelectedCategoryFilter("ALL")}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all ${
-                          selectedCategoryFilter === "ALL" ? "bg-app-accent text-app-accent-fg font-bold" : "text-app-muted hover:text-app-primary"
-                        }`}
-                      >
-                        ВСЕ
-                      </button>
-                      {categories.map(cat => (
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-app-surface p-2.5 sm:p-3 rounded-2xl border border-app-border">
+                    <div className="relative flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 sm:pb-0 scrollbar-none touch-pan-x w-full pr-6">
                         <button
-                          key={cat}
-                          onClick={() => setSelectedCategoryFilter(cat)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all ${
-                            selectedCategoryFilter === cat ? "bg-app-accent text-app-accent-fg font-bold" : "text-app-muted hover:text-app-primary"
+                          onClick={() => setSelectedCategoryFilter("ALL")}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                            selectedCategoryFilter === "ALL" 
+                              ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" 
+                              : "text-app-muted hover:text-app-primary hover:bg-app-card"
                           }`}
                         >
-                          {cat}
+                          ВСЕ
                         </button>
-                      ))}
+                        {categories.map(cat => (
+                          <button
+                            key={cat}
+                            onClick={() => setSelectedCategoryFilter(cat)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                              selectedCategoryFilter === cat 
+                                ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" 
+                                : "text-app-muted hover:text-app-primary hover:bg-app-card"
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="absolute right-0 top-0 bottom-1 sm:bottom-0 w-8 bg-gradient-to-l from-app-surface to-transparent pointer-events-none" />
                     </div>
 
                     <div className="relative w-full sm:w-64">
@@ -2238,24 +2434,27 @@ export default function AdminPage() {
               {/* TAB 2: LIVE ORDERS */}
               {activeTab === "orders" && (
                 <div className="space-y-6">
-                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-none bg-app-surface p-3 rounded-2xl border border-app-border">
-                    {[
-                      { key: "ALL", label: "ВСЕ" },
-                      { key: "PENDING", label: "ОЖИДАЕТ" },
-                      { key: "CONFIRMED", label: "ПОДТВЕРЖДЕН" },
-                      { key: "COMPLETED", label: "ВЫПОЛНЕН" },
-                      { key: "CANCELLED", label: "ОТМЕНЕН" }
-                    ].map(statusObj => (
-                      <button
-                        key={statusObj.key}
-                        onClick={() => setOrderStatusFilter(statusObj.key)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all ${
-                          orderStatusFilter === statusObj.key ? "bg-app-accent text-app-accent-fg font-bold" : "text-app-muted hover:text-app-primary"
-                        }`}
-                      >
-                        {statusObj.label}
-                      </button>
-                    ))}
+                  <div className="relative">
+                    <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 scrollbar-none touch-pan-x bg-app-surface p-2.5 sm:p-3 rounded-2xl border border-app-border w-full pr-10">
+                      {[
+                        { key: "ALL", label: "ВСЕ" },
+                        { key: "PENDING", label: "ОЖИДАЕТ" },
+                        { key: "CONFIRMED", label: "ПОДТВЕРЖДЕН" },
+                        { key: "COMPLETED", label: "ВЫПОЛНЕН" },
+                        { key: "CANCELLED", label: "ОТМЕНЕН" }
+                      ].map(statusObj => (
+                        <button
+                          key={statusObj.key}
+                          onClick={() => setOrderStatusFilter(statusObj.key)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                            orderStatusFilter === statusObj.key ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" : "text-app-muted hover:text-app-primary hover:bg-app-card"
+                          }`}
+                        >
+                          {statusObj.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="absolute right-1 top-1 bottom-2 w-10 bg-gradient-to-l from-app-surface to-transparent pointer-events-none" />
                   </div>
 
                   {ordersLoading ? (
@@ -2297,7 +2496,7 @@ export default function AdminPage() {
                                 )}
                               </div>
 
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto max-w-full pb-0.5 no-scrollbar touch-pan-x shrink-0">
                                 {[
                                   { key: "PENDING", label: "Ожидает" },
                                   { key: "CONFIRMED", label: "Принят" },
@@ -2307,7 +2506,7 @@ export default function AdminPage() {
                                   <button
                                     key={st.key}
                                     onClick={() => handleUpdateOrderStatus(order.id, st.key as any)}
-                                    className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all ${
+                                    className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all shrink-0 whitespace-nowrap cursor-pointer ${
                                       order.status === st.key 
                                         ? st.key === 'COMPLETED' ? 'bg-emerald-500 text-black' :
                                           st.key === 'CONFIRMED' ? 'bg-amber-500 text-black' :
@@ -2318,7 +2517,7 @@ export default function AdminPage() {
                                     {st.label}
                                   </button>
                                 ))}
-                                <button onClick={() => handleDeleteOrder(order.id)} className="p-1 text-app-muted hover:text-rose-400">
+                                <button onClick={() => handleDeleteOrder(order.id)} className="p-1 text-app-muted hover:text-rose-400 shrink-0 cursor-pointer" title="Удалить заказ">
                                   <Trash2 size={13} />
                                 </button>
                               </div>
@@ -3285,29 +3484,32 @@ export default function AdminPage() {
             </div>
 
             {/* Navigation Tabs for Settings */}
-            <div className="flex gap-1 border-b border-app-border pb-2 overflow-x-auto scrollbar-none font-mono text-xs">
-              {[
-                { id: "general", label: "Основное", icon: Store },
-                { id: "branding", label: "Брендинг", icon: ImageIcon },
-                { id: "integrations", label: "Telegram", icon: Send },
-                { id: "delivery", label: "Доставка и Соцсети", icon: Globe }
-              ].map(t => {
-                const Icon = t.icon;
-                const isActive = settingsActiveTab === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setSettingsActiveTab(t.id as any)}
-                    className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer text-nowrap ${
-                      isActive ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" : "text-app-muted hover:text-app-primary hover:bg-app-card"
-                    }`}
-                  >
-                    <Icon size={13} className={isActive ? "text-app-accent-fg" : "text-app-muted"} />
-                    <span>{t.label}</span>
-                  </button>
-                );
-              })}
+            <div className="relative">
+              <div className="flex gap-1 border-b border-app-border pb-2 overflow-x-auto scrollbar-none font-mono text-xs touch-pan-x w-full">
+                {[
+                  { id: "general", label: "Основное", icon: Store },
+                  { id: "branding", label: "Брендинг", icon: ImageIcon },
+                  { id: "integrations", label: "Telegram", icon: Send },
+                  { id: "delivery", label: "Доставка и Соцсети", icon: Globe }
+                ].map(t => {
+                  const Icon = t.icon;
+                  const isActive = settingsActiveTab === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setSettingsActiveTab(t.id as any)}
+                      className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                        isActive ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" : "text-app-muted hover:text-app-primary hover:bg-app-card"
+                      }`}
+                    >
+                      <Icon size={13} className={isActive ? "text-app-accent-fg" : "text-app-muted"} />
+                      <span>{t.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-app-surface to-transparent pointer-events-none" />
             </div>
 
             {settingsError && (
