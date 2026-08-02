@@ -9,7 +9,7 @@ import {
   VolumeX, Crown, FileSpreadsheet, Bell, Star, Sparkles, Smartphone, 
   Image as ImageIcon, Send, Users, Radio, Gift, ChevronDown, ChevronUp, 
   Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon, Globe, ArrowLeft,
-  ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare
+  ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare, GripVertical
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -589,10 +589,17 @@ export default function AdminPage() {
   const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
   const shopDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Custom Reviews Sort Dropdown State
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (shopDropdownRef.current && !shopDropdownRef.current.contains(event.target as Node)) {
         setIsShopDropdownOpen(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setIsSortDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -2075,24 +2082,46 @@ export default function AdminPage() {
           ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         `}
       >
-        {/* Drag Resizer Handle */}
+        {/* Minimalist Interactive Drag Resizer Handle */}
         <div
           onMouseDown={startResizingSidebar}
           onTouchStart={startResizingSidebar}
           onDoubleClick={resetSidebarWidth}
-          title="Потяните для изменения ширины. Двойной клик — сбросить"
-          className={`
-            hidden md:flex absolute top-0 right-0 bottom-0 w-3 -mr-1.5 cursor-col-resize z-50 group items-center justify-center transition-colors
-            ${isResizingSidebar ? "bg-amber-500/20" : "hover:bg-amber-500/10"}
-          `}
+          title="Потяните для изменения ширины. Двойной клик — сбросить (256px)"
+          className="hidden md:flex absolute top-0 right-0 bottom-0 w-4 -mr-2 cursor-col-resize z-50 group items-center justify-center"
         >
+          {/* Active / Hover Guide Line */}
           <div
-            className={`w-1 h-12 rounded-full transition-all duration-150 ${
-              isResizingSidebar
-                ? "bg-amber-400 opacity-100 scale-y-110"
-                : "bg-app-border group-hover:bg-amber-400 group-hover:opacity-100 opacity-40"
+            className={`absolute top-0 bottom-0 w-0.5 right-2 transition-colors duration-150 ${
+              isResizingSidebar ? "bg-amber-400 opacity-100" : "bg-transparent group-hover:bg-app-accent/50 opacity-70"
             }`}
           />
+
+          {/* Sleek Centered Grip Pill */}
+          <div
+            className={`
+              relative z-10 flex items-center justify-center w-3.5 h-8 rounded-full bg-app-surface border border-app-border shadow-sm
+              transition-all duration-200 group-hover:scale-110 group-hover:border-app-accent group-hover:shadow-md
+              ${isResizingSidebar ? "border-amber-400 bg-amber-500/15 scale-110 shadow-md text-amber-400" : "opacity-50 group-hover:opacity-100 text-app-muted"}
+            `}
+          >
+            <GripVertical size={10} className="shrink-0" />
+          </div>
+
+          {/* Live Width Badge Tooltip */}
+          <div
+            className={`
+              absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-150 z-50
+              ${isResizingSidebar ? "opacity-100 scale-100" : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100"}
+            `}
+          >
+            <div className="bg-zinc-900 text-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md shadow-xl flex items-center gap-1.5 whitespace-nowrap border border-app-border/40">
+              <span>{sidebarWidth}px</span>
+              {sidebarWidth === 256 && (
+                <span className="text-[9px] opacity-60 font-sans">★</span>
+              )}
+            </div>
+          </div>
         </div>
         <div className="space-y-6">
           {/* Logo Brand Header */}
@@ -3948,18 +3977,68 @@ export default function AdminPage() {
                         )}
                       </div>
 
-                      {/* Sort */}
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={reviewSortOrder}
-                          onChange={(e) => setReviewSortOrder(e.target.value as any)}
-                          className="bg-app-card border border-app-border text-app-primary text-xs font-mono rounded-xl px-2.5 py-1.5 focus:outline-none cursor-pointer"
+                      {/* Custom Sort Dropdown */}
+                      <div className="relative shrink-0" ref={sortDropdownRef}>
+                        <button
+                          type="button"
+                          onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
+                          className="bg-app-card border border-app-border text-app-primary text-xs font-mono rounded-xl px-3 py-1.5 focus:outline-none cursor-pointer flex items-center gap-2 hover:border-app-accent/50 transition-colors shadow-sm"
                         >
-                          <option value="NEWEST">Сначала новые</option>
-                          <option value="OLDEST">Сначала старые</option>
-                          <option value="RATING_DESC">Высокий рейтинг</option>
-                          <option value="RATING_ASC">Низкий рейтинг</option>
-                        </select>
+                          <SlidersHorizontal size={13} className="text-app-muted" />
+                          <span>
+                            {
+                              {
+                                NEWEST: "Сначала новые",
+                                OLDEST: "Сначала старые",
+                                RATING_DESC: "Высокий рейтинг",
+                                RATING_ASC: "Низкий рейтинг"
+                              }[reviewSortOrder]
+                            }
+                          </span>
+                          <ChevronDown
+                            size={13}
+                            className={`text-app-muted transition-transform duration-200 ${isSortDropdownOpen ? "rotate-180" : ""}`}
+                          />
+                        </button>
+
+                        <AnimatePresence>
+                          {isSortDropdownOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                              transition={{ duration: 0.15 }}
+                              className="absolute right-0 top-full mt-1.5 z-30 w-44 bg-app-surface border border-app-border rounded-xl shadow-xl p-1 font-mono text-xs space-y-0.5"
+                            >
+                              {[
+                                { id: "NEWEST", label: "Сначала новые" },
+                                { id: "OLDEST", label: "Сначала старые" },
+                                { id: "RATING_DESC", label: "Высокий рейтинг" },
+                                { id: "RATING_ASC", label: "Низкий рейтинг" }
+                              ].map((opt) => {
+                                const isSelected = reviewSortOrder === opt.id;
+                                return (
+                                  <button
+                                    key={opt.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setReviewSortOrder(opt.id as any);
+                                      setIsSortDropdownOpen(false);
+                                    }}
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                                      isSelected
+                                        ? "bg-app-accent text-app-accent-fg font-semibold"
+                                        : "text-app-primary hover:bg-app-card"
+                                    }`}
+                                  >
+                                    <span>{opt.label}</span>
+                                    {isSelected && <Check size={13} />}
+                                  </button>
+                                );
+                              })}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
 
