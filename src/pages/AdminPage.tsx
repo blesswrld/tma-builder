@@ -516,6 +516,18 @@ export default function AdminPage() {
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Lock body scrolling when mobile sidebar drawer is open
+  useEffect(() => {
+    if (isSidebarOpen) {
+      document.body.classList.add("overflow-hidden");
+    } else {
+      document.body.classList.remove("overflow-hidden");
+    }
+    return () => {
+      document.body.classList.remove("overflow-hidden");
+    };
+  }, [isSidebarOpen]);
+
   // Sidebar Drag & Resize Width State (Persistent)
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     try {
@@ -1026,6 +1038,7 @@ export default function AdminPage() {
   };
 
   const handleOpenCreateShop = () => {
+    setIsSidebarOpen(false);
     setIsSlugCustomized(false);
     setNewShopData({ name: "", slug: "", description: "" });
     setCreateShopError(null);
@@ -1635,6 +1648,7 @@ export default function AdminPage() {
   }, [selectedShop?.id]);
 
   const handleOpenProfile = () => {
+    setIsSidebarOpen(false);
     if (user) {
       setProfileData({
         name: user.name || "",
@@ -1768,6 +1782,7 @@ export default function AdminPage() {
   };
 
   const handleOpenSettings = (shop: Shop) => {
+    setIsSidebarOpen(false);
     let parsedSocials = { telegram: "", instagram: "", whatsapp: "", vk: "", website: "" };
     if (shop.socialLinks) {
       try {
@@ -2077,9 +2092,9 @@ export default function AdminPage() {
       <aside
         style={{ width: `${sidebarWidth}px` }}
         className={`
-          fixed md:sticky top-0 left-0 z-50 h-screen bg-app-surface border-r border-app-border flex flex-col justify-between p-4 relative shrink-0
+          fixed md:sticky top-0 left-0 z-50 h-[100dvh] max-h-[100dvh] bg-app-surface border-r border-app-border max-w-[85vw] sm:max-w-[320px] md:max-w-none shrink-0 overflow-y-auto custom-scrollbar
           ${isResizingSidebar ? "select-none" : "transition-[transform] duration-200"}
-          ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"}
         `}
       >
         {/* Minimalist Interactive Drag Resizer Handle */}
@@ -2123,19 +2138,21 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
-        <div className="space-y-6">
-          {/* Logo Brand Header */}
-          <div className="flex items-center justify-between px-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-app-accent text-app-accent-fg flex items-center justify-center font-mono font-bold text-xs shadow-md shadow-white/10">
-                ▲
+
+        <div className="p-4 min-h-full flex flex-col justify-between space-y-6 pb-12 md:pb-4">
+          <div className="space-y-6">
+            {/* Logo Brand Header */}
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-app-accent text-app-accent-fg flex items-center justify-center font-mono font-bold text-xs shadow-md shadow-white/10">
+                  ▲
+                </div>
+                <span className="font-bold text-sm tracking-tight text-app-primary font-mono">TMA BUILDER</span>
               </div>
-              <span className="font-bold text-sm tracking-tight text-app-primary font-mono">TMA BUILDER</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-app-card border border-app-border text-[9px] font-mono text-app-muted uppercase">
+                v2.4
+              </span>
             </div>
-            <span className="px-1.5 py-0.5 rounded-md bg-app-card border border-app-border text-[9px] font-mono text-app-muted uppercase">
-              v2.4
-            </span>
-          </div>
 
           {/* Workspace / Custom Shop Selector Dropdown */}
           <div className="space-y-2">
@@ -2349,14 +2366,20 @@ export default function AdminPage() {
               {isAudioEnabled ? <Volume2 size={14} className="text-emerald-400" /> : <VolumeX size={14} />}
             </button>
             <button
-              onClick={() => setIsQrModalOpen(true)}
+              onClick={() => {
+                setIsQrModalOpen(true);
+                setIsSidebarOpen(false);
+              }}
               className="p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-muted hover:text-app-primary transition-colors cursor-pointer"
               title="Генератор QR-кодов"
             >
               <QrCode size={14} />
             </button>
             <button
-              onClick={() => setIsPlanModalOpen(true)}
+              onClick={() => {
+                setIsPlanModalOpen(true);
+                setIsSidebarOpen(false);
+              }}
               className="px-2.5 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl text-[10px] font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
             >
               <Crown size={12} className="text-amber-400" />
@@ -2399,13 +2422,23 @@ export default function AdminPage() {
                   >
                     <User size={14} className="text-app-primary" />
                   </button>
-                  <button onClick={handleLogoutRequest} className="p-1.5 text-app-muted hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer" title="Выйти из аккаунта">
+                  <button 
+                    onClick={() => {
+                      handleLogoutRequest();
+                      setIsSidebarOpen(false);
+                    }} 
+                    className="p-1.5 text-app-muted hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer" 
+                    title="Выйти из аккаунта"
+                  >
                     <LogOut size={14} />
                   </button>
                 </>
               ) : (
                 <button 
-                  onClick={() => setIsAuthModalOpen(true)} 
+                  onClick={() => {
+                    setIsAuthModalOpen(true);
+                    setIsSidebarOpen(false);
+                  }} 
                   className="px-2.5 py-1.5 bg-app-accent text-app-accent-fg font-mono font-bold text-[10px] rounded-lg hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1 shrink-0" 
                   title="Войти в аккаунт"
                 >
@@ -2416,12 +2449,13 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
+      </div>
       </aside>
 
       {/* Main Content Workspace */}
       <main className="flex-1 min-w-0 flex flex-col min-h-screen">
         {/* Workspace Top Bar Header */}
-        <header className="min-h-[4rem] border-b border-app-border px-4 sm:px-6 py-2.5 sm:py-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-app-surface/80 backdrop-blur-md sticky top-0 z-30 shadow-sm">
+        <header className="min-h-[3.5rem] sm:min-h-[4rem] border-b border-app-border px-4 sm:px-6 py-2.5 sm:py-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-app-surface/80 backdrop-blur-md sticky top-14 md:top-0 z-30 shadow-sm">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-app-muted font-mono">
@@ -2532,7 +2566,7 @@ export default function AdminPage() {
           {/* PAGE VIEW: PROFILE */}
           {activeTab === "profile" && !loading && (
             <div className="max-w-3xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-app-border pb-5">
+              <div className="border-b border-app-border pb-5">
                 <div className="flex items-center gap-3.5">
                   <div className="w-12 h-12 rounded-2xl bg-app-card border border-app-border flex items-center justify-center text-app-primary shadow-sm shrink-0">
                     <User size={22} />
@@ -2546,13 +2580,6 @@ export default function AdminPage() {
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={closeSubView}
-                  className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono font-semibold text-app-secondary transition-colors cursor-pointer self-start sm:self-auto flex items-center gap-2"
-                >
-                  <ArrowLeft size={14} /> Вернуться к панели
-                </button>
               </div>
 
               {profileError && (
@@ -2804,18 +2831,9 @@ export default function AdminPage() {
           {/* PAGE VIEW: CREATE SHOP */}
           {activeTab === "createshop" && !loading && (
             <div className="max-w-2xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm">
-              <div className="flex items-center justify-between border-b border-app-border pb-5">
-                <div>
-                  <h3 className="text-base font-bold font-mono text-app-primary">Создать заведение</h3>
-                  <p className="text-xs text-app-muted mt-0.5 font-sans">Заполните название и системный идентификатор (slug)</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeSubView}
-                  className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono font-semibold text-app-secondary transition-colors cursor-pointer flex items-center gap-2"
-                >
-                  <ArrowLeft size={14} /> Отмена
-                </button>
+              <div className="border-b border-app-border pb-5">
+                <h3 className="text-base font-bold font-mono text-app-primary">Создать заведение</h3>
+                <p className="text-xs text-app-muted mt-0.5 font-sans">Заполните название и системный идентификатор (slug)</p>
               </div>
 
               {createShopError && <p className="text-xs text-rose-400 font-mono p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">{createShopError}</p>}
@@ -2899,21 +2917,12 @@ export default function AdminPage() {
           {/* PAGE VIEW: SETTINGS */}
           {activeTab === "settings" && !loading && selectedShop && (
             <div className="max-w-4xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-app-border pb-5">
-                <div>
-                  <h3 className="text-base font-bold font-mono flex items-center gap-2 text-app-primary">
-                    <Settings size={18} />
-                    Настройки заведения: {selectedShop.name}
-                  </h3>
-                  <p className="text-xs text-app-muted mt-0.5 font-sans">Управление параметрами, брендингом и Telegram интеграциями</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeSubView}
-                  className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono font-semibold text-app-secondary transition-colors cursor-pointer self-start sm:self-auto flex items-center gap-2"
-                >
-                  <ArrowLeft size={14} /> К меню
-                </button>
+              <div className="border-b border-app-border pb-5">
+                <h3 className="text-base font-bold font-mono flex items-center gap-2 text-app-primary">
+                  <Settings size={18} />
+                  Настройки заведения: {selectedShop.name}
+                </h3>
+                <p className="text-xs text-app-muted mt-0.5 font-sans">Управление параметрами, брендингом и Telegram интеграциями</p>
               </div>
 
               {settingsError && (
@@ -3209,18 +3218,9 @@ export default function AdminPage() {
           {/* PAGE VIEW: ADD SERVICE */}
           {activeTab === "addservice" && !loading && selectedShop && (
             <div className="max-w-3xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm">
-              <div className="flex items-center justify-between border-b border-app-border pb-5">
-                <div>
-                  <h3 className="text-base font-bold font-mono text-app-primary">Новая услуга / позиция меню</h3>
-                  <p className="text-xs text-app-muted mt-0.5 font-sans">Добавление позиции в каталог {selectedShop.name}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeSubView}
-                  className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono font-semibold text-app-secondary transition-colors cursor-pointer flex items-center gap-2"
-                >
-                  <ArrowLeft size={14} /> К каталогу
-                </button>
+              <div className="border-b border-app-border pb-5">
+                <h3 className="text-base font-bold font-mono text-app-primary">Новая услуга / позиция меню</h3>
+                <p className="text-xs text-app-muted mt-0.5 font-sans">Добавление позиции в каталог {selectedShop.name}</p>
               </div>
 
               {serviceError && <p className="text-xs text-rose-400 font-mono p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">{serviceError}</p>}
@@ -3369,18 +3369,9 @@ export default function AdminPage() {
           {/* PAGE VIEW: EDIT SERVICE */}
           {activeTab === "editservice" && !loading && selectedShop && editingService && (
             <div className="max-w-3xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm">
-              <div className="flex items-center justify-between border-b border-app-border pb-5">
-                <div>
-                  <h3 className="text-base font-bold font-mono text-app-primary">Редактирование услуги</h3>
-                  <p className="text-xs text-app-muted mt-0.5 font-sans">Изменение параметров позиции {editingService?.title}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeSubView}
-                  className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono font-semibold text-app-secondary transition-colors cursor-pointer flex items-center gap-2"
-                >
-                  <ArrowLeft size={14} /> К каталогу
-                </button>
+              <div className="border-b border-app-border pb-5">
+                <h3 className="text-base font-bold font-mono text-app-primary">Редактирование услуги</h3>
+                <p className="text-xs text-app-muted mt-0.5 font-sans">Изменение параметров позиции {editingService?.title}</p>
               </div>
 
               {editServiceError && <p className="text-xs text-rose-400 font-mono p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">{editServiceError}</p>}

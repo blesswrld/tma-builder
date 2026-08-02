@@ -303,10 +303,20 @@ html.light .text-zinc-500:not(.keep-white):not(.bg-black):not(.bg-black *):not(.
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
-    var(--card) 25%,
+    var(--card) 20%,
     var(--hover) 50%,
-    var(--card) 75%
+    var(--card) 80%
   );
   background-size: 200% 100%;
-  animation: shimmerWave 1.6s infinite ease-in-out;
+  animation: shimmerWave 1.8s infinite cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html.light .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    #e4e4e7 20%,
+    #f4f4f6 50%,
+    #e4e4e7 80%
+  );
+  background-size: 200% 100%;
 }
