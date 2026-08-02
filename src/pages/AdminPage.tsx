@@ -2846,7 +2846,7 @@ export default function AdminPage() {
                   {authMode === "reset" && "Восстановление пароля"}
                 </h3>
               </div>
-              <button onClick={() => { setIsAuthModalOpen(false); setAuthError(null); setAuthSuccessMsg(null); }} className="text-app-muted hover:text-white p-1 rounded-lg">
+              <button onClick={() => { setIsAuthModalOpen(false); setAuthError(null); setAuthSuccessMsg(null); }} className="text-app-muted hover:text-app-primary p-1 rounded-lg transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -2856,8 +2856,8 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => { setAuthMode("otp"); setOtpStep("email"); setAuthError(null); setAuthSuccessMsg(null); }}
-                className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 ${
-                  authMode === "otp" ? "bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30" : "text-app-muted hover:text-white"
+                className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                  authMode === "otp" ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30" : "text-app-muted hover:text-app-primary"
                 }`}
               >
                 <Mail size={12} />
@@ -2866,8 +2866,8 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => { setAuthMode("login"); setAuthError(null); setAuthSuccessMsg(null); }}
-                className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 ${
-                  authMode === "login" ? "bg-app-primary/20 text-app-accent-fg font-bold border border-app-border" : "text-app-muted hover:text-white"
+                className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 border cursor-pointer ${
+                  authMode === "login" ? "bg-app-accent text-app-accent-fg border-app-border font-bold shadow-sm" : "border-transparent text-app-muted hover:text-app-primary"
                 }`}
               >
                 <Lock size={12} />
@@ -2876,8 +2876,8 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => { setAuthMode("register"); setAuthError(null); setAuthSuccessMsg(null); }}
-                className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 ${
-                  authMode === "register" ? "bg-app-primary/20 text-app-accent-fg font-bold border border-app-border" : "text-app-muted hover:text-white"
+                className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 border cursor-pointer ${
+                  authMode === "register" ? "bg-app-accent text-app-accent-fg border-app-border font-bold shadow-sm" : "border-transparent text-app-muted hover:text-app-primary"
                 }`}
               >
                 <User size={12} />
@@ -2904,13 +2904,13 @@ export default function AdminPage() {
               <form onSubmit={handleVerifyOtpCode} className="space-y-3 font-sans">
                 <p className="text-xs text-app-muted">
                   {authMode === "register" && (
-                    <>Код подтверждения отправлен на <strong className="text-white">{authEmail}</strong> для завершения регистрации.</>
+                    <>Код подтверждения отправлен на <strong className="text-app-primary">{authEmail}</strong> для завершения регистрации.</>
                   )}
                   {authMode === "reset" && (
-                    <>Код подтверждения отправлен на <strong className="text-white">{authEmail}</strong> для сброса пароля.</>
+                    <>Код подтверждения отправлен на <strong className="text-app-primary">{authEmail}</strong> для сброса пароля.</>
                   )}
                   {authMode === "otp" && (
-                    <>Код отправлен на <strong className="text-white">{authEmail}</strong>.</>
+                    <>Код отправлен на <strong className="text-app-primary">{authEmail}</strong>.</>
                   )}
                 </p>
 
@@ -2978,7 +2978,7 @@ export default function AdminPage() {
                     type="button"
                     disabled={resendTimer > 0 || isSubmittingAuth}
                     onClick={() => handleSendOtpCode(authMode === "register" ? "REGISTER" : authMode === "reset" ? "RESET_PASSWORD" : "LOGIN")}
-                    className="text-app-muted hover:text-white font-mono text-[11px] flex items-center gap-1 disabled:opacity-50"
+                    className="text-app-muted hover:text-app-primary font-mono text-[11px] flex items-center gap-1 disabled:opacity-50 cursor-pointer"
                   >
                     <RefreshCw size={12} className={isSubmittingAuth ? "animate-spin" : ""} />
                     {resendTimer > 0 ? `Повтор через ${resendTimer}с` : "Отправить код повторно"}
@@ -2987,7 +2987,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => { setOtpStep("email"); setAuthOtpCode(""); }}
-                    className="text-app-muted hover:text-white font-mono text-[11px] underline"
+                    className="text-app-muted hover:text-app-primary font-mono text-[11px] underline cursor-pointer"
                   >
                     Изменить данные
                   </button>
@@ -3088,7 +3088,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => { setAuthMode("reset"); setAuthError(null); setAuthSuccessMsg(null); }}
-                  className="hover:text-white underline"
+                  className="hover:text-app-primary underline cursor-pointer"
                 >
                   Забыли пароль?
                 </button>
@@ -3097,7 +3097,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => { setAuthMode("login"); setAuthError(null); setAuthSuccessMsg(null); }}
-                  className="hover:text-white underline"
+                  className="hover:text-app-primary underline cursor-pointer"
                 >
                   Вернуться ко входу
                 </button>
