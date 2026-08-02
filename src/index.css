@@ -209,18 +209,18 @@ html.light .bg-app-modal {
   color: var(--text-primary);
 }
 
-html.light .text-white:not(.keep-white):not(.bg-black *):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-rose-600 *):not(.bg-emerald-500 *):not(.bg-emerald-600 *):not(.bg-indigo-600 *) {
+html.light .text-white:not(.keep-white):not(.bg-black):not(.bg-black *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500):not(.bg-rose-500 *):not(.bg-rose-600):not(.bg-rose-600 *):not(.bg-emerald-500):not(.bg-emerald-500 *):not(.bg-emerald-600):not(.bg-emerald-600 *):not(.bg-indigo-600):not(.bg-indigo-600 *) {
   color: var(--text-primary) !important;
 }
 
-html.light .text-zinc-100:not(.keep-white),
-html.light .text-zinc-200:not(.keep-white),
-html.light .text-zinc-300:not(.keep-white) {
+html.light .text-zinc-100:not(.keep-white):not(.bg-black):not(.bg-black *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *),
+html.light .text-zinc-200:not(.keep-white):not(.bg-black):not(.bg-black *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *),
+html.light .text-zinc-300:not(.keep-white):not(.bg-black):not(.bg-black *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *) {
   color: var(--text-secondary) !important;
 }
 
-html.light .text-zinc-400:not(.keep-white),
-html.light .text-zinc-500:not(.keep-white) {
+html.light .text-zinc-400:not(.keep-white):not(.bg-black):not(.bg-black *):not(.bg-app-accent):not(.bg-app-accent *),
+html.light .text-zinc-500:not(.keep-white):not(.bg-black):not(.bg-black *):not(.bg-app-accent):not(.bg-app-accent *) {
   color: var(--text-muted) !important;
 }
 

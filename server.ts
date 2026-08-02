@@ -2010,6 +2010,34 @@ app.post("/api/shops", async (req, res) => {
     }
   });
 
+  // API Route: Удалить отзыв (для администратора)
+  app.delete("/api/reviews/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const review = await db.review.findUnique({ where: { id } });
+      if (!review) return res.status(404).json({ error: "Отзыв не найден." });
+
+      const hasPermission = await canManageShop(db, review.shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав удалять отзывы этого заведения." });
+      }
+
+      await db.review.delete({ where: { id } });
+
+      broadcastEvent({ type: "REVIEW_DELETED", shopId: review.shopId, payload: { id } });
+      res.json({ success: true, message: "Отзыв успешно удален." });
+    } catch (error) {
+      console.error("Ошибка при удалении отзыва:", error);
+      res.status(500).json({ error: "Не удалось удалить отзыв." });
+    }
+  });
+
   // API Route: Получить банеры заведения
   app.get("/api/shops/:shopId/banners", async (req, res) => {
     try {
