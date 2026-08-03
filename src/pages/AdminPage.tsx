@@ -9,7 +9,8 @@ import {
   VolumeX, Crown, FileSpreadsheet, Bell, Star, Sparkles, Smartphone, 
   Image as ImageIcon, Send, Users, Radio, Gift, ChevronDown, ChevronUp, 
   Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon, Globe, ArrowLeft,
-  ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare, GripVertical, Keyboard
+  ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare, GripVertical, Keyboard,
+  UserPlus, CheckCircle, Key, Loader2
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -94,7 +95,7 @@ interface Shop {
 }
 
 export default function AdminPage() {
-  const { user, token, login, register, logout, sendCode, verifyCode, resetPassword, updateProfile } = useAuth();
+  const { user, token, isLoading: authLoading, login, register, logout, sendCode, verifyCode, resetPassword, updateProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   // Auth modal
@@ -213,39 +214,39 @@ export default function AdminPage() {
 
   useRealtimeEvent("SERVICE_CREATED", (event) => {
     if (event.payload && event.shopId === selectedShop?.id) {
-      setShops(prev => prev.map(s => s.id === selectedShop?.id ? {
+      setShops(prev => (prev || []).map(s => s.id === selectedShop?.id ? {
         ...s,
-        services: [event.payload, ...s.services.filter(srv => srv.id !== event.payload.id)]
+        services: [event.payload, ...(s.services || []).filter(srv => srv.id !== event.payload.id)]
       } : s));
       setSelectedShop(prev => prev ? {
         ...prev,
-        services: [event.payload, ...prev.services.filter(srv => srv.id !== event.payload.id)]
+        services: [event.payload, ...(prev.services || []).filter(srv => srv.id !== event.payload.id)]
       } : prev);
     }
   });
 
   useRealtimeEvent("SERVICE_UPDATED", (event) => {
     if (event.payload && event.shopId === selectedShop?.id) {
-      setShops(prev => prev.map(s => s.id === selectedShop?.id ? {
+      setShops(prev => (prev || []).map(s => s.id === selectedShop?.id ? {
         ...s,
-        services: s.services.map(srv => srv.id === event.payload.id ? { ...srv, ...event.payload } : srv)
+        services: (s.services || []).map(srv => srv.id === event.payload.id ? { ...srv, ...event.payload } : srv)
       } : s));
       setSelectedShop(prev => prev ? {
         ...prev,
-        services: prev.services.map(srv => srv.id === event.payload.id ? { ...srv, ...event.payload } : srv)
+        services: (prev.services || []).map(srv => srv.id === event.payload.id ? { ...srv, ...event.payload } : srv)
       } : prev);
     }
   });
 
   useRealtimeEvent("SERVICE_DELETED", (event) => {
     if (event.payload?.id && event.shopId === selectedShop?.id) {
-      setShops(prev => prev.map(s => s.id === selectedShop?.id ? {
+      setShops(prev => (prev || []).map(s => s.id === selectedShop?.id ? {
         ...s,
-        services: s.services.filter(srv => srv.id !== event.payload.id)
+        services: (s.services || []).filter(srv => srv.id !== event.payload.id)
       } : s));
       setSelectedShop(prev => prev ? {
         ...prev,
-        services: prev.services.filter(srv => srv.id !== event.payload.id)
+        services: (prev.services || []).filter(srv => srv.id !== event.payload.id)
       } : prev);
     }
   });
@@ -323,8 +324,53 @@ export default function AdminPage() {
     }
   });
 
+  useRealtimeEvent("SHOP_CREATED", (event) => {
+    if (event.payload?.id) {
+      fetchShops();
+    }
+  });
+
+  useRealtimeEvent("SHOP_DELETED", (event) => {
+    if (event.payload?.id) {
+      setShops(prev => prev.filter(s => s.id !== event.payload.id));
+      if (selectedShop?.id === event.payload.id) {
+        setSelectedShop(null);
+      }
+    }
+  });
+
+  useRealtimeEvent("TEAM_MEMBER_ADDED", (event) => {
+    if (selectedShop?.id && event.shopId === selectedShop.id) {
+      fetchTeam(selectedShop.id);
+    }
+  });
+
+  useRealtimeEvent("TEAM_MEMBER_REMOVED", (event) => {
+    if (selectedShop?.id && event.shopId === selectedShop.id) {
+      fetchTeam(selectedShop.id);
+    }
+  });
+
+  useRealtimeEvent("INVITE_CREATED", (event) => {
+    if (selectedShop?.id && event.shopId === selectedShop.id) {
+      fetchTeam(selectedShop.id);
+    }
+  });
+
+  useRealtimeEvent("INVITE_REVOKED", (event) => {
+    if (selectedShop?.id && event.shopId === selectedShop.id) {
+      fetchTeam(selectedShop.id);
+    }
+  });
+
+  useRealtimeEvent("CUSTOMER_DELETED", (event) => {
+    if (event.payload?.id && event.shopId === selectedShop?.id) {
+      setCustomers(prev => prev.filter(c => c.id !== event.payload.id));
+    }
+  });
+
   // Admin tabs
-  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "settings" | "profile" | "createshop" | "addservice" | "editservice">("services");
+  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">("services");
 
   const closeSubView = () => {
     setIsSettingsOpen(false);
@@ -416,6 +462,19 @@ export default function AdminPage() {
     newPassword: "",
     emailCode: ""
   });
+
+  useEffect(() => {
+    if (user) {
+      setProfileData(prev => ({
+        ...prev,
+        name: user.name || "",
+        phone: user.phone || "",
+        avatarUrl: user.avatarUrl || "",
+        telegramHandle: user.telegramHandle || "",
+        companyName: user.companyName || "",
+      }));
+    }
+  }, [user]);
   const [passwordChangeMethod, setPasswordChangeMethod] = useState<"password" | "code">("password");
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
@@ -471,7 +530,7 @@ export default function AdminPage() {
 
   // Settings
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsActiveTab, setSettingsActiveTab] = useState<"general" | "branding" | "currency" | "delivery" | "social" | "telegram">("general");
+  const [settingsActiveTab, setSettingsActiveTab] = useState<"general" | "branding" | "currency" | "delivery" | "social" | "telegram" | "team">("general");
   const [settingsData, setSettingsData] = useState({
     name: "",
     slug: "",
@@ -495,6 +554,90 @@ export default function AdminPage() {
   const [settingsFieldErrors, setSettingsFieldErrors] = useState<{ botToken?: string; adminChatId?: string; name?: string }>({});
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
+  // Telegram Bot integration states
+  const [botTestResult, setBotTestResult] = useState<{ botInfo?: { id: number; first_name: string; username: string }; error?: string } | null>(null);
+  const [isTestingBot, setIsTestingBot] = useState(false);
+  const [isSettingWebhook, setIsSettingWebhook] = useState(false);
+  const [webhookStatus, setWebhookStatus] = useState<string | null>(null);
+  const [isSendingTestNotification, setIsSendingTestNotification] = useState(false);
+
+  const handleTestBotToken = async () => {
+    if (!settingsData.botToken || !selectedShop) return;
+    setIsTestingBot(true);
+    setBotTestResult(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/shops/${selectedShop.id}/telegram/test-bot`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ botToken: settingsData.botToken })
+      });
+      const data = await res.json().catch(() => ({ error: `Ошибка ответа сервера (${res.status})` }));
+      if (!res.ok) throw new Error(data.error || "Не удалось проверить токен бота");
+      setBotTestResult({ botInfo: data.bot });
+      showToast(`Бот @${data.bot.username} успешно проверен!`, "success");
+    } catch (err: any) {
+      setBotTestResult({ error: err.message || "Ошибка проверки токена бота" });
+      showToast(err.message || "Ошибка проверки токена бота", "error");
+    } finally {
+      setIsTestingBot(false);
+    }
+  };
+
+  const handleSetupWebhook = async () => {
+    if (!settingsData.botToken || !selectedShop) return;
+    setIsSettingWebhook(true);
+    setWebhookStatus(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/shops/${selectedShop.id}/telegram/setup-webhook`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          botToken: settingsData.botToken,
+          baseUrl: window.location.origin
+        })
+      });
+      const data = await res.json().catch(() => ({ error: `Ошибка ответа сервера (${res.status})` }));
+      if (!res.ok) throw new Error(data.error || "Не удалось настроить Webhook");
+      setWebhookStatus(`Webhook успешно активен: ${data.webhookUrl}`);
+      showToast("Telegram Webhook успешно настроен!", "success");
+    } catch (err: any) {
+      showToast(err.message || "Ошибка установки Webhook", "error");
+    } finally {
+      setIsSettingWebhook(false);
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    if (!settingsData.botToken || !settingsData.adminChatId || !selectedShop) return;
+    setIsSendingTestNotification(true);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/shops/${selectedShop.id}/telegram/test-notification`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          botToken: settingsData.botToken,
+          adminChatId: settingsData.adminChatId
+        })
+      });
+      const data = await res.json().catch(() => ({ error: `Ошибка ответа сервера (${res.status})` }));
+      if (!res.ok) throw new Error(data.error || "Не удалось отправить сообщение");
+      showToast("Тестовое уведомление отправлено в Telegram!", "success");
+    } catch (err: any) {
+      showToast(err.message || "Ошибка отправки тестового уведомления", "error");
+    } finally {
+      setIsSendingTestNotification(false);
+    }
+  };
+
   // Delete Shop
   const [shopToDelete, setShopToDelete] = useState<Shop | null>(null);
   const [isDeletingShop, setIsDeletingShop] = useState(false);
@@ -516,6 +659,20 @@ export default function AdminPage() {
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHotkeysModalOpen, setIsHotkeysModalOpen] = useState(false);
+
+  // Team & Invitation Management
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [teamInvites, setTeamInvites] = useState<any[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteRole, setInviteRole] = useState<"STAFF" | "MANAGER">("STAFF");
+  const [inviteMaxUses, setInviteMaxUses] = useState(10);
+  const [createdInviteUrl, setCreatedInviteUrl] = useState<string | null>(null);
+
+  // URL Invitation Code Auto-Acceptance
+  const [urlInviteCode, setUrlInviteCode] = useState<string | null>(null);
+  const [inviteInfo, setInviteInfo] = useState<{ code: string; role: string; shop: { id: string; name: string; description?: string; logoUrl?: string } } | null>(null);
+  const [isAcceptingInvite, setIsAcceptingInvite] = useState(false);
 
   // Lock body scrolling when mobile sidebar drawer is open
   useEffect(() => {
@@ -1087,6 +1244,143 @@ export default function AdminPage() {
     }
   };
 
+  // URL Invitation Check & Auto-accept
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("invite");
+    if (code) {
+      const cleanCode = code.toUpperCase().trim();
+      setUrlInviteCode(cleanCode);
+      fetch(`/api/invites/${cleanCode}/info`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.shop) {
+            setInviteInfo(data);
+          }
+        })
+        .catch(err => console.error("Error checking invite:", err));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user && token && urlInviteCode) {
+      const accept = async () => {
+        setIsAcceptingInvite(true);
+        try {
+          const res = await fetch(`/api/invites/${urlInviteCode}/accept`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showToast(data.message || "Вы успешно присоединились к заведению!", "success");
+            setUrlInviteCode(null);
+            setInviteInfo(null);
+            window.history.replaceState({}, "", "/admin");
+            await fetchShops();
+            if (data.shop) {
+              setSelectedShop(data.shop);
+            }
+          } else {
+            showToast(data.error || "Ошибка активации приглашения", "error");
+          }
+        } catch (err: any) {
+          showToast(err.message || "Ошибка соединения", "error");
+        } finally {
+          setIsAcceptingInvite(false);
+        }
+      };
+      accept();
+    }
+  }, [user, token, urlInviteCode]);
+
+  const fetchTeam = async (shopId: string) => {
+    if (!token) return;
+    setTeamLoading(true);
+    try {
+      const res = await fetch(`/api/shops/${shopId}/members`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTeamMembers(data.members || []);
+        setTeamInvites(data.invites || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch team:", err);
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedShop?.id) {
+      fetchTeam(selectedShop.id);
+    }
+  }, [selectedShop?.id, token]);
+
+  const handleCreateInvite = async () => {
+    if (!selectedShop || !token) return;
+    try {
+      const res = await fetch(`/api/shops/${selectedShop.id}/invites`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ role: inviteRole, maxUses: inviteMaxUses })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCreatedInviteUrl(data.inviteUrl);
+        showToast("Ссылка-приглашение создана!", "success");
+        fetchTeam(selectedShop.id);
+      } else {
+        showToast(data.error || "Не удалось создать приглашение", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Ошибка соединения", "error");
+    }
+  };
+
+  const handleRevokeInvite = async (code: string) => {
+    if (!token || !selectedShop) return;
+    try {
+      const res = await fetch(`/api/invites/${code}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast("Приглашение отозвано", "success");
+        fetchTeam(selectedShop.id);
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Ошибка отзыва приглашения", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Ошибка соединения", "error");
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!token || !selectedShop) return;
+    try {
+      const res = await fetch(`/api/shops/${selectedShop.id}/members/${userId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast("Сотрудник удалён из команды", "success");
+        fetchTeam(selectedShop.id);
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Ошибка удаления сотрудника", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Ошибка соединения", "error");
+    }
+  };
+
   const fetchShops = async () => {
     try {
       const headers: Record<string, string> = {};
@@ -1108,22 +1402,12 @@ export default function AdminPage() {
       const data: Shop[] = await res.json();
       setShops(data);
 
-      let currentDeviceIds = myDeviceShopIds;
-      if (localStorage.getItem("my_admin_shops") === null && data.length > 0) {
-        currentDeviceIds = data.map((s: Shop) => s.id);
-        localStorage.setItem("my_admin_shops", JSON.stringify(currentDeviceIds));
-        setMyDeviceShopIds(currentDeviceIds);
-      }
-
-      const myShops = data.filter((s: Shop) => currentDeviceIds.includes(s.id));
-      const activeList = shopFilterMode === "my" && myShops.length > 0 ? myShops : data;
-
       setSelectedShop(prev => {
         if (prev) {
           const updated = data.find((s: Shop) => s.id === prev.id);
           if (updated) return updated;
         }
-        return activeList.length > 0 ? activeList[0] : null;
+        return data.length > 0 ? data[0] : null;
       });
     } catch (err: any) {
       if (err instanceof TypeError || (err?.message && err.message.includes("Failed to fetch"))) {
@@ -1402,7 +1686,7 @@ export default function AdminPage() {
           description: newServiceData.description.trim() || undefined,
           category: newServiceData.category.trim() || undefined,
           imageUrl: newServiceData.imageUrl.trim() || undefined,
-          gallery: newServiceData.gallery.length > 0 ? JSON.stringify(newServiceData.gallery) : undefined,
+          gallery: (newServiceData.gallery || []).length > 0 ? JSON.stringify(newServiceData.gallery) : undefined,
           badge: newServiceData.badge.trim() || undefined,
           tags: newServiceData.tags.trim() || undefined,
           prepTime: newServiceData.prepTime.trim() || undefined,
@@ -1413,6 +1697,15 @@ export default function AdminPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Не удалось добавить позицию");
+
+      setShops(prev => (prev || []).map(s => s.id === selectedShop.id ? {
+        ...s,
+        services: [data, ...(s.services || []).filter(srv => srv.id !== data.id)]
+      } : s));
+      setSelectedShop(prev => prev ? {
+        ...prev,
+        services: [data, ...(prev.services || []).filter(srv => srv.id !== data.id)]
+      } : prev);
 
       setNewServiceData({
         title: "",
@@ -1502,7 +1795,7 @@ export default function AdminPage() {
           description: editServiceData.description.trim() || undefined,
           category: editServiceData.category.trim() || undefined,
           imageUrl: editServiceData.imageUrl.trim() || undefined,
-          gallery: editServiceData.gallery.length > 0 ? JSON.stringify(editServiceData.gallery) : undefined,
+          gallery: (editServiceData.gallery || []).length > 0 ? JSON.stringify(editServiceData.gallery) : undefined,
           badge: editServiceData.badge.trim() || undefined,
           tags: editServiceData.tags.trim() || undefined,
           prepTime: editServiceData.prepTime.trim() || undefined,
@@ -1513,6 +1806,15 @@ export default function AdminPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Не удалось сохранить изменения");
+
+      setShops(prev => (prev || []).map(s => s.id === selectedShop.id ? {
+        ...s,
+        services: (s.services || []).map(srv => srv.id === data.id ? { ...srv, ...data } : srv)
+      } : s));
+      setSelectedShop(prev => prev ? {
+        ...prev,
+        services: (prev.services || []).map(srv => srv.id === data.id ? { ...srv, ...data } : srv)
+      } : prev);
 
       setEditingService(null);
       showToast("Услуга успешно обновлена", "success");
@@ -2046,21 +2348,59 @@ export default function AdminPage() {
   };
 
   const handleClearSettingsFields = () => {
-    setSettingsData(p => ({
-      ...p,
-      description: "",
-      botToken: "",
-      adminChatId: "",
-      workingHours: "",
-      address: "",
-      phone: "",
-      logoUrl: "",
-      bannerUrl: "",
-      paymentInstructions: "",
-      socialLinks: { telegram: "", instagram: "", whatsapp: "", vk: "", website: "" }
-    }));
+    switch (settingsActiveTab) {
+      case "general":
+        setSettingsData(p => ({
+          ...p,
+          description: "",
+          workingHours: "",
+          address: "",
+          phone: ""
+        }));
+        showToast("Доп. поля на вкладке «Основное» очищены", "warning");
+        break;
+      case "branding":
+        setSettingsData(p => ({
+          ...p,
+          logoUrl: "",
+          bannerUrl: ""
+        }));
+        showToast("Доп. поля на вкладке «Брендинг» очищены", "warning");
+        break;
+      case "integrations":
+      case "telegram" as any:
+        setSettingsData(p => ({
+          ...p,
+          botToken: "",
+          adminChatId: ""
+        }));
+        setBotTestResult(null);
+        setWebhookStatus(null);
+        showToast("Доп. поля на вкладке «Telegram» очищены", "warning");
+        break;
+      case "delivery":
+      case "social" as any:
+        setSettingsData(p => ({
+          ...p,
+          paymentInstructions: "",
+          socialLinks: { telegram: "", instagram: "", whatsapp: "", vk: "", website: "" },
+          deliveryOptions: {
+            ...p.deliveryOptions,
+            pickupAddress: "",
+            deliveryMinOrder: 0,
+            deliveryFee: 0,
+            freeDeliveryThreshold: 0
+          }
+        }));
+        showToast("Доп. поля на вкладке «Доставка и Соцсети» очищены", "warning");
+        break;
+      case "team":
+        showToast("На вкладке «Команда» нет дополнительных полей для очистки", "info");
+        break;
+      default:
+        break;
+    }
     setSettingsError(null);
-    showToast("Опциональные поля заведения очищены", "warning");
   };
 
   const handleSaveSettings = async (e: FormEvent) => {
@@ -2200,7 +2540,7 @@ export default function AdminPage() {
   const activeShops = shopFilterMode === "my" && myShopsList.length > 0 ? myShopsList : shops;
 
   const categories = selectedShop
-    ? Array.from(new Set(selectedShop.services.map(s => s.category).filter(Boolean))) as string[]
+    ? Array.from(new Set((selectedShop.services || []).map(s => s.category).filter(Boolean))) as string[]
     : [];
 
   const filteredServices = (selectedShop?.services || []).filter(service => {
@@ -2263,6 +2603,184 @@ export default function AdminPage() {
     }
     return 0;
   });
+
+  if (authLoading) {
+    return <AdminPageSkeleton />;
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-app-bg text-app-primary flex items-center justify-center p-4 selection:bg-zinc-800 font-sans">
+        <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent blur-sm" />
+
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 rounded-2xl bg-app-accent text-app-accent-fg mx-auto flex items-center justify-center font-mono font-bold text-lg shadow-lg">
+              ▲
+            </div>
+            <h1 className="text-xl font-bold font-mono tracking-tight text-app-primary">
+              Панель администратора
+            </h1>
+            <p className="text-xs text-app-muted">
+              Обязательная авторизация для доступа к заведениям и управлению заказами.
+            </p>
+          </div>
+
+          {inviteInfo && (
+            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-1.5">
+              <div className="flex items-center gap-2 text-emerald-400 font-semibold text-xs font-mono">
+                <Mail size={14} />
+                <span>Приглашение в команду</span>
+              </div>
+              <p className="text-sm font-bold text-app-primary">Заведение «{inviteInfo.shop.name}»</p>
+              <p className="text-xs text-app-muted leading-relaxed">
+                Войдите или зарегистрируйтесь, чтобы автоматически принять приглашение и получить доступ к заведению.
+              </p>
+            </div>
+          )}
+
+          {/* Mode Switcher Tabs */}
+          <div className="grid grid-cols-3 gap-1 bg-app-card p-1 rounded-xl border border-app-border text-xs font-mono">
+            <button
+              type="button"
+              onClick={() => { setAuthMode("otp"); setOtpStep("email"); setAuthError(null); setAuthSuccessMsg(null); }}
+              className={`py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                authMode === "otp" ? "bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30" : "text-app-muted hover:text-app-primary"
+              }`}
+            >
+              <Mail size={12} />
+              <span>E-mail код</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAuthMode("login"); setAuthError(null); setAuthSuccessMsg(null); }}
+              className={`py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 border cursor-pointer ${
+                authMode === "login" ? "bg-app-accent text-app-accent-fg border-app-border font-bold shadow-sm" : "border-transparent text-app-muted hover:text-app-primary"
+              }`}
+            >
+              <Lock size={12} />
+              <span>Пароль</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAuthMode("register"); setAuthError(null); setAuthSuccessMsg(null); }}
+              className={`py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 border cursor-pointer ${
+                authMode === "register" ? "bg-app-accent text-app-accent-fg border-app-border font-bold shadow-sm" : "border-transparent text-app-muted hover:text-app-primary"
+              }`}
+            >
+              <User size={12} />
+              <span>Создать</span>
+            </button>
+          </div>
+
+          {authError && (
+            <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 text-rose-400 text-xs font-mono">
+              <AlertCircle size={14} className="shrink-0" />
+              <span>{authError}</span>
+            </div>
+          )}
+
+          {authSuccessMsg && (
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-emerald-400 text-xs font-mono">
+              <CheckCircle size={14} className="shrink-0" />
+              <span>{authSuccessMsg}</span>
+            </div>
+          )}
+
+          {/* Form rendering */}
+          {authMode === "otp" && (
+            <div className="space-y-3 font-sans">
+              {otpStep === "email" ? (
+                <>
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={e => setAuthEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-emerald-500/50"
+                  />
+                  <button
+                    type="button"
+                    disabled={isSubmittingAuth}
+                    onClick={() => handleSendOtpCode("LOGIN")}
+                    className="w-full py-2.5 bg-emerald-500 text-black font-mono font-bold text-xs rounded-xl hover:bg-emerald-400 transition-colors uppercase flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isSubmittingAuth ? <SpinnerLoader size={14} /> : <Mail size={14} />}
+                    {isSubmittingAuth ? "Отправка..." : "Получить код на E-mail"}
+                  </button>
+                </>
+              ) : (
+                <form onSubmit={handleVerifyOtpCode} className="space-y-3 font-sans">
+                  <p className="text-xs text-app-muted">Код отправлен на <span className="font-mono text-app-primary">{authEmail}</span></p>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={authOtpCode}
+                    onChange={e => setAuthOtpCode(e.target.value)}
+                    placeholder="6-значный код"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-center font-mono text-base tracking-widest text-app-primary focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSubmittingAuth}
+                    className="w-full py-2.5 bg-emerald-500 text-black font-mono font-bold text-xs rounded-xl hover:bg-emerald-400 transition-colors uppercase flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isSubmittingAuth ? <SpinnerLoader size={14} /> : <ShieldCheck size={14} />}
+                    {isSubmittingAuth ? "Проверка..." : "Войти"}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+
+          {authMode !== "otp" && (
+            <form onSubmit={handleAuthSubmit} className="space-y-3 font-sans">
+              {authMode === "register" && (
+                <input
+                  type="text"
+                  autoComplete="name"
+                  value={authName}
+                  onChange={e => setAuthName(e.target.value)}
+                  placeholder="ФИО / Название организации"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
+                />
+              )}
+              <input
+                type="email"
+                autoComplete="email"
+                value={authEmail}
+                onChange={e => setAuthEmail(e.target.value)}
+                placeholder="Электронная почта"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
+              />
+              {authMode !== "reset" && (
+                <input
+                  type="password"
+                  autoComplete={authMode === "register" ? "new-password" : "current-password"}
+                  value={authPassword}
+                  onChange={e => setAuthPassword(e.target.value)}
+                  placeholder="Пароль"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
+                />
+              )}
+              <button
+                type="submit"
+                disabled={isSubmittingAuth}
+                className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase cursor-pointer flex items-center justify-center gap-2"
+              >
+                {isSubmittingAuth ? <SpinnerLoader size={14} /> : <ShieldCheck size={14} />}
+                <span>
+                  {authMode === "login" && "Войти"}
+                  {authMode === "register" && "Зарегистрироваться"}
+                  {authMode === "reset" && "Восстановить пароль"}
+                </span>
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-app-bg text-app-primary font-sans flex flex-col md:flex-row selection:bg-zinc-800 relative">
@@ -2481,13 +2999,14 @@ export default function AdminPage() {
           {/* Navigation Items */}
           <nav className="space-y-1 font-mono text-xs">
             {[
-              { id: "services", label: "Меню и услуги", icon: Layers, badge: selectedShop?.services.length },
-              { id: "orders", label: "Заказы", icon: ShoppingBag, badge: orders.filter(o => o.status === "PENDING").length, alert: orders.filter(o => o.status === "PENDING").length > 0 },
-              { id: "promocodes", label: "Промокоды", icon: Tag, badge: promocodes.length },
-              { id: "reviews", label: "Отзывы", icon: Star, badge: reviews.length },
-              { id: "banners", label: "Баннеры", icon: ImageIcon, badge: banners.length },
-              { id: "broadcasts", label: "Рассылки", icon: Send, badge: broadcasts.length },
-              { id: "customers", label: "Клиенты CRM", icon: Users, badge: customers.length },
+              { id: "services", label: "Меню и услуги", icon: Layers, badge: (selectedShop?.services || []).length },
+              { id: "orders", label: "Заказы", icon: ShoppingBag, badge: (orders || []).filter(o => o.status === "PENDING").length, alert: (orders || []).filter(o => o.status === "PENDING").length > 0 },
+              { id: "promocodes", label: "Промокоды", icon: Tag, badge: (promocodes || []).length },
+              { id: "reviews", label: "Отзывы", icon: Star, badge: (reviews || []).length },
+              { id: "banners", label: "Баннеры", icon: ImageIcon, badge: (banners || []).length },
+              { id: "broadcasts", label: "Рассылки", icon: Send, badge: (broadcasts || []).length },
+              { id: "customers", label: "Клиенты CRM", icon: Users, badge: (customers || []).length },
+              { id: "team", label: "Команда и доступ", icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
               { id: "analytics", label: "Аналитика", icon: BarChart3 },
               { id: "botsim", label: "Симулятор бота", icon: Smartphone },
               { id: "profile", label: "Профиль администратора", icon: User }
@@ -2689,6 +3208,7 @@ export default function AdminPage() {
                 {activeTab === "banners" && "Баннеры"}
                 {activeTab === "broadcasts" && "Рассылки"}
                 {activeTab === "customers" && "Клиенты CRM"}
+                {activeTab === "team" && "Команда и доступ"}
                 {activeTab === "analytics" && "Аналитика"}
                 {activeTab === "botsim" && "Симулятор бота"}
                 {activeTab === "settings" && "Настройки заведения"}
@@ -3169,7 +3689,8 @@ export default function AdminPage() {
                   { id: "general", label: "Основное", icon: Store },
                   { id: "branding", label: "Брендинг", icon: ImageIcon },
                   { id: "integrations", label: "Telegram", icon: Send },
-                  { id: "delivery", label: "Доставка и Соцсети", icon: Globe }
+                  { id: "delivery", label: "Доставка и Соцсети", icon: Globe },
+                  { id: "team", label: "Команда и доступ", icon: UserPlus }
                 ].map(t => {
                   const Icon = t.icon;
                   const isActive = settingsActiveTab === t.id;
@@ -3332,30 +3853,199 @@ export default function AdminPage() {
 
                 {/* TAB TELEGRAM INTEGRATIONS */}
                 {settingsActiveTab === "integrations" && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                        Токен Telegram бота (@BotFather)
-                      </label>
-                      <input
-                        type="text"
-                        value={settingsData.botToken}
-                        onChange={e => setSettingsData(p => ({ ...p, botToken: e.target.value }))}
-                        placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                      />
+                  <div className="space-y-6">
+                    {/* Header / Intro banner */}
+                    <div className="p-4 bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-purple-500/10 border border-sky-500/20 rounded-2xl space-y-2">
+                      <div className="flex items-center gap-2.5 text-sky-400 font-bold font-mono text-xs">
+                        <Send size={16} />
+                        <span>Telegram Mini App & Бот Уведомлений</span>
+                      </div>
+                      <p className="text-xs text-app-secondary leading-relaxed">
+                        Подключите собственного Telegram-бота от <code className="bg-app-card px-1.5 py-0.5 rounded text-sky-400">@BotFather</code>. 
+                        Ваши клиенты смогут открывать ваш магазин прямо из чата Telegram, а все заказы и отзывы будут поступать вам в личные сообщения!
+                      </p>
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                        Chat ID для уведомлений о заказах
-                      </label>
-                      <input
-                        type="text"
-                        value={settingsData.adminChatId}
-                        onChange={e => setSettingsData(p => ({ ...p, adminChatId: e.target.value }))}
-                        placeholder="987654321 или -100123456789"
-                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                      />
+
+                    {/* Bot Token Configuration */}
+                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2">
+                          <Key size={14} className="text-amber-400" />
+                          <span>1. Токен Telegram-бота</span>
+                        </h4>
+                        {botTestResult?.botInfo && (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold flex items-center gap-1.5">
+                            <CheckCircle2 size={12} />
+                            @{botTestResult.botInfo.username}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-[11px] font-mono text-app-muted">
+                          Bot API Token (полученный в @BotFather)
+                        </label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="text"
+                            value={settingsData.botToken}
+                            onChange={e => {
+                              setSettingsData(p => ({ ...p, botToken: e.target.value }));
+                              setBotTestResult(null);
+                            }}
+                            placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
+                            className="flex-1 bg-app-bg border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleTestBotToken}
+                            disabled={!settingsData.botToken || isTestingBot}
+                            className="px-4 py-2.5 bg-app-hover hover:bg-app-border text-app-primary border border-app-border rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                          >
+                            {isTestingBot ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                            <span>Проверить бота</span>
+                          </button>
+                        </div>
+
+                        {botTestResult?.error && (
+                          <p className="text-[11px] text-rose-400 font-mono mt-1 flex items-center gap-1">
+                            <AlertCircle size={12} /> {botTestResult.error}
+                          </p>
+                        )}
+
+                        {botTestResult?.botInfo && (
+                          <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-xs space-y-1">
+                            <div className="text-emerald-400 font-bold flex items-center gap-2">
+                              <span>Имя бота:</span> <span className="text-app-primary font-normal">{botTestResult.botInfo.first_name}</span>
+                            </div>
+                            <div className="text-emerald-400 font-bold flex items-center gap-2">
+                              <span>Username:</span> <a href={`https://t.me/${botTestResult.botInfo.username}`} target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline font-mono">@{botTestResult.botInfo.username}</a>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Admin Chat ID & Webhook Integration */}
+                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2">
+                          <MessageSquare size={14} className="text-sky-400" />
+                          <span>2. Chat ID для уведомлений администратору</span>
+                        </h4>
+                        {settingsData.adminChatId ? (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold">
+                            Chat ID: {settingsData.adminChatId}
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-mono font-bold">
+                            Не подключен
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">
+                            Telegram Chat ID владельца (или зажмите /start в боте)
+                          </label>
+                          <input
+                            type="text"
+                            value={settingsData.adminChatId}
+                            onChange={e => setSettingsData(p => ({ ...p, adminChatId: e.target.value }))}
+                            placeholder="123456789 или отправьте /start боту"
+                            className="w-full bg-app-bg border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSetupWebhook}
+                            disabled={!settingsData.botToken || isSettingWebhook}
+                            className="px-4 py-2.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            {isSettingWebhook ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                            <span>Активировать Webhook</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleSendTestNotification}
+                            disabled={!settingsData.botToken || !settingsData.adminChatId || isSendingTestNotification}
+                            className="px-4 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            {isSendingTestNotification ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                            <span>Тестовое уведомление</span>
+                          </button>
+                        </div>
+
+                        {webhookStatus && (
+                          <p className="text-[11px] font-mono text-emerald-400 flex items-center gap-1.5 p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                            <CheckCircle2 size={13} className="shrink-0" />
+                            <span>{webhookStatus}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Guide for BotFather */}
+                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-4 font-sans">
+                      <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2">
+                        <Smartphone size={14} className="text-purple-400" />
+                        <span>Инструкция: Пошаговая настройка в @BotFather</span>
+                      </h4>
+
+                      <div className="space-y-3 text-xs text-app-secondary">
+                        <div className="p-3 bg-app-bg border border-app-border rounded-xl space-y-1.5">
+                          <div className="font-bold text-app-primary font-mono text-[11px] flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">1</span>
+                            <span>Получите токен бота:</span>
+                          </div>
+                          <p className="pl-7 text-app-muted">
+                            Откройте <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline font-medium">@BotFather</a> в Telegram, отправьте <code className="bg-app-card px-1.5 py-0.5 rounded text-sky-300">/newbot</code>, задайте имя и юзернейм. Скопируйте полученный API Token и вставьте выше.
+                          </p>
+                        </div>
+
+                        <div className="p-3 bg-app-bg border border-app-border rounded-xl space-y-1.5">
+                          <div className="font-bold text-app-primary font-mono text-[11px] flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">2</span>
+                            <span>Укажите ссылку на Mini App (кнопка Меню):</span>
+                          </div>
+                          <p className="pl-7 text-app-muted mb-2">
+                            В <code className="bg-app-card px-1.5 py-0.5 rounded text-sky-300">@BotFather</code> отправьте <code className="bg-app-card px-1.5 py-0.5 rounded text-sky-300">/mybots</code> → Выберите бота → <b>Bot Settings</b> → <b>Menu Button</b> → <b>Configure menu button</b> и вставьте URL витрины:
+                          </p>
+                          <div className="pl-7 flex items-center gap-2">
+                            <input
+                              type="text"
+                              readOnly
+                              value={`${window.location.origin}/${selectedShop?.slug}`}
+                              className="flex-1 bg-app-card border border-app-border rounded-lg px-2.5 py-1.5 text-[11px] text-sky-400 font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}/${selectedShop?.slug}`);
+                                showToast("Ссылка скопирована в буфер обмена!", "success");
+                              }}
+                              className="px-3 py-1.5 bg-app-hover hover:bg-app-border text-app-primary border border-app-border rounded-lg text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                            >
+                              <Copy size={12} />
+                              <span>Копировать</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-app-bg border border-app-border rounded-xl space-y-1.5">
+                          <div className="font-bold text-app-primary font-mono text-[11px] flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">3</span>
+                            <span>Авто-привязка Chat ID:</span>
+                          </div>
+                          <p className="pl-7 text-app-muted">
+                            После ввода токена нажмите <b>«Активировать Webhook»</b> и перейдите в диалог с ботом. Нажмите команду <code className="bg-app-card px-1.5 py-0.5 rounded text-sky-300">/start</code> — бот пришлет подтверждение и автоматически сохранит ваш Chat ID!
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -3394,6 +4084,149 @@ export default function AdminPage() {
                         placeholder="Реквизиты для перевода или информация для покупателей..."
                         className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent resize-none"
                       />
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB TEAM & ACCESS */}
+                {settingsActiveTab === "team" && (
+                  <div className="space-y-6 font-sans">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-app-card border border-app-border rounded-2xl">
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-sm font-mono text-app-primary flex items-center gap-2">
+                          <UserPlus size={16} className="text-emerald-400" />
+                          Приглашение сотрудников
+                        </h4>
+                        <p className="text-xs text-app-muted">
+                          Создайте ссылку-приглашение для коллег, чтобы дать им доступ к заведению.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsInviteModalOpen(true);
+                          setCreatedInviteUrl(null);
+                        }}
+                        className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-black font-mono font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                      >
+                        <UserPlus size={14} />
+                        <span>Пригласить сотрудника</span>
+                      </button>
+                    </div>
+
+                    {/* Members List */}
+                    <div className="space-y-3">
+                      <h4 className="font-bold text-xs font-mono text-app-muted uppercase tracking-wider">
+                        Состав команды ({(teamMembers || []).length + (selectedShop?.owner ? 1 : 0)})
+                      </h4>
+
+                      <div className="grid grid-cols-1 gap-2.5">
+                        {/* Owner item */}
+                        {selectedShop?.owner && (
+                          <div className="p-3.5 bg-app-card border border-app-border rounded-2xl flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">
+                                👑
+                              </div>
+                              <div>
+                                <div className="font-bold text-xs text-app-primary flex items-center gap-2">
+                                  <span>{selectedShop.owner.name || selectedShop.owner.email}</span>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                    Владелец
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-app-muted font-mono">{selectedShop.owner.email}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Members */}
+                        {(teamMembers || []).map(m => (
+                          <div key={m.id} className="p-3.5 bg-app-card border border-app-border rounded-2xl flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-sm font-mono">
+                                <User size={16} />
+                              </div>
+                              <div>
+                                <div className="font-bold text-xs text-app-primary flex items-center gap-2">
+                                  <span>{m.name || m.email}</span>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                                    {m.role === "MANAGER" ? "Менеджер" : "Сотрудник"}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-app-muted font-mono">{m.email}</p>
+                              </div>
+                            </div>
+
+                            {user && selectedShop?.ownerId === user.id && (
+                              <button
+                                type="button"
+                                onClick={() => requestConfirm("Исключить сотрудника", `Удалить ${m.name || m.email} из команды заведения?`, () => handleRemoveMember(m.userId))}
+                                className="p-2 text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 rounded-xl transition-all cursor-pointer"
+                                title="Исключить из команды"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Active Invites List */}
+                    <div className="space-y-3 pt-4 border-t border-app-border">
+                      <h4 className="font-bold text-xs font-mono text-app-muted uppercase tracking-wider">
+                        Активные ссылки и коды приглашений ({(teamInvites || []).length})
+                      </h4>
+
+                      {(teamInvites || []).length === 0 ? (
+                        <p className="text-xs text-app-muted italic font-mono bg-app-card p-4 rounded-2xl border border-app-border text-center">
+                          Нет активных ссылок приглашений. Нажмите «Пригласить сотрудника», чтобы сгенерировать ссылку.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {(teamInvites || []).map(inv => (
+                            <div key={inv.id} className="p-3.5 bg-app-card border border-app-border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-bold text-xs text-emerald-400 px-2.5 py-0.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                                    {inv.code}
+                                  </span>
+                                  <span className="text-[11px] text-app-muted font-mono">
+                                    Использовано: {inv.usedCount} из {inv.maxUses}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] font-mono text-app-muted truncate max-w-md">
+                                  {inv.inviteUrl}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2 self-end sm:self-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(inv.inviteUrl);
+                                    showToast("Ссылка-приглашение скопирована в буфер!", "success");
+                                  }}
+                                  className="px-3 py-1.5 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono text-app-primary flex items-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                  <Copy size={13} />
+                                  <span>Скопировать</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevokeInvite(inv.code)}
+                                  className="p-1.5 text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
+                                  title="Отозвать приглашение"
+                                >
+                                  <X size={15} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -4696,12 +5529,245 @@ export default function AdminPage() {
                   </div>
                 </div>
               )}
+
+              {/* TAB: TEAM & ACCESS */}
+              {activeTab === "team" && selectedShop && (
+                <div className="max-w-4xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm font-sans">
+                  <div className="border-b border-app-border pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-base font-bold font-mono flex items-center gap-2 text-app-primary">
+                        <Users size={18} className="text-emerald-400" />
+                        Команда и доступ: {selectedShop.name}
+                      </h3>
+                      <p className="text-xs text-app-muted mt-0.5 font-sans">Управление сотрудниками, ролями и ссылками-приглашениями</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsInviteModalOpen(true);
+                        setCreatedInviteUrl(null);
+                      }}
+                      className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-black font-mono font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                    >
+                      <UserPlus size={15} />
+                      <span>Пригласить сотрудника</span>
+                    </button>
+                  </div>
+
+                  {/* Members List */}
+                  <div className="space-y-3">
+                    <h4 className="font-bold text-xs font-mono text-app-muted uppercase tracking-wider">
+                      Состав команды ({(teamMembers || []).length + (selectedShop?.owner ? 1 : 0)})
+                    </h4>
+
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {/* Owner Item */}
+                      {selectedShop?.owner && (
+                        <div className="p-4 bg-app-card border border-app-border rounded-2xl flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-base shrink-0">
+                              👑
+                            </div>
+                            <div>
+                              <div className="font-bold text-xs text-app-primary flex items-center gap-2">
+                                <span>{selectedShop.owner.name || selectedShop.owner.email}</span>
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                  Владелец
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-app-muted font-mono">{selectedShop.owner.email}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Staff Members */}
+                      {(teamMembers || []).map(m => (
+                        <div key={m.id} className="p-4 bg-app-card border border-app-border rounded-2xl flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-sm font-mono shrink-0">
+                              <User size={18} />
+                            </div>
+                            <div>
+                              <div className="font-bold text-xs text-app-primary flex items-center gap-2">
+                                <span>{m.name || m.email}</span>
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                                  {m.role === "MANAGER" ? "Менеджер" : "Сотрудник"}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-app-muted font-mono">{m.email}</p>
+                            </div>
+                          </div>
+
+                          {user && selectedShop?.ownerId === user.id && (
+                            <button
+                              type="button"
+                              onClick={() => requestConfirm("Исключить сотрудника", `Удалить ${m.name || m.email} из команды заведения?`, () => handleRemoveMember(m.userId))}
+                              className="p-2 text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 rounded-xl transition-all cursor-pointer"
+                              title="Исключить из команды"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Invites Section */}
+                  <div className="space-y-3 pt-6 border-t border-app-border">
+                    <h4 className="font-bold text-xs font-mono text-app-muted uppercase tracking-wider">
+                      Активные пригласительные ссылки ({(teamInvites || []).length})
+                    </h4>
+
+                    {(teamInvites || []).length === 0 ? (
+                      <div className="p-6 bg-app-card border border-app-border rounded-2xl text-center space-y-2">
+                        <UserPlus size={24} className="text-app-muted mx-auto" />
+                        <p className="text-xs text-app-muted font-mono">
+                          Нет созданных приглашений. Сгенерируйте ссылку выше и отправьте сотрудникам для предоставления доступа.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {(teamInvites || []).map(inv => (
+                          <div key={inv.id} className="p-4 bg-app-card border border-app-border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-xs text-emerald-400 px-2.5 py-0.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                                  {inv.code}
+                                </span>
+                                <span className="text-[11px] text-app-muted font-mono">
+                                  Использовано: {inv.usedCount} из {inv.maxUses}
+                                </span>
+                              </div>
+                              <p className="text-[11px] font-mono text-app-muted truncate max-w-md">
+                                {inv.inviteUrl}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-2 self-end sm:self-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(inv.inviteUrl);
+                                  showToast("Ссылка-приглашение скопирована в буфер!", "success");
+                                }}
+                                className="px-3.5 py-2 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono text-app-primary flex items-center gap-1.5 transition-colors cursor-pointer"
+                              >
+                                <Copy size={13} />
+                                <span>Скопировать</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeInvite(inv.code)}
+                                className="p-2 text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
+                                title="Отозвать ссылку"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
       </main>
 
       {/* DRAWERS & MODALS */}
+
+      {/* Invite Modal */}
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-5 shadow-2xl relative">
+            <div className="flex justify-between items-center border-b border-app-border pb-3">
+              <div className="flex items-center gap-2">
+                <UserPlus size={18} className="text-emerald-400" />
+                <h3 className="text-sm font-semibold tracking-tight uppercase font-mono">Пригласить сотрудника</h3>
+              </div>
+              <button onClick={() => setIsInviteModalOpen(false)} className="text-app-muted hover:text-app-primary p-1 rounded-lg cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+
+            {!createdInviteUrl ? (
+              <div className="space-y-4 font-mono text-xs">
+                <div>
+                  <label className="block text-app-muted mb-1.5">Роль для приглашаемого</label>
+                  <select
+                    value={inviteRole}
+                    onChange={e => setInviteRole(e.target.value as any)}
+                    className="w-full bg-app-card border border-app-border rounded-xl p-2.5 text-app-primary focus:outline-none focus:border-app-accent"
+                  >
+                    <option value="STAFF">Сотрудник (просмотр и обработка заказов)</option>
+                    <option value="MANAGER">Менеджер (полное управление)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-app-muted mb-1.5">Лимит активаций ссылки</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={inviteMaxUses}
+                    onChange={e => setInviteMaxUses(Number(e.target.value))}
+                    className="w-full bg-app-card border border-app-border rounded-xl p-2.5 text-app-primary focus:outline-none focus:border-app-accent"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCreateInvite}
+                  className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl shadow-sm transition-all cursor-pointer uppercase tracking-wider"
+                >
+                  Сгенерировать ссылку
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4 font-mono text-xs text-center">
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-2">
+                  <CheckCircle size={28} className="text-emerald-400 mx-auto" />
+                  <p className="font-bold text-sm text-app-primary">Ссылка создана!</p>
+                  <p className="text-app-muted text-[11px]">Отправьте эту ссылку сотруднику. Перейдя по ней, он сможет войти или зарегистрироваться и автоматически получит доступ к заведению.</p>
+                </div>
+
+                <div className="p-3 bg-app-card border border-app-border rounded-xl break-all text-[11px] text-emerald-400 font-mono select-all">
+                  {createdInviteUrl}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdInviteUrl);
+                      showToast("Ссылка скопирована в буфер!", "success");
+                    }}
+                    className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Copy size={14} />
+                    <span>Скопировать</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsInviteModalOpen(false);
+                      setCreatedInviteUrl(null);
+                    }}
+                    className="py-2.5 px-4 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-bold rounded-xl cursor-pointer"
+                  >
+                    Закрыть
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Auth Modal */}
       {isAuthModalOpen && (

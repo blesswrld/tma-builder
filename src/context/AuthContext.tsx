@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { validateEmail, validatePassword } from "../lib/validation";
+import { useRealtimeEvent } from "./RealtimeContext";
 
 export interface User {
   id: string;
@@ -40,6 +41,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("auth_token"));
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useRealtimeEvent("USER_UPDATED", (event) => {
+    if (event.payload?.id) {
+      setUser(prev => (prev && prev.id === event.payload.id ? { ...prev, ...event.payload } : prev));
+    }
+  });
 
   useEffect(() => {
     const checkAuth = async () => {

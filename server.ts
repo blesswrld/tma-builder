@@ -45,6 +45,20 @@ function getAuthUser(req: express.Request) {
   }
 }
 
+function formatUserResponse(user: any) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name || null,
+    phone: (user as any).phone || null,
+    avatarUrl: (user as any).avatarUrl || null,
+    telegramHandle: (user as any).telegramHandle || null,
+    companyName: (user as any).companyName || null,
+    plan: user.plan || "FREE",
+    subscriptionExpiresAt: user.subscriptionExpiresAt || null
+  };
+}
+
 function transliterateToSlug(str: string): string {
   if (!str) return "";
   const ruMap: Record<string, string> = {
@@ -245,6 +259,8 @@ async function ensureOrderSchema(db: PrismaClient) {
     await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "socialLinks" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "deliveryOptions" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "paymentInstructions" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "botToken" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "adminChatId" TEXT;`);
 
     await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "plan" TEXT DEFAULT 'FREE';`);
     await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "subscriptionExpiresAt" TIMESTAMP(3);`);
@@ -259,6 +275,31 @@ async function ensureOrderSchema(db: PrismaClient) {
     await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "tags" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "prepTime" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "weight" TEXT;`);
+
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ShopMember" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "shopId" TEXT NOT NULL,
+        "userId" TEXT NOT NULL,
+        "role" TEXT NOT NULL DEFAULT 'STAFF',
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ShopInvite" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "shopId" TEXT NOT NULL,
+        "code" TEXT NOT NULL UNIQUE,
+        "role" TEXT NOT NULL DEFAULT 'STAFF',
+        "createdById" TEXT NOT NULL,
+        "maxUses" INTEGER NOT NULL DEFAULT 10,
+        "usedCount" INTEGER NOT NULL DEFAULT 0,
+        "expiresAt" TIMESTAMP(3),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     orderSchemaChecked = true;
   } catch (e) {
     console.warn("ensureOrderSchema warning:", e);
@@ -266,33 +307,91 @@ async function ensureOrderSchema(db: PrismaClient) {
 }
 
 async function canManageShop(db: PrismaClient, shopId: string, authUser: { id: string } | null): Promise<boolean> {
+  // STRICT SECURITY: Unauthenticated users CANNOT manage or edit any shop!
+  if (!authUser) return false;
+
   const shop = await db.shop.findUnique({ where: { id: shopId } });
   if (!shop) return false;
 
-  // Если запрос от устройства без токена или демо-режима
-  if (!authUser) {
+  // 1. Owner match
+  if (shop.ownerId === authUser.id) {
     return true;
   }
 
-  // Если у заведения еще не указан владелец — присваиваем
+  // 2. Unassigned legacy shop -> assign to first logged-in user who accesses it
   if (!shop.ownerId) {
     await db.shop.update({ where: { id: shopId }, data: { ownerId: authUser.id } }).catch(() => {});
     return true;
   }
 
-  // Если владелец совпадает
-  if (shop.ownerId === authUser.id) {
-    return true;
+  // 3. Staff member check via ShopMember
+  try {
+    const members: any[] = await db.$queryRawUnsafe(
+      `SELECT * FROM "ShopMember" WHERE "shopId" = $1 AND "userId" = $2 LIMIT 1;`,
+      shopId,
+      authUser.id
+    );
+    if (members && members.length > 0) {
+      return true;
+    }
+  } catch (e) {
+    // Ignore error if query fails
   }
 
-  // Если прошлый владелец удален из БД — перепривязываем
+  // 4. Re-bind if previous owner was deleted
   const existingOwner = await db.user.findUnique({ where: { id: shop.ownerId } });
   if (!existingOwner) {
     await db.shop.update({ where: { id: shopId }, data: { ownerId: authUser.id } }).catch(() => {});
     return true;
   }
 
-  return true;
+  return false;
+}
+
+async function getUserShops(db: PrismaClient, userId: string) {
+  // Shops owned by user
+  const ownedShops = await db.shop.findMany({
+    where: { ownerId: userId },
+    include: {
+      services: true,
+      owner: { select: { id: true, email: true, name: true } },
+      _count: { select: { orders: true } }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
+  // Shops where user is a staff member
+  let memberShopIds: string[] = [];
+  try {
+    const members: any[] = await db.$queryRawUnsafe(
+      `SELECT "shopId" FROM "ShopMember" WHERE "userId" = $1;`,
+      userId
+    );
+    if (members && members.length > 0) {
+      memberShopIds = members.map((m: any) => m.shopId);
+    }
+  } catch (e) {
+    // Ignore
+  }
+
+  let extraShops: any[] = [];
+  if (memberShopIds.length > 0) {
+    const existingOwnedIds = new Set(ownedShops.map(s => s.id));
+    const newMemberIds = memberShopIds.filter(id => !existingOwnedIds.has(id));
+    if (newMemberIds.length > 0) {
+      extraShops = await db.shop.findMany({
+        where: { id: { in: newMemberIds } },
+        include: {
+          services: true,
+          owner: { select: { id: true, email: true, name: true } },
+          _count: { select: { orders: true } }
+        },
+        orderBy: { createdAt: "desc" }
+      });
+    }
+  }
+
+  return [...ownedShops, ...extraShops];
 }
 
 export const prisma = getPrismaClient();
@@ -491,13 +590,7 @@ app.post("/api/auth/verify-code", async (req, res) => {
 
     res.json({
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        plan: user.plan || "FREE",
-        subscriptionExpiresAt: user.subscriptionExpiresAt
-      }
+      user: formatUserResponse(user)
     });
   } catch (error: any) {
     console.error("Verify code error:", error);
@@ -599,7 +692,7 @@ app.post("/api/auth/register", async (req, res) => {
 
     res.status(201).json({
       token,
-      user: { id: user.id, email: user.email, name: user.name, plan: user.plan || "FREE", subscriptionExpiresAt: user.subscriptionExpiresAt }
+      user: formatUserResponse(user)
     });
   } catch (error: any) {
     console.error("Auth register error:", error);
@@ -640,7 +733,7 @@ app.post("/api/auth/login", async (req, res) => {
 
     res.json({
       token,
-      user: { id: user.id, email: user.email, name: user.name, plan: user.plan || "FREE", subscriptionExpiresAt: user.subscriptionExpiresAt }
+      user: formatUserResponse(user)
     });
   } catch (error: any) {
     console.error("Auth login error:", error);
@@ -666,17 +759,7 @@ app.get("/api/auth/me", async (req, res) => {
       return res.status(404).json({ error: "Пользователь не найден." });
     }
 
-    res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      phone: (user as any).phone || null,
-      avatarUrl: (user as any).avatarUrl || null,
-      telegramHandle: (user as any).telegramHandle || null,
-      companyName: (user as any).companyName || null,
-      plan: user.plan || "FREE",
-      subscriptionExpiresAt: user.subscriptionExpiresAt
-    });
+    res.json(formatUserResponse(user));
   } catch (error: any) {
     res.status(500).json({ error: "Ошибка получения профиля." });
   }
@@ -756,19 +839,12 @@ app.put("/api/user/profile", async (req, res) => {
       } as any
     });
 
+    const formattedUser = formatUserResponse(updated);
+    broadcastEvent({ type: "USER_UPDATED", payload: formattedUser });
+
     res.json({
       success: true,
-      user: {
-        id: updated.id,
-        email: updated.email,
-        name: updated.name,
-        phone: (updated as any).phone,
-        avatarUrl: (updated as any).avatarUrl,
-        telegramHandle: (updated as any).telegramHandle,
-        companyName: (updated as any).companyName,
-        plan: updated.plan || "FREE",
-        subscriptionExpiresAt: updated.subscriptionExpiresAt
-      }
+      user: formattedUser
     });
   } catch (error: any) {
     console.error("Profile update error:", error);
@@ -856,7 +932,7 @@ app.post("/api/shops/:id/claim", async (req, res) => {
   }
 });
 
-// API Route: Получить список всех магазинов
+// API Route: Получить список заведений текущего пользователя
 app.get("/api/shops", async (req, res) => {
   try {
     if (!process.env.DATABASE_URL) {
@@ -871,34 +947,313 @@ app.get("/api/shops", async (req, res) => {
     await ensureOrderSchema(db);
 
     const authUser = getAuthUser(req);
-    const filterMy = req.query.my === "true";
 
-    let whereCondition: any = {};
-    if (filterMy) {
-      if (!authUser) {
-        return res.json([]);
-      }
-      whereCondition = { ownerId: authUser.id };
+    // If user is not authenticated, return empty list (prevent anonymous access to admin shops)
+    if (!authUser) {
+      return res.json([]);
     }
 
-    const shops = await db.shop.findMany({
-      where: whereCondition,
-      include: {
-        services: true,
-        owner: {
-          select: { id: true, email: true, name: true }
-        },
-        _count: {
-          select: { orders: true }
-        }
-      },
-      orderBy: { createdAt: "desc" }
-    });
-
-    res.json(shops);
+    const userShops = await getUserShops(db, authUser.id);
+    res.json(userShops);
   } catch (error: any) {
     console.error("Ошибка при получении списка магазинов:", error);
     res.status(500).json({ error: "Ошибка базы данных: " + (error?.message || String(error)) });
+  }
+});
+
+// API Route: Создать новое приглашение в заведение
+app.post("/api/shops/:shopId/invites", async (req, res) => {
+  try {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: "Сначала войдите в аккаунт." });
+    }
+
+    const { shopId } = req.params;
+    const { role = "STAFF", maxUses = 10 } = req.body;
+
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const hasPermission = await canManageShop(db, shopId, authUser);
+    if (!hasPermission) {
+      return res.status(403).json({ error: "У вас нет прав для создания приглашений в это заведение." });
+    }
+
+    const code = "INV-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+    const id = "inv_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+
+    await db.$executeRawUnsafe(
+      `INSERT INTO "ShopInvite" ("id", "shopId", "code", "role", "createdById", "maxUses", "usedCount", "createdAt")
+       VALUES ($1, $2, $3, $4, $5, $6, 0, CURRENT_TIMESTAMP);`,
+      id, shopId, code, role, authUser.id, Number(maxUses) || 10
+    );
+
+    const host = req.get("host");
+    const protocol = req.protocol;
+    const inviteUrl = `${protocol}://${host}/admin?invite=${code}`;
+
+    const newInviteObj = {
+      id,
+      shopId,
+      code,
+      role,
+      maxUses: Number(maxUses) || 10,
+      usedCount: 0,
+      inviteUrl
+    };
+
+    broadcastEvent({ type: "INVITE_CREATED", shopId, payload: newInviteObj });
+
+    res.status(201).json(newInviteObj);
+  } catch (error: any) {
+    console.error("Create invite error:", error);
+    res.status(500).json({ error: "Не удалось создать приглашение." });
+  }
+});
+
+// API Route: Получить список участников и активных приглашений заведения
+app.get("/api/shops/:shopId/members", async (req, res) => {
+  try {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: "Сначала войдите в аккаунт." });
+    }
+
+    const { shopId } = req.params;
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const hasPermission = await canManageShop(db, shopId, authUser);
+    if (!hasPermission) {
+      return res.status(403).json({ error: "У вас нет прав на просмотр команды заведения." });
+    }
+
+    const shop = await db.shop.findUnique({
+      where: { id: shopId },
+      include: { owner: { select: { id: true, email: true, name: true, avatarUrl: true } } }
+    });
+
+    const membersRaw: any[] = (await db.$queryRawUnsafe(
+      `SELECT sm."id", sm."shopId", sm."userId", sm."role", sm."createdAt",
+              u."email", u."name", u."avatarUrl"
+       FROM "ShopMember" sm
+       JOIN "User" u ON u."id" = sm."userId"
+       WHERE sm."shopId" = $1
+       ORDER BY sm."createdAt" DESC;`,
+      shopId
+    ).catch(() => [])) as any[];
+
+    const invitesRaw: any[] = (await db.$queryRawUnsafe(
+      `SELECT * FROM "ShopInvite" WHERE "shopId" = $1 ORDER BY "createdAt" DESC;`,
+      shopId
+    ).catch(() => [])) as any[];
+
+    const host = req.get("host");
+    const protocol = req.protocol;
+
+    res.json({
+      owner: shop?.owner || null,
+      members: membersRaw,
+      invites: invitesRaw.map(inv => ({
+        ...inv,
+        inviteUrl: `${protocol}://${host}/admin?invite=${inv.code}`
+      }))
+    });
+  } catch (error: any) {
+    console.error("Get shop members error:", error);
+    res.status(500).json({ error: "Не удалось загрузить список участников." });
+  }
+});
+
+// API Route: Отозвать (удалить) код приглашения
+app.delete("/api/invites/:code", async (req, res) => {
+  try {
+    const authUser = getAuthUser(req);
+    if (!authUser) return res.status(401).json({ error: "Авторизуйтесь в системе." });
+
+    const { code } = req.params;
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка БД." });
+
+    const cleanCode = code.toUpperCase().trim();
+    const invites: any[] = (await db.$queryRawUnsafe(
+      `SELECT * FROM "ShopInvite" WHERE "code" = $1 LIMIT 1;`,
+      cleanCode
+    ).catch(() => [])) as any[];
+
+    if (!invites || invites.length === 0) {
+      return res.status(404).json({ error: "Приглашение не найдено." });
+    }
+
+    const invite = invites[0];
+    const hasPermission = await canManageShop(db, invite.shopId, authUser);
+    if (!hasPermission) {
+      return res.status(403).json({ error: "У вас нет прав для удаления этого приглашения." });
+    }
+
+    await db.$executeRawUnsafe(`DELETE FROM "ShopInvite" WHERE "code" = $1;`, cleanCode);
+    broadcastEvent({ type: "INVITE_REVOKED", shopId: invite.shopId, payload: { code: cleanCode } });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: "Не удалось удалить приглашение." });
+  }
+});
+
+// API Route: Исключить сотрудника из заведения
+app.delete("/api/shops/:shopId/members/:userId", async (req, res) => {
+  try {
+    const authUser = getAuthUser(req);
+    if (!authUser) return res.status(401).json({ error: "Авторизуйтесь в системе." });
+
+    const { shopId, userId } = req.params;
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка БД." });
+
+    const shop = await db.shop.findUnique({ where: { id: shopId } });
+    if (!shop) return res.status(404).json({ error: "Заведение не найдено." });
+
+    if (shop.ownerId !== authUser.id) {
+      return res.status(403).json({ error: "Только владелец заведения может удалять сотрудников." });
+    }
+
+    await db.$executeRawUnsafe(
+      `DELETE FROM "ShopMember" WHERE "shopId" = $1 AND "userId" = $2;`,
+      shopId, userId
+    );
+
+    broadcastEvent({ type: "TEAM_MEMBER_REMOVED", shopId, payload: { userId } });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: "Не удалось удалить сотрудника." });
+  }
+});
+
+// API Route: Информация о приглашении перед принятием
+app.get("/api/invites/:code/info", async (req, res) => {
+  try {
+    const { code } = req.params;
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка БД." });
+    await ensureOrderSchema(db);
+
+    const cleanCode = code.toUpperCase().trim();
+    const invites: any[] = (await db.$queryRawUnsafe(
+      `SELECT * FROM "ShopInvite" WHERE "code" = $1 LIMIT 1;`,
+      cleanCode
+    ).catch(() => [])) as any[];
+
+    if (!invites || invites.length === 0) {
+      return res.status(404).json({ error: "Код приглашения не найден или был отменён." });
+    }
+
+    const invite = invites[0];
+    if (invite.maxUses && invite.usedCount >= invite.maxUses) {
+      return res.status(400).json({ error: "Превышен лимит использования данного приглашения." });
+    }
+
+    const shop = await db.shop.findUnique({
+      where: { id: invite.shopId },
+      select: { id: true, name: true, description: true, logoUrl: true, slug: true }
+    });
+
+    if (!shop) {
+      return res.status(404).json({ error: "Заведение, к которому создано приглашение, больше не существует." });
+    }
+
+    res.json({
+      code: invite.code,
+      role: invite.role,
+      shop
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: "Ошибка при проверке приглашения." });
+  }
+});
+
+// API Route: Принять приглашение в заведение
+app.post("/api/invites/:code/accept", async (req, res) => {
+  try {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: "Для активации приглашения необходимо зарегистрироваться или войти в аккаунт." });
+    }
+
+    const { code } = req.params;
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка БД." });
+    await ensureOrderSchema(db);
+
+    const cleanCode = code.toUpperCase().trim();
+    const invites: any[] = (await db.$queryRawUnsafe(
+      `SELECT * FROM "ShopInvite" WHERE "code" = $1 LIMIT 1;`,
+      cleanCode
+    ).catch(() => [])) as any[];
+
+    if (!invites || invites.length === 0) {
+      return res.status(404).json({ error: "Недействительный код приглашения." });
+    }
+
+    const invite = invites[0];
+    if (invite.maxUses && invite.usedCount >= invite.maxUses) {
+      return res.status(400).json({ error: "Код приглашения исчерпал лимит использований." });
+    }
+
+    const shop = await db.shop.findUnique({
+      where: { id: invite.shopId },
+      include: { services: true, owner: { select: { id: true, email: true, name: true } }, _count: { select: { orders: true } } }
+    });
+
+    if (!shop) {
+      return res.status(404).json({ error: "Заведение не найдено." });
+    }
+
+    // If user is owner
+    if (shop.ownerId === authUser.id) {
+      return res.json({ message: "Вы уже являетесь владельцем этого заведения!", shop });
+    }
+
+    // Check if already a member
+    const existingMember: any[] = (await db.$queryRawUnsafe(
+      `SELECT * FROM "ShopMember" WHERE "shopId" = $1 AND "userId" = $2 LIMIT 1;`,
+      shop.id, authUser.id
+    ).catch(() => [])) as any[];
+
+    if (existingMember && existingMember.length > 0) {
+      return res.json({ message: "Вы уже в составе команды этого заведения!", shop });
+    }
+
+    // Add to ShopMember
+    const memberId = "sm_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+    await db.$executeRawUnsafe(
+      `INSERT INTO "ShopMember" ("id", "shopId", "userId", "role", "createdAt")
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP);`,
+      memberId, shop.id, authUser.id, invite.role || "STAFF"
+    );
+
+    // Increment usedCount
+    await db.$executeRawUnsafe(
+      `UPDATE "ShopInvite" SET "usedCount" = "usedCount" + 1 WHERE "id" = $1;`,
+      invite.id
+    );
+
+    broadcastEvent({
+      type: "TEAM_MEMBER_ADDED",
+      shopId: shop.id,
+      payload: { id: memberId, shopId: shop.id, userId: authUser.id, role: invite.role || "STAFF" }
+    });
+
+    res.json({
+      success: true,
+      message: `Вы успешно присоединились к заведению «${shop.name}»!`,
+      shop
+    });
+  } catch (error: any) {
+    console.error("Accept invite error:", error);
+    res.status(500).json({ error: "Не удалось принять приглашение." });
   }
 });
 
@@ -909,13 +1264,17 @@ app.post("/api/shops", async (req, res) => {
       return res.status(503).json({ error: "Переменная DATABASE_URL не задана в Vercel!" });
     }
 
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: "Для создания заведения необходимо зарегистрироваться или войти в аккаунт." });
+    }
+
     const db = getPrismaClient();
     if (!db) {
       return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
     }
 
     const { name, slug, description } = req.body;
-    const authUser = getAuthUser(req);
 
     if (!name || typeof name !== "string" || name.trim().length < 2) {
       return res.status(400).json({ error: "Название магазина должно содержать от 2 до 50 символов." });
@@ -1965,8 +2324,35 @@ app.post("/api/shops", async (req, res) => {
       }
     });
 
-      broadcastEvent({ type: "REVIEW_CREATED", shopId, payload: review });
-      res.status(201).json(review);
+    // Отправляем уведомление в Telegram бот администратора при наличии токена
+    try {
+      const shop = await db.shop.findUnique({ where: { id: shopId } });
+      const botToken = shop?.botToken || process.env.TELEGRAM_BOT_TOKEN;
+      const chatId = shop?.adminChatId || process.env.ADMIN_CHAT_ID;
+
+      if (botToken && chatId) {
+        const stars = "⭐".repeat(numRating);
+        const reviewText = `⭐ *Новый отзыв в заведении "${shop?.name || ''}"!*\n\n` +
+          `👤 *Автор:* ${cleanName}\n` +
+          `⭐ *Оценка:* ${stars} (${numRating}/5)\n` +
+          (cleanComment ? `💬 *Отзыв:* ${cleanComment}\n` : "");
+
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: reviewText,
+            parse_mode: "Markdown"
+          })
+        }).catch((e) => console.error("Ошибка отправки отзыва в Telegram:", e));
+      }
+    } catch (tgErr) {
+      console.warn("Ошибка проверки параметров Telegram для отзыва:", tgErr);
+    }
+
+    broadcastEvent({ type: "REVIEW_CREATED", shopId, payload: review });
+    res.status(201).json(review);
     } catch (error) {
       console.error("Ошибка при создании отзыва:", error);
       res.status(500).json({ error: "Не удалось оставить отзыв." });
@@ -2444,6 +2830,242 @@ app.post("/api/shops", async (req, res) => {
     } catch (error) {
       console.error("Ошибка удаления рассылки:", error);
       res.status(500).json({ error: "Не удалось удалить рассылку." });
+    }
+  });
+
+  // ==========================================
+  // TELEGRAM BOT INTEGRATION API ENDPOINTS
+  // ==========================================
+
+  // API Route: Проверить валидность токена бота
+  app.post("/api/shops/:shopId/telegram/test-bot", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) return res.status(403).json({ error: "У вас нет прав для работы с настройками заведения." });
+
+      let botToken = req.body.botToken;
+      if (!botToken) {
+        const shop = await db.shop.findUnique({ where: { id: shopId } });
+        botToken = shop?.botToken;
+      }
+
+      if (!botToken || !String(botToken).trim()) {
+        return res.status(400).json({ error: "Укажите API Token вашего Telegram-бота." });
+      }
+
+      const cleanToken = String(botToken).trim();
+      const tgRes = await fetch(`https://api.telegram.org/bot${cleanToken}/getMe`);
+      const tgData = await tgRes.json();
+
+      if (!tgData.ok) {
+        return res.status(400).json({ error: tgData.description || "Неверный токен Telegram-бота." });
+      }
+
+      res.json({ success: true, bot: tgData.result });
+    } catch (error: any) {
+      console.error("Ошибка проверки Telegram бота:", error);
+      res.status(500).json({ error: error.message || "Ошибка при проверке токена бота." });
+    }
+  });
+
+  // API Route: Отправить тестовое уведомление
+  app.post("/api/shops/:shopId/telegram/test-notification", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) return res.status(403).json({ error: "У вас нет прав для работы с заведением." });
+
+      const shop = await db.shop.findUnique({ where: { id: shopId } });
+      const botToken = (req.body.botToken || shop?.botToken || "").trim();
+      const adminChatId = (req.body.adminChatId || shop?.adminChatId || "").trim();
+
+      if (!botToken) return res.status(400).json({ error: "Токен бота не указан." });
+      if (!adminChatId) return res.status(400).json({ error: "Chat ID администратора не указан." });
+
+      const text =
+        `🎉 *Тестовое уведомление заведения «${shop?.name || 'Мини-магазин'}»!*\n\n` +
+        `✅ Связь с вашим Telegram-ботом работает отлично.\n` +
+        `📱 Теперь сюда в реальном времени будут приходить ваши заказы и отзывы клиентами.\n\n` +
+        `⏰ _Отправлено: ${new Date().toLocaleString("ru-RU")}_`;
+
+      const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: adminChatId,
+          text,
+          parse_mode: "Markdown"
+        })
+      });
+
+      const tgData = await tgRes.json();
+      if (!tgData.ok) {
+        return res.status(400).json({ error: tgData.description || "Не удалось отправить тестовое сообщение в Telegram." });
+      }
+
+      res.json({ success: true, result: tgData.result });
+    } catch (error: any) {
+      console.error("Ошибка тестового уведомления Telegram:", error);
+      res.status(500).json({ error: error.message || "Ошибка отправки тестового сообщения." });
+    }
+  });
+
+  // API Route: Активировать/настроить Telegram Webhook
+  app.post("/api/shops/:shopId/telegram/setup-webhook", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) return res.status(403).json({ error: "У вас нет прав доступа." });
+
+      const shop = await db.shop.findUnique({ where: { id: shopId } });
+      const botToken = (req.body.botToken || shop?.botToken || "").trim();
+
+      if (!botToken) return res.status(400).json({ error: "Укажите токен бота." });
+
+      let clientBaseUrl = req.body.baseUrl || req.get("origin") || (req.get("referer") ? new URL(req.get("referer")).origin : "");
+      if (!clientBaseUrl) {
+        const host = req.get("host") || "";
+        clientBaseUrl = `https://${host}`;
+      }
+
+      if (clientBaseUrl.includes("localhost") || clientBaseUrl.includes("127.0.0.1")) {
+        return res.status(400).json({
+          error: "Telegram Webhook требует публичный HTTPS-домен. В локальной среде (localhost) Telegram Webhook установить нельзя, однако отправка уведомлений о заказах будет работать штатно по Chat ID!"
+        });
+      }
+
+      // Гарантируем протокол https:// для Telegram Webhook
+      clientBaseUrl = clientBaseUrl.replace(/^http:/, "https:");
+      const webhookUrl = `${clientBaseUrl}/api/telegram/webhook/${shopId}`;
+
+      const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: webhookUrl })
+      });
+
+      const tgData = await tgRes.json();
+      if (!tgData.ok) {
+        return res.status(400).json({ error: tgData.description || "Telegram отклонил установку Webhook." });
+      }
+
+      // Если в запросе передали новый botToken, сразу сохраняем в базу
+      if (req.body.botToken) {
+        await db.shop.update({
+          where: { id: shopId },
+          data: { botToken }
+        });
+      }
+
+      res.json({ success: true, webhookUrl, description: tgData.description });
+    } catch (error: any) {
+      console.error("Ошибка установки Webhook:", error);
+      res.status(500).json({ error: error.message || "Ошибка при установке Webhook." });
+    }
+  });
+
+  // Telegram Webhook Handler (Получает входящие апдейты от Telegram)
+  app.all("/api/telegram/webhook/:shopId", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const update = req.body;
+      const db = getPrismaClient() as any;
+
+      if (!db || !update) return res.sendStatus(200);
+
+      const shop = await db.shop.findUnique({ where: { id: shopId } });
+      if (!shop || !shop.botToken) return res.sendStatus(200);
+
+      const message = update.message || update.edited_message;
+      if (message && message.chat && message.chat.id) {
+        const chatId = String(message.chat.id);
+        const text = (message.text || "").trim();
+        const senderName = message.from?.first_name || message.from?.username || "Администратор";
+
+        const host = req.get("host") || "";
+        const protocol = host.includes("localhost") ? "http" : "https";
+        const shopUrl = `${protocol}://${host}/${shop.slug}`;
+
+        if (text.startsWith("/start")) {
+          // Автоматически привязываем Chat ID
+          await db.shop.update({
+            where: { id: shopId },
+            data: { adminChatId: chatId }
+          });
+
+          const replyText =
+            `🎉 *Бот заведения «${shop.name}» успешно активирован!*\n\n` +
+            `👤 *Владелец / Администратор:* ${senderName}\n` +
+            `🆔 *Ваш Telegram Chat ID:* \`${chatId}\` (автоматически привязан!)\n\n` +
+            `📱 Теперь в этот чат будут мгновенно поступать:\n` +
+            `• Новые заказы покупателей с составом и суммой 🛒\n` +
+            `• Новые отзывы и оценки клиентов ⭐\n\n` +
+            `🌐 *Ваша витрина:* [Открыть магазин](${shopUrl})\n\n` +
+            `💡 _Чтобы настроить кнопку Mini App внизу чата, перейдите в @BotFather -> /mybots -> Выберите этого бота -> Bot Settings -> Menu Button -> Configure menu button -> укажите URL:_\n\`${shopUrl}\``;
+
+          await fetch(`https://api.telegram.org/bot${shop.botToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: replyText,
+              parse_mode: "Markdown",
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: "🛍️ Открыть витрину магазина", web_app: { url: shopUrl } }]
+                ]
+              }
+            })
+          }).catch(() => {});
+        } else if (text === "/orders" || text === "/status") {
+          const pendingOrders = await db.order.count({
+            where: { shopId, status: "PENDING" }
+          });
+          const totalOrders = await db.order.count({
+            where: { shopId }
+          });
+
+          const replyText =
+            `📊 *Статистика заведения «${shop.name}»*\n\n` +
+            `⏳ *Заказов ожидает обработки:* ${pendingOrders}\n` +
+            `📦 *Всего заказов за время:* ${totalOrders}\n\n` +
+            `🌐 [Перейти в веб-панель управления](${protocol}://${host}/admin)`;
+
+          await fetch(`https://api.telegram.org/bot${shop.botToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: replyText,
+              parse_mode: "Markdown"
+            })
+          }).catch(() => {});
+        }
+      }
+
+      res.sendStatus(200);
+    } catch (err) {
+      console.error("Ошибка Telegram Webhook:", err);
+      res.sendStatus(200);
     }
   });
 

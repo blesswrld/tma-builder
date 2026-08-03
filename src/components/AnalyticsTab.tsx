@@ -75,7 +75,10 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
     );
   }
 
-  const { summary, dailyTrends, topServices, hourlyDistribution } = data;
+  const summary = data.summary || { totalOrders: 0, completedOrders: 0, totalRevenue: 0, avgCheck: 0 };
+  const dailyTrends = data.dailyTrends || [];
+  const topServices = data.topServices || [];
+  const hourlyDistribution = data.hourlyDistribution || [];
 
   return (
     <div className="space-y-6">

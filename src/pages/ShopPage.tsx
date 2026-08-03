@@ -475,7 +475,7 @@ export default function ShopPage() {
     if (event.payload && event.shopId === shop?.id) {
       setShop(prev => prev ? {
         ...prev,
-        services: [event.payload, ...prev.services.filter(s => s.id !== event.payload.id)]
+        services: [event.payload, ...(prev.services || []).filter(s => s.id !== event.payload.id)]
       } : prev);
     }
   });
@@ -484,7 +484,7 @@ export default function ShopPage() {
     if (event.payload && event.shopId === shop?.id) {
       setShop(prev => prev ? {
         ...prev,
-        services: prev.services.map(s => s.id === event.payload.id ? { ...s, ...event.payload } : s)
+        services: (prev.services || []).map(s => s.id === event.payload.id ? { ...s, ...event.payload } : s)
       } : prev);
     }
   });
@@ -493,7 +493,7 @@ export default function ShopPage() {
     if (event.payload?.id && event.shopId === shop?.id) {
       setShop(prev => prev ? {
         ...prev,
-        services: prev.services.filter(s => s.id !== event.payload.id)
+        services: (prev.services || []).filter(s => s.id !== event.payload.id)
       } : prev);
     }
   });
@@ -501,6 +501,36 @@ export default function ShopPage() {
   useRealtimeEvent("ORDER_STATUS_UPDATED", (event) => {
     if (event.payload?.id) {
       setMyOrders(prev => prev.map(o => o.id === event.payload.id ? { ...o, status: event.payload.status } : o));
+    }
+  });
+
+  useRealtimeEvent("BANNER_CREATED", (event) => {
+    if (event.payload && event.shopId === shop?.id) {
+      setBanners(prev => [event.payload, ...prev.filter(b => b.id !== event.payload.id)]);
+    }
+  });
+
+  useRealtimeEvent("BANNER_DELETED", (event) => {
+    if (event.payload?.id && event.shopId === shop?.id) {
+      setBanners(prev => prev.filter(b => b.id !== event.payload.id));
+    }
+  });
+
+  useRealtimeEvent("REVIEW_CREATED", (event) => {
+    if (event.payload && event.shopId === shop?.id) {
+      setReviews(prev => [event.payload, ...prev.filter(r => r.id !== event.payload.id)]);
+    }
+  });
+
+  useRealtimeEvent("REVIEW_UPDATED", (event) => {
+    if (event.payload && event.shopId === shop?.id) {
+      setReviews(prev => prev.map(r => r.id === event.payload.id ? { ...r, ...event.payload } : r));
+    }
+  });
+
+  useRealtimeEvent("REVIEW_DELETED", (event) => {
+    if (event.payload?.id && event.shopId === shop?.id) {
+      setReviews(prev => prev.filter(r => r.id !== event.payload.id));
     }
   });
 
@@ -607,7 +637,7 @@ export default function ShopPage() {
 
   const totalItems: number = (Object.values(cart) as number[]).reduce((sum, qty) => sum + qty, 0);
   const totalPrice: number = Object.entries(cart).reduce((sum: number, [id, qty]: [string, number]) => {
-    const service = shop.services.find(s => s.id === id);
+    const service = (shop?.services || []).find(s => s.id === id);
     return sum + (service?.price || 0) * Number(qty);
   }, 0);
 
@@ -797,7 +827,7 @@ export default function ShopPage() {
     setIsSubmitting(true);
     
     const items = Object.entries(cart).map(([id, qty]: [string, number]) => {
-      const service = shop.services.find(s => s.id === id);
+      const service = (shop?.services || []).find(s => s.id === id);
       return {
         id,
         title: service?.title,
@@ -1345,7 +1375,7 @@ export default function ShopPage() {
                   <h3 className="text-[10px] font-mono text-app-muted uppercase tracking-wider mb-3">Товары</h3>
                   <div className="space-y-3">
                     {Object.entries(cart).map(([id, qty]) => {
-                      const service = shop.services.find(s => s.id === id);
+                      const service = (shop?.services || []).find(s => s.id === id);
                       if (!service) return null;
                       return (
                         <div key={id} className="flex justify-between items-center text-xs p-3 rounded-xl bg-app-card border border-app-border">

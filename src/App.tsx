@@ -9,8 +9,8 @@ import { ThemeProvider } from './context/ThemeContext';
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <RealtimeProvider>
+      <RealtimeProvider>
+        <AuthProvider>
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<AdminPage />} />
@@ -19,8 +19,8 @@ export default function App() {
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </BrowserRouter>
-        </RealtimeProvider>
-      </AuthProvider>
+        </AuthProvider>
+      </RealtimeProvider>
     </ThemeProvider>
   );
 }
