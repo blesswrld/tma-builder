@@ -9,7 +9,7 @@ import {
   VolumeX, Crown, FileSpreadsheet, Bell, Star, Sparkles, Smartphone, 
   Image as ImageIcon, Send, Users, Radio, Gift, ChevronDown, ChevronUp, 
   Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon, Globe, ArrowLeft,
-  ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare, GripVertical
+  ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare, GripVertical, Keyboard
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -515,6 +515,7 @@ export default function AdminPage() {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isHotkeysModalOpen, setIsHotkeysModalOpen] = useState(false);
 
   // Lock body scrolling when mobile sidebar drawer is open
   useEffect(() => {
@@ -633,6 +634,7 @@ export default function AdminPage() {
       isDeletingShop ||
       isQrModalOpen ||
       isPlanModalOpen ||
+      isHotkeysModalOpen ||
       confirmModal?.isOpen ||
       newOrderAlert
     );
@@ -656,8 +658,225 @@ export default function AdminPage() {
     isDeletingShop,
     isQrModalOpen,
     isPlanModalOpen,
+    isHotkeysModalOpen,
     confirmModal?.isOpen,
     newOrderAlert
+  ]);
+
+  // Global Keyboard Shortcuts (Hotkeys) Manager
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInput =
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.tagName === "SELECT" ||
+          (activeEl as HTMLElement).isContentEditable);
+
+      // 1. ESC KEY (Highest Priority, works even inside inputs)
+      if (e.key === "Escape") {
+        if (isInput) {
+          (activeEl as HTMLElement).blur();
+        }
+        if (confirmModal?.isOpen) {
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          return;
+        }
+        if (newOrderAlert) {
+          setNewOrderAlert(null);
+          return;
+        }
+        if (isHotkeysModalOpen) {
+          setIsHotkeysModalOpen(false);
+          return;
+        }
+        if (isAuthModalOpen) {
+          setIsAuthModalOpen(false);
+          return;
+        }
+        if (isQrModalOpen) {
+          setIsQrModalOpen(false);
+          return;
+        }
+        if (isPlanModalOpen) {
+          setIsPlanModalOpen(false);
+          return;
+        }
+        if (isCreatingPromo) {
+          setIsCreatingPromo(false);
+          return;
+        }
+        if (isCreatingBanner) {
+          setIsCreatingBanner(false);
+          return;
+        }
+        if (isCreatingBroadcast) {
+          setIsCreatingBroadcast(false);
+          return;
+        }
+        if (isTgGuideOpen) {
+          setIsTgGuideOpen(false);
+          return;
+        }
+        if (isSidebarOpen) {
+          setIsSidebarOpen(false);
+          return;
+        }
+        if (["settings", "profile", "createshop", "addservice", "editservice"].includes(activeTab)) {
+          closeSubView();
+          return;
+        }
+        return;
+      }
+
+      // 2. ENTER KEY inside Confirm Modal
+      if (confirmModal?.isOpen && e.key === "Enter") {
+        e.preventDefault();
+        confirmModal.onConfirm();
+        return;
+      }
+
+      // 3. SEARCH FOCUS: Cmd/Ctrl + K or "/" (when not typing)
+      if (((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") || (!isInput && e.key === "/")) {
+        e.preventDefault();
+        const searchInput = document.querySelector<HTMLInputElement>(
+          'input[type="search"], input[placeholder*="Поиск"], input[placeholder*="поиск"], input[placeholder*="Search"]'
+        );
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.select?.();
+        }
+        return;
+      }
+
+      // 4. TOGGLE SIDEBAR: Cmd/Ctrl + B or Alt + B
+      if ((e.metaKey || e.ctrlKey || e.altKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setIsSidebarOpen(prev => !prev);
+        return;
+      }
+
+      // 5. SHOW HOTKEYS HELP MODAL: "?" or "Shift + /"
+      if (!isInput && (e.key === "?" || (e.shiftKey && e.key === "/"))) {
+        e.preventDefault();
+        setIsHotkeysModalOpen(prev => !prev);
+        return;
+      }
+
+      // Stop processing single-letter or Alt shortcuts if user is currently typing in an input
+      if (isInput) return;
+
+      // 6. QUICK TAB NAVIGATION (Alt + 1..8, Alt + S, Alt + P)
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        const key = e.key.toLowerCase();
+        if (key === "1") { e.preventDefault(); setActiveTab("services"); return; }
+        if (key === "2") { e.preventDefault(); setActiveTab("orders"); return; }
+        if (key === "3") { e.preventDefault(); setActiveTab("promocodes"); return; }
+        if (key === "4") { e.preventDefault(); setActiveTab("reviews"); return; }
+        if (key === "5") { e.preventDefault(); setActiveTab("banners"); return; }
+        if (key === "6") { e.preventDefault(); setActiveTab("broadcasts"); return; }
+        if (key === "7") { e.preventDefault(); setActiveTab("customers"); return; }
+        if (key === "8") { e.preventDefault(); setActiveTab("analytics"); return; }
+        if (key === "s" && selectedShop) {
+          e.preventDefault();
+          handleOpenSettings(selectedShop);
+          return;
+        }
+        if (key === "p") {
+          e.preventDefault();
+          handleOpenProfile();
+          return;
+        }
+      }
+
+      // 7. CREATE ITEM HOTKEYS ('N' or 'Alt + N')
+      if (e.key.toLowerCase() === "n" || (e.altKey && e.key.toLowerCase() === "n")) {
+        if (activeTab === "services") {
+          e.preventDefault();
+          setNewServiceData({ title: "", price: "", category: "", imageUrl: "", description: "", badge: "", prepTime: "", weight: "", tags: "", isAvailable: true, oldPrice: "" });
+          setServiceError(null);
+          setServiceFieldErrors({});
+          setIsAddingService(true);
+          setActiveTab("addservice");
+          return;
+        }
+        if (activeTab === "promocodes") {
+          e.preventDefault();
+          setIsCreatingPromo(true);
+          return;
+        }
+        if (activeTab === "banners") {
+          e.preventDefault();
+          setIsCreatingBanner(true);
+          return;
+        }
+        if (activeTab === "broadcasts") {
+          e.preventDefault();
+          setIsCreatingBroadcast(true);
+          return;
+        }
+      }
+
+      // 8. ORDERS TAB SPECIFIC HOTKEYS
+      if (activeTab === "orders") {
+        // Status filter: 1 = ALL, 2 = PENDING, 3 = CONFIRMED, 4 = COMPLETED, 5 = CANCELLED
+        if (e.key === "1") { setOrderStatusFilter("ALL"); return; }
+        if (e.key === "2") { setOrderStatusFilter("PENDING"); return; }
+        if (e.key === "3") { setOrderStatusFilter("CONFIRMED"); return; }
+        if (e.key === "4") { setOrderStatusFilter("COMPLETED"); return; }
+        if (e.key === "5") { setOrderStatusFilter("CANCELLED"); return; }
+
+        // Confirm/Accept newest PENDING order with 'A'
+        if (e.key.toLowerCase() === "a") {
+          const firstPendingOrder = orders.find(o => o.status === "PENDING");
+          if (firstPendingOrder) {
+            e.preventDefault();
+            handleUpdateOrderStatus(firstPendingOrder.id, "CONFIRMED");
+          } else {
+            showToast("Нет новых заказов для подтверждения", "warning");
+          }
+          return;
+        }
+
+        // Complete newest CONFIRMED order with 'C'
+        if (e.key.toLowerCase() === "c") {
+          const firstConfirmedOrder = orders.find(o => o.status === "CONFIRMED");
+          if (firstConfirmedOrder) {
+            e.preventDefault();
+            handleUpdateOrderStatus(firstConfirmedOrder.id, "COMPLETED");
+          } else {
+            showToast("Нет заказов в работе для завершения", "warning");
+          }
+          return;
+        }
+
+        // Export CSV with 'E'
+        if (e.key.toLowerCase() === "e") {
+          e.preventDefault();
+          exportOrdersToCsv();
+          return;
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    activeTab,
+    confirmModal,
+    newOrderAlert,
+    isHotkeysModalOpen,
+    isAuthModalOpen,
+    isQrModalOpen,
+    isPlanModalOpen,
+    isCreatingPromo,
+    isCreatingBanner,
+    isCreatingBroadcast,
+    isTgGuideOpen,
+    isSidebarOpen,
+    orders,
+    selectedShop
   ]);
 
   const playOrderChime = () => {
@@ -2498,6 +2717,17 @@ export default function AdminPage() {
               {theme === "dark" ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-400" />}
             </button>
 
+            {/* Hotkeys Helper Button */}
+            <button
+              type="button"
+              onClick={() => setIsHotkeysModalOpen(true)}
+              className="px-2.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer hidden md:flex items-center gap-1.5 shrink-0 text-xs font-mono"
+              title="Горячие клавиши (?)"
+            >
+              <Keyboard size={14} className="text-app-muted" />
+              <span className="hidden lg:inline text-[9px] font-bold text-app-muted border border-app-border/80 px-1 py-0.5 rounded bg-app-surface/50">?</span>
+            </button>
+
             {["settings", "profile", "createshop", "addservice", "editservice"].includes(activeTab) && (
               <button
                 onClick={closeSubView}
@@ -3601,12 +3831,13 @@ export default function AdminPage() {
                     <div className="relative w-full sm:w-64">
                       <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted" />
                       <input
-                        type="text"
+                        type="search"
                         value={serviceSearchQuery}
                         onChange={e => setServiceSearchQuery(e.target.value)}
                         placeholder="Поиск по меню..."
-                        className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3 py-1.5 text-xs text-app-primary focus:outline-none focus:border-app-border"
+                        className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-10 py-1.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-sans search-input"
                       />
+                      <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-app-muted border border-app-border bg-app-surface px-1 py-0.5 rounded pointer-events-none hidden sm:inline">⌘K</kbd>
                     </div>
                   </div>
 
@@ -3953,12 +4184,13 @@ export default function AdminPage() {
                       <div className="relative flex-1">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted" />
                         <input
-                          type="text"
+                          type="search"
                           value={reviewSearchQuery}
                           onChange={(e) => setReviewSearchQuery(e.target.value)}
                           placeholder="Поиск по имени или тексту..."
-                          className="w-full bg-app-card border border-app-border rounded-xl pl-8 pr-7 py-1.5 text-xs text-app-primary focus:outline-none"
+                          className="w-full bg-app-card border border-app-border rounded-xl pl-8 pr-12 py-1.5 text-xs text-app-primary focus:outline-none search-input"
                         />
+                        <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-app-muted border border-app-border bg-app-surface px-1 py-0.5 rounded pointer-events-none hidden sm:inline">⌘K</kbd>
                         {reviewSearchQuery && (
                           <button
                             onClick={() => setReviewSearchQuery("")}
@@ -5079,6 +5311,176 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Hotkeys Helper Modal */}
+      <AnimatePresence>
+        {isHotkeysModalOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.15 }}
+              className="max-w-xl w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto custom-scrollbar"
+            >
+              <div className="flex items-center justify-between border-b border-app-border pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-app-accent/10 text-app-accent flex items-center justify-center border border-app-accent/20">
+                    <Keyboard size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold font-mono tracking-tight text-app-primary">
+                      Горячие клавиши (Hotkeys)
+                    </h3>
+                    <p className="text-xs text-app-muted font-sans">
+                      Быстрое управление панелью администратора с клавиатуры
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsHotkeysModalOpen(false)}
+                  className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-card rounded-xl transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-5 text-xs">
+                {/* Section 1: Navigation */}
+                <div>
+                  <h4 className="text-[11px] font-bold font-mono text-app-muted uppercase tracking-wider mb-2.5">
+                    Быстрый переход по разделам
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Меню и услуги</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">Alt + 1</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Заказы</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">Alt + 2</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Промокоды</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">Alt + 3</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Отзывы</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">Alt + 4</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Баннеры</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">Alt + 5</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Рассылки</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">Alt + 6</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Клиенты CRM</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">Alt + 7</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Аналитика</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">Alt + 8</kbd>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Global Controls */}
+                <div>
+                  <h4 className="text-[11px] font-bold font-mono text-app-muted uppercase tracking-wider mb-2.5">
+                    Глобальное управление
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Показать / скрыть эту справку</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">?</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Быстрый поиск</span>
+                      <div className="flex items-center gap-1">
+                        <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">⌘ K</kbd>
+                        <span className="text-app-muted font-mono text-[10px]">или</span>
+                        <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">/</kbd>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Закрыть окно / Назад</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">Esc</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Показать / скрыть меню (Sidebar)</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">⌘ B</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Настройки заведения</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">Alt + S</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Профиль администратора</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">Alt + P</kbd>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Orders Tab */}
+                <div>
+                  <h4 className="text-[11px] font-bold font-mono text-app-muted uppercase tracking-wider mb-2.5">
+                    Работа с заказами (Вкладка «Заказы»)
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Фильтр по статусу (Все/Новые/В работе/Выполнен/Отменен)</span>
+                      <div className="flex gap-1 font-mono text-[10px]">
+                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-accent font-bold">1</kbd>
+                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-accent font-bold">2</kbd>
+                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-accent font-bold">3</kbd>
+                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-accent font-bold">4</kbd>
+                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-accent font-bold">5</kbd>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Принять новый заказ в работу</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-emerald-400 font-bold">A</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Завершить заказ в работе</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-indigo-400 font-bold">C</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                      <span className="text-app-primary font-medium">Экспорт всех заказов в CSV</span>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-amber-400 font-bold">E</kbd>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 4: Quick Create */}
+                <div>
+                  <h4 className="text-[11px] font-bold font-mono text-app-muted uppercase tracking-wider mb-2.5">
+                    Быстрое создание
+                  </h4>
+                  <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
+                    <span className="text-app-primary font-medium">Создать услугу / промокод / баннер / рассылку</span>
+                    <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-accent font-bold">N</kbd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-app-border flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsHotkeysModalOpen(false)}
+                  className="px-5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary text-xs font-mono font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Понятно (Esc)
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* QR Modal & Plan Modal */}
       <QrGeneratorModal
