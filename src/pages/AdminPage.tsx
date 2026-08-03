@@ -2092,54 +2092,13 @@ export default function AdminPage() {
       <aside
         style={{ width: `${sidebarWidth}px` }}
         className={`
-          fixed md:sticky top-0 left-0 z-50 h-[100dvh] max-h-[100dvh] bg-app-surface border-r border-app-border max-w-[85vw] sm:max-w-[320px] md:max-w-none shrink-0 overflow-y-auto custom-scrollbar
+          fixed md:sticky top-0 left-0 z-50 h-[100dvh] max-h-[100dvh] bg-app-surface border-r border-app-border max-w-[85vw] sm:max-w-[320px] md:max-w-none shrink-0 relative
           ${isResizingSidebar ? "select-none" : "transition-[transform] duration-200"}
           ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"}
         `}
       >
-        {/* Minimalist Interactive Drag Resizer Handle */}
-        <div
-          onMouseDown={startResizingSidebar}
-          onTouchStart={startResizingSidebar}
-          onDoubleClick={resetSidebarWidth}
-          title="Потяните для изменения ширины. Двойной клик — сбросить (256px)"
-          className="hidden md:flex absolute top-0 right-0 bottom-0 w-4 -mr-2 cursor-col-resize z-50 group items-center justify-center"
-        >
-          {/* Active / Hover Guide Line */}
-          <div
-            className={`absolute top-0 bottom-0 w-0.5 right-2 transition-colors duration-150 ${
-              isResizingSidebar ? "bg-amber-400 opacity-100" : "bg-transparent group-hover:bg-app-accent/50 opacity-70"
-            }`}
-          />
-
-          {/* Sleek Centered Grip Pill */}
-          <div
-            className={`
-              relative z-10 flex items-center justify-center w-3.5 h-8 rounded-full bg-app-surface border border-app-border shadow-sm
-              transition-all duration-200 group-hover:scale-110 group-hover:border-app-accent group-hover:shadow-md
-              ${isResizingSidebar ? "border-amber-400 bg-amber-500/15 scale-110 shadow-md text-amber-400" : "opacity-50 group-hover:opacity-100 text-app-muted"}
-            `}
-          >
-            <GripVertical size={10} className="shrink-0" />
-          </div>
-
-          {/* Live Width Badge Tooltip */}
-          <div
-            className={`
-              absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-150 z-50
-              ${isResizingSidebar ? "opacity-100 scale-100" : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100"}
-            `}
-          >
-            <div className="bg-zinc-900 text-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md shadow-xl flex items-center gap-1.5 whitespace-nowrap border border-app-border/40">
-              <span>{sidebarWidth}px</span>
-              {sidebarWidth === 256 && (
-                <span className="text-[9px] opacity-60 font-sans">★</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 min-h-full flex flex-col justify-between space-y-6 pb-12 md:pb-4">
+        {/* Inner Scrollable Navigation Container */}
+        <div className="h-full w-full overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col justify-between p-4 space-y-6 pb-12 md:pb-4">
           <div className="space-y-6">
             {/* Logo Brand Header */}
             <div className="flex items-center justify-between px-2">
@@ -2447,6 +2406,48 @@ export default function AdminPage() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Minimalist Interactive Drag Resizer Handle */}
+      <div
+        onMouseDown={startResizingSidebar}
+        onTouchStart={startResizingSidebar}
+        onDoubleClick={resetSidebarWidth}
+        title="Потяните для изменения ширины. Двойной клик — сбросить (256px)"
+        className="hidden md:flex absolute top-0 -right-2 bottom-0 w-4 cursor-col-resize z-50 group items-center justify-center select-none"
+      >
+        {/* Active / Hover Guide Line */}
+        <div
+          className={`absolute top-0 bottom-0 w-0.5 right-2 transition-colors duration-150 ${
+            isResizingSidebar ? "bg-amber-400 opacity-100" : "bg-transparent group-hover:bg-app-accent/50 opacity-70"
+          }`}
+        />
+
+        {/* Sleek Centered Grip Pill */}
+        <div
+          className={`
+            relative z-10 flex items-center justify-center w-3.5 h-8 rounded-full bg-app-surface border border-app-border shadow-sm
+            transition-all duration-200 group-hover:scale-110 group-hover:border-app-accent group-hover:shadow-md
+            ${isResizingSidebar ? "border-amber-400 bg-amber-500/15 scale-110 shadow-md text-amber-400" : "opacity-50 group-hover:opacity-100 text-app-muted"}
+          `}
+        >
+          <GripVertical size={10} className="shrink-0" />
+        </div>
+
+        {/* Live Width Badge Tooltip */}
+        <div
+          className={`
+            absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-150 z-50
+            ${isResizingSidebar ? "opacity-100 scale-100" : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100"}
+          `}
+        >
+          <div className="bg-zinc-900 text-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md shadow-xl flex items-center gap-1.5 whitespace-nowrap border border-app-border/40">
+            <span>{sidebarWidth}px</span>
+            {sidebarWidth === 256 && (
+              <span className="text-[9px] opacity-60 font-sans">★</span>
+            )}
           </div>
         </div>
       </div>
