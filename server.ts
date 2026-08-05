@@ -156,6 +156,7 @@ async function ensureOrderSchema(db: PrismaClient) {
     await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "category" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "isAvailable" BOOLEAN DEFAULT true;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "fulfillment" TEXT DEFAULT 'pickup';`);
 
     await db.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "Promocode" (
@@ -1391,7 +1392,7 @@ app.post("/api/shops", async (req, res) => {
   app.post("/api/shops/:shopId/services", async (req, res) => {
     try {
       const { shopId } = req.params;
-      const { title, price, oldPrice, description, category, imageUrl, gallery, badge, tags, prepTime, weight, isAvailable } = req.body;
+      const { title, price, oldPrice, description, category, imageUrl, gallery, badge, tags, prepTime, weight, isAvailable, fulfillment } = req.body;
       const authUser = getAuthUser(req);
 
       if (!title || typeof title !== "string" || title.trim().length < 2) {
@@ -1462,7 +1463,8 @@ app.post("/api/shops", async (req, res) => {
           tags: tags?.trim() || null,
           prepTime: prepTime?.trim() || null,
           weight: weight?.trim() || null,
-          isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : true
+          isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : true,
+          fulfillment: fulfillment ? String(fulfillment).trim() : "pickup"
         }
       });
 
@@ -1478,7 +1480,7 @@ app.post("/api/shops", async (req, res) => {
   app.put("/api/services/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, price, oldPrice, description, category, imageUrl, gallery, badge, tags, prepTime, weight, isAvailable } = req.body;
+      const { title, price, oldPrice, description, category, imageUrl, gallery, badge, tags, prepTime, weight, isAvailable, fulfillment } = req.body;
       const authUser = getAuthUser(req);
 
       if (!title || typeof title !== "string" || title.trim().length < 2) {
@@ -1531,7 +1533,8 @@ app.post("/api/shops", async (req, res) => {
           tags: tags?.trim() || null,
           prepTime: prepTime?.trim() || null,
           weight: weight?.trim() || null,
-          ...(isAvailable !== undefined ? { isAvailable: Boolean(isAvailable) } : {})
+          ...(isAvailable !== undefined ? { isAvailable: Boolean(isAvailable) } : {}),
+          ...(fulfillment !== undefined ? { fulfillment: String(fulfillment).trim() } : {})
         }
       });
 

@@ -6,7 +6,8 @@ import {
   MapPin, Phone as PhoneIcon, Receipt, Sparkles, Tag, ChevronRight, 
   Info, ShieldCheck, CornerDownRight, Store, AlertCircle, ShoppingCart,
   Heart, Sun, Moon, Send, MessageSquare, ExternalLink, ThumbsUp,
-  User, CheckCircle2, MessageCircle, Filter, BarChart2
+  User, CheckCircle2, MessageCircle, Filter, BarChart2,
+  Gift, Truck, Globe, CreditCard, Navigation
 } from "lucide-react";
 import NotFoundPage from "./NotFoundPage";
 import { ShopPageSkeleton, ReviewSkeletonList, SpinnerLoader } from "../components/Skeleton";
@@ -45,6 +46,7 @@ interface Service {
   prepTime?: string | null;
   weight?: string | null;
   isAvailable?: boolean;
+  fulfillment?: string | null;
 }
 
 interface Shop {
@@ -94,6 +96,34 @@ interface Order {
   status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
   createdAt: string;
 }
+
+const parseSocialLinks = (jsonStr?: string | null) => {
+  if (!jsonStr) return {};
+  try {
+    return JSON.parse(jsonStr) as { telegram?: string; instagram?: string; whatsapp?: string; vk?: string; website?: string };
+  } catch {
+    return {};
+  }
+};
+
+const parseDeliveryOptions = (jsonStr?: string | null) => {
+  if (!jsonStr) return {};
+  try {
+    return JSON.parse(jsonStr) as {
+      pickup?: boolean;
+      courier?: boolean;
+      shipping?: boolean;
+      minOrder?: string | number;
+      deliveryFee?: string | number;
+      pickupAddress?: string;
+      deliveryMinOrder?: number | string;
+      deliveryFeeVal?: number | string;
+      freeDeliveryThreshold?: number | string;
+    };
+  } catch {
+    return {};
+  }
+};
 
 export default function ShopPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -221,11 +251,13 @@ export default function ShopPage() {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
+    deliveryAddress: "",
     tableNumber: "",
     preferredTime: "",
     note: ""
   });
-  const [formErrors, setFormErrors] = useState<{ name?: string; phone?: string; general?: string }>({});
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<"courier" | "pickup">("courier");
+  const [formErrors, setFormErrors] = useState<{ name?: string; phone?: string; deliveryAddress?: string; general?: string }>({});
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [lastOrderReceipt, setLastOrderReceipt] = useState<any>(null);
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
@@ -577,6 +609,27 @@ export default function ShopPage() {
     fetchShop();
   }, [slug]);
 
+  const cartServices = Object.keys(cart).map(id => (shop?.services || []).find(s => s.id === id)).filter(Boolean) as Service[];
+  const pickupOnlyItems = cartServices.filter(s => {
+    const f = s.fulfillment || "courier,pickup";
+    return !f.includes("courier") && f.includes("pickup");
+  });
+  const courierOnlyItems = cartServices.filter(s => {
+    const f = s.fulfillment || "courier,pickup";
+    return f.includes("courier") && !f.includes("pickup");
+  });
+
+  const isCourierDisabled = pickupOnlyItems.length > 0;
+  const isPickupDisabled = courierOnlyItems.length > 0;
+
+  useEffect(() => {
+    if (isCourierDisabled && fulfillmentMethod === "courier") {
+      setFulfillmentMethod("pickup");
+    } else if (isPickupDisabled && fulfillmentMethod === "pickup") {
+      setFulfillmentMethod("courier");
+    }
+  }, [isCourierDisabled, isPickupDisabled, fulfillmentMethod]);
+
   if (notFound) return <NotFoundPage />;
 
   if (loading) {
@@ -647,11 +700,21 @@ export default function ShopPage() {
     }
   }
 
+  const shopDeliveryOpts = parseDeliveryOptions(shop?.deliveryOptions);
+  const deliveryMinOrderVal = Number(shopDeliveryOpts.deliveryMinOrder || shopDeliveryOpts.minOrder) || 0;
+  const deliveryFeeVal = Number(shopDeliveryOpts.deliveryFee || shopDeliveryOpts.deliveryFeeVal) || 0;
+  const freeDeliveryThreshVal = Number(shopDeliveryOpts.freeDeliveryThreshold) || 0;
+
+  const isDeliveryFree = freeDeliveryThreshVal > 0 && totalPrice >= freeDeliveryThreshVal;
+  const calculatedDeliveryFee = fulfillmentMethod === "courier" 
+    ? (isDeliveryFree ? 0 : deliveryFeeVal) 
+    : 0;
+
   const tipAmount = tipPercent > 0 
     ? Math.round((totalPrice * tipPercent) / 100) 
     : (Number(customTip) || 0);
 
-  const finalTotalPrice = Math.max(0, totalPrice - discountValue + tipAmount);
+  const finalTotalPrice = Math.max(0, totalPrice - discountValue + tipAmount + calculatedDeliveryFee);
 
   const handleValidatePromo = async () => {
     if (!promocodeInput.trim() || !shop) return;
@@ -797,7 +860,7 @@ export default function ShopPage() {
   };
 
   const validateForm = () => {
-    const errors: { name?: string; phone?: string } = {};
+    const errors: { name?: string; phone?: string; deliveryAddress?: string; general?: string } = {};
 
     const nameRes = validateCustomerName(formData.name);
     if (!nameRes.isValid) {
@@ -810,6 +873,22 @@ export default function ShopPage() {
     } else {
       // Автоматически форматируем телефон в красивый международный стандарт
       setFormData(prev => ({ ...prev, phone: phoneRes.formatted }));
+    }
+
+    if (fulfillmentMethod === "courier") {
+      if (!formData.deliveryAddress.trim()) {
+        errors.deliveryAddress = "Укажите адрес доставки";
+      }
+      if (deliveryMinOrderVal > 0 && totalPrice < deliveryMinOrderVal) {
+        errors.general = `Минимальная сумма заказа для доставки — ${deliveryMinOrderVal} ₽ (не хватает ${deliveryMinOrderVal - totalPrice} ₽)`;
+      }
+      if (pickupOnlyItems.length > 0) {
+        errors.general = `Позиции «${pickupOnlyItems.map(i => i.title).join(", ")}» недоступны для курьерской доставки. Выберите «Самовывоз» или удалите их из корзины.`;
+      }
+    } else if (fulfillmentMethod === "pickup") {
+      if (courierOnlyItems.length > 0) {
+        errors.general = `Позиции «${courierOnlyItems.map(i => i.title).join(", ")}» доступны только для курьерской доставки.`;
+      }
     }
 
     setFormErrors(errors);
@@ -834,9 +913,17 @@ export default function ShopPage() {
     });
 
     try {
-      const fullNote = appliedPromo
-        ? `${formData.note ? `${formData.note.trim()} | ` : ''}Промокод: ${appliedPromo.code}`
-        : (formData.note.trim() || undefined);
+      const deliveryNoteTag = fulfillmentMethod === "courier" 
+        ? `Способ: Доставка (${formData.deliveryAddress.trim()})`
+        : `Способ: Самовывоз (${shopDeliveryOpts.pickupAddress || shop?.address || "Заведение"})`;
+
+      const fullNoteParts = [
+        deliveryNoteTag,
+        appliedPromo ? `Промокод: ${appliedPromo.code}` : null,
+        formData.note.trim() || null
+      ].filter(Boolean);
+
+      const fullNote = fullNoteParts.join(" | ");
 
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -995,12 +1082,12 @@ export default function ShopPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Theme Toggle Button */}
             <button
               type="button"
               onClick={toggleTheme}
-              className="p-1.5 sm:p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-all border border-transparent hover:border-app-border cursor-pointer shrink-0"
+              className="p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-all cursor-pointer shrink-0"
               title={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
             >
               {theme === "dark" ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-400" />}
@@ -1008,17 +1095,8 @@ export default function ShopPage() {
 
             <button
               type="button"
-              onClick={() => setShowInfoModal(true)}
-              className="p-1.5 sm:p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-all border border-transparent hover:border-app-border cursor-pointer shrink-0"
-              title="Информация и контакты"
-            >
-              <Info size={15} />
-            </button>
-
-            <button
-              type="button"
               onClick={handleOpenReviews}
-              className="px-2.5 py-1.5 rounded-xl bg-app-surface border border-app-border hover:border-app-border text-xs text-app-secondary hover:text-app-primary transition-all flex items-center gap-1 sm:gap-1.5 font-mono cursor-pointer shrink-0"
+              className="px-3 py-1.5 rounded-xl bg-app-surface hover:bg-app-hover text-xs text-app-secondary hover:text-app-primary transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0"
             >
               <Star size={13} className="text-amber-500 fill-amber-500 shrink-0" />
               <span className="hidden xs:inline sm:inline">Отзывы</span>
@@ -1027,7 +1105,7 @@ export default function ShopPage() {
             <button
               type="button"
               onClick={handleOpenMyOrders}
-              className="px-2.5 py-1.5 rounded-xl bg-app-surface border border-app-border hover:border-app-border text-xs text-app-secondary hover:text-app-primary transition-all flex items-center gap-1 sm:gap-1.5 font-mono cursor-pointer shrink-0"
+              className="px-3 py-1.5 rounded-xl bg-app-surface hover:bg-app-hover text-xs text-app-secondary hover:text-app-primary transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0"
             >
               <Receipt size={13} className="text-app-muted shrink-0" />
               <span className="hidden xs:inline sm:inline">Заказы</span>
@@ -1037,20 +1115,189 @@ export default function ShopPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-        {/* Welcome Greeting Banner */}
-        {shop.description && (
-          <div className="p-4 sm:p-5 rounded-2xl bg-app-card border border-app-border space-y-1.5 shadow-sm relative overflow-hidden">
-            <div className="flex items-center gap-2">
-              <Sparkles size={15} className="text-amber-500 shrink-0" />
-              <span className="text-xs font-mono font-bold text-app-muted uppercase tracking-wider">
-                Приветствие
-              </span>
+        {/* Establishment Showcase Header Card */}
+        {(() => {
+          const socials = parseSocialLinks(shop.socialLinks);
+          const delivery = parseDeliveryOptions(shop.deliveryOptions);
+          const hasSocials = Boolean(socials.telegram || socials.instagram || socials.whatsapp || socials.vk || socials.website);
+
+          return (
+            <div className="rounded-3xl bg-app-card border border-app-border overflow-hidden shadow-sm relative space-y-0">
+              {/* Cover Banner Image or Gradient Hero */}
+              <div className="relative h-36 sm:h-52 w-full bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 overflow-hidden">
+                {shop.bannerUrl ? (
+                  <img
+                    src={shop.bannerUrl}
+                    alt={shop.name}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 opacity-70" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-app-card via-app-card/40 to-transparent" />
+                
+                {/* Status Badge in top right corner */}
+                <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
+                  <span className={`px-3 py-1.5 rounded-full text-xs font-mono font-bold flex items-center gap-2 backdrop-blur-md shadow-md border ${
+                    shop.isOpen !== false 
+                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" 
+                      : "bg-rose-500/20 text-rose-400 border-rose-500/40"
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${shop.isOpen !== false ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" : "bg-rose-400"}`} />
+                    <span>{shop.isOpen !== false ? "Открыто" : "Закрыто"}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Shop Content Header Body */}
+              <div className="px-5 sm:px-6 pb-6 pt-0 relative -mt-12 sm:-mt-16 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                  <div className="flex items-end gap-3.5">
+                    {/* Store Logo */}
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-app-surface border-2 border-app-border flex items-center justify-center font-mono font-bold text-2xl text-app-primary shrink-0 shadow-lg overflow-hidden">
+                      {shop.logoUrl ? (
+                        <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        shop.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div>
+                      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-app-primary">{shop.name}</h1>
+                      {shop.workingHours && (
+                        <div className="flex items-center gap-1.5 text-xs text-app-muted font-mono mt-1">
+                          <Clock size={13} className="text-amber-500 shrink-0" />
+                          <span>{shop.workingHours}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions / Info trigger */}
+                  <div className="flex items-center gap-2 self-start sm:self-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowInfoModal(true)}
+                      className="px-3.5 py-2 rounded-xl bg-app-surface border border-app-border hover:border-amber-500/50 hover:text-app-primary text-xs font-mono font-semibold text-app-secondary transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+                    >
+                      <Info size={14} className="text-amber-500 shrink-0" />
+                      <span>О заведении</span>
+                    </button>
+                    {shop.phone && (
+                      <a
+                        href={`tel:${shop.phone}`}
+                        className="px-3.5 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 text-xs font-mono font-semibold transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+                      >
+                        <PhoneIcon size={14} />
+                        <span className="hidden xs:inline">Позвонить</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Description / Welcome */}
+                {shop.description && (
+                  <p className="text-xs sm:text-sm text-app-secondary leading-relaxed pt-1 whitespace-pre-line">
+                    {shop.description}
+                  </p>
+                )}
+
+                {/* Quick Details Chips (Address, Phone, Cashback, Delivery, Socials) */}
+                <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-mono">
+                  {shop.address && (
+                    <div className="px-3 py-1.5 rounded-xl bg-app-surface text-app-secondary flex items-center gap-2">
+                      <MapPin size={13} className="text-rose-400 shrink-0" />
+                      <span className="truncate max-w-[220px] sm:max-w-xs">{shop.address}</span>
+                    </div>
+                  )}
+
+                  {shop.cashbackPercent ? (
+                    <div className="px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-400 flex items-center gap-2 font-bold">
+                      <Gift size={13} className="shrink-0" />
+                      <span>Кэшбэк {shop.cashbackPercent}%</span>
+                    </div>
+                  ) : null}
+
+                  {(delivery.courier || delivery.deliveryMinOrder || delivery.deliveryFee) && (
+                    <div className="px-3 py-1.5 rounded-xl bg-sky-500/15 text-sky-400 flex items-center gap-2">
+                      <Truck size={13} className="shrink-0" />
+                      <span>Доставка</span>
+                    </div>
+                  )}
+
+                  {(delivery.pickup || delivery.pickupAddress) && (
+                    <div className="px-3 py-1.5 rounded-xl bg-app-surface text-app-secondary flex items-center gap-2">
+                      <Store size={13} className="text-indigo-400 shrink-0" />
+                      <span>Самовывоз</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Social Networks Row if configured */}
+                {hasSocials && (
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-app-border/40">
+                    <span className="text-[10px] font-mono text-app-muted uppercase mr-1">Соцсети и связь:</span>
+                    {socials.telegram && (
+                      <a
+                        href={socials.telegram.startsWith("http") ? socials.telegram : `https://t.me/${socials.telegram.replace("@", "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-400 hover:bg-sky-500/25 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                      >
+                        <Send size={12} />
+                        <span>Telegram</span>
+                      </a>
+                    )}
+                    {socials.instagram && (
+                      <a
+                        href={socials.instagram.startsWith("http") ? socials.instagram : `https://instagram.com/${socials.instagram}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-pink-500/15 text-pink-400 hover:bg-pink-500/25 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                      >
+                        <ExternalLink size={12} />
+                        <span>Instagram</span>
+                      </a>
+                    )}
+                    {socials.whatsapp && (
+                      <a
+                        href={socials.whatsapp.startsWith("http") ? socials.whatsapp : `https://wa.me/${socials.whatsapp.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                      >
+                        <MessageCircle size={12} />
+                        <span>WhatsApp</span>
+                      </a>
+                    )}
+                    {socials.vk && (
+                      <a
+                        href={socials.vk.startsWith("http") ? socials.vk : `https://vk.com/${socials.vk}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                      >
+                        <Globe size={12} />
+                        <span>ВКонтакте</span>
+                      </a>
+                    )}
+                    {socials.website && (
+                      <a
+                        href={socials.website.startsWith("http") ? socials.website : `https://${socials.website}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-app-surface text-app-primary hover:bg-app-hover text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                      >
+                        <Globe size={12} />
+                        <span>Сайт</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-            <p className="text-xs sm:text-sm text-app-primary leading-relaxed whitespace-pre-line">
-              {shop.description}
-            </p>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Active Order Tracker Banner if customer has an active order */}
         {activeOrder && (
@@ -1115,10 +1362,10 @@ export default function ShopPage() {
               <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1 touch-pan-x w-full pr-8">
                 <button
                   onClick={() => setSelectedCategory("ALL")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-medium font-mono transition-all shrink-0 border ${
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-medium font-mono transition-all shrink-0 ${
                     selectedCategory === "ALL"
-                      ? "bg-app-accent text-app-bg border-app-border font-bold shadow-sm"
-                      : "bg-app-surface text-app-muted border-app-border hover:text-app-primary"
+                      ? "bg-app-accent text-app-bg font-bold shadow-sm"
+                      : "bg-app-surface text-app-muted hover:bg-app-hover hover:text-app-primary"
                   }`}
                 >
                   Все
@@ -1127,10 +1374,10 @@ export default function ShopPage() {
                 {/* Favorites Category Tab */}
                 <button
                   onClick={() => setSelectedCategory("FAVORITES")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 border flex items-center gap-1.5 ${
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                     selectedCategory === "FAVORITES"
-                      ? "bg-rose-500 text-white border-rose-600 font-bold shadow-sm"
-                      : "bg-app-surface text-app-muted border-app-border hover:text-rose-400"
+                      ? "bg-rose-500 text-white font-bold shadow-sm"
+                      : "bg-app-surface text-app-muted hover:bg-app-hover hover:text-rose-400"
                   }`}
                 >
                   <Heart size={13} className={favorites.length > 0 ? "fill-current" : ""} />
@@ -1141,10 +1388,10 @@ export default function ShopPage() {
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 border ${
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 ${
                       selectedCategory === cat
-                        ? "bg-app-accent text-app-bg border-app-border shadow-sm font-semibold"
-                        : "bg-app-surface text-app-muted border-app-border hover:text-app-primary"
+                        ? "bg-app-accent text-app-bg shadow-sm font-semibold"
+                        : "bg-app-surface text-app-muted hover:bg-app-hover hover:text-app-primary"
                     }`}
                   >
                     {cat}
@@ -1162,7 +1409,7 @@ export default function ShopPage() {
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Поиск по каталогу..."
-                className="w-full bg-app-surface border border-app-border text-xs rounded-xl pl-9 pr-4 py-2 text-app-primary focus:outline-none focus:border-app-border transition-colors placeholder:text-app-muted font-sans"
+                className="w-full bg-app-surface text-xs rounded-xl pl-9 pr-4 py-2 text-app-primary focus:outline-none focus:ring-1 focus:ring-app-primary/30 transition-all placeholder:text-app-muted font-sans"
               />
             </div>
           </div>
@@ -1259,7 +1506,7 @@ export default function ShopPage() {
                                 {service.oldPrice} ₽
                               </span>
                             )}
-                            <span className="text-xs font-mono font-bold text-app-primary px-2 py-1 rounded-lg bg-app-card border border-app-border">
+                            <span className="text-xs font-mono font-bold text-app-primary px-2.5 py-1 rounded-lg bg-app-card">
                               {service.price} ₽
                             </span>
                           </div>
@@ -1269,12 +1516,38 @@ export default function ShopPage() {
                         {badges.length > 0 && (
                           <div className="flex flex-wrap gap-1 py-0.5">
                             {badges.map(badge => (
-                              <span key={badge} className="px-2 py-0.5 rounded-md bg-app-badge text-app-primary font-mono text-[9px] border border-app-border">
+                              <span key={badge} className="px-2 py-0.5 rounded-md bg-app-badge text-app-primary font-mono text-[9px]">
                                 {badge}
                               </span>
                             ))}
                           </div>
                         )}
+
+                        {/* Fulfillment restriction badge */}
+                        {(() => {
+                          const f = service.fulfillment || "courier,pickup";
+                          const hasCourier = f.includes("courier");
+                          const hasPickup = f.includes("pickup");
+                          if (!hasCourier) {
+                            return (
+                              <div className="pt-0.5">
+                                <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded-md text-[10px] font-mono">
+                                  <Store size={11} /> Только самовывоз
+                                </span>
+                              </div>
+                            );
+                          }
+                          if (!hasPickup) {
+                            return (
+                              <div className="pt-0.5">
+                                <span className="inline-flex items-center gap-1 bg-sky-500/15 text-sky-400 px-2 py-0.5 rounded-md text-[10px] font-mono">
+                                  <Truck size={11} /> Только доставка
+                                </span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
 
                         {service.description && (
                           <p 
@@ -1292,13 +1565,13 @@ export default function ShopPage() {
                             className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] font-mono text-app-muted cursor-pointer"
                           >
                             {service.prepTime && (
-                              <span className="inline-flex items-center gap-1 bg-app-card/80 px-2 py-0.5 rounded-md border border-app-border/60 text-app-secondary">
+                              <span className="inline-flex items-center gap-1 bg-app-card px-2.5 py-1 rounded-lg text-app-secondary">
                                 <Clock size={11} className="text-amber-500 shrink-0" />
                                 <span>{service.prepTime}</span>
                               </span>
                             )}
                             {service.weight && (
-                              <span className="inline-flex items-center gap-1 bg-app-card/80 px-2 py-0.5 rounded-md border border-app-border/60 text-app-secondary">
+                              <span className="inline-flex items-center gap-1 bg-app-card px-2.5 py-1 rounded-lg text-app-secondary">
                                 <Scale size={11} className="text-sky-500 shrink-0" />
                                 <span>{service.weight}</span>
                               </span>
@@ -1479,9 +1752,9 @@ export default function ShopPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-app-border space-y-1 font-mono">
+                  <div className="mt-4 pt-4 border-t border-app-border space-y-1.5 font-mono">
                     <div className="flex justify-between items-center text-xs text-app-muted">
-                      <span>Сумма заказа</span>
+                      <span>Товары ({(Object.values(cart) as number[]).reduce((acc, qty) => acc + (qty || 0), 0)})</span>
                       <span>{totalPrice} ₽</span>
                     </div>
                     {discountValue > 0 && (
@@ -1496,21 +1769,130 @@ export default function ShopPage() {
                         <span>+{tipAmount} ₽</span>
                       </div>
                     )}
+                    <div className="flex justify-between items-center text-xs text-sky-400">
+                      <span>Доставка</span>
+                      <span>
+                        {fulfillmentMethod === "courier"
+                          ? (calculatedDeliveryFee === 0 
+                              ? (isDeliveryFree ? "Бесплатно (акция)" : "Бесплатно") 
+                              : `+${calculatedDeliveryFee} ₽`)
+                          : "0 ₽ (Самовывоз)"}
+                      </span>
+                    </div>
                     <div className="flex justify-between items-center pt-2 border-t border-app-border text-base font-bold text-app-primary">
                       <span className="text-xs text-app-muted uppercase font-normal">К оплате</span>
                       <span>{finalTotalPrice} ₽</span>
                     </div>
+
+                    {Boolean(shop.cashbackPercent) && (
+                      <div className="pt-2 flex items-center justify-between text-[11px] font-mono text-amber-400 font-semibold bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+                        <div className="flex items-center gap-1.5">
+                          <Gift size={13} className="shrink-0" />
+                          <span>Бонус за заказ ({shop.cashbackPercent}%)</span>
+                        </div>
+                        <span>+{Math.round((finalTotalPrice * (shop.cashbackPercent || 5)) / 100)} ₽</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
+                {shop.paymentInstructions && (
+                  <div className="p-3.5 bg-app-card border border-app-border rounded-2xl space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs font-bold text-app-primary font-mono">
+                      <CreditCard size={14} className="text-amber-500 shrink-0" />
+                      <span>Инструкции по оплате</span>
+                    </div>
+                    <p className="text-xs text-app-secondary leading-relaxed font-sans whitespace-pre-line bg-app-surface p-2.5 rounded-xl border border-app-border/60">
+                      {shop.paymentInstructions}
+                    </p>
+                  </div>
+                )}
+
                 <div>
-                  <h3 className="text-[10px] font-mono text-app-muted uppercase tracking-wider mb-3">Данные заказа</h3>
+                  <h3 className="text-[10px] font-mono text-app-muted uppercase tracking-wider mb-3">Способ получения и данные</h3>
+                  
+                  {/* Fulfillment Method Selector */}
+                  <div className="grid grid-cols-2 gap-2 mb-3 font-mono text-xs">
+                    <button
+                      type="button"
+                      disabled={isCourierDisabled}
+                      onClick={() => !isCourierDisabled && setFulfillmentMethod("courier")}
+                      className={`p-3 rounded-xl border font-bold flex items-center justify-center gap-2 transition-all ${
+                        isCourierDisabled
+                          ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
+                          : fulfillmentMethod === "courier"
+                          ? "bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-sm cursor-pointer"
+                          : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
+                      }`}
+                      title={isCourierDisabled ? "Доставка недоступна для выбранных позиций" : undefined}
+                    >
+                      <Truck size={15} />
+                      <span>Доставка</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isPickupDisabled}
+                      onClick={() => !isPickupDisabled && setFulfillmentMethod("pickup")}
+                      className={`p-3 rounded-xl border font-bold flex items-center justify-center gap-2 transition-all ${
+                        isPickupDisabled
+                          ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
+                          : fulfillmentMethod === "pickup"
+                          ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-sm cursor-pointer"
+                          : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
+                      }`}
+                      title={isPickupDisabled ? "Самовывоз недоступен для выбранных позиций" : undefined}
+                    >
+                      <Store size={15} />
+                      <span>Самовывоз</span>
+                    </button>
+                  </div>
+
                   {formErrors.general && (
-                    <div className="mb-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-400 font-mono">
-                      {formErrors.general}
+                    <div className="mb-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-400 font-mono flex items-center gap-2">
+                      <AlertCircle size={14} className="shrink-0" />
+                      <span>{formErrors.general}</span>
                     </div>
                   )}
+
                   <form id="checkout-form" onSubmit={handleSubmitOrder} className="space-y-3">
+                    {fulfillmentMethod === "courier" && (
+                      <div>
+                        <input 
+                          type="text" 
+                          maxLength={120}
+                          value={formData.deliveryAddress} 
+                          onChange={e => setFormData(p => ({ ...p, deliveryAddress: e.target.value }))} 
+                          placeholder="Адрес доставки (город, улица, дом, квартира) *" 
+                          className="w-full bg-app-input border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-border transition-colors font-sans" 
+                        />
+                        {formErrors.deliveryAddress && <p className="text-[11px] text-rose-400 mt-1 font-mono">{formErrors.deliveryAddress}</p>}
+                        
+                        {deliveryMinOrderVal > 0 && totalPrice < deliveryMinOrderVal && (
+                          <p className="text-[11px] text-amber-400 mt-1 font-mono">
+                            Минимальный заказ для доставки: {deliveryMinOrderVal} ₽ (не хватает {deliveryMinOrderVal - totalPrice} ₽)
+                          </p>
+                        )}
+                        {isDeliveryFree ? (
+                          <p className="text-[11px] text-emerald-400 mt-1 font-mono">
+                            ✓ Бесплатная доставка при заказе от {freeDeliveryThreshVal} ₽ применены!
+                          </p>
+                        ) : freeDeliveryThreshVal > 0 ? (
+                          <p className="text-[11px] text-app-muted mt-1 font-mono">
+                            Добавьте ещё на {freeDeliveryThreshVal - totalPrice} ₽ для бесплатной доставки!
+                          </p>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {fulfillmentMethod === "pickup" && (
+                      <div className="p-3 bg-app-card border border-app-border rounded-xl text-xs space-y-1 font-sans">
+                        <span className="font-bold text-app-primary font-mono block">Пункт самовывоза:</span>
+                        <p className="text-app-secondary">
+                          {shopDeliveryOpts.pickupAddress || shop.address || "Адрес заведения"}
+                        </p>
+                      </div>
+                    )}
+
                     <div>
                       <input 
                         type="text" 
@@ -1547,7 +1929,7 @@ export default function ShopPage() {
                         maxLength={30}
                         value={formData.preferredTime} 
                         onChange={e => setFormData(p => ({ ...p, preferredTime: e.target.value }))} 
-                        placeholder="Время (опционально)" 
+                        placeholder="Желаемое время" 
                         className="w-full bg-app-input border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-border transition-colors" 
                       />
                     </div>
@@ -1908,66 +2290,240 @@ export default function ShopPage() {
           <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="max-w-md w-full bg-app-modal border border-app-border rounded-3xl p-6 text-app-primary space-y-5 shadow-2xl"
+              className="max-w-lg w-full max-h-[90vh] overflow-y-auto bg-app-modal border border-app-border rounded-3xl p-6 text-app-primary space-y-5 shadow-2xl scrollbar-none"
             >
-              <div className="flex items-center justify-between border-b border-app-border pb-3 bg-app-modal-header -mx-6 -mt-6 p-6 rounded-t-3xl mb-2">
-                <h3 className="text-sm font-semibold tracking-tight text-app-primary">О заведении {shop.name}</h3>
-                <button onClick={() => setShowInfoModal(false)} className="text-app-muted hover:text-app-primary">
+              <div className="flex items-center justify-between border-b border-app-border pb-3 bg-app-modal-header -mx-6 -mt-6 p-6 rounded-t-3xl sticky top-0 z-20 backdrop-blur-md">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-app-card border border-app-border flex items-center justify-center font-mono font-bold text-xs text-app-primary shrink-0 overflow-hidden">
+                    {shop.logoUrl ? (
+                      <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      shop.name.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold tracking-tight text-app-primary">{shop.name}</h3>
+                    <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                      {shop.isOpen !== false ? "● Работает" : "○ Закрыто"}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => setShowInfoModal(false)} className="text-app-muted hover:text-app-primary p-1 rounded-lg">
                   <X size={18} />
                 </button>
               </div>
 
-              {shop.description && (
-                <p className="text-xs text-app-secondary leading-relaxed">{shop.description}</p>
+              {/* Cover Photo if configured */}
+              {shop.bannerUrl && (
+                <div className="h-32 w-full rounded-2xl overflow-hidden border border-app-border relative">
+                  <img src={shop.bannerUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                </div>
               )}
 
-              <div className="space-y-3 pt-2 text-xs text-app-secondary font-mono">
-                {shop.workingHours && (
-                  <div className="flex items-center gap-2.5">
-                    <Clock size={14} className="text-app-muted shrink-0" />
-                    <span>{shop.workingHours}</span>
-                  </div>
-                )}
-                {shop.address && (
-                  <div className="flex items-center gap-2.5">
-                    <MapPin size={14} className="text-app-muted shrink-0" />
-                    <span>{shop.address}</span>
-                  </div>
-                )}
-                {shop.phone && (
-                  <a href={`tel:${shop.phone}`} className="flex items-center gap-2.5 hover:text-app-primary transition-colors">
-                    <PhoneIcon size={14} className="text-app-muted shrink-0" />
-                    <span>{shop.phone}</span>
-                  </a>
-                )}
+              {/* Description / Welcome */}
+              {shop.description && (
+                <div className="p-3.5 bg-app-card border border-app-border rounded-2xl space-y-1">
+                  <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider block">О заведении</span>
+                  <p className="text-xs text-app-secondary leading-relaxed whitespace-pre-line">{shop.description}</p>
+                </div>
+              )}
+
+              {/* Contacts & Working Hours */}
+              <div className="space-y-2 pt-1">
+                <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider block">Контакты и адрес</span>
+                <div className="p-3.5 bg-app-card border border-app-border rounded-2xl space-y-2.5 text-xs text-app-secondary font-mono">
+                  {shop.workingHours && (
+                    <div className="flex items-center gap-2.5">
+                      <Clock size={15} className="text-amber-500 shrink-0" />
+                      <div>
+                        <span className="block text-[9px] text-app-muted uppercase">Режим работы</span>
+                        <span className="text-app-primary font-medium">{shop.workingHours}</span>
+                      </div>
+                    </div>
+                  )}
+                  {shop.address && (
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-app-border/60">
+                      <MapPin size={15} className="text-rose-400 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <span className="block text-[9px] text-app-muted uppercase">Адрес</span>
+                        <span className="text-app-primary font-medium block">{shop.address}</span>
+                      </div>
+                      <a
+                        href={`https://yandex.ru/maps/?text=${encodeURIComponent(shop.address)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] font-bold shrink-0 hover:bg-rose-500/20 transition-colors flex items-center gap-1"
+                      >
+                        <Navigation size={11} />
+                        <span>Карта</span>
+                      </a>
+                    </div>
+                  )}
+                  {shop.phone && (
+                    <div className="flex items-center gap-2.5 pt-1 border-t border-app-border/60">
+                      <PhoneIcon size={15} className="text-emerald-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="block text-[9px] text-app-muted uppercase">Телефон для связи</span>
+                        <a href={`tel:${shop.phone}`} className="text-app-primary font-medium hover:underline block">
+                          {shop.phone}
+                        </a>
+                      </div>
+                      <a
+                        href={`tel:${shop.phone}`}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold shrink-0 hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
+                      >
+                        <PhoneIcon size={11} />
+                        <span>Вызов</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                {shop.phone && (
-                  <a 
-                    href={`tel:${shop.phone}`}
-                    className="py-2.5 px-3 bg-app-card border border-app-border hover:bg-app-hover text-app-primary font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    <PhoneIcon size={14} />
-                    <span>Позвонить</span>
-                  </a>
-                )}
-                <a 
-                  href={`https://t.me/${shop.slug}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="py-2.5 px-3 bg-sky-500/20 text-sky-400 border border-sky-500/30 hover:bg-sky-500/30 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  <Send size={14} />
-                  <span>Telegram</span>
-                </a>
-              </div>
+              {/* Cashback Bonus System */}
+              {Boolean(shop.cashbackPercent) && (
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                    <Gift size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-amber-400 font-mono">Бонусная программа</h4>
+                    <p className="text-[11px] text-app-secondary leading-snug font-sans">
+                      Начисляем <strong className="text-amber-400 font-mono">{shop.cashbackPercent}% кэшбэка</strong> на ваш бонусный счёт с каждой покупки!
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Delivery Options */}
+              {(() => {
+                const del = parseDeliveryOptions(shop.deliveryOptions);
+                const hasDel = Boolean(del.pickup || del.courier || del.shipping || del.pickupAddress || del.deliveryMinOrder || del.deliveryFee);
+                if (!hasDel) return null;
+                return (
+                  <div className="space-y-2 pt-1">
+                    <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider block">Условия доставки и самовывоза</span>
+                    <div className="p-3.5 bg-app-card border border-app-border rounded-2xl space-y-2 text-xs font-mono text-app-secondary">
+                      {del.pickupAddress && (
+                        <div className="flex items-center gap-2">
+                          <Store size={14} className="text-indigo-400 shrink-0" />
+                          <span>Пункт самовывоза: {del.pickupAddress}</span>
+                        </div>
+                      )}
+                      {(del.deliveryMinOrder || del.minOrder) && (
+                        <div className="flex items-center gap-2">
+                          <Truck size={14} className="text-sky-400 shrink-0" />
+                          <span>Минимальная сумма заказа: {del.deliveryMinOrder || del.minOrder} ₽</span>
+                        </div>
+                      )}
+                      {(del.deliveryFee || del.deliveryFeeVal) && (
+                        <div className="flex items-center gap-2">
+                          <Receipt size={14} className="text-emerald-400 shrink-0" />
+                          <span>Стоимость доставки: {del.deliveryFee || del.deliveryFeeVal} ₽</span>
+                        </div>
+                      )}
+                      {del.freeDeliveryThreshold ? (
+                        <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+                          <Sparkles size={14} className="shrink-0" />
+                          <span>Бесплатная доставка от {del.freeDeliveryThreshold} ₽</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Payment Instructions */}
+              {shop.paymentInstructions && (
+                <div className="space-y-2 pt-1">
+                  <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider block">Инструкция по оплате</span>
+                  <div className="p-3.5 bg-app-card border border-app-border rounded-2xl space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs font-bold text-app-primary font-mono">
+                      <CreditCard size={15} className="text-amber-500 shrink-0" />
+                      <span>Способ оплаты / Реквизиты</span>
+                    </div>
+                    <p className="text-xs text-app-secondary leading-relaxed font-sans whitespace-pre-line bg-app-surface p-2.5 rounded-xl border border-app-border/60">
+                      {shop.paymentInstructions}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Social links / Messaging */}
+              {(() => {
+                const socials = parseSocialLinks(shop.socialLinks);
+                const hasSoc = Boolean(socials.telegram || socials.instagram || socials.whatsapp || socials.vk || socials.website);
+                if (!hasSoc) return null;
+                return (
+                  <div className="space-y-2 pt-1">
+                    <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider block">Социальные сети и мессенджеры</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {socials.telegram && (
+                        <a
+                          href={socials.telegram.startsWith("http") ? socials.telegram : `https://t.me/${socials.telegram.replace("@", "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="py-2.5 px-3 bg-sky-500/15 text-sky-400 border border-sky-500/30 hover:bg-sky-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Send size={14} />
+                          <span>Telegram</span>
+                        </a>
+                      )}
+                      {socials.instagram && (
+                        <a
+                          href={socials.instagram.startsWith("http") ? socials.instagram : `https://instagram.com/${socials.instagram}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="py-2.5 px-3 bg-pink-500/15 text-pink-400 border border-pink-500/30 hover:bg-pink-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                        >
+                          <ExternalLink size={14} />
+                          <span>Instagram</span>
+                        </a>
+                      )}
+                      {socials.whatsapp && (
+                        <a
+                          href={socials.whatsapp.startsWith("http") ? socials.whatsapp : `https://wa.me/${socials.whatsapp.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="py-2.5 px-3 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                        >
+                          <MessageCircle size={14} />
+                          <span>WhatsApp</span>
+                        </a>
+                      )}
+                      {socials.vk && (
+                        <a
+                          href={socials.vk.startsWith("http") ? socials.vk : `https://vk.com/${socials.vk}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="py-2.5 px-3 bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Globe size={14} />
+                          <span>ВКонтакте</span>
+                        </a>
+                      )}
+                      {socials.website && (
+                        <a
+                          href={socials.website.startsWith("http") ? socials.website : `https://${socials.website}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="col-span-2 py-2.5 px-3 bg-app-card text-app-primary border border-app-border hover:bg-app-hover font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Globe size={14} />
+                          <span>Официальный сайт</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <button 
                 onClick={() => setShowInfoModal(false)}
-                className="w-full py-2.5 bg-app-secondary hover:bg-app-hover text-app-primary font-mono text-xs font-semibold rounded-xl transition-colors"
+                className="w-full py-3 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-bold rounded-2xl transition-colors cursor-pointer"
               >
-                Закрыть
+                Закрыть окно
               </button>
             </motion.div>
           </div>
@@ -2055,11 +2611,35 @@ export default function ShopPage() {
                   </p>
                 )}
 
+                {/* Fulfillment constraint info */}
+                {(() => {
+                  const f = selectedServiceDetail.fulfillment || "courier,pickup";
+                  const hasCourier = f.includes("courier");
+                  const hasPickup = f.includes("pickup");
+                  if (!hasCourier) {
+                    return (
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-2.5 text-xs text-amber-400 font-mono">
+                        <Store size={16} className="shrink-0 text-amber-400" />
+                        <span>Только самовывоз или оказание услуги в заведении (доставка недоступна).</span>
+                      </div>
+                    );
+                  }
+                  if (!hasPickup) {
+                    return (
+                      <div className="p-3 bg-sky-500/10 border border-sky-500/20 rounded-xl flex items-center gap-2.5 text-xs text-sky-400 font-mono">
+                        <Truck size={16} className="shrink-0 text-sky-400" />
+                        <span>Только курьерская доставка (самовывоз недоступен).</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 {/* Meta details: Time, Weight, Tags */}
                 {(selectedServiceDetail.prepTime || selectedServiceDetail.weight || selectedServiceDetail.tags) && (
                   <div className="grid grid-cols-2 gap-2 pt-1 font-sans">
                     {selectedServiceDetail.prepTime && (
-                      <div className="p-2.5 bg-app-card border border-app-border rounded-xl flex items-center gap-2">
+                      <div className="p-2.5 bg-app-card rounded-xl flex items-center gap-2">
                         <Clock size={16} className="text-amber-500 shrink-0" />
                         <div>
                           <span className="block text-[9px] font-mono text-app-muted uppercase">Время</span>
@@ -2068,7 +2648,7 @@ export default function ShopPage() {
                       </div>
                     )}
                     {selectedServiceDetail.weight && (
-                      <div className="p-2.5 bg-app-card border border-app-border rounded-xl flex items-center gap-2">
+                      <div className="p-2.5 bg-app-card rounded-xl flex items-center gap-2">
                         <Scale size={16} className="text-sky-500 shrink-0" />
                         <div>
                           <span className="block text-[9px] font-mono text-app-muted uppercase">Вес / Объём</span>
@@ -2077,7 +2657,7 @@ export default function ShopPage() {
                       </div>
                     )}
                     {selectedServiceDetail.tags && (
-                      <div className="col-span-2 p-2.5 bg-app-card border border-app-border rounded-xl space-y-1">
+                      <div className="col-span-2 p-2.5 bg-app-card rounded-xl space-y-1">
                         <span className="block text-[9px] font-mono text-app-muted uppercase">Теги</span>
                         <div className="flex flex-wrap gap-1.5">
                           {selectedServiceDetail.tags.split(",").map(t => t.trim()).filter(Boolean).map(tag => (

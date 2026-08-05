@@ -120,6 +120,7 @@ model Service {
   prepTime    String?
   weight      String?
   isAvailable Boolean  @default(true)
+  fulfillment String?  @default("pickup")
   createdAt   DateTime @default(now())
 }
 

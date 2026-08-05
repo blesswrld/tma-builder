@@ -10,7 +10,7 @@ import {
   Image as ImageIcon, Send, Users, Radio, Gift, ChevronDown, ChevronUp, 
   Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon, Globe, ArrowLeft,
   ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare, GripVertical, Keyboard,
-  UserPlus, CheckCircle, Key, Loader2
+  UserPlus, CheckCircle, Key, Loader2, Truck, CreditCard
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -40,6 +40,7 @@ interface Service {
   prepTime?: string | null;
   weight?: string | null;
   isAvailable?: boolean;
+  fulfillment?: string | null;
 }
 
 interface OrderItem {
@@ -496,7 +497,8 @@ export default function AdminPage() {
     tags: "",
     prepTime: "",
     weight: "",
-    isAvailable: true
+    isAvailable: true,
+    fulfillment: "pickup"
   });
   const [serviceError, setServiceError] = useState<string | null>(null);
   const [serviceFieldErrors, setServiceFieldErrors] = useState<{ title?: string; price?: string; description?: string }>({});
@@ -515,7 +517,8 @@ export default function AdminPage() {
     tags: "",
     prepTime: "",
     weight: "",
-    isAvailable: true
+    isAvailable: true,
+    fulfillment: "courier,pickup"
   });
   const [editServiceError, setEditServiceError] = useState<string | null>(null);
   const [editServiceFieldErrors, setEditServiceFieldErrors] = useState<{ title?: string; price?: string; description?: string }>({});
@@ -1691,7 +1694,8 @@ export default function AdminPage() {
           tags: newServiceData.tags.trim() || undefined,
           prepTime: newServiceData.prepTime.trim() || undefined,
           weight: newServiceData.weight.trim() || undefined,
-          isAvailable: newServiceData.isAvailable
+          isAvailable: newServiceData.isAvailable,
+          fulfillment: newServiceData.fulfillment
         })
       });
 
@@ -1719,7 +1723,8 @@ export default function AdminPage() {
         tags: "",
         prepTime: "",
         weight: "",
-        isAvailable: true
+        isAvailable: true,
+        fulfillment: "pickup"
       });
       setIsAddingService(false);
       setActiveTab("services");
@@ -1752,7 +1757,8 @@ export default function AdminPage() {
       tags: service.tags || "",
       prepTime: service.prepTime || "",
       weight: service.weight || "",
-      isAvailable: service.isAvailable !== false
+      isAvailable: service.isAvailable !== false,
+      fulfillment: service.fulfillment || "courier,pickup"
     });
     setEditServiceError(null);
     setIsProfileOpen(false);
@@ -1801,7 +1807,8 @@ export default function AdminPage() {
           tags: editServiceData.tags.trim() || undefined,
           prepTime: editServiceData.prepTime.trim() || undefined,
           weight: editServiceData.weight.trim() || undefined,
-          isAvailable: editServiceData.isAvailable
+          isAvailable: editServiceData.isAvailable,
+          fulfillment: editServiceData.fulfillment
         })
       });
 
@@ -2313,7 +2320,17 @@ export default function AdminPage() {
       } catch {}
     }
 
-    let parsedDelivery = { pickup: true, courier: true, shipping: false, minOrder: "0", deliveryFee: "0" };
+    let parsedDelivery = { 
+      pickup: true, 
+      courier: true, 
+      shipping: false, 
+      minOrder: "0", 
+      deliveryFee: "0",
+      pickupAddress: "",
+      deliveryMinOrder: "0",
+      freeDeliveryThreshold: "0",
+      deliveryNotes: ""
+    };
     if (shop.deliveryOptions) {
       try {
         parsedDelivery = { ...parsedDelivery, ...JSON.parse(shop.deliveryOptions) };
@@ -2397,7 +2414,7 @@ export default function AdminPage() {
         showToast("Доп. поля на вкладке «Доставка и Соцсети» очищены", "warning");
         break;
       case "team":
-        showToast("На вкладке «Команда» нет дополнительных полей для очистки", "info");
+        showToast("На вкладке «Команда» нет дополнительных полей для очистки", "warning");
         break;
       default:
         break;
@@ -4054,38 +4071,256 @@ export default function AdminPage() {
 
                 {/* TAB DELIVERY & SOCIALS */}
                 {settingsActiveTab === "delivery" && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[11px] font-mono text-app-muted mb-1.5">Telegram канал / чат</label>
-                        <input
-                          type="text"
-                          value={settingsData.socialLinks.telegram}
-                          onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, telegram: e.target.value } }))}
-                          placeholder="https://t.me/yourchannel"
-                          className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                        />
+                  <div className="space-y-5">
+                    {/* Delivery & Pickup Toggles & Numbers */}
+                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-4">
+                      <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2 border-b border-app-border pb-3">
+                        <Truck size={16} className="text-sky-400" />
+                        <span>Параметры доставки и самовывоза</span>
+                      </h4>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Courier Delivery Toggle */}
+                        <div className="p-3.5 bg-app-surface border border-app-border rounded-xl flex items-center justify-between">
+                          <div>
+                            <span className="font-bold text-xs text-app-primary font-mono block">Курьерская доставка</span>
+                            <span className="text-[11px] text-app-muted block">Доставка курьером до адреса</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSettingsData(p => ({
+                              ...p,
+                              deliveryOptions: { ...p.deliveryOptions, courier: !p.deliveryOptions.courier }
+                            }))}
+                            className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
+                              settingsData.deliveryOptions.courier ? "bg-emerald-500" : "bg-app-border"
+                            }`}
+                          >
+                            <span className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${
+                              settingsData.deliveryOptions.courier ? "right-1" : "left-1"
+                            }`} />
+                          </button>
+                        </div>
+
+                        {/* Pickup Toggle */}
+                        <div className="p-3.5 bg-app-surface border border-app-border rounded-xl flex items-center justify-between">
+                          <div>
+                            <span className="font-bold text-xs text-app-primary font-mono block">Самовывоз</span>
+                            <span className="text-[11px] text-app-muted block">Клиент сам забирает заказ</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSettingsData(p => ({
+                              ...p,
+                              deliveryOptions: { ...p.deliveryOptions, pickup: !p.deliveryOptions.pickup }
+                            }))}
+                            className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
+                              settingsData.deliveryOptions.pickup ? "bg-emerald-500" : "bg-app-border"
+                            }`}
+                          >
+                            <span className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${
+                              settingsData.deliveryOptions.pickup ? "right-1" : "left-1"
+                            }`} />
+                          </button>
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-[11px] font-mono text-app-muted mb-1.5">Instagram</label>
-                        <input
-                          type="text"
-                          value={settingsData.socialLinks.instagram}
-                          onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, instagram: e.target.value } }))}
-                          placeholder="https://instagram.com/..."
-                          className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                        />
+
+                      {/* Delivery Price / Threshold inputs */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-app-border/60">
+                        <div>
+                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">
+                            Мин. сумма заказа (₽)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={settingsData.deliveryOptions.deliveryMinOrder ?? settingsData.deliveryOptions.minOrder ?? "0"}
+                            onChange={e => setSettingsData(p => ({
+                              ...p,
+                              deliveryOptions: { ...p.deliveryOptions, deliveryMinOrder: e.target.value, minOrder: e.target.value }
+                            }))}
+                            placeholder="0 (без ограничений)"
+                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                          />
+                          <p className="text-[10px] text-app-muted mt-1 font-mono">0 = от любой суммы</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">
+                            Стоимость доставки (₽)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={settingsData.deliveryOptions.deliveryFee ?? "0"}
+                            onChange={e => setSettingsData(p => ({
+                              ...p,
+                              deliveryOptions: { ...p.deliveryOptions, deliveryFee: e.target.value }
+                            }))}
+                            placeholder="0 (бесплатно)"
+                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                          />
+                          <p className="text-[10px] text-app-muted mt-1 font-mono">0 = бесплатная доставка</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">
+                            Бесплатная доставка от (₽)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={settingsData.deliveryOptions.freeDeliveryThreshold ?? "0"}
+                            onChange={e => setSettingsData(p => ({
+                              ...p,
+                              deliveryOptions: { ...p.deliveryOptions, freeDeliveryThreshold: e.target.value }
+                            }))}
+                            placeholder="Например: 1500"
+                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                          />
+                          <p className="text-[10px] text-app-muted mt-1 font-mono">При достижении суммы доставка 0 ₽</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        <div>
+                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">
+                            Адрес пункта самовывоза
+                          </label>
+                          <input
+                            type="text"
+                            value={settingsData.deliveryOptions.pickupAddress ?? ""}
+                            onChange={e => setSettingsData(p => ({
+                              ...p,
+                              deliveryOptions: { ...p.deliveryOptions, pickupAddress: e.target.value }
+                            }))}
+                            placeholder="Оставьте пустым для основного адреса заведения"
+                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">
+                            Заметка / условия доставки
+                          </label>
+                          <input
+                            type="text"
+                            value={settingsData.deliveryOptions.deliveryNotes ?? ""}
+                            onChange={e => setSettingsData(p => ({
+                              ...p,
+                              deliveryOptions: { ...p.deliveryOptions, deliveryNotes: e.target.value }
+                            }))}
+                            placeholder="Доставка по городу за 45 минут"
+                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-mono text-app-muted mb-1.5">Инструкция по оплате заказа</label>
-                      <textarea
-                        rows={3}
-                        value={settingsData.paymentInstructions}
-                        onChange={e => setSettingsData(p => ({ ...p, paymentInstructions: e.target.value }))}
-                        placeholder="Реквизиты для перевода или информация для покупателей..."
-                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent resize-none"
-                      />
+
+                    {/* Loyalty & Cashback Rate */}
+                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-3">
+                      <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2 border-b border-app-border pb-3">
+                        <Gift size={16} className="text-amber-400" />
+                        <span>Программа лояльности и кэшбэк</span>
+                      </h4>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <span className="font-bold text-xs text-app-primary font-mono block">Процент начисления кэшбэка</span>
+                          <p className="text-[11px] text-app-muted font-sans">
+                            Покупатели будут получать бонусами данный процент с каждой покупки
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <input
+                            type="number"
+                            min="0"
+                            max="50"
+                            value={settingsData.cashbackPercent}
+                            onChange={e => setSettingsData(p => ({ ...p, cashbackPercent: Math.min(50, Math.max(0, Number(e.target.value))) }))}
+                            className="w-24 bg-app-surface border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary font-mono text-center font-bold"
+                          />
+                          <span className="text-xs font-mono font-bold text-amber-400">%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Socials & Messengers */}
+                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-4">
+                      <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2 border-b border-app-border pb-3">
+                        <Globe size={16} className="text-indigo-400" />
+                        <span>Социальные сети и контакты</span>
+                      </h4>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">Telegram (канал / чат / юзернейм)</label>
+                          <input
+                            type="text"
+                            value={settingsData.socialLinks.telegram || ""}
+                            onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, telegram: e.target.value } }))}
+                            placeholder="https://t.me/channel"
+                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">Instagram</label>
+                          <input
+                            type="text"
+                            value={settingsData.socialLinks.instagram || ""}
+                            onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, instagram: e.target.value } }))}
+                            placeholder="https://instagram.com/..."
+                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">WhatsApp</label>
+                          <input
+                            type="text"
+                            value={settingsData.socialLinks.whatsapp || ""}
+                            onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, whatsapp: e.target.value } }))}
+                            placeholder="+79990000000"
+                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">ВКонтакте (VK)</label>
+                          <input
+                            type="text"
+                            value={settingsData.socialLinks.vk || ""}
+                            onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, vk: e.target.value } }))}
+                            placeholder="https://vk.com/..."
+                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">Официальный сайт</label>
+                          <input
+                            type="text"
+                            value={settingsData.socialLinks.website || ""}
+                            onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, website: e.target.value } }))}
+                            placeholder="https://myshop.ru"
+                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Payment Requisites */}
+                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-3">
+                      <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2 border-b border-app-border pb-3">
+                        <CreditCard size={16} className="text-amber-500" />
+                        <span>Инструкции по оплате / реквизиты</span>
+                      </h4>
+                      <div>
+                        <textarea
+                          rows={3}
+                          value={settingsData.paymentInstructions}
+                          onChange={e => setSettingsData(p => ({ ...p, paymentInstructions: e.target.value }))}
+                          placeholder="Реквизиты для перевода (СБП, карта) или инструкции для покупателей..."
+                          className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent resize-none font-sans"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -4416,6 +4651,88 @@ export default function AdminPage() {
                   <label htmlFor="newServiceAvailable font-mono font-semibold" className="text-xs font-mono text-app-primary cursor-pointer font-semibold">Позиция доступна для заказа</label>
                 </div>
 
+                {/* Доставка и самовывоз для этой позиции */}
+                {(() => {
+                  const fulfillmentVal = newServiceData.fulfillment || "courier,pickup";
+                  const canCourier = fulfillmentVal.includes("courier");
+                  const canPickup = fulfillmentVal.includes("pickup");
+
+                  const toggleCourier = () => {
+                    if (canCourier && !canPickup) return;
+                    const nextCourier = !canCourier;
+                    if (nextCourier && canPickup) setNewServiceData(p => ({ ...p, fulfillment: "courier,pickup" }));
+                    else if (nextCourier) setNewServiceData(p => ({ ...p, fulfillment: "courier" }));
+                    else setNewServiceData(p => ({ ...p, fulfillment: "pickup" }));
+                  };
+
+                  const togglePickup = () => {
+                    if (canPickup && !canCourier) return;
+                    const nextPickup = !canPickup;
+                    if (nextPickup && canCourier) setNewServiceData(p => ({ ...p, fulfillment: "courier,pickup" }));
+                    else if (nextPickup) setNewServiceData(p => ({ ...p, fulfillment: "pickup" }));
+                    else setNewServiceData(p => ({ ...p, fulfillment: "courier" }));
+                  };
+
+                  return (
+                    <div className="p-4 bg-app-card/60 border border-app-border rounded-2xl space-y-3 font-sans">
+                      <div className="flex items-center gap-2 text-xs font-mono font-bold text-app-primary">
+                        <Truck size={15} className="text-sky-400" />
+                        <span>Способы получения для этой позиции</span>
+                      </div>
+                      <p className="text-[11px] text-app-muted leading-relaxed">
+                        Выберите, какими способами клиенты могут получить эту услугу или товар. Например, для стрижек или процедур выключите курьерскую доставку.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 font-mono text-xs">
+                        <button
+                          type="button"
+                          onClick={toggleCourier}
+                          className={`p-3 rounded-xl border font-bold flex items-center justify-between transition-all cursor-pointer ${
+                            canCourier
+                              ? "bg-sky-500/10 border-sky-500/40 text-sky-400 shadow-sm"
+                              : "bg-app-card text-app-muted border-app-border hover:text-app-primary"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Truck size={15} />
+                            <span>Курьерская доставка</span>
+                          </div>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${canCourier ? "bg-sky-500 border-sky-500 text-black font-bold" : "border-app-border"}`}>
+                            {canCourier && "✓"}
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={togglePickup}
+                          className={`p-3 rounded-xl border font-bold flex items-center justify-between transition-all cursor-pointer ${
+                            canPickup
+                              ? "bg-indigo-500/10 border-indigo-500/40 text-indigo-400 shadow-sm"
+                              : "bg-app-card text-app-muted border-app-border hover:text-app-primary"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Store size={15} />
+                            <span>Самовывоз / В заведении</span>
+                          </div>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${canPickup ? "bg-indigo-500 border-indigo-500 text-black font-bold" : "border-app-border"}`}>
+                            {canPickup && "✓"}
+                          </div>
+                        </button>
+                      </div>
+                      {!canCourier && (
+                        <p className="text-[11px] text-amber-400 font-mono">
+                          ⚠️ Доставка отключена. Клиенты смогут заказать эту позицию только на самовывоз или в заведении.
+                        </p>
+                      )}
+                      {!canPickup && (
+                        <p className="text-[11px] text-amber-400 font-mono">
+                          ⚠️ Самовывоз отключен. Позицию можно заказать только с курьерской доставкой.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 <div className="pt-4 border-t border-app-border flex items-center gap-3">
                   <button
                     type="button"
@@ -4566,6 +4883,88 @@ export default function AdminPage() {
                   />
                   <label htmlFor="editServiceAvailable" className="text-xs font-mono text-app-primary cursor-pointer font-semibold">Позиция доступна для заказа</label>
                 </div>
+
+                {/* Доставка и самовывоз для этой позиции */}
+                {(() => {
+                  const fulfillmentVal = editServiceData.fulfillment || "courier,pickup";
+                  const canCourier = fulfillmentVal.includes("courier");
+                  const canPickup = fulfillmentVal.includes("pickup");
+
+                  const toggleCourier = () => {
+                    if (canCourier && !canPickup) return;
+                    const nextCourier = !canCourier;
+                    if (nextCourier && canPickup) setEditServiceData(p => ({ ...p, fulfillment: "courier,pickup" }));
+                    else if (nextCourier) setEditServiceData(p => ({ ...p, fulfillment: "courier" }));
+                    else setEditServiceData(p => ({ ...p, fulfillment: "pickup" }));
+                  };
+
+                  const togglePickup = () => {
+                    if (canPickup && !canCourier) return;
+                    const nextPickup = !canPickup;
+                    if (nextPickup && canCourier) setEditServiceData(p => ({ ...p, fulfillment: "courier,pickup" }));
+                    else if (nextPickup) setEditServiceData(p => ({ ...p, fulfillment: "pickup" }));
+                    else setEditServiceData(p => ({ ...p, fulfillment: "courier" }));
+                  };
+
+                  return (
+                    <div className="p-4 bg-app-card/60 border border-app-border rounded-2xl space-y-3 font-sans">
+                      <div className="flex items-center gap-2 text-xs font-mono font-bold text-app-primary">
+                        <Truck size={15} className="text-sky-400" />
+                        <span>Способы получения для этой позиции</span>
+                      </div>
+                      <p className="text-[11px] text-app-muted leading-relaxed">
+                        Выберите, какими способами клиенты могут получить эту услугу или товар. Например, для стрижек или процедур выключите курьерскую доставку.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 font-mono text-xs">
+                        <button
+                          type="button"
+                          onClick={toggleCourier}
+                          className={`p-3 rounded-xl border font-bold flex items-center justify-between transition-all cursor-pointer ${
+                            canCourier
+                              ? "bg-sky-500/10 border-sky-500/40 text-sky-400 shadow-sm"
+                              : "bg-app-card text-app-muted border-app-border hover:text-app-primary"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Truck size={15} />
+                            <span>Курьерская доставка</span>
+                          </div>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${canCourier ? "bg-sky-500 border-sky-500 text-black font-bold" : "border-app-border"}`}>
+                            {canCourier && "✓"}
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={togglePickup}
+                          className={`p-3 rounded-xl border font-bold flex items-center justify-between transition-all cursor-pointer ${
+                            canPickup
+                              ? "bg-indigo-500/10 border-indigo-500/40 text-indigo-400 shadow-sm"
+                              : "bg-app-card text-app-muted border-app-border hover:text-app-primary"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Store size={15} />
+                            <span>Самовывоз / В заведении</span>
+                          </div>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${canPickup ? "bg-indigo-500 border-indigo-500 text-black font-bold" : "border-app-border"}`}>
+                            {canPickup && "✓"}
+                          </div>
+                        </button>
+                      </div>
+                      {!canCourier && (
+                        <p className="text-[11px] text-amber-400 font-mono">
+                          ⚠️ Доставка отключена. Клиенты смогут заказать эту позицию только на самовывоз или в заведении.
+                        </p>
+                      )}
+                      {!canPickup && (
+                        <p className="text-[11px] text-amber-400 font-mono">
+                          ⚠️ Самовывоз отключен. Позицию можно заказать только с курьерской доставкой.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="pt-4 border-t border-app-border flex items-center gap-3">
                   <button
@@ -4720,6 +5119,31 @@ export default function AdminPage() {
                               {service.description && (
                                 <p className="text-xs text-app-muted line-clamp-2 leading-relaxed">{service.description}</p>
                               )}
+                              {/* Fulfillment restriction badge */}
+                              {(() => {
+                                const f = service.fulfillment || "courier,pickup";
+                                const hasCourier = f.includes("courier");
+                                const hasPickup = f.includes("pickup");
+                                if (!hasCourier) {
+                                  return (
+                                    <div className="pt-1">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 font-mono text-[10px]">
+                                        <Store size={11} /> Только самовывоз
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                                if (!hasPickup) {
+                                  return (
+                                    <div className="pt-1">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 text-sky-400 font-mono text-[10px]">
+                                        <Truck size={11} /> Только доставка
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </div>
 
                             <div className="flex items-center justify-between pt-3 border-t border-app-border">
