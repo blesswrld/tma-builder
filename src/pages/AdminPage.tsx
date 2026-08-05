@@ -1722,6 +1722,7 @@ export default function AdminPage() {
         isAvailable: true
       });
       setIsAddingService(false);
+      setActiveTab("services");
       showToast("Услуга успешно добавлена в меню", "success");
       await fetchShops();
     } catch (err: any) {
@@ -1817,6 +1818,7 @@ export default function AdminPage() {
       } : prev);
 
       setEditingService(null);
+      setActiveTab("services");
       showToast("Услуга успешно обновлена", "success");
       await fetchShops();
     } catch (err: any) {
