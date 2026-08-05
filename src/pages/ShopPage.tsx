@@ -2,7 +2,7 @@ import React, { useEffect, useState, FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { 
-  Plus, Minus, X, Check, Search, ShoppingBag, ArrowRight, Star, Clock, 
+  Plus, Minus, X, Check, Search, ShoppingBag, ArrowRight, Star, Clock, Scale,
   MapPin, Phone as PhoneIcon, Receipt, Sparkles, Tag, ChevronRight, 
   Info, ShieldCheck, CornerDownRight, Store, AlertCircle, ShoppingCart,
   Heart, Sun, Moon, Send, MessageSquare, ExternalLink, ThumbsUp,
@@ -615,23 +615,20 @@ export default function ShopPage() {
 
   const getServiceBadges = (service: Service): string[] => {
     const badges: string[] = [];
-    const text = `${service.title} ${service.description || ""} ${service.category || ""}`.toLowerCase();
-    
-    if (text.includes("остр") || text.includes("spicy") || text.includes("пепперони") || text.includes("чили")) {
-      badges.push("🌶️ Острое");
+
+    // 1. Explicit admin custom badge from position settings
+    if (service.badge && service.badge.trim()) {
+      badges.push(service.badge.trim());
     }
-    if (text.includes("вег") || text.includes("овощ") || text.includes("зелен") || text.includes("салат") || text.includes("постн")) {
-      badges.push("🌱 Вегетарианское");
+
+    // 2. Old price discount percentage badge
+    if (service.oldPrice && Number(service.oldPrice) > Number(service.price)) {
+      const discountPct = Math.round(((Number(service.oldPrice) - Number(service.price)) / Number(service.oldPrice)) * 100);
+      if (discountPct > 0) {
+        badges.push(`-${discountPct}%`);
+      }
     }
-    if (text.includes("хит") || text.includes("специальн") || text.includes("фирменн") || text.includes("шеф")) {
-      badges.push("⭐ Хит");
-    }
-    if (text.includes("нов") || text.includes("new")) {
-      badges.push("🆕 Новинка");
-    }
-    if (text.includes("без глютен") || text.includes("gluten free")) {
-      badges.push("🌾 Без глютена");
-    }
+
     return badges;
   };
 
@@ -1256,14 +1253,21 @@ export default function ShopPage() {
                           <h3 className={`text-sm font-semibold tracking-tight hover:underline ${isOutOfStock ? "text-app-muted" : "text-app-primary"}`}>
                             {service.title}
                           </h3>
-                          <span className="text-xs font-mono font-bold text-app-primary px-2 py-1 rounded-lg bg-app-card border border-app-border shrink-0">
-                            {service.price} ₽
-                          </span>
+                          <div className="flex flex-col items-end shrink-0">
+                            {service.oldPrice && Number(service.oldPrice) > Number(service.price) && (
+                              <span className="text-[10px] font-mono text-app-muted line-through leading-none mb-1">
+                                {service.oldPrice} ₽
+                              </span>
+                            )}
+                            <span className="text-xs font-mono font-bold text-app-primary px-2 py-1 rounded-lg bg-app-card border border-app-border">
+                              {service.price} ₽
+                            </span>
+                          </div>
                         </div>
 
-                        {/* Dietary Badges */}
+                        {/* Dietary & Custom Badges */}
                         {badges.length > 0 && (
-                          <div className="flex flex-wrap gap-1 py-1">
+                          <div className="flex flex-wrap gap-1 py-0.5">
                             {badges.map(badge => (
                               <span key={badge} className="px-2 py-0.5 rounded-md bg-app-badge text-app-primary font-mono text-[9px] border border-app-border">
                                 {badge}
@@ -1279,6 +1283,36 @@ export default function ShopPage() {
                           >
                             {service.description}
                           </p>
+                        )}
+
+                        {/* Additional Meta Details: Time, Weight, Tags */}
+                        {(service.prepTime || service.weight || service.tags) && (
+                          <div 
+                            onClick={() => setSelectedServiceDetail(service)}
+                            className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] font-mono text-app-muted cursor-pointer"
+                          >
+                            {service.prepTime && (
+                              <span className="inline-flex items-center gap-1 bg-app-card/80 px-2 py-0.5 rounded-md border border-app-border/60 text-app-secondary">
+                                <Clock size={11} className="text-amber-500 shrink-0" />
+                                <span>{service.prepTime}</span>
+                              </span>
+                            )}
+                            {service.weight && (
+                              <span className="inline-flex items-center gap-1 bg-app-card/80 px-2 py-0.5 rounded-md border border-app-border/60 text-app-secondary">
+                                <Scale size={11} className="text-sky-500 shrink-0" />
+                                <span>{service.weight}</span>
+                              </span>
+                            )}
+                            {service.tags && (
+                              <div className="flex flex-wrap gap-1 items-center">
+                                {service.tags.split(",").map(t => t.trim()).filter(Boolean).map(tag => (
+                                  <span key={tag} className="text-app-muted hover:text-app-primary transition-colors">
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                       
@@ -1992,16 +2026,23 @@ export default function ShopPage() {
                       </span>
                     )}
                   </div>
-                  <span className="text-base font-bold font-mono text-app-primary px-3 py-1 bg-app-card border border-app-border rounded-xl">
-                    {selectedServiceDetail.price} ₽
-                  </span>
+                  <div className="flex flex-col items-end shrink-0">
+                    {selectedServiceDetail.oldPrice && Number(selectedServiceDetail.oldPrice) > Number(selectedServiceDetail.price) && (
+                      <span className="text-xs font-mono text-app-muted line-through mb-0.5">
+                        {selectedServiceDetail.oldPrice} ₽
+                      </span>
+                    )}
+                    <span className="text-base font-bold font-mono text-app-primary px-3 py-1 bg-app-card border border-app-border rounded-xl">
+                      {selectedServiceDetail.price} ₽
+                    </span>
+                  </div>
                 </div>
 
-                {/* Dietary Badges in Modal */}
+                {/* Dietary & Custom Badges in Modal */}
                 {getServiceBadges(selectedServiceDetail).length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {getServiceBadges(selectedServiceDetail).map(badge => (
-                      <span key={badge} className="px-2.5 py-1 rounded-lg bg-app-badge text-app-primary font-mono text-xs border border-app-border">
+                      <span key={badge} className="px-2.5 py-1 rounded-lg bg-app-badge text-app-primary font-mono text-xs border border-app-border font-medium">
                         {badge}
                       </span>
                     ))}
@@ -2013,6 +2054,69 @@ export default function ShopPage() {
                     {selectedServiceDetail.description}
                   </p>
                 )}
+
+                {/* Meta details: Time, Weight, Tags */}
+                {(selectedServiceDetail.prepTime || selectedServiceDetail.weight || selectedServiceDetail.tags) && (
+                  <div className="grid grid-cols-2 gap-2 pt-1 font-sans">
+                    {selectedServiceDetail.prepTime && (
+                      <div className="p-2.5 bg-app-card border border-app-border rounded-xl flex items-center gap-2">
+                        <Clock size={16} className="text-amber-500 shrink-0" />
+                        <div>
+                          <span className="block text-[9px] font-mono text-app-muted uppercase">Время</span>
+                          <span className="text-xs font-semibold text-app-primary">{selectedServiceDetail.prepTime}</span>
+                        </div>
+                      </div>
+                    )}
+                    {selectedServiceDetail.weight && (
+                      <div className="p-2.5 bg-app-card border border-app-border rounded-xl flex items-center gap-2">
+                        <Scale size={16} className="text-sky-500 shrink-0" />
+                        <div>
+                          <span className="block text-[9px] font-mono text-app-muted uppercase">Вес / Объём</span>
+                          <span className="text-xs font-semibold text-app-primary">{selectedServiceDetail.weight}</span>
+                        </div>
+                      </div>
+                    )}
+                    {selectedServiceDetail.tags && (
+                      <div className="col-span-2 p-2.5 bg-app-card border border-app-border rounded-xl space-y-1">
+                        <span className="block text-[9px] font-mono text-app-muted uppercase">Теги</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedServiceDetail.tags.split(",").map(t => t.trim()).filter(Boolean).map(tag => (
+                            <span key={tag} className="text-xs font-mono text-app-accent">
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Gallery Photos if available */}
+                {(() => {
+                  let galleryImages: string[] = [];
+                  if (selectedServiceDetail.gallery) {
+                    try {
+                      galleryImages = typeof selectedServiceDetail.gallery === "string"
+                        ? JSON.parse(selectedServiceDetail.gallery)
+                        : selectedServiceDetail.gallery;
+                    } catch {}
+                  }
+                  if (Array.isArray(galleryImages) && galleryImages.length > 0) {
+                    return (
+                      <div className="space-y-1.5 pt-1">
+                        <label className="text-[10px] font-mono text-app-muted uppercase">Галерея фотографий</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {galleryImages.map((imgUrl, idx) => (
+                            <div key={idx} className="h-20 rounded-xl overflow-hidden border border-app-border bg-app-card">
+                              <img src={imgUrl} alt={`Фото ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* Optional Note for Item */}
                 <div className="space-y-1.5 pt-2">
