@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { TrendingUp, ShoppingBag, DollarSign, Award, RefreshCw, BarChart2 } from "lucide-react";
 import { AnalyticsSkeleton } from "./Skeleton";
+import { useRealtimeEvent } from "../context/RealtimeContext";
 
 interface AnalyticsData {
   summary: {
@@ -36,8 +37,8 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAnalytics = async () => {
-    setLoading(true);
+  const fetchAnalytics = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/shops/${shopId}/analytics`);
@@ -45,15 +46,25 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
       const analyticsData = await res.json();
       setData(analyticsData);
     } catch (err: any) {
-      setError(err.message || "Ошибка при загрузке отчёта");
+      if (!silent) setError(err.message || "Ошибка при загрузке отчёта");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  useRealtimeEvent(["ORDER_CREATED", "ORDER_STATUS_UPDATED", "ORDER_DELETED", "CUSTOMER_UPDATED"], (event) => {
+    if (!event.shopId || event.shopId === shopId) {
+      fetchAnalytics(true);
+    }
+  });
 
   useEffect(() => {
     if (shopId) {
       fetchAnalytics();
+      const interval = setInterval(() => {
+        fetchAnalytics(true);
+      }, 5000);
+      return () => clearInterval(interval);
     }
   }, [shopId]);
 

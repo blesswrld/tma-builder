@@ -12,19 +12,21 @@ export interface User {
 
 export interface Service {
   id: string;
-  shopId: string;
+  shopId?: string;
   title: string;
   price: number;
   oldPrice?: number | null;
   description?: string | null;
   category?: string | null;
   imageUrl?: string | null;
-  gallery?: string | null; // JSON array string or comma separated
+  gallery?: string | null;
   badge?: string | null;
   tags?: string | null;
   prepTime?: string | null;
   weight?: string | null;
   isAvailable?: boolean;
+  position?: number;
+  fulfillment?: string | null;
   createdAt?: string;
 }
 
@@ -40,8 +42,12 @@ export interface DeliveryOptions {
   pickup?: boolean;
   courier?: boolean;
   shipping?: boolean;
-  minOrder?: number;
-  deliveryFee?: number;
+  minOrder?: number | string;
+  deliveryFee?: number | string;
+  pickupAddress?: string;
+  deliveryMinOrder?: number | string;
+  deliveryFeeVal?: number | string;
+  freeDeliveryThreshold?: number | string;
 }
 
 export interface Shop {
@@ -56,8 +62,8 @@ export interface Shop {
   workingHours?: string | null;
   address?: string | null;
   phone?: string | null;
-  currency?: string;
-  currencySymbol?: string;
+  currency?: string | null;
+  currencySymbol?: string | null;
   socialLinks?: string | SocialLinks | null;
   deliveryOptions?: string | DeliveryOptions | null;
   paymentInstructions?: string | null;
@@ -68,12 +74,111 @@ export interface Shop {
     id: string;
     email: string;
     name?: string | null;
-  };
+  } | null;
   services?: Service[];
   _count?: {
     orders?: number;
   };
 }
+
+export interface Banner {
+  id: string;
+  shopId?: string;
+  title: string;
+  subtitle?: string | null;
+  imageUrl?: string | null;
+  badge?: string | null;
+  bgGradient?: string | null;
+  createdAt?: string;
+}
+
+export interface Review {
+  id: string;
+  shopId?: string;
+  customerName: string;
+  rating: number;
+  comment?: string | null;
+  reply?: string | null;
+  createdAt: string;
+}
+
+export interface OrderItem {
+  id: string;
+  title: string;
+  price: number;
+  quantity: number;
+  note?: string;
+}
+
+export interface Order {
+  id: string;
+  shopId: string;
+  customerName: string;
+  customerPhone: string;
+  tableNumber?: string | null;
+  preferredTime?: string | null;
+  fulfillmentMethod?: "courier" | "pickup" | string;
+  deliveryAddress?: string | null;
+  items: string; // JSON string of OrderItem[]
+  totalPrice: number;
+  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+  note?: string | null;
+  createdAt: string;
+}
+
+export interface Promocode {
+  id: string;
+  shopId: string;
+  code: string;
+  discountPercent?: number | null;
+  discountAmount?: number | null;
+  usageLimit?: number | null;
+  timesUsed: number;
+  isActive: boolean;
+  createdAt?: string;
+}
+
+export interface Customer {
+  id: string;
+  phone: string;
+  name?: string;
+  totalOrders: number;
+  totalSpent: number;
+  lastOrderAt?: string;
+  notes?: string;
+}
+
+export interface TeamMember {
+  id: string;
+  shopId: string;
+  userId: string;
+  role: "ADMIN" | "MANAGER" | "COURIER";
+  user?: {
+    id: string;
+    email: string;
+    name?: string | null;
+  };
+  createdAt?: string;
+}
+
+export interface Broadcast {
+  id: string;
+  shopId: string;
+  title: string;
+  message: string;
+  recipientsCount: number;
+  sentAt: string;
+}
+
+export const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return typeof window !== "undefined" ? window.btoa(binary) : Buffer.from(binary, "binary").toString("base64");
+};
 
 export function parseSocialLinks(data: any): SocialLinks {
   if (!data) return {};
@@ -86,12 +191,12 @@ export function parseSocialLinks(data: any): SocialLinks {
 }
 
 export function parseDeliveryOptions(data: any): DeliveryOptions {
-  if (!data) return { pickup: true, courier: true };
+  if (!data) return {};
   if (typeof data === "object") return data;
   try {
     return JSON.parse(data);
   } catch (e) {
-    return { pickup: true, courier: true };
+    return {};
   }
 }
 
@@ -104,4 +209,9 @@ export function parseGallery(galleryStr?: string | null): string[] {
     return galleryStr.split(",").map(s => s.trim()).filter(Boolean);
   }
   return [];
+}
+
+export function getServiceBadges(service: Service): string[] {
+  if (!service.badge) return [];
+  return service.badge.split(",").map(b => b.trim()).filter(Boolean);
 }

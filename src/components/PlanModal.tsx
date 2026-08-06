@@ -94,9 +94,9 @@ export default function PlanModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-hidden text-app-primary font-sans">
-      <div className="bg-app-modal rounded-3xl max-w-4xl w-full border border-app-border flex flex-col max-h-[90vh] shadow-2xl">
+      <div className="bg-app-modal rounded-3xl max-w-4xl w-full border border-app-border flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-app-border flex items-center justify-between bg-app-modal-header">
+        <div className="px-6 py-4 border-b border-app-border flex items-center justify-between bg-app-modal-header rounded-t-3xl">
           <div className="flex items-center gap-3">
             {selectedPlan ? (
               <button

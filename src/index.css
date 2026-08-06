@@ -14,11 +14,11 @@
     --card-hover: #222227;
     --hover: #222227;
     --input-bg: #18181c;
-    --input-border: #27272a;
+    --input-border: rgba(255, 255, 255, 0.08);
     --input-focus-border: #52525b;
     
-    --border: #27272a;
-    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.06);
+    --border-subtle: rgba(255, 255, 255, 0.04);
     
     --text-primary: #ffffff;
     --text-secondary: #a1a1aa;
@@ -62,11 +62,11 @@
     --card-hover: #f1f3f5;
     --hover: #f1f3f5;
     --input-bg: #ffffff;
-    --input-border: #d4d4d8;
+    --input-border: rgba(0, 0, 0, 0.08);
     --input-focus-border: #71717a;
     
-    --border: #d4d4d8;
-    --border-subtle: rgba(0, 0, 0, 0.12);
+    --border: rgba(0, 0, 0, 0.06);
+    --border-subtle: rgba(0, 0, 0, 0.04);
     
     --text-primary: #09090b;
     --text-secondary: #27272a;
@@ -230,7 +230,7 @@ html.light .bg-app-modal {
   color: var(--text-primary);
 }
 
-html.light .text-white:not(.keep-white):not(.bg-black):not(.bg-black *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500):not(.bg-rose-500 *):not(.bg-rose-600):not(.bg-rose-600 *):not(.bg-emerald-500):not(.bg-emerald-500 *):not(.bg-emerald-600):not(.bg-emerald-600 *):not(.bg-indigo-600):not(.bg-indigo-600 *) {
+html.light .text-white:not(.keep-white):not(.bg-black):not(.bg-black *):not([class*="bg-black"]):not([class*="bg-black"] *):not([class*="bg-gradient"]):not([class*="bg-gradient"] *):not([class*="bg-zinc-900"]):not([class*="bg-zinc-900"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500):not(.bg-rose-500 *):not(.bg-rose-600):not(.bg-rose-600 *):not(.bg-emerald-500):not(.bg-emerald-500 *):not(.bg-emerald-600):not(.bg-emerald-600 *):not(.bg-indigo-600):not(.bg-indigo-600 *) {
   color: var(--text-primary) !important;
 }
 

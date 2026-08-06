@@ -20,6 +20,17 @@ import PlanModal from "../components/PlanModal";
 import AnalyticsTab from "../components/AnalyticsTab";
 import { AdminPageSkeleton, ReviewSkeletonList, SpinnerLoader, Skeleton } from "../components/Skeleton";
 import ImageUploader from "../components/ImageUploader";
+import { AdminAuthModal } from "../components/admin/AdminAuthModal";
+import { AdminSettingsTab } from "../components/admin/AdminSettingsTab";
+import { AdminServicesTab } from "../components/admin/AdminServicesTab";
+import { AdminOrdersTab } from "../components/admin/AdminOrdersTab";
+import { AdminTeamTab } from "../components/admin/AdminTeamTab";
+import { AdminBotSimTab } from "../components/admin/AdminBotSimTab";
+import { AdminCustomersTab } from "../components/admin/AdminCustomersTab";
+import { AdminBroadcastsTab } from "../components/admin/AdminBroadcastsTab";
+import { AdminBannersTab } from "../components/admin/AdminBannersTab";
+import { AdminPromocodesTab } from "../components/admin/AdminPromocodesTab";
+import { AdminReviewsTab } from "../components/admin/AdminReviewsTab";
 import { 
   validateShopName, validateSlug, cleanSlugForSubmit, transliterateToSlug, validateCisPhone, 
   validateTelegramBotToken, validateTelegramChatId, validateItemTitle, 
@@ -198,24 +209,27 @@ export default function AdminPage() {
       setOrders(prev => [event.payload, ...prev.filter(o => o.id !== event.payload.id)]);
       setNewOrderAlert(event.payload);
       playOrderChime();
+      fetchOrders(selectedShop.id, true);
     }
   });
 
   useRealtimeEvent("ORDER_STATUS_UPDATED", (event) => {
     if (event.payload && event.shopId === selectedShop?.id) {
       setOrders(prev => prev.map(o => o.id === event.payload.id ? { ...o, status: event.payload.status } : o));
+      fetchOrders(selectedShop.id, true);
     }
   });
 
   useRealtimeEvent("ORDER_DELETED", (event) => {
     if (event.payload?.id) {
       setOrders(prev => prev.filter(o => o.id !== event.payload.id));
+      if (selectedShop?.id) fetchOrders(selectedShop.id, true);
     }
   });
 
   useRealtimeEvent("SERVICE_CREATED", (event) => {
-    if (event.payload && event.shopId === selectedShop?.id) {
-      setShops(prev => (prev || []).map(s => s.id === selectedShop?.id ? {
+    if (event.payload && (event.shopId === selectedShop?.id || !event.shopId)) {
+      setShops(prev => (prev || []).map(s => s.id === (event.shopId || selectedShop?.id) ? {
         ...s,
         services: [event.payload, ...(s.services || []).filter(srv => srv.id !== event.payload.id)]
       } : s));
@@ -223,12 +237,13 @@ export default function AdminPage() {
         ...prev,
         services: [event.payload, ...(prev.services || []).filter(srv => srv.id !== event.payload.id)]
       } : prev);
+      fetchShops(true);
     }
   });
 
   useRealtimeEvent("SERVICE_UPDATED", (event) => {
-    if (event.payload && event.shopId === selectedShop?.id) {
-      setShops(prev => (prev || []).map(s => s.id === selectedShop?.id ? {
+    if (event.payload) {
+      setShops(prev => (prev || []).map(s => s.id === (event.shopId || selectedShop?.id) ? {
         ...s,
         services: (s.services || []).map(srv => srv.id === event.payload.id ? { ...srv, ...event.payload } : srv)
       } : s));
@@ -236,12 +251,13 @@ export default function AdminPage() {
         ...prev,
         services: (prev.services || []).map(srv => srv.id === event.payload.id ? { ...srv, ...event.payload } : srv)
       } : prev);
+      fetchShops(true);
     }
   });
 
   useRealtimeEvent("SERVICE_DELETED", (event) => {
-    if (event.payload?.id && event.shopId === selectedShop?.id) {
-      setShops(prev => (prev || []).map(s => s.id === selectedShop?.id ? {
+    if (event.payload?.id) {
+      setShops(prev => (prev || []).map(s => s.id === (event.shopId || selectedShop?.id) ? {
         ...s,
         services: (s.services || []).filter(srv => srv.id !== event.payload.id)
       } : s));
@@ -249,70 +265,81 @@ export default function AdminPage() {
         ...prev,
         services: (prev.services || []).filter(srv => srv.id !== event.payload.id)
       } : prev);
+      fetchShops(true);
     }
   });
 
   useRealtimeEvent("REVIEW_CREATED", (event) => {
-    if (event.payload && event.shopId === selectedShop?.id) {
+    if (event.payload && (event.shopId === selectedShop?.id || !event.shopId)) {
       setReviews(prev => [event.payload, ...prev.filter(r => r.id !== event.payload.id)]);
+      fetchReviews(true);
     }
   });
 
   useRealtimeEvent("REVIEW_UPDATED", (event) => {
-    if (event.payload && event.shopId === selectedShop?.id) {
+    if (event.payload && (event.shopId === selectedShop?.id || !event.shopId)) {
       setReviews(prev => prev.map(r => r.id === event.payload.id ? { ...r, ...event.payload } : r));
+      fetchReviews(true);
     }
   });
 
   useRealtimeEvent("REVIEW_DELETED", (event) => {
-    if (event.payload && event.shopId === selectedShop?.id) {
+    if (event.payload && (event.shopId === selectedShop?.id || !event.shopId)) {
       setReviews(prev => prev.filter(r => r.id !== event.payload.id));
+      fetchReviews(true);
     }
   });
 
   useRealtimeEvent("CUSTOMER_UPDATED", (event) => {
-    if (event.payload && event.shopId === selectedShop?.id) {
+    if (event.payload && (event.shopId === selectedShop?.id || !event.shopId)) {
       setCustomers(prev => {
         const exists = prev.some(c => c.id === event.payload.id || c.phone === event.payload.phone);
         if (!exists) return [event.payload, ...prev];
         return prev.map(c => (c.id === event.payload.id || c.phone === event.payload.phone) ? { ...c, ...event.payload } : c);
       });
+      fetchCustomers(true);
     }
   });
 
   useRealtimeEvent("BROADCAST_CREATED", (event) => {
-    if (event.payload && event.shopId === selectedShop?.id) {
+    if (event.payload && (event.shopId === selectedShop?.id || !event.shopId)) {
       setBroadcasts(prev => [event.payload, ...prev.filter(b => b.id !== event.payload.id)]);
+      fetchBroadcasts(true);
     }
   });
 
   useRealtimeEvent("BROADCAST_DELETED", (event) => {
     if (event.payload?.id) {
       setBroadcasts(prev => prev.filter(b => b.id !== event.payload.id));
+      fetchBroadcasts(true);
     }
   });
 
   useRealtimeEvent("PROMOCODE_CREATED", (event) => {
-    if (event.payload && event.shopId === selectedShop?.id) {
+    if (event.payload && (event.shopId === selectedShop?.id || !event.shopId)) {
       setPromocodes(prev => [event.payload, ...prev.filter(p => p.id !== event.payload.id)]);
+      fetchPromocodes(true);
     }
   });
 
   useRealtimeEvent("PROMOCODE_DELETED", (event) => {
     if (event.payload?.id) {
       setPromocodes(prev => prev.filter(p => p.id !== event.payload.id));
+      fetchPromocodes(true);
     }
   });
 
   useRealtimeEvent("BANNER_CREATED", (event) => {
-    if (event.payload && event.shopId === selectedShop?.id) {
+    if (event.payload && (event.shopId === selectedShop?.id || !event.shopId)) {
       setBanners(prev => [event.payload, ...prev.filter(b => b.id !== event.payload.id)]);
+      fetchBanners(true);
     }
   });
 
   useRealtimeEvent("BANNER_DELETED", (event) => {
     if (event.payload?.id) {
       setBanners(prev => prev.filter(b => b.id !== event.payload.id));
+      fetchBanners(true);
     }
   });
 
@@ -322,12 +349,13 @@ export default function AdminPage() {
       if (selectedShop?.id === event.payload.id) {
         setSelectedShop(prev => prev ? { ...prev, ...event.payload } : prev);
       }
+      fetchShops(true);
     }
   });
 
   useRealtimeEvent("SHOP_CREATED", (event) => {
     if (event.payload?.id) {
-      fetchShops();
+      fetchShops(true);
     }
   });
 
@@ -337,36 +365,44 @@ export default function AdminPage() {
       if (selectedShop?.id === event.payload.id) {
         setSelectedShop(null);
       }
+      fetchShops(true);
+    }
+  });
+
+  useRealtimeEvent("USER_UPDATED", (event) => {
+    if (event.payload) {
+      setUser(prev => prev && prev.id === event.payload.id ? { ...prev, ...event.payload } : prev);
     }
   });
 
   useRealtimeEvent("TEAM_MEMBER_ADDED", (event) => {
-    if (selectedShop?.id && event.shopId === selectedShop.id) {
-      fetchTeam(selectedShop.id);
+    if (selectedShop?.id && (event.shopId === selectedShop.id || !event.shopId)) {
+      fetchTeam(selectedShop.id, true);
     }
   });
 
   useRealtimeEvent("TEAM_MEMBER_REMOVED", (event) => {
-    if (selectedShop?.id && event.shopId === selectedShop.id) {
-      fetchTeam(selectedShop.id);
+    if (selectedShop?.id && (event.shopId === selectedShop.id || !event.shopId)) {
+      fetchTeam(selectedShop.id, true);
     }
   });
 
   useRealtimeEvent("INVITE_CREATED", (event) => {
-    if (selectedShop?.id && event.shopId === selectedShop.id) {
-      fetchTeam(selectedShop.id);
+    if (selectedShop?.id && (event.shopId === selectedShop.id || !event.shopId)) {
+      fetchTeam(selectedShop.id, true);
     }
   });
 
   useRealtimeEvent("INVITE_REVOKED", (event) => {
-    if (selectedShop?.id && event.shopId === selectedShop.id) {
-      fetchTeam(selectedShop.id);
+    if (selectedShop?.id && (event.shopId === selectedShop.id || !event.shopId)) {
+      fetchTeam(selectedShop.id, true);
     }
   });
 
   useRealtimeEvent("CUSTOMER_DELETED", (event) => {
-    if (event.payload?.id && event.shopId === selectedShop?.id) {
+    if (event.payload?.id && (event.shopId === selectedShop?.id || !event.shopId)) {
       setCustomers(prev => prev.filter(c => c.id !== event.payload.id));
+      fetchCustomers(true);
     }
   });
 
@@ -443,6 +479,8 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("ALL");
+  const [orderSearchQuery, setOrderSearchQuery] = useState<string>("");
+  const [orderTypeFilter, setOrderTypeFilter] = useState<string>("ALL");
 
   // Create Shop
   const [isCreatingShop, setIsCreatingShop] = useState(false);
@@ -554,6 +592,7 @@ export default function AdminPage() {
     isOpen: true
   });
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
   const [settingsFieldErrors, setSettingsFieldErrors] = useState<{ botToken?: string; adminChatId?: string; name?: string }>({});
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
@@ -1297,9 +1336,9 @@ export default function AdminPage() {
     }
   }, [user, token, urlInviteCode]);
 
-  const fetchTeam = async (shopId: string) => {
+  const fetchTeam = async (shopId: string, silent = false) => {
     if (!token) return;
-    setTeamLoading(true);
+    if (!silent) setTeamLoading(true);
     try {
       const res = await fetch(`/api/shops/${shopId}/members`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -1312,7 +1351,7 @@ export default function AdminPage() {
     } catch (err) {
       console.error("Failed to fetch team:", err);
     } finally {
-      setTeamLoading(false);
+      if (!silent) setTeamLoading(false);
     }
   };
 
@@ -1384,7 +1423,7 @@ export default function AdminPage() {
     }
   };
 
-  const fetchShops = async () => {
+  const fetchShops = async (silent = false) => {
     try {
       const headers: Record<string, string> = {};
       if (token) {
@@ -1400,7 +1439,8 @@ export default function AdminPage() {
         } catch {
           if (text) errMsg = `${errMsg}: ${text.slice(0, 150)}`;
         }
-        throw new Error(errMsg);
+        if (!silent) throw new Error(errMsg);
+        return;
       }
       const data: Shop[] = await res.json();
       setShops(data);
@@ -1413,13 +1453,15 @@ export default function AdminPage() {
         return data.length > 0 ? data[0] : null;
       });
     } catch (err: any) {
-      if (err instanceof TypeError || (err?.message && err.message.includes("Failed to fetch"))) {
-        console.warn("Failed to fetch shops (network offline):", err.message);
-      } else {
-        console.error(err);
+      if (!silent) {
+        if (err instanceof TypeError || (err?.message && err.message.includes("Failed to fetch"))) {
+          console.warn("Failed to fetch shops (network offline):", err.message);
+        } else {
+          console.error(err);
+        }
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -1739,13 +1781,13 @@ export default function AdminPage() {
     let parsedGallery: string[] = [];
     if (service.gallery) {
       try {
-        parsedGallery = JSON.parse(service.gallery);
+        parsedGallery = typeof service.gallery === "string" ? JSON.parse(service.gallery) : service.gallery;
       } catch {
-        parsedGallery = service.gallery.split(",").map(s => s.trim()).filter(Boolean);
+        parsedGallery = String(service.gallery).split(",").map(s => s.trim()).filter(Boolean);
       }
     }
 
-    setEditServiceData({
+    const initialData = {
       title: service.title,
       price: service.price.toString(),
       oldPrice: service.oldPrice ? service.oldPrice.toString() : "",
@@ -1759,33 +1801,42 @@ export default function AdminPage() {
       weight: service.weight || "",
       isAvailable: service.isAvailable !== false,
       fulfillment: service.fulfillment || "courier,pickup"
-    });
+    };
+
+    setNewServiceData(initialData);
+    setEditServiceData(initialData);
+    setServiceError(null);
     setEditServiceError(null);
     setIsProfileOpen(false);
     setIsSettingsOpen(false);
     setIsCreatingShop(false);
     setIsAddingService(false);
     setEditingService(service);
-    setActiveTab("editservice");
+    setActiveTab("services");
   };
 
   const handleSaveEditService = async (e: FormEvent) => {
     e.preventDefault();
     if (!editingService) return;
 
-    const titleRes = validateItemTitle(editServiceData.title);
+    const currentData = { ...editServiceData, ...newServiceData };
+
+    const titleRes = validateItemTitle(currentData.title);
     if (!titleRes.isValid) {
+      setServiceError(titleRes.error || "Укажите название");
       setEditServiceError(titleRes.error || "Укажите название");
       return;
     }
 
-    const priceRes = validatePrice(editServiceData.price);
+    const priceRes = validatePrice(currentData.price);
     if (!priceRes.isValid) {
+      setServiceError(priceRes.error || "Укажите цену");
       setEditServiceError(priceRes.error || "Укажите цену");
       return;
     }
 
     setIsSavingEditService(true);
+    setServiceError(null);
     setEditServiceError(null);
 
     try {
@@ -1798,17 +1849,17 @@ export default function AdminPage() {
         body: JSON.stringify({
           title: titleRes.title,
           price: priceRes.price,
-          oldPrice: editServiceData.oldPrice ? Number(editServiceData.oldPrice) : undefined,
-          description: editServiceData.description.trim() || undefined,
-          category: editServiceData.category.trim() || undefined,
-          imageUrl: editServiceData.imageUrl.trim() || undefined,
-          gallery: (editServiceData.gallery || []).length > 0 ? JSON.stringify(editServiceData.gallery) : undefined,
-          badge: editServiceData.badge.trim() || undefined,
-          tags: editServiceData.tags.trim() || undefined,
-          prepTime: editServiceData.prepTime.trim() || undefined,
-          weight: editServiceData.weight.trim() || undefined,
-          isAvailable: editServiceData.isAvailable,
-          fulfillment: editServiceData.fulfillment
+          oldPrice: currentData.oldPrice ? Number(currentData.oldPrice) : undefined,
+          description: currentData.description.trim() || undefined,
+          category: currentData.category.trim() || undefined,
+          imageUrl: currentData.imageUrl.trim() || undefined,
+          gallery: (currentData.gallery || []).length > 0 ? JSON.stringify(currentData.gallery) : undefined,
+          badge: currentData.badge.trim() || undefined,
+          tags: currentData.tags.trim() || undefined,
+          prepTime: currentData.prepTime.trim() || undefined,
+          weight: currentData.weight.trim() || undefined,
+          isAvailable: currentData.isAvailable,
+          fulfillment: currentData.fulfillment
         })
       });
 
@@ -1825,10 +1876,12 @@ export default function AdminPage() {
       } : prev);
 
       setEditingService(null);
+      setIsAddingService(false);
       setActiveTab("services");
       showToast("Услуга успешно обновлена", "success");
       await fetchShops();
     } catch (err: any) {
+      setServiceError(err.message);
       setEditServiceError(err.message);
     } finally {
       setIsSavingEditService(false);
@@ -1875,9 +1928,9 @@ export default function AdminPage() {
     }
   };
 
-  const fetchPromocodes = async () => {
+  const fetchPromocodes = async (silent = false) => {
     if (!selectedShop) return;
-    setPromocodesLoading(true);
+    if (!silent) setPromocodesLoading(true);
     try {
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -1887,13 +1940,15 @@ export default function AdminPage() {
         setPromocodes(data);
       }
     } catch (e: any) {
-      if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
-        console.warn("Failed to fetch promocodes (network offline):", e.message);
-      } else {
-        console.error(e);
+      if (!silent) {
+        if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
+          console.warn("Failed to fetch promocodes (network offline):", e.message);
+        } else {
+          console.error(e);
+        }
       }
     } finally {
-      setPromocodesLoading(false);
+      if (!silent) setPromocodesLoading(false);
     }
   };
 
@@ -1956,9 +2011,9 @@ export default function AdminPage() {
     );
   };
 
-  const fetchReviews = async () => {
+  const fetchReviews = async (silent = false) => {
     if (!selectedShop) return;
-    setReviewsLoading(true);
+    if (!silent) setReviewsLoading(true);
     try {
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -1977,13 +2032,15 @@ export default function AdminPage() {
         }
       }
     } catch (e: any) {
-      if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
-        console.warn("Failed to fetch reviews (network offline):", e.message);
-      } else {
-        console.error(e);
+      if (!silent) {
+        if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
+          console.warn("Failed to fetch reviews (network offline):", e.message);
+        } else {
+          console.error(e);
+        }
       }
     } finally {
-      setReviewsLoading(false);
+      if (!silent) setReviewsLoading(false);
     }
   };
 
@@ -2015,9 +2072,9 @@ export default function AdminPage() {
     );
   };
 
-  const fetchBanners = async () => {
+  const fetchBanners = async (silent = false) => {
     if (!selectedShop) return;
-    setBannersLoading(true);
+    if (!silent) setBannersLoading(true);
     try {
       const res = await fetch(`/api/shops/${selectedShop.id}/banners`);
       if (res.ok) {
@@ -2025,13 +2082,15 @@ export default function AdminPage() {
         setBanners(data);
       }
     } catch (e: any) {
-      if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
-        console.warn("Failed to fetch banners (network offline):", e.message);
-      } else {
-        console.error(e);
+      if (!silent) {
+        if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
+          console.warn("Failed to fetch banners (network offline):", e.message);
+        } else {
+          console.error(e);
+        }
       }
     } finally {
-      setBannersLoading(false);
+      if (!silent) setBannersLoading(false);
     }
   };
 
@@ -2079,9 +2138,9 @@ export default function AdminPage() {
     );
   };
 
-  const fetchBroadcasts = async () => {
+  const fetchBroadcasts = async (silent = false) => {
     if (!selectedShop) return;
-    setBroadcastsLoading(true);
+    if (!silent) setBroadcastsLoading(true);
     try {
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -2091,13 +2150,15 @@ export default function AdminPage() {
         setBroadcasts(data);
       }
     } catch (e: any) {
-      if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
-        console.warn("Failed to fetch broadcasts (network offline):", e.message);
-      } else {
-        console.error(e);
+      if (!silent) {
+        if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
+          console.warn("Failed to fetch broadcasts (network offline):", e.message);
+        } else {
+          console.error(e);
+        }
       }
     } finally {
-      setBroadcastsLoading(false);
+      if (!silent) setBroadcastsLoading(false);
     }
   };
 
@@ -2145,9 +2206,9 @@ export default function AdminPage() {
     );
   };
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (silent = false) => {
     if (!selectedShop) return;
-    setCustomersLoading(true);
+    if (!silent) setCustomersLoading(true);
     try {
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -2157,13 +2218,15 @@ export default function AdminPage() {
         setCustomers(data);
       }
     } catch (e: any) {
-      if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
-        console.warn("Failed to fetch customers (network offline):", e.message);
-      } else {
-        console.error(e);
+      if (!silent) {
+        if (e instanceof TypeError || (e?.message && e.message.includes("Failed to fetch"))) {
+          console.warn("Failed to fetch customers (network offline):", e.message);
+        } else {
+          console.error(e);
+        }
       }
     } finally {
-      setCustomersLoading(false);
+      if (!silent) setCustomersLoading(false);
     }
   };
 
@@ -2174,6 +2237,17 @@ export default function AdminPage() {
       fetchBanners();
       fetchBroadcasts();
       fetchCustomers();
+
+      const interval = setInterval(() => {
+        fetchPromocodes(true);
+        fetchReviews(true);
+        fetchBanners(true);
+        fetchBroadcasts(true);
+        fetchCustomers(true);
+        fetchShops(true);
+      }, 4000);
+
+      return () => clearInterval(interval);
     }
   }, [selectedShop?.id]);
 
@@ -2466,6 +2540,7 @@ export default function AdminPage() {
 
     setIsSavingSettings(true);
     setSettingsError(null);
+    setSettingsSuccess(null);
 
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -2498,7 +2573,7 @@ export default function AdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Не удалось обновить настройки");
 
-      setIsSettingsOpen(false);
+      setSettingsSuccess("Настройки заведения успешно сохранены!");
       showToast("Настройки заведения успешно сохранены", "success");
       await fetchShops();
     } catch (err: any) {
@@ -2569,7 +2644,23 @@ export default function AdminPage() {
     return matchesCategory && matchesSearch;
   });
 
-  const filteredOrders = orders.filter(o => orderStatusFilter === "ALL" || o.status === orderStatusFilter);
+  const filteredOrders = orders.filter(o => {
+    if (orderStatusFilter !== "ALL" && o.status !== orderStatusFilter) return false;
+    if (orderTypeFilter !== "ALL") {
+      const method = (o as any).fulfillmentMethod || ((o as any).deliveryAddress ? "courier" : "pickup");
+      if (method !== orderTypeFilter) return false;
+    }
+    if (orderSearchQuery.trim()) {
+      const q = orderSearchQuery.toLowerCase().trim();
+      const matchId = (o.id || "").toLowerCase().includes(q);
+      const matchName = (o.customerName || "").toLowerCase().includes(q);
+      const matchPhone = (o.customerPhone || "").toLowerCase().includes(q);
+      const matchAddr = (o.deliveryAddress || "").toLowerCase().includes(q);
+      const matchItems = (o.items || "").toLowerCase().includes(q);
+      return matchId || matchName || matchPhone || matchAddr || matchItems;
+    }
+    return true;
+  });
 
   // Reviews Calculations & Filter
   const totalReviewsCount = reviews.length;
@@ -3279,11 +3370,12 @@ export default function AdminPage() {
             {activeTab === "services" && !isAddingService && !editingService && (
               <button
                 onClick={() => {
-                  setNewServiceData({ title: "", price: "", category: "", imageUrl: "", description: "", badge: "", prepTime: "", weight: "", tags: "", isAvailable: true, oldPrice: "" });
+                  setNewServiceData({ title: "", price: "", category: "", imageUrl: "", description: "", badge: "", prepTime: "", weight: "", tags: "", isAvailable: true, oldPrice: "", fulfillment: "courier,pickup" });
                   setServiceError(null);
                   setServiceFieldErrors({});
+                  setEditingService(null);
                   setIsAddingService(true);
-                  setActiveTab("addservice");
+                  setActiveTab("services");
                 }}
                 className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
@@ -3684,3125 +3776,260 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* PAGE VIEW: SETTINGS */}
+          {/* TAB: SETTINGS */}
           {activeTab === "settings" && !loading && selectedShop && (
-            <div className="max-w-4xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm">
-              <div className="border-b border-app-border pb-5">
-                <h3 className="text-base font-bold font-mono flex items-center gap-2 text-app-primary">
-                  <Settings size={18} />
-                  Настройки заведения: {selectedShop.name}
-                </h3>
-                <p className="text-xs text-app-muted mt-0.5 font-sans">Управление параметрами, брендингом и Telegram интеграциями</p>
-              </div>
-
-              {settingsError && (
-                <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-xs flex items-center gap-2.5 font-mono">
-                  <AlertCircle size={16} className="shrink-0" />
-                  <span>{settingsError}</span>
-                </div>
-              )}
-
-              {/* Navigation Tabs for Settings */}
-              <div className="flex gap-2 border-b border-app-border pb-3 overflow-x-auto scrollbar-none font-mono text-xs">
-                {[
-                  { id: "general", label: "Основное", icon: Store },
-                  { id: "branding", label: "Брендинг", icon: ImageIcon },
-                  { id: "integrations", label: "Telegram", icon: Send },
-                  { id: "delivery", label: "Доставка и Соцсети", icon: Globe },
-                  { id: "team", label: "Команда и доступ", icon: UserPlus }
-                ].map(t => {
-                  const Icon = t.icon;
-                  const isActive = settingsActiveTab === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setSettingsActiveTab(t.id as any)}
-                      className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                        isActive
-                          ? "bg-app-accent text-app-accent-fg font-bold shadow-sm"
-                          : "bg-app-card hover:bg-app-hover text-app-muted hover:text-app-primary border border-app-border"
-                      }`}
-                    >
-                      <Icon size={14} />
-                      <span>{t.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <form onSubmit={handleSaveSettings} className="space-y-6 font-sans text-xs">
-                {/* TAB GENERAL */}
-                {settingsActiveTab === "general" && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                          Название заведения *
-                        </label>
-                        <input
-                          type="text"
-                          value={settingsData.name}
-                          onChange={e => setSettingsData(p => ({ ...p, name: e.target.value }))}
-                          placeholder="Название *"
-                          className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                          Slug витрины (URL) *
-                        </label>
-                        <input
-                          type="text"
-                          value={settingsData.slug}
-                          onChange={e => setSettingsData(p => ({ ...p, slug: transliterateToSlug(e.target.value) }))}
-                          placeholder="slug"
-                          className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                        Описание заведения
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={settingsData.description}
-                        onChange={e => setSettingsData(p => ({ ...p, description: e.target.value }))}
-                        placeholder="Краткое описание витрины..."
-                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent resize-none"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                          Адрес заведения
-                        </label>
-                        <input
-                          type="text"
-                          value={settingsData.address}
-                          onChange={e => setSettingsData(p => ({ ...p, address: e.target.value }))}
-                          placeholder="ул. Пушкина, д. 10"
-                          className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                          Контактный телефон
-                        </label>
-                        <input
-                          type="text"
-                          value={settingsData.phone}
-                          onChange={e => setSettingsData(p => ({ ...p, phone: e.target.value }))}
-                          placeholder="+7 (999) 000-00-00"
-                          className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                          График работы
-                        </label>
-                        <input
-                          type="text"
-                          value={settingsData.workingHours}
-                          onChange={e => setSettingsData(p => ({ ...p, workingHours: e.target.value }))}
-                          placeholder="Пн-Вс: 08:00 - 22:00"
-                          className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                          Процент кэшбэка бонусных баллов (%)
-                        </label>
-                        <input
-                          type="number"
-                          value={settingsData.cashbackPercent}
-                          onChange={e => setSettingsData(p => ({ ...p, cashbackPercent: Number(e.target.value) }))}
-                          placeholder="5"
-                          className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 p-3 bg-app-card/60 border border-app-border rounded-2xl">
-                      <input
-                        type="checkbox"
-                        id="shopIsOpen"
-                        checked={settingsData.isOpen}
-                        onChange={e => setSettingsData(p => ({ ...p, isOpen: e.target.checked }))}
-                        className="rounded bg-app-card border-app-border text-app-primary cursor-pointer w-4 h-4"
-                      />
-                      <label htmlFor="shopIsOpen" className="text-xs font-mono text-app-primary cursor-pointer font-semibold">
-                        Заведение открыто для заказов
-                      </label>
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB BRANDING */}
-                {settingsActiveTab === "branding" && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-mono font-semibold text-app-secondary mb-2">Логотип заведения</label>
-                      <ImageUploader
-                        value={settingsData.logoUrl}
-                        onChange={(url) => setSettingsData(p => ({ ...p, logoUrl: url }))}
-                        type="photo"
-                        label="Загрузить логотип заведения"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-mono font-semibold text-app-secondary mb-2">Обложка / Баннер шапки</label>
-                      <ImageUploader
-                        value={settingsData.bannerUrl}
-                        onChange={(url) => setSettingsData(p => ({ ...p, bannerUrl: url }))}
-                        type="banner"
-                        label="Загрузить баннер витрины"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB TELEGRAM INTEGRATIONS */}
-                {settingsActiveTab === "integrations" && (
-                  <div className="space-y-6">
-                    {/* Header / Intro banner */}
-                    <div className="p-4 bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-purple-500/10 border border-sky-500/20 rounded-2xl space-y-2">
-                      <div className="flex items-center gap-2.5 text-sky-400 font-bold font-mono text-xs">
-                        <Send size={16} />
-                        <span>Telegram Mini App & Бот Уведомлений</span>
-                      </div>
-                      <p className="text-xs text-app-secondary leading-relaxed">
-                        Подключите собственного Telegram-бота от <code className="bg-app-card px-1.5 py-0.5 rounded text-sky-400">@BotFather</code>. 
-                        Ваши клиенты смогут открывать ваш магазин прямо из чата Telegram, а все заказы и отзывы будут поступать вам в личные сообщения!
-                      </p>
-                    </div>
-
-                    {/* Bot Token Configuration */}
-                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2">
-                          <Key size={14} className="text-amber-400" />
-                          <span>1. Токен Telegram-бота</span>
-                        </h4>
-                        {botTestResult?.botInfo && (
-                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold flex items-center gap-1.5">
-                            <CheckCircle2 size={12} />
-                            @{botTestResult.botInfo.username}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="block text-[11px] font-mono text-app-muted">
-                          Bot API Token (полученный в @BotFather)
-                        </label>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input
-                            type="text"
-                            value={settingsData.botToken}
-                            onChange={e => {
-                              setSettingsData(p => ({ ...p, botToken: e.target.value }));
-                              setBotTestResult(null);
-                            }}
-                            placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
-                            className="flex-1 bg-app-bg border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleTestBotToken}
-                            disabled={!settingsData.botToken || isTestingBot}
-                            className="px-4 py-2.5 bg-app-hover hover:bg-app-border text-app-primary border border-app-border rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 shrink-0"
-                          >
-                            {isTestingBot ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                            <span>Проверить бота</span>
-                          </button>
-                        </div>
-
-                        {botTestResult?.error && (
-                          <p className="text-[11px] text-rose-400 font-mono mt-1 flex items-center gap-1">
-                            <AlertCircle size={12} /> {botTestResult.error}
-                          </p>
-                        )}
-
-                        {botTestResult?.botInfo && (
-                          <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-xs space-y-1">
-                            <div className="text-emerald-400 font-bold flex items-center gap-2">
-                              <span>Имя бота:</span> <span className="text-app-primary font-normal">{botTestResult.botInfo.first_name}</span>
-                            </div>
-                            <div className="text-emerald-400 font-bold flex items-center gap-2">
-                              <span>Username:</span> <a href={`https://t.me/${botTestResult.botInfo.username}`} target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline font-mono">@{botTestResult.botInfo.username}</a>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Admin Chat ID & Webhook Integration */}
-                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2">
-                          <MessageSquare size={14} className="text-sky-400" />
-                          <span>2. Chat ID для уведомлений администратору</span>
-                        </h4>
-                        {settingsData.adminChatId ? (
-                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold">
-                            Chat ID: {settingsData.adminChatId}
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-mono font-bold">
-                            Не подключен
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                            Telegram Chat ID владельца (или зажмите /start в боте)
-                          </label>
-                          <input
-                            type="text"
-                            value={settingsData.adminChatId}
-                            onChange={e => setSettingsData(p => ({ ...p, adminChatId: e.target.value }))}
-                            placeholder="123456789 или отправьте /start боту"
-                            className="w-full bg-app-bg border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={handleSetupWebhook}
-                            disabled={!settingsData.botToken || isSettingWebhook}
-                            className="px-4 py-2.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-                          >
-                            {isSettingWebhook ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                            <span>Активировать Webhook</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={handleSendTestNotification}
-                            disabled={!settingsData.botToken || !settingsData.adminChatId || isSendingTestNotification}
-                            className="px-4 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-                          >
-                            {isSendingTestNotification ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                            <span>Тестовое уведомление</span>
-                          </button>
-                        </div>
-
-                        {webhookStatus && (
-                          <p className="text-[11px] font-mono text-emerald-400 flex items-center gap-1.5 p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
-                            <CheckCircle2 size={13} className="shrink-0" />
-                            <span>{webhookStatus}</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Guide for BotFather */}
-                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-4 font-sans">
-                      <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2">
-                        <Smartphone size={14} className="text-purple-400" />
-                        <span>Инструкция: Пошаговая настройка в @BotFather</span>
-                      </h4>
-
-                      <div className="space-y-3 text-xs text-app-secondary">
-                        <div className="p-3 bg-app-bg border border-app-border rounded-xl space-y-1.5">
-                          <div className="font-bold text-app-primary font-mono text-[11px] flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">1</span>
-                            <span>Получите токен бота:</span>
-                          </div>
-                          <p className="pl-7 text-app-muted">
-                            Откройте <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline font-medium">@BotFather</a> в Telegram, отправьте <code className="bg-app-card px-1.5 py-0.5 rounded text-sky-300">/newbot</code>, задайте имя и юзернейм. Скопируйте полученный API Token и вставьте выше.
-                          </p>
-                        </div>
-
-                        <div className="p-3 bg-app-bg border border-app-border rounded-xl space-y-1.5">
-                          <div className="font-bold text-app-primary font-mono text-[11px] flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">2</span>
-                            <span>Укажите ссылку на Mini App (кнопка Меню):</span>
-                          </div>
-                          <p className="pl-7 text-app-muted mb-2">
-                            В <code className="bg-app-card px-1.5 py-0.5 rounded text-sky-300">@BotFather</code> отправьте <code className="bg-app-card px-1.5 py-0.5 rounded text-sky-300">/mybots</code> → Выберите бота → <b>Bot Settings</b> → <b>Menu Button</b> → <b>Configure menu button</b> и вставьте URL витрины:
-                          </p>
-                          <div className="pl-7 flex items-center gap-2">
-                            <input
-                              type="text"
-                              readOnly
-                              value={`${window.location.origin}/${selectedShop?.slug}`}
-                              className="flex-1 bg-app-card border border-app-border rounded-lg px-2.5 py-1.5 text-[11px] text-sky-400 font-mono"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${window.location.origin}/${selectedShop?.slug}`);
-                                showToast("Ссылка скопирована в буфер обмена!", "success");
-                              }}
-                              className="px-3 py-1.5 bg-app-hover hover:bg-app-border text-app-primary border border-app-border rounded-lg text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer shrink-0"
-                            >
-                              <Copy size={12} />
-                              <span>Копировать</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="p-3 bg-app-bg border border-app-border rounded-xl space-y-1.5">
-                          <div className="font-bold text-app-primary font-mono text-[11px] flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">3</span>
-                            <span>Авто-привязка Chat ID:</span>
-                          </div>
-                          <p className="pl-7 text-app-muted">
-                            После ввода токена нажмите <b>«Активировать Webhook»</b> и перейдите в диалог с ботом. Нажмите команду <code className="bg-app-card px-1.5 py-0.5 rounded text-sky-300">/start</code> — бот пришлет подтверждение и автоматически сохранит ваш Chat ID!
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB DELIVERY & SOCIALS */}
-                {settingsActiveTab === "delivery" && (
-                  <div className="space-y-5">
-                    {/* Delivery & Pickup Toggles & Numbers */}
-                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-4">
-                      <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2 border-b border-app-border pb-3">
-                        <Truck size={16} className="text-sky-400" />
-                        <span>Параметры доставки и самовывоза</span>
-                      </h4>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Courier Delivery Toggle */}
-                        <div className="p-3.5 bg-app-surface border border-app-border rounded-xl flex items-center justify-between">
-                          <div>
-                            <span className="font-bold text-xs text-app-primary font-mono block">Курьерская доставка</span>
-                            <span className="text-[11px] text-app-muted block">Доставка курьером до адреса</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setSettingsData(p => ({
-                              ...p,
-                              deliveryOptions: { ...p.deliveryOptions, courier: !p.deliveryOptions.courier }
-                            }))}
-                            className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
-                              settingsData.deliveryOptions.courier ? "bg-emerald-500" : "bg-app-border"
-                            }`}
-                          >
-                            <span className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${
-                              settingsData.deliveryOptions.courier ? "right-1" : "left-1"
-                            }`} />
-                          </button>
-                        </div>
-
-                        {/* Pickup Toggle */}
-                        <div className="p-3.5 bg-app-surface border border-app-border rounded-xl flex items-center justify-between">
-                          <div>
-                            <span className="font-bold text-xs text-app-primary font-mono block">Самовывоз</span>
-                            <span className="text-[11px] text-app-muted block">Клиент сам забирает заказ</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setSettingsData(p => ({
-                              ...p,
-                              deliveryOptions: { ...p.deliveryOptions, pickup: !p.deliveryOptions.pickup }
-                            }))}
-                            className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
-                              settingsData.deliveryOptions.pickup ? "bg-emerald-500" : "bg-app-border"
-                            }`}
-                          >
-                            <span className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${
-                              settingsData.deliveryOptions.pickup ? "right-1" : "left-1"
-                            }`} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Delivery Price / Threshold inputs */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-app-border/60">
-                        <div>
-                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                            Мин. сумма заказа (₽)
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={settingsData.deliveryOptions.deliveryMinOrder ?? settingsData.deliveryOptions.minOrder ?? "0"}
-                            onChange={e => setSettingsData(p => ({
-                              ...p,
-                              deliveryOptions: { ...p.deliveryOptions, deliveryMinOrder: e.target.value, minOrder: e.target.value }
-                            }))}
-                            placeholder="0 (без ограничений)"
-                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                          />
-                          <p className="text-[10px] text-app-muted mt-1 font-mono">0 = от любой суммы</p>
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                            Стоимость доставки (₽)
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={settingsData.deliveryOptions.deliveryFee ?? "0"}
-                            onChange={e => setSettingsData(p => ({
-                              ...p,
-                              deliveryOptions: { ...p.deliveryOptions, deliveryFee: e.target.value }
-                            }))}
-                            placeholder="0 (бесплатно)"
-                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                          />
-                          <p className="text-[10px] text-app-muted mt-1 font-mono">0 = бесплатная доставка</p>
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                            Бесплатная доставка от (₽)
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={settingsData.deliveryOptions.freeDeliveryThreshold ?? "0"}
-                            onChange={e => setSettingsData(p => ({
-                              ...p,
-                              deliveryOptions: { ...p.deliveryOptions, freeDeliveryThreshold: e.target.value }
-                            }))}
-                            placeholder="Например: 1500"
-                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                          />
-                          <p className="text-[10px] text-app-muted mt-1 font-mono">При достижении суммы доставка 0 ₽</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                        <div>
-                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                            Адрес пункта самовывоза
-                          </label>
-                          <input
-                            type="text"
-                            value={settingsData.deliveryOptions.pickupAddress ?? ""}
-                            onChange={e => setSettingsData(p => ({
-                              ...p,
-                              deliveryOptions: { ...p.deliveryOptions, pickupAddress: e.target.value }
-                            }))}
-                            placeholder="Оставьте пустым для основного адреса заведения"
-                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                            Заметка / условия доставки
-                          </label>
-                          <input
-                            type="text"
-                            value={settingsData.deliveryOptions.deliveryNotes ?? ""}
-                            onChange={e => setSettingsData(p => ({
-                              ...p,
-                              deliveryOptions: { ...p.deliveryOptions, deliveryNotes: e.target.value }
-                            }))}
-                            placeholder="Доставка по городу за 45 минут"
-                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Loyalty & Cashback Rate */}
-                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-3">
-                      <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2 border-b border-app-border pb-3">
-                        <Gift size={16} className="text-amber-400" />
-                        <span>Программа лояльности и кэшбэк</span>
-                      </h4>
-
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="space-y-1">
-                          <span className="font-bold text-xs text-app-primary font-mono block">Процент начисления кэшбэка</span>
-                          <p className="text-[11px] text-app-muted font-sans">
-                            Покупатели будут получать бонусами данный процент с каждой покупки
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <input
-                            type="number"
-                            min="0"
-                            max="50"
-                            value={settingsData.cashbackPercent}
-                            onChange={e => setSettingsData(p => ({ ...p, cashbackPercent: Math.min(50, Math.max(0, Number(e.target.value))) }))}
-                            className="w-24 bg-app-surface border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary font-mono text-center font-bold"
-                          />
-                          <span className="text-xs font-mono font-bold text-amber-400">%</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Socials & Messengers */}
-                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-4">
-                      <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2 border-b border-app-border pb-3">
-                        <Globe size={16} className="text-indigo-400" />
-                        <span>Социальные сети и контакты</span>
-                      </h4>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">Telegram (канал / чат / юзернейм)</label>
-                          <input
-                            type="text"
-                            value={settingsData.socialLinks.telegram || ""}
-                            onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, telegram: e.target.value } }))}
-                            placeholder="https://t.me/channel"
-                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">Instagram</label>
-                          <input
-                            type="text"
-                            value={settingsData.socialLinks.instagram || ""}
-                            onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, instagram: e.target.value } }))}
-                            placeholder="https://instagram.com/..."
-                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">WhatsApp</label>
-                          <input
-                            type="text"
-                            value={settingsData.socialLinks.whatsapp || ""}
-                            onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, whatsapp: e.target.value } }))}
-                            placeholder="+79990000000"
-                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">ВКонтакте (VK)</label>
-                          <input
-                            type="text"
-                            value={settingsData.socialLinks.vk || ""}
-                            onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, vk: e.target.value } }))}
-                            placeholder="https://vk.com/..."
-                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="block text-[11px] font-mono text-app-muted mb-1.5">Официальный сайт</label>
-                          <input
-                            type="text"
-                            value={settingsData.socialLinks.website || ""}
-                            onChange={e => setSettingsData(p => ({ ...p, socialLinks: { ...p.socialLinks, website: e.target.value } }))}
-                            placeholder="https://myshop.ru"
-                            className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Payment Requisites */}
-                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-3">
-                      <h4 className="font-bold text-xs font-mono text-app-primary flex items-center gap-2 border-b border-app-border pb-3">
-                        <CreditCard size={16} className="text-amber-500" />
-                        <span>Инструкции по оплате / реквизиты</span>
-                      </h4>
-                      <div>
-                        <textarea
-                          rows={3}
-                          value={settingsData.paymentInstructions}
-                          onChange={e => setSettingsData(p => ({ ...p, paymentInstructions: e.target.value }))}
-                          placeholder="Реквизиты для перевода (СБП, карта) или инструкции для покупателей..."
-                          className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent resize-none font-sans"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB TEAM & ACCESS */}
-                {settingsActiveTab === "team" && (
-                  <div className="space-y-6 font-sans">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-app-card border border-app-border rounded-2xl">
-                      <div className="space-y-1">
-                        <h4 className="font-bold text-sm font-mono text-app-primary flex items-center gap-2">
-                          <UserPlus size={16} className="text-emerald-400" />
-                          Приглашение сотрудников
-                        </h4>
-                        <p className="text-xs text-app-muted">
-                          Создайте ссылку-приглашение для коллег, чтобы дать им доступ к заведению.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsInviteModalOpen(true);
-                          setCreatedInviteUrl(null);
-                        }}
-                        className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-black font-mono font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer shrink-0"
-                      >
-                        <UserPlus size={14} />
-                        <span>Пригласить сотрудника</span>
-                      </button>
-                    </div>
-
-                    {/* Members List */}
-                    <div className="space-y-3">
-                      <h4 className="font-bold text-xs font-mono text-app-muted uppercase tracking-wider">
-                        Состав команды ({(teamMembers || []).length + (selectedShop?.owner ? 1 : 0)})
-                      </h4>
-
-                      <div className="grid grid-cols-1 gap-2.5">
-                        {/* Owner item */}
-                        {selectedShop?.owner && (
-                          <div className="p-3.5 bg-app-card border border-app-border rounded-2xl flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">
-                                👑
-                              </div>
-                              <div>
-                                <div className="font-bold text-xs text-app-primary flex items-center gap-2">
-                                  <span>{selectedShop.owner.name || selectedShop.owner.email}</span>
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                                    Владелец
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-app-muted font-mono">{selectedShop.owner.email}</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Members */}
-                        {(teamMembers || []).map(m => (
-                          <div key={m.id} className="p-3.5 bg-app-card border border-app-border rounded-2xl flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-sm font-mono">
-                                <User size={16} />
-                              </div>
-                              <div>
-                                <div className="font-bold text-xs text-app-primary flex items-center gap-2">
-                                  <span>{m.name || m.email}</span>
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-                                    {m.role === "MANAGER" ? "Менеджер" : "Сотрудник"}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-app-muted font-mono">{m.email}</p>
-                              </div>
-                            </div>
-
-                            {user && selectedShop?.ownerId === user.id && (
-                              <button
-                                type="button"
-                                onClick={() => requestConfirm("Исключить сотрудника", `Удалить ${m.name || m.email} из команды заведения?`, () => handleRemoveMember(m.userId))}
-                                className="p-2 text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 rounded-xl transition-all cursor-pointer"
-                                title="Исключить из команды"
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Active Invites List */}
-                    <div className="space-y-3 pt-4 border-t border-app-border">
-                      <h4 className="font-bold text-xs font-mono text-app-muted uppercase tracking-wider">
-                        Активные ссылки и коды приглашений ({(teamInvites || []).length})
-                      </h4>
-
-                      {(teamInvites || []).length === 0 ? (
-                        <p className="text-xs text-app-muted italic font-mono bg-app-card p-4 rounded-2xl border border-app-border text-center">
-                          Нет активных ссылок приглашений. Нажмите «Пригласить сотрудника», чтобы сгенерировать ссылку.
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {(teamInvites || []).map(inv => (
-                            <div key={inv.id} className="p-3.5 bg-app-card border border-app-border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-mono font-bold text-xs text-emerald-400 px-2.5 py-0.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                                    {inv.code}
-                                  </span>
-                                  <span className="text-[11px] text-app-muted font-mono">
-                                    Использовано: {inv.usedCount} из {inv.maxUses}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] font-mono text-app-muted truncate max-w-md">
-                                  {inv.inviteUrl}
-                                </p>
-                              </div>
-
-                              <div className="flex items-center gap-2 self-end sm:self-center">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(inv.inviteUrl);
-                                    showToast("Ссылка-приглашение скопирована в буфер!", "success");
-                                  }}
-                                  className="px-3 py-1.5 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono text-app-primary flex items-center gap-1.5 transition-colors cursor-pointer"
-                                >
-                                  <Copy size={13} />
-                                  <span>Скопировать</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRevokeInvite(inv.code)}
-                                  className="p-1.5 text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
-                                  title="Отозвать приглашение"
-                                >
-                                  <X size={15} />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-4 border-t border-app-border flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={handleClearSettingsFields}
-                    className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-mono text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <Trash2 size={14} />
-                    <span>Очистить доп. поля</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={closeSubView}
-                    className="px-5 py-2.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer"
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSavingSettings}
-                    className="flex-1 py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                  >
-                    {isSavingSettings && <SpinnerLoader size={14} />}
-                    {isSavingSettings ? "Сохранение..." : "Сохранить настройки"}
-                  </button>
-                </div>
-
-                <div className="pt-4 border-t border-rose-500/20 mt-4 space-y-2">
-                  <label className="block text-[11px] font-mono text-rose-400 uppercase tracking-wider font-semibold">
-                    Опасная зона
-                  </label>
-                  <p className="text-[11px] text-app-muted leading-relaxed">
-                    Удаление заведения приведёт к каскадному удалению всех его услуг, истории заказов, отзывов и баннеров.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (selectedShop) handleDeleteShop(selectedShop);
-                    }}
-                    className="w-full py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-mono font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Trash2 size={14} />
-                    Удалить заведение
-                  </button>
-                </div>
-              </form>
-            </div>
+            <AdminSettingsTab
+              selectedShop={selectedShop}
+              shops={shops}
+              settingsData={settingsData}
+              setSettingsData={setSettingsData}
+              settingsError={settingsError}
+              settingsSuccess={settingsSuccess}
+              isSavingSettings={isSavingSettings}
+              handleSaveSettings={handleSaveSettings}
+              handleDeleteShop={handleDeleteShop}
+              handleRegenerateSlug={() => {
+                const autoSlug = transliterateToSlug(settingsData.name);
+                setSettingsData((s: any) => ({ ...s, slug: autoSlug || s.slug }));
+              }}
+              setIsQrModalOpen={setIsQrModalOpen}
+              requestConfirm={requestConfirm}
+              showToast={showToast}
+              settingsActiveTab={settingsActiveTab}
+              setSettingsActiveTab={setSettingsActiveTab}
+              handleClearSettingsFields={handleClearSettingsFields}
+              handleTestBotToken={handleTestBotToken}
+              handleSetupWebhook={handleSetupWebhook}
+              handleSendTestNotification={handleSendTestNotification}
+              botTestResult={botTestResult}
+              isTestingBot={isTestingBot}
+              isSettingWebhook={isSettingWebhook}
+              webhookStatus={webhookStatus}
+              isSendingTestNotification={isSendingTestNotification}
+            />
           )}
 
-          {/* PAGE VIEW: ADD SERVICE */}
-          {activeTab === "addservice" && !loading && selectedShop && (
-            <div className="max-w-3xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm">
-              <div className="border-b border-app-border pb-5">
-                <h3 className="text-base font-bold font-mono text-app-primary">Новая услуга / позиция меню</h3>
-                <p className="text-xs text-app-muted mt-0.5 font-sans">Добавление позиции в каталог {selectedShop.name}</p>
-              </div>
-
-              {serviceError && <p className="text-xs text-rose-400 font-mono p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">{serviceError}</p>}
-
-              <form onSubmit={handleAddService} className="space-y-5 font-sans">
-                <div>
-                  <label className="block text-[11px] font-mono text-app-muted mb-1.5">Название позиции *</label>
-                  <input
-                    type="text"
-                    value={newServiceData.title}
-                    onChange={e => setNewServiceData(p => ({ ...p, title: e.target.value }))}
-                    placeholder="Например: Двойной Эспрессо"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">Текущая цена ({selectedShop?.currencySymbol || "₽"}) *</label>
-                    <input
-                      type="number"
-                      value={newServiceData.price}
-                      onChange={e => setNewServiceData(p => ({ ...p, price: e.target.value }))}
-                      placeholder="350"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">Старая цена (зачеркнута)</label>
-                    <input
-                      type="number"
-                      value={newServiceData.oldPrice}
-                      onChange={e => setNewServiceData(p => ({ ...p, oldPrice: e.target.value }))}
-                      placeholder="450"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-muted focus:outline-none focus:border-app-accent font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">Категория</label>
-                    <input
-                      type="text"
-                      value={newServiceData.category}
-                      onChange={e => setNewServiceData(p => ({ ...p, category: e.target.value }))}
-                      placeholder="Кофе, Десерты, Завтраки..."
-                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">Плашка (Бейдж)</label>
-                    <input
-                      type="text"
-                      value={newServiceData.badge}
-                      onChange={e => setNewServiceData(p => ({ ...p, badge: e.target.value }))}
-                      placeholder="🔥 Хит, NEW, -20%"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">Время приготовления / сеанса</label>
-                    <input
-                      type="text"
-                      value={newServiceData.prepTime}
-                      onChange={e => setNewServiceData(p => ({ ...p, prepTime: e.target.value }))}
-                      placeholder="10-15 мин"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">Вес / Объём</label>
-                    <input
-                      type="text"
-                      value={newServiceData.weight}
-                      onChange={e => setNewServiceData(p => ({ ...p, weight: e.target.value }))}
-                      placeholder="250 мл / 300 г"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-mono text-app-muted mb-1.5">Описание позиции</label>
-                  <textarea
-                    rows={3}
-                    value={newServiceData.description}
-                    onChange={e => setNewServiceData(p => ({ ...p, description: e.target.value }))}
-                    placeholder="Состав, особенности приготовления или детали услуги..."
-                    className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-mono font-semibold text-app-secondary mb-2">Главное фото товара</label>
-                  <ImageUploader
-                    value={newServiceData.imageUrl}
-                    onChange={(url) => setNewServiceData(p => ({ ...p, imageUrl: url }))}
-                    type="product"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-mono text-app-muted mb-1.5">Теги (через запятую)</label>
-                  <input
-                    type="text"
-                    value={newServiceData.tags}
-                    onChange={e => setNewServiceData(p => ({ ...p, tags: e.target.value }))}
-                    placeholder="без сахара, веган, горячий"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                  />
-                </div>
-
-                <div className="flex items-center gap-3 p-3 bg-app-card/60 border border-app-border rounded-2xl">
-                  <input
-                    type="checkbox"
-                    id="newServiceAvailable font-mono font-semibold"
-                    checked={newServiceData.isAvailable}
-                    onChange={e => setNewServiceData(p => ({ ...p, isAvailable: e.target.checked }))}
-                    className="rounded bg-app-card border-app-border text-app-primary cursor-pointer w-4 h-4"
-                  />
-                  <label htmlFor="newServiceAvailable font-mono font-semibold" className="text-xs font-mono text-app-primary cursor-pointer font-semibold">Позиция доступна для заказа</label>
-                </div>
-
-                {/* Доставка и самовывоз для этой позиции */}
-                {(() => {
-                  const fulfillmentVal = newServiceData.fulfillment || "courier,pickup";
-                  const canCourier = fulfillmentVal.includes("courier");
-                  const canPickup = fulfillmentVal.includes("pickup");
-
-                  const toggleCourier = () => {
-                    if (canCourier && !canPickup) return;
-                    const nextCourier = !canCourier;
-                    if (nextCourier && canPickup) setNewServiceData(p => ({ ...p, fulfillment: "courier,pickup" }));
-                    else if (nextCourier) setNewServiceData(p => ({ ...p, fulfillment: "courier" }));
-                    else setNewServiceData(p => ({ ...p, fulfillment: "pickup" }));
-                  };
-
-                  const togglePickup = () => {
-                    if (canPickup && !canCourier) return;
-                    const nextPickup = !canPickup;
-                    if (nextPickup && canCourier) setNewServiceData(p => ({ ...p, fulfillment: "courier,pickup" }));
-                    else if (nextPickup) setNewServiceData(p => ({ ...p, fulfillment: "pickup" }));
-                    else setNewServiceData(p => ({ ...p, fulfillment: "courier" }));
-                  };
-
-                  return (
-                    <div className="p-4 bg-app-card/60 border border-app-border rounded-2xl space-y-3 font-sans">
-                      <div className="flex items-center gap-2 text-xs font-mono font-bold text-app-primary">
-                        <Truck size={15} className="text-sky-400" />
-                        <span>Способы получения для этой позиции</span>
-                      </div>
-                      <p className="text-[11px] text-app-muted leading-relaxed">
-                        Выберите, какими способами клиенты могут получить эту услугу или товар. Например, для стрижек или процедур выключите курьерскую доставку.
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 font-mono text-xs">
-                        <button
-                          type="button"
-                          onClick={toggleCourier}
-                          className={`p-3 rounded-xl border font-bold flex items-center justify-between transition-all cursor-pointer ${
-                            canCourier
-                              ? "bg-sky-500/10 border-sky-500/40 text-sky-400 shadow-sm"
-                              : "bg-app-card text-app-muted border-app-border hover:text-app-primary"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Truck size={15} />
-                            <span>Курьерская доставка</span>
-                          </div>
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${canCourier ? "bg-sky-500 border-sky-500 text-black font-bold" : "border-app-border"}`}>
-                            {canCourier && "✓"}
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={togglePickup}
-                          className={`p-3 rounded-xl border font-bold flex items-center justify-between transition-all cursor-pointer ${
-                            canPickup
-                              ? "bg-indigo-500/10 border-indigo-500/40 text-indigo-400 shadow-sm"
-                              : "bg-app-card text-app-muted border-app-border hover:text-app-primary"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Store size={15} />
-                            <span>Самовывоз / В заведении</span>
-                          </div>
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${canPickup ? "bg-indigo-500 border-indigo-500 text-black font-bold" : "border-app-border"}`}>
-                            {canPickup && "✓"}
-                          </div>
-                        </button>
-                      </div>
-                      {!canCourier && (
-                        <p className="text-[11px] text-amber-400 font-mono">
-                          ⚠️ Доставка отключена. Клиенты смогут заказать эту позицию только на самовывоз или в заведении.
-                        </p>
-                      )}
-                      {!canPickup && (
-                        <p className="text-[11px] text-amber-400 font-mono">
-                          ⚠️ Самовывоз отключен. Позицию можно заказать только с курьерской доставкой.
-                        </p>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                <div className="pt-4 border-t border-app-border flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={closeSubView}
-                    className="px-5 py-2.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer"
-                  >
-                    Отмена
-                  </button>
-                  <button type="submit" className="flex-1 py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 uppercase cursor-pointer shadow-sm">
-                    Добавить в меню
-                  </button>
-                </div>
-              </form>
-            </div>
+          {/* TAB: SERVICES */}
+          {activeTab === "services" && !loading && (
+            <AdminServicesTab
+              services={filteredServices}
+              selectedShop={selectedShop}
+              searchQuery={serviceSearchQuery}
+              setSearchQuery={setServiceSearchQuery}
+              selectedCategory={selectedCategoryFilter}
+              setSelectedCategory={setSelectedCategoryFilter}
+              isAddingService={isAddingService}
+              setIsAddingService={setIsAddingService}
+              editingService={editingService}
+              setEditingService={setEditingService}
+              newServiceData={newServiceData}
+              setNewServiceData={setNewServiceData}
+              serviceError={serviceError}
+              categories={categories}
+              handleCreateService={handleAddService}
+              handleUpdateService={handleSaveEditService}
+              handleDeleteService={handleDeleteService}
+              handleDuplicateService={(srv) => {
+                let parsedGallery: string[] = [];
+                if (srv.gallery) {
+                  try {
+                    parsedGallery = JSON.parse(srv.gallery);
+                  } catch {
+                    parsedGallery = srv.gallery.split(",").map(s => s.trim()).filter(Boolean);
+                  }
+                }
+                setNewServiceData({
+                  title: `${srv.title} (Копия)`,
+                  price: String(srv.price),
+                  oldPrice: srv.oldPrice ? String(srv.oldPrice) : "",
+                  description: srv.description || "",
+                  category: srv.category || "",
+                  badge: srv.badge || "",
+                  imageUrl: srv.imageUrl || "",
+                  gallery: parsedGallery,
+                  tags: srv.tags || "",
+                  prepTime: srv.prepTime || "",
+                  weight: srv.weight || "",
+                  fulfillment: srv.fulfillment || "courier,pickup",
+                  isAvailable: srv.isAvailable !== false
+                });
+                setIsAddingService(true);
+              }}
+              handleToggleAvailability={handleToggleServiceAvailability}
+            />
           )}
 
-          {/* PAGE VIEW: EDIT SERVICE */}
-          {activeTab === "editservice" && !loading && selectedShop && editingService && (
-            <div className="max-w-3xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm">
-              <div className="border-b border-app-border pb-5">
-                <h3 className="text-base font-bold font-mono text-app-primary">Редактирование услуги</h3>
-                <p className="text-xs text-app-muted mt-0.5 font-sans">Изменение параметров позиции {editingService?.title}</p>
-              </div>
-
-              {editServiceError && <p className="text-xs text-rose-400 font-mono p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">{editServiceError}</p>}
-
-              <form onSubmit={handleSaveEditService} className="space-y-5 font-sans">
-                <div>
-                  <label className="block text-[11px] font-mono text-app-muted mb-1.5">Название позиции *</label>
-                  <input
-                    type="text"
-                    value={editServiceData.title}
-                    onChange={e => setEditServiceData(p => ({ ...p, title: e.target.value }))}
-                    placeholder="Название *"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">Текущая цена ({selectedShop?.currencySymbol || "₽"}) *</label>
-                    <input
-                      type="number"
-                      value={editServiceData.price}
-                      onChange={e => setEditServiceData(p => ({ ...p, price: e.target.value }))}
-                      placeholder="350"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">Старая цена</label>
-                    <input
-                      type="number"
-                      value={editServiceData.oldPrice}
-                      onChange={e => setEditServiceData(p => ({ ...p, oldPrice: e.target.value }))}
-                      placeholder="450"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-muted focus:outline-none focus:border-app-accent font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">Категория</label>
-                    <input
-                      type="text"
-                      value={editServiceData.category}
-                      onChange={e => setEditServiceData(p => ({ ...p, category: e.target.value }))}
-                      placeholder="Категория"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">Плашка (Бейдж)</label>
-                    <input
-                      type="text"
-                      value={editServiceData.badge}
-                      onChange={e => setEditServiceData(p => ({ ...p, badge: e.target.value }))}
-                      placeholder="🔥 Хит"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">Время приготовления</label>
-                    <input
-                      type="text"
-                      value={editServiceData.prepTime}
-                      onChange={e => setEditServiceData(p => ({ ...p, prepTime: e.target.value }))}
-                      placeholder="10 мин"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">Вес / Объём</label>
-                    <input
-                      type="text"
-                      value={editServiceData.weight}
-                      onChange={e => setEditServiceData(p => ({ ...p, weight: e.target.value }))}
-                      placeholder="300 г"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-mono text-app-muted mb-1.5">Описание</label>
-                  <textarea
-                    rows={3}
-                    value={editServiceData.description}
-                    onChange={e => setEditServiceData(p => ({ ...p, description: e.target.value }))}
-                    placeholder="Описание..."
-                    className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-mono font-semibold text-app-secondary mb-2">Главное фото товара</label>
-                  <ImageUploader
-                    value={editServiceData.imageUrl}
-                    onChange={(url) => setEditServiceData(p => ({ ...p, imageUrl: url }))}
-                    type="product"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-mono text-app-muted mb-1.5">Теги (через запятую)</label>
-                  <input
-                    type="text"
-                    value={editServiceData.tags}
-                    onChange={e => setEditServiceData(p => ({ ...p, tags: e.target.value }))}
-                    placeholder="тег1, тег2"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                  />
-                </div>
-
-                <div className="flex items-center gap-3 p-3 bg-app-card/60 border border-app-border rounded-2xl">
-                  <input
-                    type="checkbox"
-                    id="editServiceAvailable"
-                    checked={editServiceData.isAvailable}
-                    onChange={e => setEditServiceData(p => ({ ...p, isAvailable: e.target.checked }))}
-                    className="rounded bg-app-card border-app-border text-app-primary cursor-pointer w-4 h-4"
-                  />
-                  <label htmlFor="editServiceAvailable" className="text-xs font-mono text-app-primary cursor-pointer font-semibold">Позиция доступна для заказа</label>
-                </div>
-
-                {/* Доставка и самовывоз для этой позиции */}
-                {(() => {
-                  const fulfillmentVal = editServiceData.fulfillment || "courier,pickup";
-                  const canCourier = fulfillmentVal.includes("courier");
-                  const canPickup = fulfillmentVal.includes("pickup");
-
-                  const toggleCourier = () => {
-                    if (canCourier && !canPickup) return;
-                    const nextCourier = !canCourier;
-                    if (nextCourier && canPickup) setEditServiceData(p => ({ ...p, fulfillment: "courier,pickup" }));
-                    else if (nextCourier) setEditServiceData(p => ({ ...p, fulfillment: "courier" }));
-                    else setEditServiceData(p => ({ ...p, fulfillment: "pickup" }));
-                  };
-
-                  const togglePickup = () => {
-                    if (canPickup && !canCourier) return;
-                    const nextPickup = !canPickup;
-                    if (nextPickup && canCourier) setEditServiceData(p => ({ ...p, fulfillment: "courier,pickup" }));
-                    else if (nextPickup) setEditServiceData(p => ({ ...p, fulfillment: "pickup" }));
-                    else setEditServiceData(p => ({ ...p, fulfillment: "courier" }));
-                  };
-
-                  return (
-                    <div className="p-4 bg-app-card/60 border border-app-border rounded-2xl space-y-3 font-sans">
-                      <div className="flex items-center gap-2 text-xs font-mono font-bold text-app-primary">
-                        <Truck size={15} className="text-sky-400" />
-                        <span>Способы получения для этой позиции</span>
-                      </div>
-                      <p className="text-[11px] text-app-muted leading-relaxed">
-                        Выберите, какими способами клиенты могут получить эту услугу или товар. Например, для стрижек или процедур выключите курьерскую доставку.
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 font-mono text-xs">
-                        <button
-                          type="button"
-                          onClick={toggleCourier}
-                          className={`p-3 rounded-xl border font-bold flex items-center justify-between transition-all cursor-pointer ${
-                            canCourier
-                              ? "bg-sky-500/10 border-sky-500/40 text-sky-400 shadow-sm"
-                              : "bg-app-card text-app-muted border-app-border hover:text-app-primary"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Truck size={15} />
-                            <span>Курьерская доставка</span>
-                          </div>
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${canCourier ? "bg-sky-500 border-sky-500 text-black font-bold" : "border-app-border"}`}>
-                            {canCourier && "✓"}
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={togglePickup}
-                          className={`p-3 rounded-xl border font-bold flex items-center justify-between transition-all cursor-pointer ${
-                            canPickup
-                              ? "bg-indigo-500/10 border-indigo-500/40 text-indigo-400 shadow-sm"
-                              : "bg-app-card text-app-muted border-app-border hover:text-app-primary"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Store size={15} />
-                            <span>Самовывоз / В заведении</span>
-                          </div>
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${canPickup ? "bg-indigo-500 border-indigo-500 text-black font-bold" : "border-app-border"}`}>
-                            {canPickup && "✓"}
-                          </div>
-                        </button>
-                      </div>
-                      {!canCourier && (
-                        <p className="text-[11px] text-amber-400 font-mono">
-                          ⚠️ Доставка отключена. Клиенты смогут заказать эту позицию только на самовывоз или в заведении.
-                        </p>
-                      )}
-                      {!canPickup && (
-                        <p className="text-[11px] text-amber-400 font-mono">
-                          ⚠️ Самовывоз отключен. Позицию можно заказать только с курьерской доставкой.
-                        </p>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                <div className="pt-4 border-t border-app-border flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={closeSubView}
-                    className="px-5 py-2.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer"
-                  >
-                    Отмена
-                  </button>
-                  <button type="submit" disabled={isSavingEditService} className="flex-1 py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 uppercase flex items-center justify-center gap-2 cursor-pointer shadow-sm">
-                    {isSavingEditService && <SpinnerLoader size={14} />}
-                    {isSavingEditService ? "Сохранение..." : "Обновить позицию"}
-                  </button>
-                </div>
-              </form>
-            </div>
+          {/* TAB: ORDERS */}
+          {activeTab === "orders" && (
+            <AdminOrdersTab
+              orders={filteredOrders}
+              selectedShop={selectedShop}
+              orderFilter={orderStatusFilter}
+              setOrderFilter={setOrderStatusFilter}
+              orderSearchQuery={orderSearchQuery}
+              setOrderSearchQuery={setOrderSearchQuery}
+              orderTypeFilter={orderTypeFilter}
+              setOrderTypeFilter={setOrderTypeFilter}
+              ordersLoading={ordersLoading}
+              handleStatusChange={handleUpdateOrderStatus}
+              fetchOrders={() => selectedShop && fetchOrders(selectedShop.id, true)}
+            />
           )}
 
-          {!selectedShop && !loading && !isProfileOpen && activeTab !== "profile" && !isCreatingShop && activeTab !== "createshop" && (
-            <div className="py-20 text-center bg-app-surface border border-dashed border-app-border rounded-3xl p-8 space-y-4 max-w-md mx-auto">
-              <Store size={36} className="mx-auto text-app-muted" />
-              <h3 className="text-base font-semibold text-app-primary">Заведение не создано</h3>
-              <p className="text-xs text-app-muted leading-relaxed">
-                Создайте свое первое заведение в Telegram Mini App, чтобы начать управлять каталогом, заказами и акциями.
-              </p>
-              <button
-                onClick={handleOpenCreateShop}
-                className="px-5 py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-colors uppercase tracking-wider cursor-pointer"
-              >
-                + Создать заведение
-              </button>
-            </div>
+          {/* TAB: PROMOCODES */}
+          {activeTab === "promocodes" && (
+            <AdminPromocodesTab
+              promocodes={promocodes}
+              handleDeletePromocode={handleDeletePromocode}
+              isCreatingPromo={isCreatingPromo}
+              setIsCreatingPromo={setIsCreatingPromo}
+              promoError={promoError}
+              newPromoData={newPromoData}
+              setNewPromoData={setNewPromoData}
+              handleCreatePromocode={handleCreatePromocode}
+            />
           )}
 
-          {selectedShop && !["profile", "createshop", "settings", "addservice", "editservice"].includes(activeTab) && (
-            <>
-              {/* TAB 1: SERVICES / MENU */}
-              {activeTab === "services" && (
-                <div className="space-y-6">
-                  {/* Shop Welcome Message Widget */}
-                  <div className="bg-app-surface border border-app-border rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-app-card border border-app-border flex items-center justify-center shrink-0 mt-0.5 text-amber-500">
-                        <Sparkles size={16} />
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[11px] font-mono font-bold text-app-muted uppercase tracking-wider">
-                          Приветственное сообщение для покупателей
-                        </span>
-                        <p className="text-xs text-app-primary leading-relaxed">
-                          {selectedShop.description || (
-                            <span className="text-app-muted italic">
-                              Приветственное сообщение не задано. Нажмите «Изменить», чтобы добавить описание для витрины.
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleOpenSettings(selectedShop)}
-                      className="px-3.5 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-semibold rounded-xl transition-all shrink-0 flex items-center gap-1.5 shadow-sm"
-                    >
-                      <Edit3 size={13} />
-                      <span>Изменить</span>
-                    </button>
-                  </div>
+          {/* TAB: REVIEWS */}
+          {activeTab === "reviews" && (
+            <AdminReviewsTab
+              computedAvgRating={computedAvgRating}
+              totalReviewsCount={totalReviewsCount}
+              positivePercentage={positivePercentage}
+              unrepliedCount={unrepliedCount}
+              repliedCount={repliedCount}
+              starCounts={starCounts}
+              reviewStarFilter={reviewStarFilter}
+              setReviewStarFilter={setReviewStarFilter}
+              reviewReplyFilter={reviewReplyFilter}
+              setReviewReplyFilter={setReviewReplyFilter}
+              reviewSearchQuery={reviewSearchQuery}
+              setReviewSearchQuery={setReviewSearchQuery}
+              reviewSortOrder={reviewSortOrder}
+              setReviewSortOrder={setReviewSortOrder}
+              isSortDropdownOpen={isSortDropdownOpen}
+              setIsSortDropdownOpen={setIsSortDropdownOpen}
+              sortDropdownRef={sortDropdownRef}
+              reviewsLoading={reviewsLoading}
+              filteredReviews={filteredReviews}
+              reviews={reviews}
+              deletingReviewId={deletingReviewId}
+              replyingReviewId={replyingReviewId}
+              setReplyingReviewId={setReplyingReviewId}
+              replyText={replyText}
+              setReplyText={setReplyText}
+              handleDeleteReview={handleDeleteReview}
+              handleReplyReview={handleReplyReview}
+            />
+          )}
 
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-app-surface p-2.5 sm:p-3 rounded-2xl border border-app-border">
-                    <div className="relative flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 sm:pb-0 scrollbar-none touch-pan-x w-full pr-6">
-                        <button
-                          onClick={() => setSelectedCategoryFilter("ALL")}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all shrink-0 whitespace-nowrap cursor-pointer ${
-                            selectedCategoryFilter === "ALL" 
-                              ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" 
-                              : "text-app-muted hover:text-app-primary hover:bg-app-card"
-                          }`}
-                        >
-                          ВСЕ
-                        </button>
-                        {categories.map(cat => (
-                          <button
-                            key={cat}
-                            onClick={() => setSelectedCategoryFilter(cat)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all shrink-0 whitespace-nowrap cursor-pointer ${
-                              selectedCategoryFilter === cat 
-                                ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" 
-                                : "text-app-muted hover:text-app-primary hover:bg-app-card"
-                            }`}
-                          >
-                            {cat}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="absolute right-0 top-0 bottom-1 sm:bottom-0 w-8 bg-gradient-to-l from-app-surface to-transparent pointer-events-none" />
-                    </div>
+          {/* TAB: BANNERS */}
+          {activeTab === "banners" && (
+            <AdminBannersTab
+              banners={banners}
+              handleDeleteBanner={handleDeleteBanner}
+              isCreatingBanner={isCreatingBanner}
+              setIsCreatingBanner={setIsCreatingBanner}
+              bannerError={bannerError}
+              newBannerData={newBannerData}
+              setNewBannerData={setNewBannerData}
+              handleCreateBanner={handleCreateBanner}
+            />
+          )}
 
-                    <div className="relative w-full sm:w-64">
-                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted" />
-                      <input
-                        type="search"
-                        value={serviceSearchQuery}
-                        onChange={e => setServiceSearchQuery(e.target.value)}
-                        placeholder="Поиск по меню..."
-                        className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-10 py-1.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-sans search-input"
-                      />
-                      <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-app-muted border border-app-border bg-app-surface px-1 py-0.5 rounded pointer-events-none hidden sm:inline">⌘K</kbd>
-                    </div>
-                  </div>
+          {/* TAB: BROADCASTS */}
+          {activeTab === "broadcasts" && selectedShop && (
+            <AdminBroadcastsTab
+              selectedShop={selectedShop}
+              broadcasts={broadcasts}
+              handleDeleteBroadcast={handleDeleteBroadcast}
+              isCreatingBroadcast={isCreatingBroadcast}
+              setIsCreatingBroadcast={setIsCreatingBroadcast}
+              broadcastError={broadcastError}
+              newBroadcastData={newBroadcastData}
+              setNewBroadcastData={setNewBroadcastData}
+              handleCreateBroadcast={handleCreateBroadcast}
+            />
+          )}
 
-                  {filteredServices.length === 0 ? (
-                    <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
-                      <p className="text-xs text-app-muted font-mono">В меню пока нет позиций.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {filteredServices.map(service => (
-                        <div
-                          key={service.id}
-                          className={`rounded-2xl border overflow-hidden transition-all flex flex-col justify-between ${
-                            service.isAvailable === false ? "bg-app-surface/50 border-app-border opacity-60" : "bg-app-surface border-app-border hover:border-app-border"
-                          }`}
-                        >
-                          {service.imageUrl && (
-                            <div className="h-36 w-full overflow-hidden bg-app-card border-b border-app-border relative">
-                              <img
-                                src={service.imageUrl}
-                                alt={service.title}
-                                className="w-full h-full object-cover transition-transform hover:scale-105 duration-300"
-                                referrerPolicy="no-referrer"
-                              />
-                              {service.category && (
-                                <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 border border-white/10 text-[9px] font-mono text-white keep-white uppercase tracking-wider backdrop-blur-md">
-                                  {service.category}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          <div className="p-5 flex-1 flex flex-col justify-between">
-                            <div className="space-y-2 mb-4">
-                              <div className="flex justify-between items-start gap-2">
-                                <h3 className="text-sm font-semibold text-app-primary">{service.title}</h3>
-                                <span className="text-xs font-mono font-bold text-app-primary px-2 py-0.5 rounded-md bg-app-card border border-app-border shrink-0">
-                                  {service.price} ₽
-                                </span>
-                              </div>
-                              {!service.imageUrl && service.category && (
-                                <span className="inline-block px-1.5 py-0.5 rounded-md bg-app-card border border-app-border text-[9px] font-mono text-app-muted uppercase tracking-wider">
-                                  {service.category}
-                                </span>
-                              )}
-                              {service.description && (
-                                <p className="text-xs text-app-muted line-clamp-2 leading-relaxed">{service.description}</p>
-                              )}
-                              {/* Fulfillment restriction badge */}
-                              {(() => {
-                                const f = service.fulfillment || "courier,pickup";
-                                const hasCourier = f.includes("courier");
-                                const hasPickup = f.includes("pickup");
-                                if (!hasCourier) {
-                                  return (
-                                    <div className="pt-1">
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 font-mono text-[10px]">
-                                        <Store size={11} /> Только самовывоз
-                                      </span>
-                                    </div>
-                                  );
-                                }
-                                if (!hasPickup) {
-                                  return (
-                                    <div className="pt-1">
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 text-sky-400 font-mono text-[10px]">
-                                        <Truck size={11} /> Только доставка
-                                      </span>
-                                    </div>
-                                  );
-                                }
-                                return null;
-                              })()}
-                            </div>
+          {/* TAB: CRM CUSTOMERS */}
+          {activeTab === "customers" && (
+            <AdminCustomersTab customers={customers} />
+          )}
 
-                            <div className="flex items-center justify-between pt-3 border-t border-app-border">
-                              <button
-                                onClick={() => handleToggleServiceAvailability(service.id, service.isAvailable)}
-                                className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                                  service.isAvailable !== false
-                                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
-                                    : "bg-rose-500/10 border-rose-500/20 text-rose-500"
-                                }`}
-                              >
-                                {service.isAvailable !== false ? "В наличии" : "Отключено"}
-                              </button>
+          {/* TAB: ANALYTICS */}
+          {activeTab === "analytics" && selectedShop && (
+            <AnalyticsTab shopId={selectedShop.id} />
+          )}
 
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => handleOpenEditService(service)}
-                                  className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-lg text-app-muted hover:text-app-primary transition-colors cursor-pointer"
-                                  title="Редактировать"
-                                >
-                                  <Edit3 size={13} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteService(service.id)}
-                                  className="p-1.5 bg-app-card hover:bg-rose-900/30 border border-app-border hover:border-rose-800 text-app-muted hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
-                                  title="Удалить"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+          {/* TAB: BOT SIMULATOR */}
+          {activeTab === "botsim" && selectedShop && (
+            <AdminBotSimTab
+              selectedShop={selectedShop}
+              botSimMessages={botSimMessages}
+              botSimInput={botSimInput}
+              setBotSimInput={setBotSimInput}
+              handleSendBotSimMessage={handleSendBotSimMessage}
+            />
+          )}
 
-              {/* TAB 2: LIVE ORDERS */}
-              {activeTab === "orders" && (
-                <div className="space-y-6">
-                  <div className="relative">
-                    <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 scrollbar-none touch-pan-x bg-app-surface p-2.5 sm:p-3 rounded-2xl border border-app-border w-full pr-10">
-                      {[
-                        { key: "ALL", label: "ВСЕ" },
-                        { key: "PENDING", label: "ОЖИДАЕТ" },
-                        { key: "CONFIRMED", label: "ПОДТВЕРЖДЕН" },
-                        { key: "COMPLETED", label: "ВЫПОЛНЕН" },
-                        { key: "CANCELLED", label: "ОТМЕНЕН" }
-                      ].map(statusObj => (
-                        <button
-                          key={statusObj.key}
-                          onClick={() => setOrderStatusFilter(statusObj.key)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all shrink-0 whitespace-nowrap cursor-pointer ${
-                            orderStatusFilter === statusObj.key ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" : "text-app-muted hover:text-app-primary hover:bg-app-card"
-                          }`}
-                        >
-                          {statusObj.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="absolute right-1 top-1 bottom-2 w-10 bg-gradient-to-l from-app-surface to-transparent pointer-events-none" />
-                  </div>
-
-                  {ordersLoading ? (
-                    <div className="space-y-3">
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="p-5 rounded-2xl bg-app-surface border border-app-border space-y-3">
-                          <div className="flex justify-between items-center">
-                            <Skeleton className="h-4 w-28 rounded-md" />
-                            <Skeleton className="h-6 w-24 rounded-full" />
-                          </div>
-                          <Skeleton className="h-4 w-3/4 rounded-md" />
-                          <Skeleton className="h-3.5 w-1/2 rounded-md" />
-                        </div>
-                      ))}
-                    </div>
-                  ) : filteredOrders.length === 0 ? (
-                    <div className="py-20 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
-                      <ShoppingBag size={28} className="mx-auto text-app-muted mb-2" />
-                      <p className="text-xs text-app-muted font-mono">Заказов не найдено.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {filteredOrders.map(order => {
-                        let parsedItems: OrderItem[] = [];
-                        try {
-                          parsedItems = JSON.parse(order.items);
-                        } catch (e) {}
-
-                        return (
-                          <div key={order.id} className="p-5 rounded-2xl bg-app-surface border border-app-border space-y-4">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-app-border pb-3 font-mono text-xs">
-                              <div className="flex items-center gap-3">
-                                <span className="text-app-primary font-bold">#{order.id.slice(-6)}</span>
-                                <span className="text-app-muted">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                {order.tableNumber && (
-                                  <span className="px-2 py-0.5 bg-app-card border border-app-border text-app-secondary rounded font-bold">
-                                    Столик {order.tableNumber}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto max-w-full pb-0.5 no-scrollbar touch-pan-x shrink-0">
-                                {[
-                                  { key: "PENDING", label: "Ожидает" },
-                                  { key: "CONFIRMED", label: "Принят" },
-                                  { key: "COMPLETED", label: "Готов" },
-                                  { key: "CANCELLED", label: "Отменен" }
-                                ].map(st => (
-                                  <button
-                                    key={st.key}
-                                    onClick={() => handleUpdateOrderStatus(order.id, st.key as any)}
-                                    className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all shrink-0 whitespace-nowrap cursor-pointer ${
-                                      order.status === st.key 
-                                        ? st.key === 'COMPLETED' ? 'bg-emerald-500 text-black' :
-                                          st.key === 'CONFIRMED' ? 'bg-amber-500 text-black' :
-                                          st.key === 'CANCELLED' ? 'bg-rose-500 text-white' : 'bg-app-accent text-app-accent-fg'
-                                        : 'bg-app-card text-app-muted hover:text-app-primary border border-app-border'
-                                    }`}
-                                  >
-                                    {st.label}
-                                  </button>
-                                ))}
-                                <button onClick={() => handleDeleteOrder(order.id)} className="p-1 text-app-muted hover:text-rose-400 shrink-0 cursor-pointer" title="Удалить заказ">
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div className="md:col-span-2 space-y-2">
-                                <p className="text-[10px] font-mono uppercase text-app-muted">Позиции заказа</p>
-                                <div className="space-y-1">
-                                  {Array.isArray(parsedItems) && parsedItems.map((item, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-xs text-app-secondary font-mono">
-                                      <span>{item.quantity}× {item.title}</span>
-                                      <span className="text-app-muted">{(item.price || 0) * item.quantity} ₽</span>
-                                    </div>
-                                  ))}
-                                </div>
-                                {order.note && (
-                                  <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl mt-2">
-                                    Примечание: {order.note}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div className="bg-app-card p-3 rounded-xl border border-app-border space-y-1 text-xs">
-                                <p className="text-[10px] font-mono uppercase text-app-muted">Данные клиента</p>
-                                <p className="font-semibold text-app-primary">{order.customerName}</p>
-                                <p className="font-mono text-app-muted">{order.customerPhone}</p>
-                                <div className="pt-2 border-t border-app-border flex justify-between font-mono font-bold text-app-primary text-sm">
-                                  <span>Итого</span>
-                                  <span>{order.totalPrice} ₽</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 3: PROMOCODES */}
-              {activeTab === "promocodes" && (
-                <div className="space-y-6">
-                  {promocodes.length === 0 ? (
-                    <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
-                      <Tag size={28} className="mx-auto text-app-muted mb-2" />
-                      <p className="text-xs text-app-muted font-mono">Нет активных промокодов.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {promocodes.map(promo => (
-                        <div key={promo.id} className="p-5 rounded-2xl bg-app-surface border border-app-border flex justify-between items-start">
-                          <div className="space-y-2.5">
-                            <div>
-                              <span className="inline-block px-2.5 py-1 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-lg uppercase shadow-sm">
-                                {promo.code}
-                              </span>
-                            </div>
-                            <p className="text-xs text-app-primary font-mono">
-                              Скидка: <span className="font-semibold text-app-primary">{promo.discountPercent > 0 ? `${promo.discountPercent}%` : `${promo.discountAmount} ₽`}</span>
-                            </p>
-                            <p className="text-[11px] text-app-muted font-mono">
-                              Использован: {promo.usedCount} раз {promo.usageLimit ? `/ лимит ${promo.usageLimit}` : ''}
-                            </p>
-                          </div>
-                          <button onClick={() => handleDeletePromocode(promo.id)} className="p-1.5 text-app-muted hover:text-rose-400">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 4: REVIEWS */}
-              {activeTab === "reviews" && (
-                <div className="space-y-4">
-                  {/* UNIFIED MINIMALIST METRICS BAR */}
-                  <div className="p-4 rounded-2xl bg-app-surface border border-app-border grid grid-cols-2 sm:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-app-border shadow-sm">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-mono uppercase text-app-muted block tracking-wider">Средний рейтинг</span>
-                      <div className="flex items-baseline gap-1.5 font-mono">
-                        <span className="text-2xl font-bold text-app-primary">{computedAvgRating}</span>
-                        <span className="text-amber-400 text-sm">★</span>
-                        <span className="text-[11px] text-app-muted">({totalReviewsCount})</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 pt-2 sm:pt-0 sm:pl-4">
-                      <span className="text-[10px] font-mono uppercase text-app-muted block tracking-wider">Всего отзывов</span>
-                      <span className="text-2xl font-bold font-mono text-app-primary">{totalReviewsCount}</span>
-                    </div>
-
-                    <div className="space-y-1 pt-2 sm:pt-0 sm:pl-4">
-                      <span className="text-[10px] font-mono uppercase text-app-muted block tracking-wider">Довольные клиенты</span>
-                      <span className="text-2xl font-bold font-mono text-emerald-400">{positivePercentage}%</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setReviewReplyFilter(reviewReplyFilter === "UNREPLIED" ? "ALL" : "UNREPLIED")}
-                      className="space-y-1 pt-2 sm:pt-0 sm:pl-4 text-left group cursor-pointer"
-                    >
-                      <span className="text-[10px] font-mono uppercase text-app-muted block tracking-wider group-hover:text-app-primary">
-                        Требуют ответа
-                      </span>
-                      <div className="flex items-center gap-2 font-mono">
-                        <span className={`text-2xl font-bold ${unrepliedCount > 0 ? "text-rose-400" : "text-emerald-400"}`}>
-                          {unrepliedCount}
-                        </span>
-                        {unrepliedCount > 0 && (
-                          <span className="text-[10px] text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-full font-sans">
-                            Без ответа
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  </div>
-
-                  {/* RATING DISTRIBUTION QUICK ROW */}
-                  {totalReviewsCount > 0 && (
-                    <div className="p-3.5 rounded-2xl bg-app-surface border border-app-border space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-mono font-bold uppercase text-app-primary">
-                          Распределение оценок
-                        </span>
-                        {reviewStarFilter !== "ALL" && (
-                          <button
-                            onClick={() => setReviewStarFilter("ALL")}
-                            className="text-[10px] font-mono text-emerald-400 hover:underline cursor-pointer"
-                          >
-                            Сбросить фильтр
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
-                        {[5, 4, 3, 2, 1].map((star) => {
-                          const count = starCounts[star as keyof typeof starCounts];
-                          const pct = totalReviewsCount > 0 ? Math.round((count / totalReviewsCount) * 100) : 0;
-                          const isSelected = reviewStarFilter === star;
-
-                          return (
-                            <button
-                              key={star}
-                              type="button"
-                              onClick={() => setReviewStarFilter(isSelected ? "ALL" : star)}
-                              className={`flex items-center justify-between p-2 rounded-xl border text-xs transition-colors cursor-pointer ${
-                                isSelected
-                                  ? "bg-app-accent text-app-accent-fg border-app-accent font-bold"
-                                  : "bg-app-card border-app-border text-app-muted hover:text-app-primary"
-                              }`}
-                            >
-                              <span className="flex items-center gap-1 font-semibold">
-                                {star} <Star size={11} className="fill-current text-amber-400" />
-                              </span>
-                              <span className="text-[11px] opacity-80">{count} ({pct}%)</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* SEARCH & FILTER TOOLBAR */}
-                  <div className="p-3.5 rounded-2xl bg-app-surface border border-app-border space-y-2.5">
-                    <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
-                      {/* Search */}
-                      <div className="relative flex-1">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted" />
-                        <input
-                          type="search"
-                          value={reviewSearchQuery}
-                          onChange={(e) => setReviewSearchQuery(e.target.value)}
-                          placeholder="Поиск по имени или тексту..."
-                          className="w-full bg-app-card border border-app-border rounded-xl pl-8 pr-12 py-1.5 text-xs text-app-primary focus:outline-none search-input"
-                        />
-                        <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-app-muted border border-app-border bg-app-surface px-1 py-0.5 rounded pointer-events-none hidden sm:inline">⌘K</kbd>
-                        {reviewSearchQuery && (
-                          <button
-                            onClick={() => setReviewSearchQuery("")}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-muted hover:text-app-primary cursor-pointer"
-                          >
-                            <X size={13} />
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Custom Sort Dropdown */}
-                      <div className="relative shrink-0" ref={sortDropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
-                          className="bg-app-card border border-app-border text-app-primary text-xs font-mono rounded-xl px-3 py-1.5 focus:outline-none cursor-pointer flex items-center gap-2 hover:border-app-accent/50 transition-colors shadow-sm"
-                        >
-                          <SlidersHorizontal size={13} className="text-app-muted" />
-                          <span>
-                            {
-                              {
-                                NEWEST: "Сначала новые",
-                                OLDEST: "Сначала старые",
-                                RATING_DESC: "Высокий рейтинг",
-                                RATING_ASC: "Низкий рейтинг"
-                              }[reviewSortOrder]
-                            }
-                          </span>
-                          <ChevronDown
-                            size={13}
-                            className={`text-app-muted transition-transform duration-200 ${isSortDropdownOpen ? "rotate-180" : ""}`}
-                          />
-                        </button>
-
-                        <AnimatePresence>
-                          {isSortDropdownOpen && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                              transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-1.5 z-30 w-44 bg-app-surface border border-app-border rounded-xl shadow-xl p-1 font-mono text-xs space-y-0.5"
-                            >
-                              {[
-                                { id: "NEWEST", label: "Сначала новые" },
-                                { id: "OLDEST", label: "Сначала старые" },
-                                { id: "RATING_DESC", label: "Высокий рейтинг" },
-                                { id: "RATING_ASC", label: "Низкий рейтинг" }
-                              ].map((opt) => {
-                                const isSelected = reviewSortOrder === opt.id;
-                                return (
-                                  <button
-                                    key={opt.id}
-                                    type="button"
-                                    onClick={() => {
-                                      setReviewSortOrder(opt.id as any);
-                                      setIsSortDropdownOpen(false);
-                                    }}
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
-                                      isSelected
-                                        ? "bg-app-accent text-app-accent-fg font-semibold"
-                                        : "text-app-primary hover:bg-app-card"
-                                    }`}
-                                  >
-                                    <span>{opt.label}</span>
-                                    {isSelected && <Check size={13} />}
-                                  </button>
-                                );
-                              })}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-
-                    {/* Status Tabs */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-app-border pt-2.5">
-                      <div className="flex items-center gap-1 bg-app-card border border-app-border p-1 rounded-xl font-mono text-[11px]">
-                        <button
-                          type="button"
-                          onClick={() => setReviewReplyFilter("ALL")}
-                          className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                            reviewReplyFilter === "ALL" ? "bg-app-accent text-app-accent-fg font-bold" : "text-app-muted hover:text-app-primary"
-                          }`}
-                        >
-                          Все ({totalReviewsCount})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReviewReplyFilter("UNREPLIED")}
-                          className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
-                            reviewReplyFilter === "UNREPLIED" ? "bg-app-accent text-app-accent-fg font-bold" : "text-app-muted hover:text-app-primary"
-                          }`}
-                        >
-                          <span>Без ответа</span>
-                          {unrepliedCount > 0 && (
-                            <span className="px-1.5 py-0.2 bg-rose-500 text-white rounded-full text-[9px]">
-                              {unrepliedCount}
-                            </span>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReviewReplyFilter("REPLIED")}
-                          className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                            reviewReplyFilter === "REPLIED" ? "bg-app-accent text-app-accent-fg font-bold" : "text-app-muted hover:text-app-primary"
-                          }`}
-                        >
-                          С ответом ({repliedCount})
-                        </button>
-                      </div>
-
-                      {/* Stars filter quick pills */}
-                      <div className="flex items-center gap-1 overflow-x-auto scrollbar-none font-mono text-[11px]">
-                        {(["ALL", 5, 4, 3, 2, 1] as const).map((s) => (
-                          <button
-                            key={s}
-                            type="button"
-                            onClick={() => setReviewStarFilter(s)}
-                            className={`px-2 py-0.5 rounded-lg border transition-colors cursor-pointer ${
-                              reviewStarFilter === s
-                                ? "bg-app-accent text-app-accent-fg border-app-accent font-bold"
-                                : "border-app-border text-app-muted hover:text-app-primary"
-                            }`}
-                          >
-                            {s === "ALL" ? "Все ★" : `${s} ★`}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* REVIEW LIST */}
-                  {reviewsLoading ? (
-                    <div className="py-16 text-center bg-app-surface border border-app-border rounded-2xl p-6">
-                      <SpinnerLoader size={24} className="mx-auto text-app-accent" />
-                      <p className="text-xs text-app-muted font-mono mt-2">Загрузка отзывов...</p>
-                    </div>
-                  ) : filteredReviews.length === 0 ? (
-                    <div className="py-12 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6 space-y-2">
-                      <MessageSquare className="mx-auto text-app-muted" size={24} />
-                      <p className="text-xs text-app-muted font-mono">
-                        {reviews.length === 0
-                          ? "Отзывов пока нет."
-                          : "Отзывы по заданным фильтрам не найдены."}
-                      </p>
-                      {(reviewSearchQuery || reviewStarFilter !== "ALL" || reviewReplyFilter !== "ALL") && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setReviewSearchQuery("");
-                            setReviewStarFilter("ALL");
-                            setReviewReplyFilter("ALL");
-                          }}
-                          className="text-xs text-emerald-400 hover:underline font-mono mt-2 cursor-pointer"
-                        >
-                          Сбросить все фильтры
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {filteredReviews.map((rev) => {
-                        const isReplying = replyingReviewId === rev.id;
-                        const isDeleting = deletingReviewId === rev.id;
-
-                        return (
-                          <div
-                            key={rev.id}
-                            className="p-4 rounded-2xl bg-app-surface border border-app-border space-y-2.5 transition-all relative"
-                          >
-                            {/* Header row */}
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-app-card border border-app-border flex items-center justify-center font-bold font-mono text-xs text-app-primary uppercase shrink-0">
-                                  {rev.customerName ? rev.customerName[0] : "К"}
-                                </div>
-
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-xs text-app-primary">
-                                      {rev.customerName || "Клиент"}
-                                    </span>
-                                    <span className="text-xs font-bold font-mono text-amber-400 flex items-center gap-0.5">
-                                      <Star size={11} className="fill-amber-400 text-amber-400" />
-                                      {rev.rating}.0
-                                    </span>
-                                  </div>
-                                  <span className="text-[10px] text-app-muted font-mono block">
-                                    {new Date(rev.createdAt).toLocaleString()}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Delete review button */}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteReview(rev.id)}
-                                disabled={isDeleting}
-                                className="p-1.5 rounded-xl text-app-muted hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                title="Удалить отзыв"
-                              >
-                                {isDeleting ? <SpinnerLoader size={14} /> : <Trash2 size={14} />}
-                              </button>
-                            </div>
-
-                            {/* Review Comment - Direct text without nested box */}
-                            {rev.comment ? (
-                              <p className="text-xs text-app-primary leading-relaxed font-sans pt-0.5">
-                                {rev.comment}
-                              </p>
-                            ) : (
-                              <p className="text-[11px] text-app-muted italic font-sans">
-                                (Без текста отзыва)
-                              </p>
-                            )}
-
-                            {/* Admin Reply Block */}
-                            {rev.reply && !isReplying ? (
-                              <div className="mt-2 pt-1.5 pl-3 border-l-2 border-emerald-500/70 space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-wider">
-                                    Ответ заведения
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setReplyingReviewId(rev.id);
-                                      setReplyText(rev.reply);
-                                    }}
-                                    className="text-[10px] font-mono text-app-muted hover:text-app-primary cursor-pointer underline"
-                                  >
-                                    Изменить
-                                  </button>
-                                </div>
-                                <p className="text-xs text-app-secondary leading-relaxed font-sans">{rev.reply}</p>
-                              </div>
-                            ) : isReplying ? (
-                              <div className="p-3.5 bg-app-card rounded-xl border border-app-border space-y-2.5 mt-2">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-xs font-mono font-bold text-app-primary">
-                                    Ответ клиенту
-                                  </p>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setReplyingReviewId(null);
-                                      setReplyText("");
-                                    }}
-                                    className="text-app-muted hover:text-app-primary text-xs cursor-pointer"
-                                  >
-                                    <X size={15} />
-                                  </button>
-                                </div>
-
-                                <textarea
-                                  rows={2}
-                                  value={replyText}
-                                  onChange={(e) => setReplyText(e.target.value)}
-                                  placeholder="Напишите ответ..."
-                                  className="w-full bg-app-surface border border-app-border rounded-xl p-2.5 text-xs text-app-primary focus:outline-none resize-none font-sans"
-                                />
-
-                                {/* Quick templates */}
-                                <div className="flex flex-wrap gap-1">
-                                  {[
-                                    "Спасибо за отзыв! Ждём вас снова!",
-                                    "Благодарим за обратную связь!",
-                                    "Спасибо за оценку! Обязательно учтём ваши пожелания."
-                                  ].map((tmpl, idx) => (
-                                    <button
-                                      key={idx}
-                                      type="button"
-                                      onClick={() => setReplyText(tmpl)}
-                                      className="px-2 py-0.5 bg-app-surface border border-app-border hover:border-emerald-500/40 rounded-lg text-[10px] text-app-muted hover:text-app-primary transition-colors cursor-pointer text-left truncate max-w-xs font-sans"
-                                    >
-                                      {tmpl}
-                                    </button>
-                                  ))}
-                                </div>
-
-                                <div className="flex gap-2 justify-end pt-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setReplyingReviewId(null);
-                                      setReplyText("");
-                                    }}
-                                    className="px-3 py-1 bg-app-surface hover:bg-app-hover border border-app-border text-app-muted font-mono text-xs rounded-xl cursor-pointer"
-                                  >
-                                    Отмена
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleReplyReview(rev.id)}
-                                    className="px-3 py-1 bg-app-accent text-app-accent-fg font-mono text-xs font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1.5"
-                                  >
-                                    <Send size={12} />
-                                    <span>Сохранить</span>
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setReplyingReviewId(rev.id);
-                                  setReplyText("");
-                                }}
-                                className="text-xs text-emerald-400 hover:text-emerald-300 font-mono font-semibold flex items-center gap-1 cursor-pointer py-0.5"
-                              >
-                                <MessageSquare size={12} />
-                                <span>+ Ответить на отзыв</span>
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 5: BANNERS */}
-              {activeTab === "banners" && (
-                <div className="space-y-6">
-                  {banners.length === 0 ? (
-                    <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
-                      <p className="text-xs text-app-muted font-mono">Рекламные баннеры не настроены.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {banners.map(banner => (
-                        <div key={banner.id} className="p-6 rounded-2xl bg-app-surface border border-app-border space-y-3 relative shadow-sm">
-                          <button onClick={() => handleDeleteBanner(banner.id)} className="absolute top-4 right-4 p-1.5 text-app-muted hover:text-rose-500 transition-colors cursor-pointer" title="Удалить">
-                            <Trash2 size={15} />
-                          </button>
-                          {banner.badge && (
-                            <span className="inline-block px-2.5 py-0.5 bg-app-badge text-app-primary font-mono text-[10px] font-bold rounded-full uppercase tracking-wider border border-app-border">
-                              {banner.badge}
-                            </span>
-                          )}
-                          <h3 className="text-base font-bold text-app-primary tracking-tight">{banner.title}</h3>
-                          {banner.subtitle && <p className="text-xs text-app-muted leading-relaxed">{banner.subtitle}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 6: BROADCASTS */}
-              {activeTab === "broadcasts" && (
-                <div className="space-y-4">
-                  {broadcasts.length === 0 ? (
-                    <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
-                      <p className="text-xs text-app-muted font-mono">Рассылок пока не отправлялось.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {broadcasts.map(bc => {
-                        const targetLabels: Record<string, string> = {
-                          ALL: "Все клиенты",
-                          ACTIVE: "Активные",
-                          INACTIVE: "Спящие",
-                          NEW: "Новые",
-                          VIP: "VIP клиенты",
-                          BONUS_HOLDERS: "С бонусами"
-                        };
-                        return (
-                          <div key={bc.id} className="p-5 rounded-2xl bg-app-surface border border-app-border flex flex-col justify-between space-y-4">
-                            <div className="space-y-3">
-                              {/* Header row */}
-                              <div className="flex justify-between items-start">
-                                <div className="space-y-1">
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-mono rounded-md font-semibold">
-                                      ✅ ОТПРАВЛЕНО
-                                    </span>
-                                    <span className="px-2 py-0.5 bg-app-card border border-app-border text-app-secondary text-[9px] font-mono rounded-md">
-                                      🎯 {targetLabels[bc.targetFilter] || bc.targetFilter || "Все клиенты"}
-                                    </span>
-                                  </div>
-                                  <h3 className="text-sm font-bold text-app-primary font-mono pt-1">{bc.title}</h3>
-                                </div>
-                                <button onClick={() => handleDeleteBroadcast(bc.id)} className="p-1.5 text-app-muted hover:text-rose-400 hover:bg-rose-500/5 rounded-lg transition-colors">
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-
-                              {/* Image preset if exists */}
-                              {bc.imageUrl && (
-                                <div className="rounded-xl overflow-hidden h-24 bg-app-card border border-app-border">
-                                  <img src={bc.imageUrl} alt={bc.title} className="w-full h-full object-cover" />
-                                </div>
-                              )}
-
-                              <p className="text-xs text-app-secondary leading-relaxed font-sans line-clamp-3">{bc.message}</p>
-                            </div>
-
-                            {/* Footer stats / buttons */}
-                            <div className="pt-3 border-t border-app-border flex items-center justify-between text-[10px] font-mono text-app-muted">
-                              <div>
-                                Получателей: <span className="text-app-primary font-bold">{bc.sentCount || 1}</span>
-                              </div>
-                              {bc.buttonText && (
-                                <div className="px-2 py-1 bg-app-card border border-app-border text-app-secondary rounded-lg text-[9px]">
-                                  Button: {bc.buttonText}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 7: CRM CUSTOMERS */}
-              {activeTab === "customers" && (
-                <div className="space-y-4">
-                  {customers.length === 0 ? (
-                    <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6">
-                      <p className="text-xs text-app-muted font-mono">Клиенты пока не зарегистрированы.</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto rounded-2xl border border-app-border bg-app-surface">
-                      <table className="w-full text-left font-mono text-xs">
-                        <thead className="bg-app-card border-b border-app-border text-app-muted uppercase text-[10px]">
-                          <tr>
-                            <th className="p-3">Клиент</th>
-                            <th className="p-3">Телефон</th>
-                            <th className="p-3">Заказов</th>
-                            <th className="p-3">Всего потрачено</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-app-border">
-                          {customers.map(c => (
-                            <tr key={c.id} className="hover:bg-app-hover transition-colors">
-                              <td className="p-3 text-app-primary font-semibold">{c.name || "Клиент"}</td>
-                              <td className="p-3 text-app-muted">{c.phone}</td>
-                              <td className="p-3 text-app-primary">{c.ordersCount || 1}</td>
-                              <td className="p-3 text-emerald-500 font-bold">{c.totalSpent || 0} ₽</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 8: ANALYTICS */}
-              {activeTab === "analytics" && (
-                <AnalyticsTab shopId={selectedShop.id} />
-              )}
-
-              {/* TAB 9: TELEGRAM BOT SIMULATOR */}
-              {activeTab === "botsim" && (
-                <div className="max-w-md mx-auto p-4 rounded-3xl bg-app-surface border border-app-border shadow-2xl space-y-4 font-sans">
-                  <div className="flex items-center justify-between border-b border-app-border pb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                      <span className="text-xs font-semibold text-app-primary font-mono">{selectedShop.name} Бот</span>
-                    </div>
-                    <span className="text-[10px] text-app-muted font-mono">Telegram Симулятор</span>
-                  </div>
-
-                  <div className="h-80 overflow-y-auto space-y-3 p-2 font-sans">
-                    {botSimMessages.map((msg, idx) => (
-                      <div key={idx} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
-                        <div className={`p-3 rounded-2xl max-w-[80%] text-xs ${msg.sender === 'user' ? 'bg-app-accent text-app-accent-fg' : 'bg-app-card text-app-primary border border-app-border'}`}>
-                          <p>{msg.text}</p>
-                          {msg.button && (
-                            <a
-                              href={`/${selectedShop.slug}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-2 block w-full py-2 bg-app-accent text-app-accent-fg text-center rounded-xl font-mono text-xs font-bold hover:opacity-90 transition-colors"
-                            >
-                              {msg.button}
-                            </a>
-                          )}
-                        </div>
-                        <span className="text-[9px] text-app-muted font-mono mt-1">{msg.time}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-2 border-t border-app-border pt-3">
-                    <input
-                      type="text"
-                      value={botSimInput}
-                      onChange={e => setBotSimInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSendBotSimMessage(botSimInput)}
-                      placeholder="Введите /start или сообщение..."
-                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none"
-                    />
-                    <button onClick={() => handleSendBotSimMessage(botSimInput)} className="px-3 py-2 bg-app-accent text-app-accent-fg rounded-xl font-mono text-xs font-bold">
-                      Отправить
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB: TEAM & ACCESS */}
-              {activeTab === "team" && selectedShop && (
-                <div className="max-w-4xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm font-sans">
-                  <div className="border-b border-app-border pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-base font-bold font-mono flex items-center gap-2 text-app-primary">
-                        <Users size={18} className="text-emerald-400" />
-                        Команда и доступ: {selectedShop.name}
-                      </h3>
-                      <p className="text-xs text-app-muted mt-0.5 font-sans">Управление сотрудниками, ролями и ссылками-приглашениями</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsInviteModalOpen(true);
-                        setCreatedInviteUrl(null);
-                      }}
-                      className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-black font-mono font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer shrink-0"
-                    >
-                      <UserPlus size={15} />
-                      <span>Пригласить сотрудника</span>
-                    </button>
-                  </div>
-
-                  {/* Members List */}
-                  <div className="space-y-3">
-                    <h4 className="font-bold text-xs font-mono text-app-muted uppercase tracking-wider">
-                      Состав команды ({(teamMembers || []).length + (selectedShop?.owner ? 1 : 0)})
-                    </h4>
-
-                    <div className="grid grid-cols-1 gap-2.5">
-                      {/* Owner Item */}
-                      {selectedShop?.owner && (
-                        <div className="p-4 bg-app-card border border-app-border rounded-2xl flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-base shrink-0">
-                              👑
-                            </div>
-                            <div>
-                              <div className="font-bold text-xs text-app-primary flex items-center gap-2">
-                                <span>{selectedShop.owner.name || selectedShop.owner.email}</span>
-                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                                  Владелец
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-app-muted font-mono">{selectedShop.owner.email}</p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Staff Members */}
-                      {(teamMembers || []).map(m => (
-                        <div key={m.id} className="p-4 bg-app-card border border-app-border rounded-2xl flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-sm font-mono shrink-0">
-                              <User size={18} />
-                            </div>
-                            <div>
-                              <div className="font-bold text-xs text-app-primary flex items-center gap-2">
-                                <span>{m.name || m.email}</span>
-                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-                                  {m.role === "MANAGER" ? "Менеджер" : "Сотрудник"}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-app-muted font-mono">{m.email}</p>
-                            </div>
-                          </div>
-
-                          {user && selectedShop?.ownerId === user.id && (
-                            <button
-                              type="button"
-                              onClick={() => requestConfirm("Исключить сотрудника", `Удалить ${m.name || m.email} из команды заведения?`, () => handleRemoveMember(m.userId))}
-                              className="p-2 text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 rounded-xl transition-all cursor-pointer"
-                              title="Исключить из команды"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Invites Section */}
-                  <div className="space-y-3 pt-6 border-t border-app-border">
-                    <h4 className="font-bold text-xs font-mono text-app-muted uppercase tracking-wider">
-                      Активные пригласительные ссылки ({(teamInvites || []).length})
-                    </h4>
-
-                    {(teamInvites || []).length === 0 ? (
-                      <div className="p-6 bg-app-card border border-app-border rounded-2xl text-center space-y-2">
-                        <UserPlus size={24} className="text-app-muted mx-auto" />
-                        <p className="text-xs text-app-muted font-mono">
-                          Нет созданных приглашений. Сгенерируйте ссылку выше и отправьте сотрудникам для предоставления доступа.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {(teamInvites || []).map(inv => (
-                          <div key={inv.id} className="p-4 bg-app-card border border-app-border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono font-bold text-xs text-emerald-400 px-2.5 py-0.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                                  {inv.code}
-                                </span>
-                                <span className="text-[11px] text-app-muted font-mono">
-                                  Использовано: {inv.usedCount} из {inv.maxUses}
-                                </span>
-                              </div>
-                              <p className="text-[11px] font-mono text-app-muted truncate max-w-md">
-                                {inv.inviteUrl}
-                              </p>
-                            </div>
-
-                            <div className="flex items-center gap-2 self-end sm:self-center">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(inv.inviteUrl);
-                                  showToast("Ссылка-приглашение скопирована в буфер!", "success");
-                                }}
-                                className="px-3.5 py-2 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono text-app-primary flex items-center gap-1.5 transition-colors cursor-pointer"
-                              >
-                                <Copy size={13} />
-                                <span>Скопировать</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRevokeInvite(inv.code)}
-                                className="p-2 text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
-                                title="Отозвать ссылку"
-                              >
-                                <X size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </>
+          {/* TAB: TEAM & ACCESS */}
+          {activeTab === "team" && selectedShop && (
+            <AdminTeamTab
+              selectedShop={selectedShop}
+              user={user}
+              teamMembers={teamMembers}
+              teamInvites={teamInvites}
+              isInviteModalOpen={isInviteModalOpen}
+              setIsInviteModalOpen={setIsInviteModalOpen}
+              createdInviteUrl={createdInviteUrl}
+              setCreatedInviteUrl={setCreatedInviteUrl}
+              inviteRole={inviteRole}
+              setInviteRole={setInviteRole}
+              inviteMaxUses={inviteMaxUses}
+              setInviteMaxUses={setInviteMaxUses}
+              handleCreateInvite={handleCreateInvite}
+              handleRevokeInvite={handleRevokeInvite}
+              handleRemoveMember={handleRemoveMember}
+              requestConfirm={requestConfirm}
+              showToast={showToast}
+            />
           )}
         </div>
       </main>
 
-      {/* DRAWERS & MODALS */}
-
-      {/* Invite Modal */}
-      {isInviteModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-5 shadow-2xl relative">
-            <div className="flex justify-between items-center border-b border-app-border pb-3">
-              <div className="flex items-center gap-2">
-                <UserPlus size={18} className="text-emerald-400" />
-                <h3 className="text-sm font-semibold tracking-tight uppercase font-mono">Пригласить сотрудника</h3>
-              </div>
-              <button onClick={() => setIsInviteModalOpen(false)} className="text-app-muted hover:text-app-primary p-1 rounded-lg cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-
-            {!createdInviteUrl ? (
-              <div className="space-y-4 font-mono text-xs">
-                <div>
-                  <label className="block text-app-muted mb-1.5">Роль для приглашаемого</label>
-                  <select
-                    value={inviteRole}
-                    onChange={e => setInviteRole(e.target.value as any)}
-                    className="w-full bg-app-card border border-app-border rounded-xl p-2.5 text-app-primary focus:outline-none focus:border-app-accent"
-                  >
-                    <option value="STAFF">Сотрудник (просмотр и обработка заказов)</option>
-                    <option value="MANAGER">Менеджер (полное управление)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-app-muted mb-1.5">Лимит активаций ссылки</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={inviteMaxUses}
-                    onChange={e => setInviteMaxUses(Number(e.target.value))}
-                    className="w-full bg-app-card border border-app-border rounded-xl p-2.5 text-app-primary focus:outline-none focus:border-app-accent"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleCreateInvite}
-                  className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl shadow-sm transition-all cursor-pointer uppercase tracking-wider"
-                >
-                  Сгенерировать ссылку
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4 font-mono text-xs text-center">
-                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-2">
-                  <CheckCircle size={28} className="text-emerald-400 mx-auto" />
-                  <p className="font-bold text-sm text-app-primary">Ссылка создана!</p>
-                  <p className="text-app-muted text-[11px]">Отправьте эту ссылку сотруднику. Перейдя по ней, он сможет войти или зарегистрироваться и автоматически получит доступ к заведению.</p>
-                </div>
-
-                <div className="p-3 bg-app-card border border-app-border rounded-xl break-all text-[11px] text-emerald-400 font-mono select-all">
-                  {createdInviteUrl}
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(createdInviteUrl);
-                      showToast("Ссылка скопирована в буфер!", "success");
-                    }}
-                    className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Copy size={14} />
-                    <span>Скопировать</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsInviteModalOpen(false);
-                      setCreatedInviteUrl(null);
-                    }}
-                    className="py-2.5 px-4 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-bold rounded-xl cursor-pointer"
-                  >
-                    Закрыть
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Auth Modal */}
-      {isAuthModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center border-b border-app-border pb-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={18} className="text-emerald-400" />
-                <h3 className="text-sm font-semibold tracking-tight uppercase font-mono">
-                  {authMode === "otp" && "Вход по коду из E-mail"}
-                  {authMode === "login" && "Вход по паролю"}
-                  {authMode === "register" && "Регистрация аккаунта"}
-                  {authMode === "reset" && "Восстановление пароля"}
-                </h3>
-              </div>
-              <button onClick={() => { setIsAuthModalOpen(false); setAuthError(null); setAuthSuccessMsg(null); }} className="text-app-muted hover:text-app-primary p-1 rounded-lg transition-colors">
-                <X size={18} />
-              </button>
-            </div>
+      <AdminAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setAuthError(null);
+          setAuthSuccessMsg(null);
+        }}
+        authMode={authMode}
+        setAuthMode={setAuthMode}
+        authEmail={authEmail}
+        setAuthEmail={setAuthEmail}
+        authPassword={authPassword}
+        setAuthPassword={setAuthPassword}
+        authName={authName}
+        setAuthName={setAuthName}
+        authOtpCode={authOtpCode}
+        setAuthOtpCode={setAuthOtpCode}
+        authDevCode={authDevCode}
+        otpStep={otpStep}
+        setOtpStep={setOtpStep}
+        resendTimer={resendTimer}
+        authError={authError}
+        setAuthError={setAuthError}
+        authSuccessMsg={authSuccessMsg}
+        setAuthSuccessMsg={setAuthSuccessMsg}
+        isSubmittingAuth={isSubmittingAuth}
+        handleAuthSubmit={handleAuthSubmit}
+        handleSendOtpCode={handleSendOtpCode}
+        handleVerifyOtpCode={handleVerifyOtpCode}
+      />
 
-            {/* Mode Switcher Tabs */}
-            <div className="grid grid-cols-3 gap-1 bg-app-card p-1 rounded-xl border border-app-border text-xs font-mono">
-              <button
-                type="button"
-                onClick={() => { setAuthMode("otp"); setOtpStep("email"); setAuthError(null); setAuthSuccessMsg(null); }}
-                className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
-                  authMode === "otp" ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30" : "text-app-muted hover:text-app-primary"
-                }`}
-              >
-                <Mail size={12} />
-                <span>E-mail код</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setAuthMode("login"); setAuthError(null); setAuthSuccessMsg(null); }}
-                className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 border cursor-pointer ${
-                  authMode === "login" ? "bg-app-accent text-app-accent-fg border-app-border font-bold shadow-sm" : "border-transparent text-app-muted hover:text-app-primary"
-                }`}
-              >
-                <Lock size={12} />
-                <span>Пароль</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setAuthMode("register"); setAuthError(null); setAuthSuccessMsg(null); }}
-                className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 border cursor-pointer ${
-                  authMode === "register" ? "bg-app-accent text-app-accent-fg border-app-border font-bold shadow-sm" : "border-transparent text-app-muted hover:text-app-primary"
-                }`}
-              >
-                <User size={12} />
-                <span>Создать</span>
-              </button>
-            </div>
-
-            {authError && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 text-rose-400 text-xs">
-                <AlertCircle size={15} className="shrink-0" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            {authSuccessMsg && (
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-emerald-400 text-xs">
-                <CheckCircle2 size={15} className="shrink-0" />
-                <span>{authSuccessMsg}</span>
-              </div>
-            )}
-
-            {/* OTP Code Step (Unified for OTP Login, Registration, and Password Reset) */}
-            {otpStep === "code" ? (
-              <form onSubmit={handleVerifyOtpCode} className="space-y-3 font-sans">
-                <p className="text-xs text-app-muted">
-                  {authMode === "register" && (
-                    <>Код подтверждения отправлен на <strong className="text-app-primary">{authEmail}</strong> для завершения регистрации.</>
-                  )}
-                  {authMode === "reset" && (
-                    <>Код подтверждения отправлен на <strong className="text-app-primary">{authEmail}</strong> для сброса пароля.</>
-                  )}
-                  {authMode === "otp" && (
-                    <>Код отправлен на <strong className="text-app-primary">{authEmail}</strong>.</>
-                  )}
-                </p>
-
-                {authDevCode ? (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs space-y-2">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-amber-200">
-                          SMTP-сервер не настроен в <code>.env</code>
-                        </p>
-                        <p className="text-[11px] text-amber-300/80 mt-0.5">
-                          В тестовом контейнере нет почтового сервера, поэтому код сгенерирован локально:
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between bg-black/40 p-2 rounded-lg border border-amber-500/20 font-mono">
-                      <span className="text-sm font-bold text-white tracking-widest">{authDevCode}</span>
-                      <button
-                        type="button"
-                        onClick={() => setAuthOtpCode(authDevCode)}
-                        className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[10px] rounded border border-amber-500/40 font-mono transition-colors"
-                      >
-                        Вставить код
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-300 text-[11px] flex items-center gap-2">
-                    <CheckCircle2 size={15} className="shrink-0 text-emerald-400" />
-                    <span>Письмо успешно отправлено по SMTP на {authEmail}. Проверьте папку «Входящие» или «Спам».</span>
-                  </div>
-                )}
-
-                <div>
-                  <label className="text-[11px] text-app-muted font-mono mb-1 block">6-значный код подтверждения</label>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    autoComplete="one-time-code"
-                    value={authOtpCode}
-                    onChange={e => setAuthOtpCode(e.target.value)}
-                    placeholder="123456"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-3 text-center text-lg font-mono font-bold tracking-[8px] text-emerald-400 focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmittingAuth || authOtpCode.length !== 6}
-                  className="w-full py-2.5 bg-emerald-500 text-black font-mono font-bold text-xs rounded-xl hover:bg-emerald-400 transition-colors uppercase flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isSubmittingAuth ? <SpinnerLoader size={14} /> : <ShieldCheck size={14} />}
-                  {isSubmittingAuth
-                    ? "Проверка..."
-                    : authMode === "register"
-                    ? "Подтвердить и зарегистрироваться"
-                    : authMode === "reset"
-                    ? "Сохранить новый пароль"
-                    : "Подтвердить и войти"}
-                </button>
-
-                <div className="flex justify-between items-center text-xs pt-1">
-                  <button
-                    type="button"
-                    disabled={resendTimer > 0 || isSubmittingAuth}
-                    onClick={() => handleSendOtpCode(authMode === "register" ? "REGISTER" : authMode === "reset" ? "RESET_PASSWORD" : "LOGIN")}
-                    className="text-app-muted hover:text-app-primary font-mono text-[11px] flex items-center gap-1 disabled:opacity-50 cursor-pointer"
-                  >
-                    <RefreshCw size={12} className={isSubmittingAuth ? "animate-spin" : ""} />
-                    {resendTimer > 0 ? `Повтор через ${resendTimer}с` : "Отправить код повторно"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setOtpStep("email"); setAuthOtpCode(""); }}
-                    className="text-app-muted hover:text-app-primary font-mono text-[11px] underline cursor-pointer"
-                  >
-                    Изменить данные
-                  </button>
-                </div>
-              </form>
-            ) : (
-              /* Email / Credentials Forms Step */
-              <>
-                {/* E-mail OTP Login Tab */}
-                {authMode === "otp" && (
-                  <div className="space-y-3 font-sans">
-                    <p className="text-xs text-app-muted">
-                      Введите ваш E-mail. Мы мгновенно отправим 6-значный одноразовый код для входа.
-                    </p>
-                    <input
-                      type="email"
-                      value={authEmail}
-                      onChange={e => setAuthEmail(e.target.value)}
-                      placeholder="name@example.com"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-emerald-500/50"
-                    />
-                    <button
-                      type="button"
-                      disabled={isSubmittingAuth}
-                      onClick={() => handleSendOtpCode("LOGIN")}
-                      className="w-full py-2.5 bg-emerald-500 text-black font-mono font-bold text-xs rounded-xl hover:bg-emerald-400 transition-colors uppercase flex items-center justify-center gap-2"
-                    >
-                      {isSubmittingAuth ? <SpinnerLoader size={14} /> : <Mail size={14} />}
-                      {isSubmittingAuth ? "Отправка кода..." : "Получить код на E-mail"}
-                    </button>
-                  </div>
-                )}
-
-                {/* Password Login / Registration / Reset Tabs */}
-                {authMode !== "otp" && (
-                  <form onSubmit={handleAuthSubmit} className="space-y-3 font-sans">
-                    {authMode === "register" && (
-                      <input
-                        type="text"
-                        autoComplete="name"
-                        value={authName}
-                        onChange={e => setAuthName(e.target.value)}
-                        placeholder="ФИО / Название организации"
-                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
-                      />
-                    )}
-                    <input
-                      type="email"
-                      autoComplete="email"
-                      value={authEmail}
-                      onChange={e => setAuthEmail(e.target.value)}
-                      placeholder="Электронная почта"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
-                    />
-                    {authMode !== "reset" && (
-                      <input
-                        type="password"
-                        autoComplete={authMode === "register" ? "new-password" : "current-password"}
-                        value={authPassword}
-                        onChange={e => setAuthPassword(e.target.value)}
-                        placeholder="Пароль (мин. 6 символов)"
-                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
-                      />
-                    )}
-
-                    {authMode === "reset" && (
-                      <input
-                        type="password"
-                        autoComplete="new-password"
-                        value={authPassword}
-                        onChange={e => setAuthPassword(e.target.value)}
-                        placeholder="Новый пароль (мин. 6 символов)"
-                        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
-                      />
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={isSubmittingAuth}
-                      className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:bg-zinc-200 uppercase flex items-center justify-center gap-2"
-                    >
-                      {isSubmittingAuth && <SpinnerLoader size={14} />}
-                      {isSubmittingAuth
-                        ? "Отправка..."
-                        : authMode === "login"
-                        ? "Войти в аккаунт"
-                        : authMode === "register"
-                        ? "Зарегистрироваться"
-                        : "Получить код сброса"}
-                    </button>
-                  </form>
-                )}
-              </>
-            )}
-
-            <div className="text-center pt-2 flex items-center justify-center gap-4 text-xs font-mono text-app-muted">
-              {authMode === "login" && (
-                <button
-                  type="button"
-                  onClick={() => { setAuthMode("reset"); setAuthError(null); setAuthSuccessMsg(null); }}
-                  className="hover:text-app-primary underline cursor-pointer"
-                >
-                  Забыли пароль?
-                </button>
-              )}
-              {authMode === "reset" && (
-                <button
-                  type="button"
-                  onClick={() => { setAuthMode("login"); setAuthError(null); setAuthSuccessMsg(null); }}
-                  className="hover:text-app-primary underline cursor-pointer"
-                >
-                  Вернуться ко входу
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Promo Modal */}
-      {isCreatingPromo && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4">
-            <div className="flex justify-between items-center border-b border-app-border pb-3">
-              <h3 className="text-sm font-semibold font-mono">Создать промокод</h3>
-              <button onClick={() => setIsCreatingPromo(false)} className="text-app-muted hover:text-app-primary">
-                <X size={18} />
-              </button>
-            </div>
-            {promoError && <p className="text-xs text-rose-400 font-mono">{promoError}</p>}
-            <form onSubmit={handleCreatePromocode} className="space-y-3 font-sans">
-              <input
-                type="text"
-                value={newPromoData.code}
-                onChange={e => setNewPromoData(p => ({ ...p, code: e.target.value.toUpperCase() }))}
-                placeholder="ПРОМОКОД (напр. SALE20) *"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono uppercase"
-              />
-              <input
-                type="number"
-                value={newPromoData.discountPercent}
-                onChange={e => setNewPromoData(p => ({ ...p, discountPercent: e.target.value }))}
-                placeholder="Процент скидки (%)"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
-              />
-              <input
-                type="number"
-                value={newPromoData.discountAmount}
-                onChange={e => setNewPromoData(p => ({ ...p, discountAmount: e.target.value }))}
-                placeholder="Фиксированная скидка (₽)"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
-              />
-              <input
-                type="number"
-                value={newPromoData.usageLimit}
-                onChange={e => setNewPromoData(p => ({ ...p, usageLimit: e.target.value }))}
-                placeholder="Лимит использований (опционально)"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
-              />
-              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 uppercase">
-                Создать промокод
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Create Banner Modal */}
-      {isCreatingBanner && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4">
-            <div className="flex justify-between items-center border-b border-app-border pb-3">
-              <h3 className="text-sm font-semibold font-mono">Создать баннер</h3>
-              <button onClick={() => setIsCreatingBanner(false)} className="text-app-muted hover:text-app-primary">
-                <X size={18} />
-              </button>
-            </div>
-            {bannerError && <p className="text-xs text-rose-400 font-mono">{bannerError}</p>}
-            <form onSubmit={handleCreateBanner} className="space-y-3 font-sans">
-              <input
-                type="text"
-                value={newBannerData.title}
-                onChange={e => setNewBannerData(p => ({ ...p, title: e.target.value }))}
-                placeholder="Заголовок *"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
-              />
-              <input
-                type="text"
-                value={newBannerData.subtitle}
-                onChange={e => setNewBannerData(p => ({ ...p, subtitle: e.target.value }))}
-                placeholder="Подзаголовок"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none"
-              />
-              <input
-                type="text"
-                value={newBannerData.badge}
-                onChange={e => setNewBannerData(p => ({ ...p, badge: e.target.value }))}
-                placeholder="Текст бейджа (напр. АКЦИЯ, НОВИНКА)"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
-              />
-              <button type="submit" className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 uppercase">
-                Сохранить баннер
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Create Broadcast Modal */}
-      {isCreatingBroadcast && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-4xl w-full bg-app-modal border border-app-border rounded-3xl p-6 text-app-primary flex flex-col md:flex-row gap-6 max-h-[90vh] overflow-y-auto">
-            {/* Left Column: Form Settings */}
-            <div className="flex-1 space-y-4">
-              <div className="flex justify-between items-center border-b border-app-border pb-3">
-                <div className="space-y-0.5">
-                  <h3 className="text-sm font-semibold font-mono text-app-primary">Гибкий конструктор рассылки</h3>
-                  <p className="text-[11px] text-app-muted font-sans">Настройте таргетинг, шаблоны и интерактивные кнопки</p>
-                </div>
-                <button onClick={() => setIsCreatingBroadcast(false)} className="text-app-muted hover:text-app-primary md:hidden">
-                  <X size={18} />
-                </button>
-              </div>
-
-              {broadcastError && <p className="text-xs text-rose-400 font-mono bg-rose-500/10 border border-rose-500/20 px-3 py-2 rounded-xl">{broadcastError}</p>}
-
-              <form onSubmit={handleCreateBroadcast} className="space-y-4 font-sans text-xs">
-                {/* Campaign Name */}
-                <div className="space-y-1">
-                  <label className="block text-[11px] text-app-muted font-mono uppercase tracking-wider">Заголовок кампании *</label>
-                  <input
-                    type="text"
-                    value={newBroadcastData.title}
-                    onChange={e => setNewBroadcastData(p => ({ ...p, title: e.target.value }))}
-                    placeholder="Например: Спецпредложение для постоянных клиентов! 🔥"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border"
-                    required
-                  />
-                </div>
-
-                {/* Target Audience selection */}
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] text-app-muted font-mono uppercase tracking-wider">Целевая аудитория (Таргетинг)</label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {[
-                      { id: "ALL", label: "Все клиенты", desc: "Вся база CRM" },
-                      { id: "ACTIVE", label: "Активные", desc: "Сделали >1 заказа" },
-                      { id: "INACTIVE", label: "Спящие", desc: "0 заказов в CRM" },
-                      { id: "NEW", label: "Новые", desc: "Регистрация <7 дней" },
-                      { id: "VIP", label: "VIP клиенты", desc: "Сумма трат >3000 ₽" },
-                      { id: "BONUS_HOLDERS", label: "С бонусами", desc: "Баланс бонусов >0" },
-                    ].map(target => (
-                      <button
-                        key={target.id}
-                        type="button"
-                        onClick={() => setNewBroadcastData(p => ({ ...p, targetFilter: target.id }))}
-                        className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
-                          newBroadcastData.targetFilter === target.id
-                            ? "bg-app-accent text-app-accent-fg border-app-border font-bold animate-pulse-subtle"
-                            : "bg-app-card border-app-border text-app-secondary hover:border-app-border"
-                        }`}
-                      >
-                        <span className="font-semibold block text-[11px] font-mono">{target.label}</span>
-                        <span className={`text-[9px] block ${newBroadcastData.targetFilter === target.id ? "text-app-accent-fg/80" : "text-app-muted"}`}>{target.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Message Text with variable helpers */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-baseline">
-                    <label className="block text-[11px] text-app-muted font-mono uppercase tracking-wider">Текст сообщения *</label>
-                    <span className="text-[10px] text-app-muted font-mono">Переменная: {"{name}"}</span>
-                  </div>
-                  <textarea
-                    rows={4}
-                    value={newBroadcastData.message}
-                    onChange={e => setNewBroadcastData(p => ({ ...p, message: e.target.value }))}
-                    placeholder="Привет, {name}! Мы приготовили для вас специальный бонус..."
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border resize-none leading-relaxed"
-                    required
-                  />
-                  <p className="text-[10px] text-app-muted italic">Используйте {"{name}"}, чтобы автоматически подставить имя клиента при отправке.</p>
-                </div>
-
-                {/* Banner Image link or Presets */}
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] text-app-muted font-mono uppercase tracking-wider">Изображение (URL или шаблон)</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newBroadcastData.imageUrl || ""}
-                      onChange={e => setNewBroadcastData(p => ({ ...p, imageUrl: e.target.value }))}
-                      placeholder="Вставьте ссылку на картинку..."
-                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border font-mono"
-                    />
-                    {newBroadcastData.imageUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setNewBroadcastData(p => ({ ...p, imageUrl: "" }))}
-                        className="px-3 bg-app-secondary hover:bg-app-hover rounded-xl text-app-primary font-mono transition-colors"
-                      >
-                        Очистить
-                      </button>
-                    )}
-                  </div>
-                  {/* Preset Buttons */}
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {[
-                      { label: "🎁 Подарок", url: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&q=80&w=400" },
-                      { label: "💈 Стрижка", url: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=400" },
-                      { label: "🔥 Акция", url: "https://images.unsplash.com/photo-1557200134-90327ee9fafa?auto=format&fit=crop&q=80&w=400" },
-                    ].map(preset => (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() => setNewBroadcastData(p => ({ ...p, imageUrl: preset.url }))}
-                        className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono transition-colors ${
-                          newBroadcastData.imageUrl === preset.url
-                            ? "bg-app-accent text-app-accent-fg border-transparent font-semibold"
-                            : "bg-app-card border-app-border text-app-muted hover:text-app-primary"
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Interactive Action Button Label */}
-                <div className="space-y-1">
-                  <label className="block text-[11px] text-app-muted font-mono uppercase tracking-wider">Интерактивная кнопка</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newBroadcastData.buttonText || ""}
-                      onChange={e => setNewBroadcastData(p => ({ ...p, buttonText: e.target.value }))}
-                      placeholder="Например: 🛒 Открыть Меню"
-                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border"
-                    />
-                    <div className="flex gap-1">
-                      {["🛒 Заказать", "⭐ Оставить отзыв", "🎁 Забрать бонус"].map(btnPreset => (
-                        <button
-                          key={btnPreset}
-                          type="button"
-                          onClick={() => setNewBroadcastData(p => ({ ...p, buttonText: btnPreset }))}
-                          className="px-2 py-1 bg-app-secondary hover:bg-app-hover text-[10px] rounded-lg text-app-primary transition-colors"
-                        >
-                          {btnPreset.split(" ")[1] || btnPreset}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3 pt-3 border-t border-app-border">
-                  <button
-                    type="button"
-                    onClick={() => setIsCreatingBroadcast(false)}
-                    className="flex-1 py-2.5 bg-app-secondary hover:bg-app-hover text-app-primary font-mono font-bold rounded-xl transition-colors uppercase tracking-wider"
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-[2] py-2.5 bg-app-accent text-app-accent-fg hover:opacity-90 font-mono font-bold rounded-xl transition-colors uppercase tracking-wider"
-                  >
-                    🚀 Запустить рассылку
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            {/* Right Column: Live Telegram Smartphone Preview */}
-            <div className="w-full md:w-80 flex flex-col bg-app-card border border-app-border rounded-3xl p-4 space-y-4">
-              <div className="flex justify-between items-center border-b border-app-border pb-2">
-                <span className="text-[11px] font-mono text-app-muted uppercase tracking-widest">Интерактивный Превью</span>
-                <button onClick={() => setIsCreatingBroadcast(false)} className="text-app-muted hover:text-app-primary hidden md:block">
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* Smartphone Shell */}
-              <div className="flex-1 bg-app-surface rounded-2xl p-3 flex flex-col justify-between border border-app-border shadow-inner relative overflow-hidden min-h-[380px]">
-                {/* Simulated status bar */}
-                <div className="flex justify-between items-center text-[9px] text-app-muted font-mono px-1">
-                  <span>12:30 📱</span>
-                  <span>LTE 🔋</span>
-                </div>
-
-                {/* Simulated Telegram Message Area */}
-                <div className="flex-1 flex flex-col justify-end py-4">
-                  {/* Message Bubble Container */}
-                  <div className="bg-app-card rounded-2xl p-3 border border-app-border space-y-3 shadow-xl w-full relative">
-                    {/* Bot Title Header */}
-                    <div className="flex items-center gap-1.5 pb-1 border-b border-app-border">
-                      <div className="w-5 h-5 bg-app-accent text-app-accent-fg rounded-full flex items-center justify-center text-[10px] font-bold font-mono">
-                        {selectedShop?.name?.substring(0,1) || "Б"}
-                      </div>
-                      <div>
-                        <div className="text-[10px] font-bold leading-none text-app-primary">{selectedShop?.name || "Бот-Ассистент"}</div>
-                        <div className="text-[8px] text-sky-400 leading-none">bot</div>
-                      </div>
-                    </div>
-
-                    {/* Image Preview if provided */}
-                    {newBroadcastData.imageUrl && (
-                      <div className="rounded-lg overflow-hidden border border-app-border bg-app-surface aspect-[1.9/1] flex items-center justify-center">
-                        <img
-                          src={newBroadcastData.imageUrl}
-                          alt="Banner Preview"
-                          className="w-full h-full object-cover"
-                          onError={(e: any) => { e.target.style.display = "none"; }}
-                        />
-                      </div>
-                    )}
-
-                    {/* Broadcast Content */}
-                    <div className="space-y-1 font-sans">
-                      <div className="text-xs font-bold text-white leading-tight">
-                        {newBroadcastData.title || "Заголовок рассылки"}
-                      </div>
-                      <div className="text-[11px] text-app-secondary leading-relaxed whitespace-pre-wrap">
-                        {newBroadcastData.message
-                          ? newBroadcastData.message.replace(/\{name\}/g, "Александр")
-                          : "Здесь будет отображаться текст вашего сообщения. Поддерживается переменная имени."}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Inline Action Button */}
-                  {newBroadcastData.buttonText && (
-                    <div className="mt-2 w-full">
-                      <button
-                        type="button"
-                        className="w-full py-1.5 bg-[#202024] hover:bg-[#28282c] text-sky-400 border border-sky-400/15 rounded-xl text-[11px] font-bold transition-all text-center flex items-center justify-center gap-1.5"
-                      >
-                        {newBroadcastData.buttonText}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Bottom line mimicking modern phone */}
-                <div className="w-16 h-1 bg-zinc-800 rounded-full mx-auto mt-1"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Hotkeys Helper Modal */}
       <AnimatePresence>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo, ReactNode } from "react";
 
 export interface RealtimeEvent {
   type: string;
@@ -28,7 +28,6 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   useEffect(() => {
     let reconnectTimeout: any = null;
-
     let retryCount = 0;
 
     const connect = () => {
@@ -65,13 +64,11 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
         ws.onclose = () => {
           setIsConnected(false);
           retryCount++;
-          // Увеличиваем интервал при сбоях (3s, 6s, 12s, max 30s)
           const delay = Math.min(3000 * Math.pow(1.5, Math.min(retryCount, 6)), 30000);
           reconnectTimeout = setTimeout(connect, delay);
         };
 
         ws.onerror = () => {
-          // Игнорируем детальный лог ошибки WS на бессерверных платформах
           ws.close();
         };
       } catch (err) {
@@ -83,7 +80,6 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     connect();
 
-    // Heartbeat ping
     const pingInterval = setInterval(() => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: "ping" }));
@@ -94,27 +90,39 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
       clearInterval(pingInterval);
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (wsRef.current) {
-        wsRef.current.close();
+        const ws = wsRef.current;
+        ws.onopen = null;
+        ws.onclose = null;
+        ws.onerror = null;
+        ws.onmessage = null;
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+        }
       }
     };
   }, []);
 
-  const subscribeShop = (shopId: string) => {
+  const subscribeShop = useCallback((shopId: string) => {
     subscribedShopIdRef.current = shopId;
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "subscribe", shopId }));
     }
-  };
+  }, []);
 
-  const addListener = (listener: RealtimeListener) => {
+  const addListener = useCallback((listener: RealtimeListener) => {
     listenersRef.current.add(listener);
     return () => {
       listenersRef.current.delete(listener);
     };
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ isConnected, subscribeShop, addListener }),
+    [isConnected, subscribeShop, addListener]
+  );
 
   return (
-    <RealtimeContext.Provider value={{ isConnected, subscribeShop, addListener }}>
+    <RealtimeContext.Provider value={value}>
       {children}
     </RealtimeContext.Provider>
   );

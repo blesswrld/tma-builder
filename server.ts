@@ -152,6 +152,8 @@ async function ensureOrderSchema(db: PrismaClient) {
     await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "note" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "tableNumber" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "preferredTime" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "fulfillmentMethod" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "deliveryAddress" TEXT;`);
 
     await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "category" TEXT;`);
     await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;`);
@@ -400,6 +402,14 @@ export const prisma = getPrismaClient();
 export const app = express();
 
 app.use(express.json());
+
+// Middleware: Rewrite /api/public/* to /api/*
+app.use((req, res, next) => {
+  if (req.url.startsWith("/api/public/")) {
+    req.url = req.url.replace("/api/public", "/api");
+  }
+  next();
+});
 
 // Helper for sending email verification codes via Nodemailer
 async function sendVerificationEmail(toEmail: string, code: string, typeName: string) {
@@ -1604,7 +1614,7 @@ app.post("/api/shops", async (req, res) => {
     }
   });
 
-  // API Route: Получить данные заведения по slug
+  // API Route: Получить данные заведения по slug (или id)
   app.get("/api/shops/:slug", async (req, res) => {
     try {
       if (!process.env.DATABASE_URL) {
@@ -1618,10 +1628,29 @@ app.post("/api/shops", async (req, res) => {
 
       await ensureOrderSchema(db);
 
-      const shop = await db.shop.findUnique({
-        where: { slug: req.params.slug },
+      const rawParam = req.params.slug;
+      const paramSlug = decodeURIComponent(rawParam).trim();
+
+      let shop = await db.shop.findUnique({
+        where: { slug: paramSlug },
         include: { services: true, owner: { select: { id: true, email: true, name: true } } },
       });
+
+      // Fallback 1: case-insensitive slug match
+      if (!shop) {
+        shop = await db.shop.findFirst({
+          where: { slug: { equals: paramSlug, mode: "insensitive" } },
+          include: { services: true, owner: { select: { id: true, email: true, name: true } } },
+        });
+      }
+
+      // Fallback 2: find by ID if param looks like ID
+      if (!shop) {
+        shop = await db.shop.findUnique({
+          where: { id: paramSlug },
+          include: { services: true, owner: { select: { id: true, email: true, name: true } } },
+        });
+      }
 
       if (!shop) {
         return res.status(404).json({ error: "Заведение не найдено." });
@@ -1739,7 +1768,7 @@ app.post("/api/shops", async (req, res) => {
 
       await ensureOrderSchema(db);
 
-      const { shopId, customerName, customerPhone, tableNumber, preferredTime, note, items, totalPrice } = req.body;
+      const { shopId, customerName, customerPhone, tableNumber, preferredTime, note, items, totalPrice, fulfillmentMethod, deliveryAddress } = req.body;
 
       if (!shopId) {
         return res.status(400).json({ error: "Идентификатор магазина не указан." });
@@ -1776,6 +1805,8 @@ app.post("/api/shops", async (req, res) => {
       const cleanTableNumber = tableNumber ? String(tableNumber).trim().slice(0, 30) : null;
       const cleanPreferredTime = preferredTime ? String(preferredTime).trim().slice(0, 30) : null;
       const cleanNote = note ? String(note).trim().slice(0, 300) : null;
+      const cleanFulfillmentMethod = fulfillmentMethod ? String(fulfillmentMethod).trim() : "courier";
+      const cleanDeliveryAddress = deliveryAddress ? String(deliveryAddress).trim().slice(0, 300) : null;
 
       // Получаем магазин для настроек Telegram
       const shop = await db.shop.findUnique({
@@ -1783,7 +1814,7 @@ app.post("/api/shops", async (req, res) => {
       });
 
       // 1. Сохраняем в PostgreSQL
-      const order = await db.order.create({
+      const order = await (db.order.create as any)({
         data: {
           shopId,
           customerName: customerName.trim(),
@@ -1793,7 +1824,9 @@ app.post("/api/shops", async (req, res) => {
           note: cleanNote,
           items: JSON.stringify(items),
           totalPrice: Math.round(parsedTotal),
-          status: "PENDING"
+          status: "PENDING",
+          fulfillmentMethod: cleanFulfillmentMethod,
+          deliveryAddress: cleanDeliveryAddress,
         },
       });
 
@@ -1900,6 +1933,42 @@ app.post("/api/shops", async (req, res) => {
     } catch (error: any) {
       console.error("Ошибка при получении истории заказов:", error);
       res.status(500).json({ error: "Не удалось получить историю заказов." });
+    }
+  });
+
+  // API Route: Получить заказы клиента по номеру телефона
+  app.get("/api/shops/:shopId/orders/my", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const phone = req.query.phone as string;
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      if (!phone) {
+        return res.json([]);
+      }
+
+      const cleanPhone = phone.replace(/[^0-9+]/g, '');
+
+      const orders = await db.order.findMany({
+        where: {
+          shopId,
+          OR: [
+            { customerPhone: phone },
+            { customerPhone: cleanPhone },
+            ...(cleanPhone.length >= 10 ? [{ customerPhone: { contains: cleanPhone.slice(-10) } }] : [])
+          ]
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20
+      });
+
+      res.json(orders);
+    } catch (error) {
+      console.error("Ошибка при получении заказов клиента:", error);
+      res.status(500).json({ error: "Не удалось получить заказы." });
     }
   });
 
@@ -2628,10 +2697,57 @@ app.post("/api/shops", async (req, res) => {
         return res.status(403).json({ error: "У вас нет прав на просмотр клиентов этого заведения." });
       }
 
-      const customers = await db.customer.findMany({
+      const orders = await db.order.findMany({ where: { shopId } });
+      const statsByPhone: Record<string, { totalSpent: number; ordersCount: number; name: string }> = {};
+
+      orders.forEach((o: any) => {
+        if (!o.customerPhone) return;
+        const phone = o.customerPhone;
+        if (!statsByPhone[phone]) {
+          statsByPhone[phone] = { totalSpent: 0, ordersCount: 0, name: o.customerName || "Клиент" };
+        }
+        statsByPhone[phone].ordersCount += 1;
+        if (o.status !== "CANCELLED") {
+          statsByPhone[phone].totalSpent += Number(o.totalPrice) || 0;
+        }
+      });
+
+      let customers = await db.customer.findMany({
         where: { shopId },
         orderBy: { totalSpent: "desc" }
       });
+
+      for (const [phone, stats] of Object.entries(statsByPhone)) {
+        const existing = customers.find((c: any) => c.phone === phone);
+        if (existing) {
+          if (existing.totalSpent !== stats.totalSpent || existing.ordersCount !== stats.ordersCount) {
+            await db.customer.update({
+              where: { id: existing.id },
+              data: { totalSpent: stats.totalSpent, ordersCount: stats.ordersCount, updatedAt: new Date() }
+            });
+            existing.totalSpent = stats.totalSpent;
+            existing.ordersCount = stats.ordersCount;
+          }
+        } else {
+          try {
+            const created = await db.customer.create({
+              data: {
+                shopId,
+                phone,
+                name: stats.name,
+                bonusBalance: 0,
+                totalSpent: stats.totalSpent,
+                ordersCount: stats.ordersCount
+              }
+            });
+            customers.push(created);
+          } catch {
+            // ignore duplicate phone creation error
+          }
+        }
+      }
+
+      customers.sort((a: any, b: any) => (b.totalSpent || 0) - (a.totalSpent || 0));
 
       res.json(customers);
     } catch (error) {
