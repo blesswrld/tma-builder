@@ -56,7 +56,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-end gap-3.5">
             {/* Store Logo */}
-            <div className="-mt-12 sm:-mt-16 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-app-surface border-2 border-app-border flex items-center justify-center font-mono font-bold text-2xl text-app-primary shrink-0 shadow-lg overflow-hidden">
+            <div className="-mt-12 sm:-mt-16 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-app-surface flex items-center justify-center font-mono font-bold text-2xl text-app-primary shrink-0 shadow-lg overflow-hidden">
               {shop.logoUrl ? (
                 <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (

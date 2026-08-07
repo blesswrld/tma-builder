@@ -247,7 +247,7 @@ export default function ShopPage() {
       .then((orders: Order[]) => {
         setMyOrders(orders);
         if (orders.length > 0) {
-          const active = orders.find(o => o.status === "PENDING" || o.status === "CONFIRMED" || o.status === "IN_PROGRESS" || o.status === "NEW");
+          const active = orders.find(o => o.status === "PENDING" || o.status === "CONFIRMED");
           if (active) {
             setActiveOrder(active);
           } else {
@@ -312,7 +312,7 @@ export default function ShopPage() {
   useRealtimeEvent("BROADCAST_CREATED", (event) => {
     if (!event.shopId || event.shopId === shop?.id) {
       if (event.payload?.title || event.payload?.message) {
-        showToast(`📢 ${event.payload.title || "Рассылка"}: ${event.payload.message || ""}`, "info");
+        showToast(`📢 ${event.payload.title || "Рассылка"}: ${event.payload.message || ""}`, "warning");
       }
     }
   });

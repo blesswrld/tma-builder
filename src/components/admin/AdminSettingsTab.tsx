@@ -17,6 +17,8 @@ import {
   RotateCcw,
   Bot,
   ExternalLink,
+  Github,
+  ShieldCheck,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ImageUploader from "../ImageUploader";

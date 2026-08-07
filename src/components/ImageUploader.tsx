@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
-import { Upload, Link as LinkIcon, Image as ImageIcon, X, Check, Sparkles } from "lucide-react";
+import { Upload, Link as LinkIcon, Image as ImageIcon, X, Check, Sparkles, Crop } from "lucide-react";
+import ImageCropperModal from "./ImageCropperModal";
 
 interface ImageUploaderProps {
   value?: string;
@@ -47,9 +48,16 @@ export default function ImageUploader({
 }: ImageUploaderProps) {
   const [tab, setTab] = useState<"file" | "link" | "presets">("file");
   const [isCompressing, setIsCompressing] = useState(false);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [cropperImage, setCropperImage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activePresets = presets || (type === "avatar" ? DEFAULT_AVATAR_PRESETS : type === "banner" ? DEFAULT_BANNER_PRESETS : DEFAULT_PHOTO_PRESETS);
+
+  const defaultRatio = type === "avatar" ? "1:1" : type === "banner" ? "16:9" : "4:3";
+
+  const MAX_FILE_SIZE_MB = 15;
+  const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -57,47 +65,28 @@ export default function ImageUploader({
 
     if (!file.type.startsWith("image/")) {
       alert("Пожалуйста, выберите файл изображения.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      alert(`Файл слишком большой (${(file.size / (1024 * 1024)).toFixed(1)} МБ). Максимальный размер фото — ${MAX_FILE_SIZE_MB} МБ.`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     setIsCompressing(true);
     const reader = new FileReader();
     reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let width = img.width;
-        let height = img.height;
-
-        const maxDimension = type === "banner" ? 1000 : type === "avatar" ? 400 : 800;
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height * maxDimension) / width);
-            width = maxDimension;
-          } else {
-            width = Math.round((width * maxDimension) / height);
-            height = maxDimension;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.82);
-          onChange(compressedBase64);
-        } else {
-          onChange(event.target?.result as string);
-        }
-        setIsCompressing(false);
-      };
-      img.onerror = () => {
-        setIsCompressing(false);
-        alert("Не удалось прочитать изображение.");
-      };
-      img.src = event.target?.result as string;
+      const rawDataUrl = event.target?.result as string;
+      setIsCompressing(false);
+      // Immediately open cropper modal for uploaded image
+      setCropperImage(rawDataUrl);
+      setCropperOpen(true);
+    };
+    reader.onerror = () => {
+      setIsCompressing(false);
+      alert("Не удалось прочитать изображение.");
     };
     reader.readAsDataURL(file);
   };
@@ -169,7 +158,7 @@ export default function ImageUploader({
           <p className="text-xs text-app-primary font-medium">
             {isCompressing ? "Сжатие и обработка..." : "Нажмите или перетащите фото сюда"}
           </p>
-          <p className="text-[10px] text-app-muted font-mono">PNG, JPG, WEBP (авто-сжатие до 800px)</p>
+          <p className="text-[10px] text-app-muted font-mono">PNG, JPG, WEBP (до 15 МБ, с кадрированием)</p>
         </div>
       )}
 
@@ -207,7 +196,7 @@ export default function ImageUploader({
 
       {/* Preview box if value is set */}
       {value && (
-        <div className="mt-2 relative rounded-2xl overflow-hidden border border-app-border bg-zinc-950/80 p-2 flex items-center justify-center">
+        <div className="mt-2 relative rounded-2xl overflow-hidden border border-app-border bg-app-card p-2 flex items-center justify-center">
           {type === "avatar" ? (
             <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-500 shadow-md">
               <img
@@ -220,27 +209,53 @@ export default function ImageUploader({
               />
             </div>
           ) : (
-            <div className={`w-full ${maxHeightClass} overflow-hidden rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center`}>
+            <div className={`w-full ${maxHeightClass} overflow-hidden rounded-xl bg-app-surface border border-app-border flex items-center justify-center`}>
               <img
                 src={value}
                 alt="Превью"
-                className="max-h-full max-w-full object-contain rounded-lg"
+                className="max-h-full max-w-full object-cover rounded-lg"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=500";
                 }}
               />
             </div>
           )}
-          <button
-            type="button"
-            onClick={() => onChange("")}
-            className="absolute top-3 right-3 p-1.5 bg-black/70 text-white keep-white rounded-full hover:bg-rose-600 transition-colors cursor-pointer shadow-lg"
-            title="Удалить фото"
-          >
-            <X size={14} className="keep-white text-white" />
-          </button>
+
+          <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+            <button
+              type="button"
+              onClick={() => {
+                setCropperImage(value);
+                setCropperOpen(true);
+              }}
+              className="p-1.5 bg-black/85 hover:bg-emerald-600 text-white rounded-full transition-colors cursor-pointer shadow-lg flex items-center gap-1 text-[10px] font-mono px-2.5"
+              title="Кадрировать / Обрезать фото"
+            >
+              <Crop size={12} className="text-white shrink-0" />
+              <span>Обрезать</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="p-1.5 bg-black/85 text-white rounded-full hover:bg-rose-600 transition-colors cursor-pointer shadow-lg"
+              title="Удалить фото"
+            >
+              <X size={14} className="text-white shrink-0" />
+            </button>
+          </div>
         </div>
       )}
+
+      {/* Image Cropper Modal */}
+      <ImageCropperModal
+        isOpen={cropperOpen}
+        imageUrl={cropperImage}
+        onClose={() => setCropperOpen(false)}
+        onCropComplete={(croppedUrl) => {
+          onChange(croppedUrl);
+        }}
+        defaultAspectRatio={defaultRatio}
+      />
     </div>
   );
 }

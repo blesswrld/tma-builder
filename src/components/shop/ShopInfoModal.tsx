@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Clock, MapPin, Navigation, Phone as PhoneIcon, Gift, Store, Truck, Receipt, Sparkles, CreditCard, Send, ExternalLink, MessageCircle, Globe } from "lucide-react";
+import { X, Clock, MapPin, Navigation, Phone as PhoneIcon, Gift, Store, Truck, Receipt, Sparkles, CreditCard, Send, ExternalLink, MessageCircle, Globe, Github, ShieldCheck } from "lucide-react";
 import { Shop, parseSocialLinks, parseDeliveryOptions } from "../../types";
 
 interface ShopInfoModalProps {
@@ -10,6 +10,17 @@ interface ShopInfoModalProps {
 }
 
 export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onClose }) => {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const socials = parseSocialLinks(shop.socialLinks);
@@ -19,12 +30,16 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <div 
+        onClick={onClose}
+        className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-hidden"
+      >
         <motion.div 
+          onClick={(e) => e.stopPropagation()}
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="max-w-lg w-full max-h-[90vh] bg-app-modal border border-app-border rounded-3xl overflow-hidden shadow-2xl relative flex flex-col text-app-primary"
+          className="max-w-lg w-full max-h-[90vh] bg-app-modal border border-app-border rounded-3xl overflow-hidden shadow-2xl relative flex flex-col text-app-primary my-auto"
         >
           {/* Close Button */}
           <button 
@@ -41,7 +56,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
               <img src={shop.bannerUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex items-end p-5">
                 <div className="flex items-center gap-3.5 min-w-0 pr-10">
-                  <div className="w-12 h-12 rounded-2xl bg-app-surface border border-white/20 flex items-center justify-center font-mono font-bold text-base text-app-primary shrink-0 overflow-hidden shadow-lg">
+                  <div className="w-12 h-12 rounded-2xl bg-app-surface flex items-center justify-center font-mono font-bold text-base text-app-primary shrink-0 overflow-hidden shadow-lg">
                     {shop.logoUrl ? (
                       <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
@@ -67,7 +82,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
           ) : (
             <div className="p-5 pb-4 border-b border-app-border flex items-center justify-between shrink-0 bg-app-modal-header pr-14">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-app-card border border-app-border flex items-center justify-center font-mono font-bold text-sm text-app-primary shrink-0 overflow-hidden">
+                <div className="w-10 h-10 rounded-xl bg-app-card flex items-center justify-center font-mono font-bold text-sm text-app-primary shrink-0 overflow-hidden">
                   {shop.logoUrl ? (
                     <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
@@ -273,6 +288,31 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                 </div>
               </div>
             )}
+
+            {/* Open Source / Security */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider block">Безопасность и открытый код</span>
+              <a
+                href="https://github.com/blesswrld/tma-builder"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full p-3 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-2xl transition-all flex items-center justify-between group cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center text-white shrink-0">
+                    <Github size={15} />
+                  </div>
+                  <div>
+                    <span className="font-bold block text-xs">Исходный код приложения</span>
+                    <span className="text-[10px] text-app-muted font-normal block">github.com/blesswrld/tma-builder</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-emerald-500 text-[11px] font-bold">
+                  <ShieldCheck size={14} />
+                  <ExternalLink size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </a>
+            </div>
 
             <button 
               onClick={onClose}

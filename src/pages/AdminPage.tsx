@@ -10,7 +10,7 @@ import {
   Image as ImageIcon, Send, Users, Radio, Gift, ChevronDown, ChevronUp, 
   Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon, Globe, ArrowLeft,
   ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare, GripVertical, Keyboard,
-  UserPlus, CheckCircle, Key, Loader2, Truck, CreditCard
+  UserPlus, CheckCircle, Key, Loader2, Truck, CreditCard, Github
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -366,12 +366,6 @@ export default function AdminPage() {
         setSelectedShop(null);
       }
       fetchShops(true);
-    }
-  });
-
-  useRealtimeEvent("USER_UPDATED", (event) => {
-    if (event.payload) {
-      setUser(prev => prev && prev.id === event.payload.id ? { ...prev, ...event.payload } : prev);
     }
   });
 
@@ -3255,6 +3249,21 @@ export default function AdminPage() {
               )}
             </div>
           </div>
+
+          {/* GitHub Open Source Link */}
+          <a
+            href="https://github.com/blesswrld/tma-builder"
+            target="_blank"
+            rel="noreferrer"
+            className="p-2.5 bg-app-card hover:bg-app-hover border border-app-border rounded-2xl flex items-center justify-between text-xs font-mono transition-colors group cursor-pointer"
+            title="Открыть исходный код приложения на GitHub"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <Github size={15} className="text-app-primary shrink-0" />
+              <span className="truncate text-app-secondary group-hover:text-app-primary font-medium">Исходный код (GitHub)</span>
+            </div>
+            <ShieldCheck size={15} className="text-emerald-500 shrink-0" />
+          </a>
         </div>
       </div>
 
@@ -3380,15 +3389,6 @@ export default function AdminPage() {
                 className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <Plus size={14} /> <span>Добавить услугу</span>
-              </button>
-            )}
-
-            {activeTab === "orders" && (
-              <button
-                onClick={exportOrdersToCsv}
-                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <FileSpreadsheet size={14} /> <span>Экспорт CSV</span>
               </button>
             )}
 

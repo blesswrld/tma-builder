@@ -61,7 +61,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               referrerPolicy="no-referrer"
             />
             {service.category && (
-              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 border border-white/10 text-[9px] font-mono text-zinc-300 uppercase tracking-wider backdrop-blur-md">
+              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/70 border border-white/20 text-[9px] font-mono text-white keep-white uppercase tracking-wider backdrop-blur-md shadow-sm">
                 {service.category}
               </span>
             )}
