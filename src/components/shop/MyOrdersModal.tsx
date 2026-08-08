@@ -41,11 +41,11 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
                 <div className="flex justify-between items-center text-xs font-mono">
                   <span className="text-app-muted">#{order.id.slice(-6)}</span>
                   <span className={`px-2 py-0.5 rounded-md text-[10px] uppercase font-bold ${
-                    order.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                    order.status === 'CONFIRMED' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                    order.status === 'IN_PROGRESS' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
-                    order.status === 'CANCELLED' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
-                    'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                    order.status === 'COMPLETED' ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30' :
+                    order.status === 'CONFIRMED' ? 'bg-blue-500/15 text-blue-800 dark:text-blue-300 border border-blue-500/30' :
+                    order.status === 'IN_PROGRESS' ? 'bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border border-indigo-500/30' :
+                    order.status === 'CANCELLED' ? 'bg-rose-500/15 text-rose-800 dark:text-rose-300 border border-rose-500/30' :
+                    'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30'
                   }`}>
                     {order.status === 'COMPLETED' ? 'ЗАВЕРШЁН' :
                      order.status === 'CONFIRMED' ? 'ПОДТВЕРЖДЁН' :

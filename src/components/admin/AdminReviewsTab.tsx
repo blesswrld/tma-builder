@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Star,
   Search,
@@ -6,9 +6,10 @@ import {
   ChevronDown,
   Check,
   MessageSquare,
-  Trash2,
   X,
   Send,
+  ShieldAlert,
+  ZoomIn,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { SpinnerLoader } from "../Skeleton";
@@ -18,6 +19,8 @@ interface Review {
   customerName?: string;
   rating: number;
   comment?: string;
+  imageUrl?: string;
+  isEdited?: boolean;
   reply?: string;
   createdAt: string;
 }
@@ -83,8 +86,41 @@ export function AdminReviewsTab({
   handleDeleteReview,
   handleReplyReview,
 }: AdminReviewsTabProps) {
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [isNoticeCollapsed, setIsNoticeCollapsed] = useState(false);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 font-sans">
+      {/* HONESTY & TRANSPARENCY NOTICE */}
+      <div className="p-3.5 bg-app-card border border-app-border rounded-xl text-xs font-sans shadow-2xs transition-all">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <ShieldAlert size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
+            <p className="font-medium text-app-primary text-xs truncate">
+              Честный рейтинг и отзывы клиентов
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsNoticeCollapsed(!isNoticeCollapsed)}
+            className="flex items-center gap-1 text-[11px] font-normal text-app-secondary hover:text-app-primary bg-app-hover px-2.5 py-1 rounded-lg transition-colors shrink-0 cursor-pointer border border-app-border"
+            title={isNoticeCollapsed ? "Развернуть" : "Свернуть"}
+          >
+            <span>{isNoticeCollapsed ? "Развернуть" : "Свернуть"}</span>
+            <ChevronDown
+              size={13}
+              className={`transition-transform duration-200 ${isNoticeCollapsed ? "" : "rotate-180"}`}
+            />
+          </button>
+        </div>
+
+        {!isNoticeCollapsed && (
+          <p className="text-[11px] text-app-secondary leading-relaxed font-sans font-normal pt-2 pl-6.5">
+            В целях сохранения доверия клиентов и объективности рейтинга, удаление отзывов со стороны владельцев заведений отключено. Пользователи могут самостоятельно редактировать или удалять свои отзывы. Вы можете отвечать на любые отзывы от имени заведения.
+          </p>
+        )}
+      </div>
+
       {/* UNIFIED MINIMALIST METRICS BAR */}
       <div className="p-4 rounded-2xl bg-app-surface border border-app-border grid grid-cols-2 sm:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-app-border shadow-sm">
         <div className="space-y-1">
@@ -389,7 +425,6 @@ export function AdminReviewsTab({
         <div className="space-y-3">
           {filteredReviews.map((rev) => {
             const isReplying = replyingReviewId === rev.id;
-            const isDeleting = deletingReviewId === rev.id;
             return (
               <div
                 key={rev.id}
@@ -410,20 +445,18 @@ export function AdminReviewsTab({
                           {rev.rating}.0
                         </span>
                       </div>
-                      <span className="text-[10px] text-app-muted font-mono block">
-                        {new Date(rev.createdAt).toLocaleString()}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-app-muted font-mono">
+                          {new Date(rev.createdAt).toLocaleString()}
+                        </span>
+                        {rev.isEdited && (
+                          <span className="text-[9px] font-mono italic text-amber-400/90 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                            изменен
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteReview(rev.id)}
-                    disabled={isDeleting}
-                    className="p-1.5 rounded-xl text-app-muted hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                    title="Удалить отзыв"
-                  >
-                    {isDeleting ? <SpinnerLoader size={14} /> : <Trash2 size={14} />}
-                  </button>
                 </div>
 
                 {rev.comment ? (
@@ -436,6 +469,26 @@ export function AdminReviewsTab({
                   </p>
                 )}
 
+                {/* PHOTO ATTACHMENT */}
+                {rev.imageUrl && (
+                  <div className="pt-1">
+                    <div
+                      onClick={() => setLightboxImage(rev.imageUrl || null)}
+                      className="relative group w-20 h-20 rounded-xl overflow-hidden border border-app-border cursor-pointer bg-app-card hover:border-app-accent transition-all"
+                    >
+                      <img
+                        src={rev.imageUrl}
+                        alt="Фото в отзыве"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                        <ZoomIn size={15} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* REPLY SECTION */}
                 {rev.reply && !isReplying ? (
                   <div className="mt-2 pt-1.5 pl-3 border-l-2 border-emerald-500/70 space-y-1">
                     <div className="flex items-center justify-between">
@@ -536,6 +589,32 @@ export function AdminReviewsTab({
           })}
         </div>
       )}
+
+      {/* LIGHTBOX MODAL */}
+      <AnimatePresence>
+        {lightboxImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setLightboxImage(null)}
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-zoom-out"
+          >
+            <button
+              onClick={() => setLightboxImage(null)}
+              className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={lightboxImage}
+              alt="Полноэкранное фото"
+              className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

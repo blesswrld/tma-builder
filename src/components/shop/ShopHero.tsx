@@ -56,7 +56,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-end gap-3.5">
             {/* Store Logo */}
-            <div className="-mt-12 sm:-mt-16 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-app-surface flex items-center justify-center font-mono font-bold text-2xl text-app-primary shrink-0 shadow-lg overflow-hidden">
+            <div className={`-mt-12 sm:-mt-16 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center font-mono font-bold text-2xl text-app-primary shrink-0 shadow-lg overflow-hidden ${
+              shop.logoUrl ? "bg-transparent" : "bg-app-surface"
+            }`}>
               {shop.logoUrl ? (
                 <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
@@ -113,15 +115,15 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
           )}
 
           {shop.cashbackPercent ? (
-            <div className="px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-400 flex items-center gap-2 font-bold">
-              <Gift size={13} className="shrink-0" />
+            <div className="px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-800 dark:text-amber-300 flex items-center gap-2 font-bold">
+              <Gift size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
               <span>Кэшбэк {shop.cashbackPercent}%</span>
             </div>
           ) : null}
 
           {(delivery.courier || delivery.deliveryMinOrder || delivery.deliveryFee) && (
-            <div className="px-3 py-1.5 rounded-xl bg-sky-500/15 text-sky-400 flex items-center gap-2">
-              <Truck size={13} className="shrink-0" />
+            <div className="px-3 py-1.5 rounded-xl bg-sky-500/15 text-sky-800 dark:text-sky-300 flex items-center gap-2 font-medium">
+              <Truck size={13} className="shrink-0 text-sky-600 dark:text-sky-400" />
               <span>Доставка</span>
             </div>
           )}
@@ -143,7 +145,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.telegram.startsWith("http") ? socials.telegram : `https://t.me/${socials.telegram.replace("@", "")}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-400 hover:bg-sky-500/25 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-800 dark:text-sky-300 hover:bg-sky-500/25 text-[11px] font-mono font-medium flex items-center gap-1.5 transition-colors"
               >
                 <Send size={12} />
                 <span>Telegram</span>
@@ -154,7 +156,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.instagram.startsWith("http") ? socials.instagram : `https://instagram.com/${socials.instagram}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-pink-500/15 text-pink-400 hover:bg-pink-500/25 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-pink-500/15 text-pink-800 dark:text-pink-300 hover:bg-pink-500/25 text-[11px] font-mono font-medium flex items-center gap-1.5 transition-colors"
               >
                 <ExternalLink size={12} />
                 <span>Instagram</span>
@@ -165,7 +167,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.whatsapp.startsWith("http") ? socials.whatsapp : `https://wa.me/${socials.whatsapp.replace(/\D/g, "")}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/25 text-[11px] font-mono font-medium flex items-center gap-1.5 transition-colors"
               >
                 <MessageCircle size={12} />
                 <span>WhatsApp</span>
@@ -176,7 +178,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.vk.startsWith("http") ? socials.vk : `https://vk.com/${socials.vk}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-blue-500/15 text-blue-800 dark:text-blue-300 hover:bg-blue-500/25 text-[11px] font-mono font-medium flex items-center gap-1.5 transition-colors"
               >
                 <Globe size={12} />
                 <span>ВКонтакте</span>

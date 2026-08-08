@@ -56,7 +56,9 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
               <img src={shop.bannerUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex items-end p-5">
                 <div className="flex items-center gap-3.5 min-w-0 pr-10">
-                  <div className="w-12 h-12 rounded-2xl bg-app-surface flex items-center justify-center font-mono font-bold text-base text-app-primary shrink-0 overflow-hidden shadow-lg">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-mono font-bold text-base text-app-primary shrink-0 overflow-hidden shadow-lg ${
+                    shop.logoUrl ? "bg-transparent" : "bg-app-surface"
+                  }`}>
                     {shop.logoUrl ? (
                       <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
@@ -82,7 +84,9 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
           ) : (
             <div className="p-5 pb-4 border-b border-app-border flex items-center justify-between shrink-0 bg-app-modal-header pr-14">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-app-card flex items-center justify-center font-mono font-bold text-sm text-app-primary shrink-0 overflow-hidden">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-mono font-bold text-sm text-app-primary shrink-0 overflow-hidden ${
+                  shop.logoUrl ? "bg-transparent" : "bg-app-card"
+                }`}>
                   {shop.logoUrl ? (
                     <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
@@ -163,14 +167,14 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
 
             {/* Cashback Bonus System */}
             {Boolean(shop.cashbackPercent) && (
-              <div className="p-3.5 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+              <div className="p-3.5 bg-amber-500/15 border border-amber-500/30 rounded-2xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
                   <Gift size={20} />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-amber-400 font-mono">Бонусная программа</h4>
-                  <p className="text-[11px] text-app-secondary leading-snug font-sans">
-                    Начисляем <strong className="text-amber-400 font-mono">{shop.cashbackPercent}% кэшбэка</strong> на ваш бонусный счёт с каждой покупки!
+                  <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 font-mono">Бонусная программа</h4>
+                  <p className="text-[11px] text-app-secondary leading-snug font-sans font-medium">
+                    Начисляем <strong className="text-amber-900 dark:text-amber-200 font-mono">{shop.cashbackPercent}% кэшбэка</strong> на ваш бонусный счёт с каждой покупки!
                   </p>
                 </div>
               </div>
@@ -235,7 +239,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                       href={socials.telegram.startsWith("http") ? socials.telegram : `https://t.me/${socials.telegram.replace("@", "")}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="py-2.5 px-3 bg-sky-500/15 text-sky-400 border border-sky-500/30 hover:bg-sky-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                      className="py-2.5 px-3 bg-sky-500/15 text-sky-800 dark:text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
                     >
                       <Send size={14} />
                       <span>Telegram</span>
@@ -246,7 +250,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                       href={socials.instagram.startsWith("http") ? socials.instagram : `https://instagram.com/${socials.instagram}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="py-2.5 px-3 bg-pink-500/15 text-pink-400 border border-pink-500/30 hover:bg-pink-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                      className="py-2.5 px-3 bg-pink-500/15 text-pink-800 dark:text-pink-300 border border-pink-500/30 hover:bg-pink-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
                     >
                       <ExternalLink size={14} />
                       <span>Instagram</span>
@@ -257,7 +261,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                       href={socials.whatsapp.startsWith("http") ? socials.whatsapp : `https://wa.me/${socials.whatsapp.replace(/\D/g, "")}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="py-2.5 px-3 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                      className="py-2.5 px-3 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
                     >
                       <MessageCircle size={14} />
                       <span>WhatsApp</span>
@@ -268,7 +272,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                       href={socials.vk.startsWith("http") ? socials.vk : `https://vk.com/${socials.vk}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="py-2.5 px-3 bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                      className="py-2.5 px-3 bg-blue-500/15 text-blue-800 dark:text-blue-300 border border-blue-500/30 hover:bg-blue-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
                     >
                       <Globe size={14} />
                       <span>ВКонтакте</span>

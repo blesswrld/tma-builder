@@ -70,11 +70,19 @@ export default function ShopPage() {
   const [reviewsStats, setReviewsStats] = useState({ totalReviews: 0, avgRating: 5.0 });
   const [filterStar, setFilterStar] = useState<"ALL" | number>("ALL");
   const [isWriteReviewOpen, setIsWriteReviewOpen] = useState(false);
-  const [newReview, setNewReview] = useState({ name: "", rating: 5, comment: "" });
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [newReview, setNewReview] = useState<{ name: string; rating: number; comment: string; imageUrl?: string }>({ name: "", rating: 5, comment: "", imageUrl: "" });
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewSubmitError, setReviewSubmitError] = useState<string | null>(null);
   const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState(false);
+  const [myReviewIds, setMyReviewIds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("tma_my_review_ids") || "[]");
+    } catch {
+      return [];
+    }
+  });
 
   // Promocode state
   const [promocodeInput, setPromocodeInput] = useState("");
@@ -679,7 +687,78 @@ export default function ShopPage() {
       .finally(() => setReviewsLoading(false));
   };
 
-  // Submit Review
+  // My Reviews localStorage Helpers
+  const addMyReviewId = (id: string) => {
+    setMyReviewIds(prev => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      try { localStorage.setItem("tma_my_review_ids", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const removeMyReviewId = (id: string) => {
+    setMyReviewIds(prev => {
+      const next = prev.filter(i => i !== id);
+      try { localStorage.setItem("tma_my_review_ids", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const handleStartEditReview = (review: Review) => {
+    setEditingReviewId(review.id);
+    setNewReview({
+      name: review.customerName || "",
+      rating: review.rating || 5,
+      comment: review.comment || "",
+      imageUrl: review.imageUrl || "",
+    });
+    setIsWriteReviewOpen(true);
+  };
+
+  const handleCancelEditReview = () => {
+    setEditingReviewId(null);
+    setNewReview({ name: "", rating: 5, comment: "", imageUrl: "" });
+    setIsWriteReviewOpen(false);
+  };
+
+  const handleDeleteUserReview = (reviewId: string) => {
+    if (!shop) return;
+    setConfirmModal({
+      isOpen: true,
+      title: "Удаление отзыва",
+      message: "Вы уверены, что хотите удалить свой отзыв? Это действие нельзя будет отменить.",
+      confirmText: "Да, удалить",
+      cancelText: "Отмена",
+      isDangerous: true,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          const res = await fetch(`/api/reviews/${reviewId}`, { method: "DELETE" });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Не удалось удалить отзыв");
+
+          removeMyReviewId(reviewId);
+
+          // Refresh reviews
+          fetch(`/api/public/shops/${shop.id}/reviews`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+              if (d) {
+                setReviews(d.reviews || []);
+                setReviewsStats(d.stats || { totalReviews: 0, avgRating: 5.0 });
+              }
+            });
+
+          showToast("Ваш отзыв успешно удален", "success");
+        } catch (err: any) {
+          showToast(err.message || "Ошибка удаления отзыва", "error");
+        }
+      }
+    });
+  };
+
+  // Submit Review (Create or Edit)
   const handleSubmitReview = async (e: FormEvent) => {
     e.preventDefault();
     if (!shop) return;
@@ -688,22 +767,42 @@ export default function ShopPage() {
     setReviewSubmitSuccess(false);
 
     try {
-      const res = await fetch(`/api/public/shops/${shop.id}/reviews`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerName: newReview.name.trim() || "Аноним",
-          rating: newReview.rating,
-          comment: newReview.comment.trim() || undefined,
-        }),
-      });
+      let res;
+      if (editingReviewId) {
+        res = await fetch(`/api/reviews/${editingReviewId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerName: newReview.name.trim() || "Аноним",
+            rating: newReview.rating,
+            comment: newReview.comment.trim() || null,
+            imageUrl: newReview.imageUrl && newReview.imageUrl.trim() ? newReview.imageUrl.trim() : null,
+          }),
+        });
+      } else {
+        res = await fetch(`/api/public/shops/${shop.id}/reviews`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerName: newReview.name.trim() || "Аноним",
+            rating: newReview.rating,
+            comment: newReview.comment.trim() || null,
+            imageUrl: newReview.imageUrl && newReview.imageUrl.trim() ? newReview.imageUrl.trim() : null,
+          }),
+        });
+      }
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Не удалось отправить отзыв");
+      if (!res.ok) throw new Error(data.error || "Не удалось сохранить отзыв");
+
+      if (data.id) {
+        addMyReviewId(data.id);
+      }
 
       setReviewSubmitSuccess(true);
-      setNewReview({ name: "", rating: 5, comment: "" });
+      setNewReview({ name: "", rating: 5, comment: "", imageUrl: "" });
       setIsWriteReviewOpen(false);
+      setEditingReviewId(null);
 
       // Refresh reviews list
       fetch(`/api/public/shops/${shop.id}/reviews`)
@@ -715,9 +814,9 @@ export default function ShopPage() {
           }
         });
 
-      showToast("Отзыв успешно опубликован! Спасибо.", "success");
+      showToast(editingReviewId ? "Отзыв успешно обновлен!" : "Отзыв успешно опубликован! Спасибо.", "success");
     } catch (err: any) {
-      setReviewSubmitError(err.message || "Ошибка отправки отзыва");
+      setReviewSubmitError(err.message || "Ошибка сохранения отзыва");
     } finally {
       setIsSubmittingReview(false);
     }
@@ -918,6 +1017,11 @@ export default function ShopPage() {
         handleSubmitReview={handleSubmitReview}
         filterStar={filterStar}
         setFilterStar={setFilterStar}
+        myReviewIds={myReviewIds}
+        editingReviewId={editingReviewId}
+        onStartEditReview={handleStartEditReview}
+        onCancelEditReview={handleCancelEditReview}
+        onDeleteReview={handleDeleteUserReview}
       />
 
       {/* Custom Confirmation Modal */}

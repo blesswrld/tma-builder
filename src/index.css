@@ -1,9 +1,23 @@
 @import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
   --font-mono: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
   --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  --color-app-bg: var(--background);
+  --color-app-surface: var(--surface);
+  --color-app-card: var(--card);
+  --color-app-border: var(--border);
+  --color-app-subtle: var(--border-subtle);
+  --color-app-input: var(--input-bg);
+  --color-app-modal: var(--modal-bg);
+  --color-app-modal-header: var(--modal-header-bg);
+  --color-app-accent: var(--accent);
+  --color-app-primary: var(--text-primary);
+  --color-app-secondary: var(--text-secondary);
+  --color-app-muted: var(--text-muted);
 }
 
 @layer base {
@@ -255,6 +269,11 @@ html.light .text-zinc-500:not(.keep-white):not(.bg-black):not(.bg-black *):not(.
 }
 
 /* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

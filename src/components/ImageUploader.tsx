@@ -196,9 +196,9 @@ export default function ImageUploader({
 
       {/* Preview box if value is set */}
       {value && (
-        <div className="mt-2 relative rounded-2xl overflow-hidden border border-app-border bg-app-card p-2 flex items-center justify-center">
+        <div className="mt-2 relative rounded-2xl overflow-hidden bg-app-card p-2 flex items-center justify-center">
           {type === "avatar" ? (
-            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-500 shadow-md">
+            <div className="w-16 h-16 rounded-full overflow-hidden shadow-md">
               <img
                 src={value}
                 alt="Аватар"
@@ -209,7 +209,7 @@ export default function ImageUploader({
               />
             </div>
           ) : (
-            <div className={`w-full ${maxHeightClass} overflow-hidden rounded-xl bg-app-surface border border-app-border flex items-center justify-center`}>
+            <div className={`w-full ${maxHeightClass} overflow-hidden rounded-xl bg-app-surface flex items-center justify-center`}>
               <img
                 src={value}
                 alt="Превью"

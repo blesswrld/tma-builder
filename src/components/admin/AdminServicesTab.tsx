@@ -264,8 +264,8 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
           </div>
 
           {serviceError && (
-            <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-xs flex items-center gap-2 font-mono">
-              <AlertCircle size={16} className="shrink-0" />
+            <div className="p-4 bg-rose-500/15 border border-rose-500/30 text-rose-800 dark:text-rose-300 rounded-2xl text-xs flex items-center gap-2 font-mono font-medium">
+              <AlertCircle size={16} className="shrink-0 text-rose-600 dark:text-rose-400" />
               <span>{serviceError}</span>
             </div>
           )}
@@ -664,8 +664,8 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                     }
                     className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
                       service.isAvailable
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                        ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30"
+                        : "bg-rose-500/15 text-rose-800 dark:text-rose-300 border border-rose-500/30"
                     }`}
                   >
                     {service.isAvailable ? (

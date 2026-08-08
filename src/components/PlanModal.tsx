@@ -136,7 +136,7 @@ export default function PlanModal({
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-6">
           {error && (
-            <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-400 font-mono">
+            <div className="p-3 bg-rose-500/15 border border-rose-500/30 rounded-xl text-xs text-rose-800 dark:text-rose-300 font-mono font-medium">
               {error}
             </div>
           )}

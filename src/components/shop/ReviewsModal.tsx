@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Star, X, MessageSquare, Send } from "lucide-react";
+import { Star, X, MessageSquare, Send, Edit2, Trash2, Image as ImageIcon, ZoomIn } from "lucide-react";
 import { Review, Shop } from "../../types";
 import { ReviewSkeletonList, SpinnerLoader } from "../Skeleton";
+import ImageUploader from "../ImageUploader";
 
 interface ReviewsModalProps {
   shop: Shop | null;
@@ -13,8 +14,8 @@ interface ReviewsModalProps {
   reviewsStats: { totalReviews: number; avgRating: number };
   isWriteReviewOpen: boolean;
   setIsWriteReviewOpen: (val: boolean) => void;
-  newReview: { name: string; rating: number; comment: string };
-  setNewReview: React.Dispatch<React.SetStateAction<{ name: string; rating: number; comment: string }>>;
+  newReview: { name: string; rating: number; comment: string; imageUrl?: string };
+  setNewReview: React.Dispatch<React.SetStateAction<{ name: string; rating: number; comment: string; imageUrl?: string }>>;
   hoverRating: number | null;
   setHoverRating: (val: number | null) => void;
   isSubmittingReview: boolean;
@@ -23,6 +24,11 @@ interface ReviewsModalProps {
   handleSubmitReview: (e: React.FormEvent) => void;
   filterStar: "ALL" | number;
   setFilterStar: (val: "ALL" | number) => void;
+  myReviewIds?: string[];
+  editingReviewId?: string | null;
+  onStartEditReview?: (rev: Review) => void;
+  onCancelEditReview?: () => void;
+  onDeleteReview?: (id: string) => void;
 }
 
 export const ReviewsModal: React.FC<ReviewsModalProps> = ({
@@ -44,14 +50,43 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
   handleSubmitReview,
   filterStar,
   setFilterStar,
+  myReviewIds = [],
+  editingReviewId = null,
+  onStartEditReview,
+  onCancelEditReview,
+  onDeleteReview,
 }) => {
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+  // Lock background scroll when modal sidebar is open
+  useEffect(() => {
+    if (isOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/75 backdrop-blur-md z-50" />
-      <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 28, stiffness: 220 }} className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-50 flex flex-col shadow-2xl text-app-primary font-sans">
-        
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 bg-black/75 backdrop-blur-md z-50"
+      />
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 28, stiffness: 220 }}
+        className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-50 flex flex-col shadow-2xl text-app-primary font-sans"
+      >
         {/* Header */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-app-border bg-app-modal-header shrink-0">
           <div className="flex items-center gap-2.5">
@@ -113,7 +148,13 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
 
             <button
               type="button"
-              onClick={() => setIsWriteReviewOpen(!isWriteReviewOpen)}
+              onClick={() => {
+                if (isWriteReviewOpen && editingReviewId && onCancelEditReview) {
+                  onCancelEditReview();
+                } else {
+                  setIsWriteReviewOpen(!isWriteReviewOpen);
+                }
+              }}
               className="px-3 py-1.5 bg-app-accent text-app-accent-fg font-mono text-xs font-semibold rounded-xl hover:opacity-90 transition-opacity flex items-center gap-1.5 cursor-pointer"
             >
               <MessageSquare size={13} />
@@ -121,7 +162,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
             </button>
           </div>
 
-          {/* WRITE REVIEW FORM */}
+          {/* WRITE / EDIT REVIEW FORM */}
           <AnimatePresence>
             {isWriteReviewOpen && (
               <motion.form
@@ -133,82 +174,133 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                 className="space-y-3 p-4 border border-app-border rounded-2xl bg-app-card relative"
               >
                 <div className="flex items-center justify-between pb-1 border-b border-app-border">
-                  <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-app-primary">
-                    Оставить отзыв
+                  <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-app-primary flex items-center gap-1.5">
+                    {editingReviewId ? (
+                      <>
+                        <Edit2 size={13} className="text-amber-400" />
+                        <span>Редактировать отзыв</span>
+                      </>
+                    ) : (
+                      <span>Оставить отзыв</span>
+                    )}
                   </h3>
-                  <span className="text-[10px] text-app-muted font-mono">Анонимно или с именем</span>
+                  <span className="text-[10px] text-app-muted font-mono">
+                    {editingReviewId ? "Редактирование" : "Анонимно или с именем"}
+                  </span>
                 </div>
 
                 {reviewSubmitError && (
-                  <p className="text-xs text-rose-400 font-mono bg-rose-500/10 p-2 rounded-xl border border-rose-500/20">
+                  <p className="text-xs text-rose-800 dark:text-rose-300 font-mono font-medium bg-rose-500/15 p-2.5 rounded-xl border border-rose-500/30">
                     {reviewSubmitError}
                   </p>
                 )}
                 {reviewSubmitSuccess && (
-                  <p className="text-xs text-emerald-400 font-mono bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20">
-                    Спасибо за ваш отзыв! Он опубликован.
+                  <p className="text-xs text-emerald-800 dark:text-emerald-300 font-mono font-medium bg-emerald-500/15 p-2.5 rounded-xl border border-emerald-500/30">
+                    {editingReviewId ? "Отзыв успешно обновлен!" : "Спасибо за ваш отзыв! Он опубликован."}
                   </p>
                 )}
 
                 <div>
+                  <label className="block text-[10px] font-mono text-app-muted uppercase mb-1">
+                    Ваше имя
+                  </label>
                   <input
                     type="text"
                     maxLength={50}
                     value={newReview.name}
                     onChange={(e) => setNewReview((p) => ({ ...p, name: e.target.value }))}
                     placeholder="Ваше имя (до 50 символов)..."
-                    className="w-full bg-app-surface border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                    className="w-full bg-app-surface border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent font-sans"
                   />
                 </div>
 
-                <div className="flex items-center justify-between bg-app-surface p-2 rounded-xl border border-app-border">
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((r) => {
-                      const active = (hoverRating !== null ? hoverRating : newReview.rating) >= r;
-                      return (
-                        <button
-                          key={r}
-                          type="button"
-                          onMouseEnter={() => setHoverRating(r)}
-                          onMouseLeave={() => setHoverRating(null)}
-                          onClick={() => setNewReview((p) => ({ ...p, rating: r }))}
-                          className="p-1 hover:scale-110 transition-transform cursor-pointer"
-                        >
-                          <Star
-                            size={18}
-                            className={active ? "fill-amber-400 text-amber-400" : "text-zinc-600 fill-zinc-800"}
-                          />
-                        </button>
-                      );
-                    })}
+                <div>
+                  <label className="block text-[10px] font-mono text-app-muted uppercase mb-1">
+                    Ваша оценка
+                  </label>
+                  <div className="flex items-center justify-between bg-app-surface p-2 rounded-xl border border-app-border">
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((r) => {
+                        const active = (hoverRating !== null ? hoverRating : newReview.rating) >= r;
+                        return (
+                          <button
+                            key={r}
+                            type="button"
+                            onMouseEnter={() => setHoverRating(r)}
+                            onMouseLeave={() => setHoverRating(null)}
+                            onClick={() => setNewReview((p) => ({ ...p, rating: r }))}
+                            className="p-1 hover:scale-110 transition-transform cursor-pointer"
+                          >
+                            <Star
+                              size={18}
+                              className={active ? "fill-amber-400 text-amber-400" : "text-zinc-600 fill-zinc-800"}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <span className="text-[11px] font-mono text-amber-400 font-semibold">
+                      {(hoverRating !== null ? hoverRating : newReview.rating)} / 5 ★
+                    </span>
                   </div>
-                  <span className="text-[11px] font-mono text-amber-400 font-semibold">
-                    {(hoverRating !== null ? hoverRating : newReview.rating)} / 5 ★
-                  </span>
                 </div>
 
-                <div className="relative">
-                  <textarea
-                    rows={3}
-                    maxLength={500}
-                    value={newReview.comment}
-                    onChange={(e) => setNewReview((p) => ({ ...p, comment: e.target.value }))}
-                    placeholder="Поделитесь впечатлениями о заведении..."
-                    className="w-full bg-app-surface border border-app-border rounded-xl p-3 text-xs text-app-primary focus:outline-none focus:border-app-accent resize-none font-sans"
+                <div>
+                  <label className="block text-[10px] font-mono text-app-muted uppercase mb-1">
+                    Текст отзыва
+                  </label>
+                  <div className="relative">
+                    <textarea
+                      rows={3}
+                      maxLength={500}
+                      value={newReview.comment}
+                      onChange={(e) => setNewReview((p) => ({ ...p, comment: e.target.value }))}
+                      placeholder="Поделитесь впечатлениями о заведении..."
+                      className="w-full bg-app-surface border border-app-border rounded-xl p-3 text-xs text-app-primary focus:outline-none focus:border-app-accent resize-none font-sans"
+                    />
+                    <span className="absolute bottom-2.5 right-2.5 text-[10px] font-mono text-app-muted pointer-events-none">
+                      {newReview.comment.length}/500
+                    </span>
+                  </div>
+                </div>
+
+                {/* PHOTO ATTACHMENT */}
+                <div className="pt-1">
+                  <ImageUploader
+                    value={newReview.imageUrl || ""}
+                    onChange={(url) => setNewReview((p) => ({ ...p, imageUrl: url }))}
+                    label="Фото к отзыву (необязательно)"
+                    type="photo"
+                    placeholder="Загрузите фото или вставьте ссылку..."
+                    maxHeightClass="max-h-28"
                   />
-                  <span className="absolute bottom-2.5 right-2.5 text-[10px] font-mono text-app-muted pointer-events-none">
-                    {newReview.comment.length}/500
-                  </span>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={isSubmittingReview || !newReview.name.trim()}
-                  className="w-full py-2 bg-app-accent text-app-accent-fg font-mono text-xs font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {isSubmittingReview ? <SpinnerLoader size={14} /> : <Send size={13} />}
-                  <span>{isSubmittingReview ? "Отправка..." : "Отправить отзыв"}</span>
-                </button>
+                <div className="flex gap-2 pt-1">
+                  {editingReviewId && onCancelEditReview && (
+                    <button
+                      type="button"
+                      onClick={onCancelEditReview}
+                      className="flex-1 py-2 bg-app-surface border border-app-border text-app-muted font-mono text-xs font-semibold rounded-xl hover:text-app-primary transition-colors cursor-pointer"
+                    >
+                      Отмена
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReview || !newReview.name.trim()}
+                    className="flex-1 py-2 bg-app-accent text-app-accent-fg font-mono text-xs font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    {isSubmittingReview ? <SpinnerLoader size={14} /> : <Send size={13} />}
+                    <span>
+                      {isSubmittingReview
+                        ? "Сохранение..."
+                        : editingReviewId
+                        ? "Сохранить изменения"
+                        : "Отправить отзыв"}
+                    </span>
+                  </button>
+                </div>
               </motion.form>
             )}
           </AnimatePresence>
@@ -247,55 +339,149 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
             ) : (
               reviews
                 .filter((r) => filterStar === "ALL" || Number(r.rating) === filterStar)
-                .map((rev) => (
-                  <div
-                    key={rev.id}
-                    className="p-4 border border-app-border rounded-2xl bg-app-surface space-y-2.5 transition-all"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-app-card border border-app-border flex items-center justify-center font-bold font-mono text-[11px] text-app-primary uppercase">
-                          {rev.customerName ? rev.customerName[0] : "К"}
+                .map((rev) => {
+                  const isMyReview = myReviewIds.includes(rev.id);
+                  return (
+                    <div
+                      key={rev.id}
+                      className={`p-4 border rounded-2xl space-y-2.5 transition-all ${
+                        isMyReview
+                          ? "bg-app-surface border-emerald-500/40 shadow-sm"
+                          : "bg-app-surface border-app-border"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-app-card border border-app-border flex items-center justify-center font-bold font-mono text-[11px] text-app-primary uppercase">
+                            {rev.customerName ? rev.customerName[0] : "К"}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-semibold text-app-primary">
+                                {rev.customerName || "Клиент"}
+                              </span>
+                              {isMyReview && (
+                                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                  Мой отзыв
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-app-muted font-mono">
+                                {new Date(rev.createdAt).toLocaleDateString("ru-RU", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric"
+                                })}
+                              </span>
+                              {rev.isEdited && (
+                                <span className="text-[9px] font-mono italic text-amber-400/90 bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/20">
+                                  изменен
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-xs font-semibold text-app-primary block">
-                            {rev.customerName || "Клиент"}
-                          </span>
-                          <span className="text-[10px] text-app-muted font-mono block">
-                            {new Date(rev.createdAt).toLocaleDateString("ru-RU", {
-                              day: "numeric",
-                              month: "short"
-                            })}
-                          </span>
+
+                        <div className="flex items-center gap-1 font-mono text-xs text-amber-400 font-semibold">
+                          <Star size={12} className="fill-amber-400 text-amber-400" />
+                          <span>{rev.rating}.0</span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1 font-mono text-xs text-amber-400 font-semibold">
-                        <Star size={12} className="fill-amber-400 text-amber-400" />
-                        <span>{rev.rating}.0</span>
-                      </div>
+                      {rev.comment && (
+                        <p className="text-xs text-app-primary leading-relaxed font-sans pt-0.5">
+                          {rev.comment}
+                        </p>
+                      )}
+
+                      {/* PHOTO DISPLAY */}
+                      {rev.imageUrl && (
+                        <div className="pt-1">
+                          <div
+                            onClick={() => setLightboxImage(rev.imageUrl || null)}
+                            className="relative group w-24 h-24 rounded-xl overflow-hidden border border-app-border cursor-pointer bg-app-card hover:border-app-accent transition-all"
+                          >
+                            <img
+                              src={rev.imageUrl}
+                              alt="Фото к отзыву"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                              <ZoomIn size={16} />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* REPLY */}
+                      {rev.reply && (
+                        <div className="mt-2 pt-1 pl-3 border-l-2 border-emerald-500/70 space-y-0.5">
+                          <span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
+                            Ответ заведения
+                          </span>
+                          <p className="text-xs text-app-secondary leading-relaxed font-sans">{rev.reply}</p>
+                        </div>
+                      )}
+
+                      {/* ACTIONS FOR AUTHOR (EDIT / DELETE) */}
+                      {isMyReview && (
+                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-app-border font-mono text-[11px]">
+                          {onStartEditReview && (
+                            <button
+                              type="button"
+                              onClick={() => onStartEditReview(rev)}
+                              className="px-2.5 py-1 rounded-lg bg-app-card border border-app-border text-app-primary hover:border-amber-500/50 hover:text-amber-500 transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <Edit2 size={11} />
+                              <span>Редактировать</span>
+                            </button>
+                          )}
+                          {onDeleteReview && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteReview(rev.id)}
+                              className="px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-800 dark:text-rose-300 hover:bg-rose-500/25 transition-colors flex items-center gap-1 cursor-pointer font-medium"
+                            >
+                              <Trash2 size={11} />
+                              <span>Удалить</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
-
-                    {rev.comment && (
-                      <p className="text-xs text-app-primary leading-relaxed font-sans pt-0.5">
-                        {rev.comment}
-                      </p>
-                    )}
-
-                    {rev.reply && (
-                      <div className="mt-2 pt-1 pl-3 border-l-2 border-emerald-500/70 space-y-0.5">
-                        <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-wider block">
-                          Ответ заведения
-                        </span>
-                        <p className="text-xs text-app-secondary leading-relaxed font-sans">{rev.reply}</p>
-                      </div>
-                    )}
-                  </div>
-                ))
+                  );
+                })
             )}
           </div>
         </div>
       </motion.div>
+
+      {/* LIGHTBOX MODAL */}
+      <AnimatePresence>
+        {lightboxImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setLightboxImage(null)}
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-zoom-out"
+          >
+            <button
+              onClick={() => setLightboxImage(null)}
+              className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={lightboxImage}
+              alt="Полноэкранное фото"
+              className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 };

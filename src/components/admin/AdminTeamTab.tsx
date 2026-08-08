@@ -134,7 +134,7 @@ export function AdminTeamTab({
                         () => handleRemoveMember(m.userId)
                       )
                     }
-                    className="p-2 text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 rounded-xl transition-all cursor-pointer"
+                    className="p-2 text-rose-600 dark:text-rose-400 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 rounded-xl transition-all cursor-pointer"
                     title="Исключить из команды"
                   >
                     <Trash2 size={16} />
@@ -163,7 +163,7 @@ export function AdminTeamTab({
                 <div key={inv.id} className="p-4 bg-app-card border border-app-border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-xs text-emerald-400 px-2.5 py-0.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                      <span className="font-mono font-bold text-xs text-emerald-800 dark:text-emerald-300 px-2.5 py-0.5 bg-emerald-500/15 rounded-lg border border-emerald-500/30">
                         {inv.code}
                       </span>
                       <span className="text-[11px] text-app-muted font-mono">

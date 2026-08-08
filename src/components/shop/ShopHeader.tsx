@@ -34,7 +34,11 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
         <div className="flex items-center gap-2.5 min-w-0">
           <div
             className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-mono font-bold text-xs sm:text-sm shrink-0 overflow-hidden ${
-              isDark ? "bg-zinc-800 text-white" : "bg-zinc-100 border border-zinc-200 text-zinc-900"
+              shop.logoUrl
+                ? "bg-transparent"
+                : isDark
+                ? "bg-zinc-800 text-white"
+                : "bg-zinc-100 text-zinc-900"
             }`}
           >
             {shop.logoUrl ? (

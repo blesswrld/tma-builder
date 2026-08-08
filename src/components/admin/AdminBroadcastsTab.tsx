@@ -151,7 +151,7 @@ export function AdminBroadcastsTab({
               </div>
 
               {broadcastError && (
-                <p className="text-xs text-rose-400 font-mono bg-rose-500/10 border border-rose-500/20 px-3 py-2 rounded-xl">
+                <p className="text-xs text-rose-800 dark:text-rose-300 font-mono font-medium bg-rose-500/15 border border-rose-500/30 px-3 py-2 rounded-xl">
                   {broadcastError}
                 </p>
               )}

@@ -182,9 +182,15 @@ async function ensureOrderSchema(db: PrismaClient) {
         "rating" INTEGER NOT NULL DEFAULT 5,
         "comment" TEXT,
         "reply" TEXT,
+        "imageUrl" TEXT,
+        "isEdited" BOOLEAN DEFAULT false,
+        "authorToken" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    await db.$executeRawUnsafe(`ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "isEdited" BOOLEAN DEFAULT false;`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "authorToken" TEXT;`);
 
     await db.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "User" (
@@ -2367,68 +2373,119 @@ app.post("/api/shops", async (req, res) => {
   app.post("/api/shops/:shopId/reviews", async (req, res) => {
     try {
       const { shopId } = req.params;
-      const { customerName, rating, comment } = req.body;
+      const { customerName, rating, comment, imageUrl, authorToken: customToken } = req.body;
       const db = getPrismaClient() as any;
       if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
 
       await ensureOrderSchema(db);
 
-    const cleanName = (customerName || "").trim();
-    if (!cleanName || cleanName.length < 2) {
-      return res.status(400).json({ error: "Пожалуйста, укажите ваше имя (минимум 2 символа)." });
-    }
-    if (cleanName.length > 50) {
-      return res.status(400).json({ error: "Имя не должно превышать 50 символов." });
-    }
-
-    const cleanComment = comment ? String(comment).trim() : null;
-    if (cleanComment && cleanComment.length > 500) {
-      return res.status(400).json({ error: "Текст отзыва слишком длинный (максимум 500 символов)." });
-    }
-
-    const numRating = Math.max(1, Math.min(5, Number(rating) || 5));
-
-    const review = await db.review.create({
-      data: {
-        shopId,
-        customerName: cleanName,
-        rating: numRating,
-        comment: cleanComment
+      const cleanName = (customerName || "").trim();
+      if (!cleanName || cleanName.length < 2) {
+        return res.status(400).json({ error: "Пожалуйста, укажите ваше имя (минимум 2 символа)." });
       }
-    });
-
-    // Отправляем уведомление в Telegram бот администратора при наличии токена
-    try {
-      const shop = await db.shop.findUnique({ where: { id: shopId } });
-      const botToken = shop?.botToken || process.env.TELEGRAM_BOT_TOKEN;
-      const chatId = shop?.adminChatId || process.env.ADMIN_CHAT_ID;
-
-      if (botToken && chatId) {
-        const stars = "⭐".repeat(numRating);
-        const reviewText = `⭐ *Новый отзыв в заведении "${shop?.name || ''}"!*\n\n` +
-          `👤 *Автор:* ${cleanName}\n` +
-          `⭐ *Оценка:* ${stars} (${numRating}/5)\n` +
-          (cleanComment ? `💬 *Отзыв:* ${cleanComment}\n` : "");
-
-        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: reviewText,
-            parse_mode: "Markdown"
-          })
-        }).catch((e) => console.error("Ошибка отправки отзыва в Telegram:", e));
+      if (cleanName.length > 50) {
+        return res.status(400).json({ error: "Имя не должно превышать 50 символов." });
       }
-    } catch (tgErr) {
-      console.warn("Ошибка проверки параметров Telegram для отзыва:", tgErr);
-    }
 
-    broadcastEvent({ type: "REVIEW_CREATED", shopId, payload: review });
-    res.status(201).json(review);
+      const cleanComment = comment ? String(comment).trim() : null;
+      if (cleanComment && cleanComment.length > 500) {
+        return res.status(400).json({ error: "Текст отзыва слишком длинный (максимум 500 символов)." });
+      }
+
+      const cleanImageUrl = imageUrl ? String(imageUrl).trim() : null;
+      const numRating = Math.max(1, Math.min(5, Number(rating) || 5));
+      const authorToken = customToken ? String(customToken).trim() : (Math.random().toString(36).substring(2) + Date.now().toString(36));
+
+      const review = await db.review.create({
+        data: {
+          shopId,
+          customerName: cleanName,
+          rating: numRating,
+          comment: cleanComment,
+          imageUrl: cleanImageUrl,
+          authorToken,
+          isEdited: false
+        }
+      });
+
+      // Отправляем уведомление в Telegram бот администратора при наличии токена
+      try {
+        const shop = await db.shop.findUnique({ where: { id: shopId } });
+        const botToken = shop?.botToken || process.env.TELEGRAM_BOT_TOKEN;
+        const chatId = shop?.adminChatId || process.env.ADMIN_CHAT_ID;
+
+        if (botToken && chatId) {
+          const stars = "⭐".repeat(numRating);
+          const reviewText = `⭐ *Новый отзыв в заведении "${shop?.name || ''}"!*\n\n` +
+            `👤 *Автор:* ${cleanName}\n` +
+            `⭐ *Оценка:* ${stars} (${numRating}/5)\n` +
+            (cleanComment ? `💬 *Отзыв:* ${cleanComment}\n` : "") +
+            (cleanImageUrl ? `🖼️ *Фото в отзыве:* [Ссылка на фото](${cleanImageUrl})\n` : "");
+
+          fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: reviewText,
+              parse_mode: "Markdown"
+            })
+          }).catch((e) => console.error("Ошибка отправки отзыва в Telegram:", e));
+        }
+      } catch (tgErr) {
+        console.warn("Ошибка проверки параметров Telegram для отзыва:", tgErr);
+      }
+
+      broadcastEvent({ type: "REVIEW_CREATED", shopId, payload: review });
+      res.status(201).json(review);
     } catch (error) {
       console.error("Ошибка при создании отзыва:", error);
       res.status(500).json({ error: "Не удалось оставить отзыв." });
+    }
+  });
+
+  // API Route: Отредактировать свой отзыв (для пользователя)
+  app.put("/api/reviews/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { customerName, rating, comment, imageUrl, authorToken } = req.body;
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const review = await db.review.findUnique({ where: { id } });
+      if (!review) return res.status(404).json({ error: "Отзыв не найден." });
+
+      const cleanName = customerName ? String(customerName).trim() : review.customerName;
+      if (!cleanName || cleanName.length < 2) {
+        return res.status(400).json({ error: "Пожалуйста, укажите ваше имя (минимум 2 символа)." });
+      }
+
+      const cleanComment = comment !== undefined ? (comment ? String(comment).trim() : null) : review.comment;
+      if (cleanComment && cleanComment.length > 500) {
+        return res.status(400).json({ error: "Текст отзыва не должен превышать 500 символов." });
+      }
+
+      const cleanImageUrl = imageUrl !== undefined ? (imageUrl ? String(imageUrl).trim() : null) : review.imageUrl;
+      const numRating = rating ? Math.max(1, Math.min(5, Number(rating) || 5)) : review.rating;
+
+      const updated = await db.review.update({
+        where: { id },
+        data: {
+          customerName: cleanName,
+          rating: numRating,
+          comment: cleanComment,
+          imageUrl: cleanImageUrl,
+          isEdited: true
+        }
+      });
+
+      broadcastEvent({ type: "REVIEW_UPDATED", shopId: review.shopId, payload: updated });
+      res.json(updated);
+    } catch (error) {
+      console.error("Ошибка при изменении отзыва:", error);
+      res.status(500).json({ error: "Не удалось отредактировать отзыв." });
     }
   });
 
@@ -2469,7 +2526,7 @@ app.post("/api/shops", async (req, res) => {
     }
   });
 
-  // API Route: Удалить отзыв (для администратора)
+  // API Route: Удалить отзыв (запрещено для владельцев, разрешено для автора)
   app.delete("/api/reviews/:id", async (req, res) => {
     try {
       const { id } = req.params;
@@ -2482,9 +2539,14 @@ app.post("/api/shops", async (req, res) => {
       const review = await db.review.findUnique({ where: { id } });
       if (!review) return res.status(404).json({ error: "Отзыв не найден." });
 
-      const hasPermission = await canManageShop(db, review.shopId, authUser);
-      if (!hasPermission) {
-        return res.status(403).json({ error: "У вас нет прав удалять отзывы этого заведения." });
+      // Если запрос исходит от залогиненного владельца/админа заведения
+      if (authUser) {
+        const hasPermission = await canManageShop(db, review.shopId, authUser);
+        if (hasPermission) {
+          return res.status(403).json({ 
+            error: "Владельцы заведений не могут удалять отзывы клиентов для сохранения объективности и честности рейтинга." 
+          });
+        }
       }
 
       await db.review.delete({ where: { id } });

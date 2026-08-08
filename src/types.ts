@@ -98,7 +98,10 @@ export interface Review {
   customerName: string;
   rating: number;
   comment?: string | null;
+  imageUrl?: string | null;
   reply?: string | null;
+  isEdited?: boolean;
+  authorToken?: string | null;
   createdAt: string;
 }
 

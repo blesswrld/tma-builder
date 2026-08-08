@@ -159,6 +159,9 @@ model Review {
   customerName String
   rating       Int      @default(5)
   comment      String?
+  imageUrl     String?
   reply        String?
+  isEdited     Boolean  @default(false)
+  authorToken  String?
   createdAt    DateTime @default(now())
 }

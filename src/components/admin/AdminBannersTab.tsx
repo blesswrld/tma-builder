@@ -87,7 +87,7 @@ export function AdminBannersTab({
               </button>
             </div>
             {bannerError && (
-              <p className="text-xs text-rose-400 font-mono">{bannerError}</p>
+              <p className="text-xs text-rose-800 dark:text-rose-300 font-mono font-medium bg-rose-500/15 p-2 rounded-xl border border-rose-500/30">{bannerError}</p>
             )}
             <form onSubmit={handleCreateBanner} className="space-y-3 font-sans">
               <input

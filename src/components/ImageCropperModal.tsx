@@ -497,7 +497,7 @@ export default function ImageCropperModal({
               <button
                 type="button"
                 onClick={handleReset}
-                className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 text-xs font-mono rounded-xl border border-rose-500/30 flex items-center gap-1.5 cursor-pointer transition-all"
+                className="px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-800 dark:text-rose-300 text-xs font-mono font-medium rounded-xl border border-rose-500/30 flex items-center gap-1.5 cursor-pointer transition-all"
                 title="Сбросить все изменения к исходному фото"
               >
                 <RefreshCw size={13} /> Сброс

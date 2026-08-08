@@ -103,7 +103,7 @@ export function AdminPromocodesTab({
               </button>
             </div>
             {promoError && (
-              <p className="text-xs text-rose-400 font-mono">{promoError}</p>
+              <p className="text-xs text-rose-800 dark:text-rose-300 font-mono font-medium bg-rose-500/15 p-2 rounded-xl border border-rose-500/30">{promoError}</p>
             )}
             <form onSubmit={handleCreatePromocode} className="space-y-3 font-sans">
               <input

@@ -173,32 +173,32 @@ export function AdminAuthModal({
               )}
             </p>
             {authDevCode ? (
-              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs space-y-2">
+              <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-200 text-xs space-y-2">
                 <div className="flex items-start gap-2">
-                  <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                  <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-amber-200">
+                    <p className="font-semibold text-amber-950 dark:text-amber-100">
                       SMTP-сервер не настроен в <code>.env</code>
                     </p>
-                    <p className="text-[11px] text-amber-300/80 mt-0.5">
+                    <p className="text-[11px] text-amber-900/90 dark:text-amber-300/80 mt-0.5">
                       В тестовом контейнере нет почтового сервера, поэтому код сгенерирован локально:
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between bg-black/40 p-2 rounded-lg border border-amber-500/20 font-mono">
+                <div className="flex items-center justify-between bg-black/40 p-2 rounded-lg border border-amber-500/30 font-mono">
                   <span className="text-sm font-bold text-white tracking-widest">{authDevCode}</span>
                   <button
                     type="button"
                     onClick={() => setAuthOtpCode(authDevCode)}
-                    className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[10px] rounded border border-amber-500/40 font-mono transition-colors cursor-pointer"
+                    className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-zinc-950 text-[10px] font-bold rounded transition-colors cursor-pointer"
                   >
                     Вставить код
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-300 text-[11px] flex items-center gap-2">
-                <CheckCircle2 size={15} className="shrink-0 text-emerald-400" />
+              <div className="p-2.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-900 dark:text-emerald-200 text-[11px] flex items-center gap-2">
+                <CheckCircle2 size={15} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
                 <span>Письмо успешно отправлено по SMTP на {authEmail}. Проверьте папку «Входящие» или «Спам».</span>
               </div>
             )}

@@ -15,6 +15,7 @@ import {
   Send,
   Trash2,
   RotateCcw,
+  Undo2,
   Bot,
   ExternalLink,
   Github,
@@ -103,6 +104,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
   handleRegenerateSlug,
   setIsQrModalOpen,
   requestConfirm,
+  showToast,
   settingsActiveTab = "general",
   setSettingsActiveTab,
   handleClearSettingsFields,
@@ -120,6 +122,51 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
   >(settingsActiveTab);
 
   const [isTgGuideOpen, setIsTgGuideOpen] = React.useState(false);
+  const [backupSettingsData, setBackupSettingsData] = React.useState<any | null>(null);
+
+  const handleResetWithBackup = () => {
+    // Save current checkpoint before clearing
+    const currentBackup = JSON.parse(JSON.stringify(settingsData));
+    setBackupSettingsData(currentBackup);
+
+    if (handleClearSettingsFields) {
+      handleClearSettingsFields();
+    } else {
+      // Direct reset fallback according to active subtab
+      setSettingsData((prev: any) => {
+        const copy = { ...prev };
+        if (activeSubTab === "general") {
+          copy.description = "";
+          copy.workingHours = "";
+          copy.address = "";
+          copy.phone = "";
+        } else if (activeSubTab === "branding") {
+          copy.logoUrl = "";
+          copy.bannerUrl = "";
+        } else if (activeSubTab === "telegram") {
+          copy.botToken = "";
+          copy.adminChatId = "";
+        } else if (activeSubTab === "social" || activeSubTab === "delivery") {
+          copy.paymentInstructions = "";
+          copy.socialLinks = { telegram: "", instagram: "", whatsapp: "", vk: "", website: "" };
+        }
+        return copy;
+      });
+      if (showToast) {
+        showToast("Дополнительные поля текущей секции очищены", "warning");
+      }
+    }
+  };
+
+  const handleUndoReset = () => {
+    if (backupSettingsData) {
+      setSettingsData(backupSettingsData);
+      setBackupSettingsData(null);
+      if (showToast) {
+        showToast("Сброс полей отменен, данные восстановлены", "info");
+      }
+    }
+  };
 
   const changeSubTab = (tab: "general" | "branding" | "currency" | "delivery" | "social" | "telegram") => {
     setActiveSubTab(tab);
@@ -143,7 +190,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
               Управление брендингом, правилами доставки, реквизитами и Telegram ботом
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={() => setIsQrModalOpen(true)}
@@ -155,12 +202,23 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
             {handleClearSettingsFields && (
               <button
                 type="button"
-                onClick={handleClearSettingsFields}
+                onClick={handleResetWithBackup}
                 className="px-3 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary font-mono text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
                 title="Очистить доп. поля текущей секции"
               >
                 <RotateCcw size={13} />
-                <span className="hidden sm:inline">Сбросить поля</span>
+                <span>Сбросить поля</span>
+              </button>
+            )}
+            {Boolean(backupSettingsData) && (
+              <button
+                type="button"
+                onClick={handleUndoReset}
+                className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-mono text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md hover:shadow-lg active:scale-95 animate-fade-in shrink-0"
+                title="Отменить сброс и восстановить сохраненные поля"
+              >
+                <Undo2 size={14} strokeWidth={2.5} />
+                <span>Отмена</span>
               </button>
             )}
           </div>
@@ -199,15 +257,15 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
 
       {/* Notifications */}
       {settingsError && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-xs flex items-center gap-2.5 font-mono">
-          <AlertCircle size={16} className="shrink-0" />
+        <div className="p-4 bg-rose-500/15 border border-rose-500/30 text-rose-800 dark:text-rose-300 rounded-2xl text-xs flex items-center gap-2.5 font-mono font-medium">
+          <AlertCircle size={16} className="shrink-0 text-rose-600 dark:text-rose-400" />
           <span>{settingsError}</span>
         </div>
       )}
 
       {settingsSuccess && (
-        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl text-xs flex items-center gap-2.5 font-mono">
-          <Check size={16} className="shrink-0" />
+        <div className="p-4 bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 rounded-2xl text-xs flex items-center gap-2.5 font-mono font-medium">
+          <Check size={16} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
           <span>{settingsSuccess}</span>
         </div>
       )}
@@ -853,10 +911,10 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
             {/* Bot Test Output Status */}
             {botTestResult && (
               <div
-                className={`p-3.5 rounded-xl border text-xs font-mono ${
+                className={`p-3.5 rounded-xl border text-xs font-mono font-medium ${
                   botTestResult.error
-                    ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
-                    : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                    ? "bg-rose-500/15 border-rose-500/30 text-rose-800 dark:text-rose-300"
+                    : "bg-emerald-500/15 border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
                 }`}
               >
                 {botTestResult.error ? (
@@ -871,7 +929,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
             )}
 
             {webhookStatus && (
-              <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-mono">
+              <div className="p-3.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 rounded-xl text-xs font-mono font-medium">
                 {webhookStatus}
               </div>
             )}
@@ -879,23 +937,29 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
         )}
 
         {/* Action Controls Footer */}
-        <div className="pt-6 border-t border-app-border flex flex-col sm:flex-row justify-between items-center gap-4">
-          <button
-            type="button"
-            onClick={() =>
-              requestConfirm(
-                "Удаление заведения",
-                `Вы уверены, что хотите безвозвратно удалить "${selectedShop.name}"? Это действие нельзя отменить!`,
-                () => handleDeleteShop(selectedShop.id),
-                "Удалить безвозвратно",
-                true
-              )
-            }
-            className="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 px-3.5 py-2 rounded-xl transition-colors cursor-pointer w-full sm:w-auto font-mono flex items-center justify-center gap-1.5"
-          >
-            <Trash2 size={14} />
-            <span>Удалить заведение</span>
-          </button>
+        <div
+          className={`pt-6 border-t border-app-border flex flex-col sm:flex-row items-center gap-4 ${
+            activeSubTab === "general" ? "justify-between" : "justify-end"
+          }`}
+        >
+          {activeSubTab === "general" && (
+            <button
+              type="button"
+              onClick={() =>
+                requestConfirm(
+                  "Удаление заведения",
+                  `Вы уверены, что хотите безвозвратно удалить "${selectedShop.name}"? Это действие нельзя отменить!`,
+                  () => handleDeleteShop(selectedShop.id),
+                  "Удалить безвозвратно",
+                  true
+                )
+              }
+              className="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 px-3.5 py-2 rounded-xl transition-colors cursor-pointer w-full sm:w-auto font-mono flex items-center justify-center gap-1.5"
+            >
+              <Trash2 size={14} />
+              <span>Удалить заведение</span>
+            </button>
+          )}
 
           <button
             type="submit"

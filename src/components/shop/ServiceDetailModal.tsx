@@ -118,14 +118,14 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
 
             {/* Fulfillment constraint info */}
             {!hasCourier && (
-              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-2.5 text-xs text-amber-400 font-mono">
-                <Store size={16} className="shrink-0 text-amber-400" />
+              <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center gap-2.5 text-xs text-amber-900 dark:text-amber-200 font-mono font-medium">
+                <Store size={16} className="shrink-0 text-amber-600 dark:text-amber-400" />
                 <span>Только самовывоз или оказание услуги в заведении (доставка недоступна).</span>
               </div>
             )}
             {!hasPickup && (
-              <div className="p-3 bg-sky-500/10 border border-sky-500/20 rounded-xl flex items-center gap-2.5 text-xs text-sky-400 font-mono">
-                <Truck size={16} className="shrink-0 text-sky-400" />
+              <div className="p-3 bg-sky-500/15 border border-sky-500/30 rounded-xl flex items-center gap-2.5 text-xs text-sky-900 dark:text-sky-200 font-mono font-medium">
+                <Truck size={16} className="shrink-0 text-sky-600 dark:text-sky-400" />
                 <span>Только курьерская доставка (самовывоз недоступен).</span>
               </div>
             )}
