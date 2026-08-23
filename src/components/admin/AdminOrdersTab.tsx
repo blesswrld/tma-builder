@@ -118,7 +118,7 @@ function CustomOrderTypeDropdown({
                   <Icon size={13} className={isSelected ? "text-app-primary" : "text-app-muted"} />
                   <span>{option.label}</span>
                 </div>
-                {isSelected && <Check size={13} className="text-emerald-500 shrink-0" />}
+                {isSelected && <Check size={13} className="text-app-primary shrink-0" />}
               </button>
             );
           })}
@@ -249,10 +249,10 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
             type="button"
             onClick={handleExportCSV}
             disabled={orders.length === 0}
-            className="px-3 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-emerald-400 font-mono text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-40"
+            className="px-3 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-40"
             title="Экспорт списка заказов в CSV файл"
           >
-            <Download size={13} />
+            <Download size={13} className="text-app-muted" />
             <span className="hidden sm:inline">CSV</span>
           </button>
         </div>
@@ -292,14 +292,14 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                         Заказ #{order.id}
                       </span>
                       <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono border ${
                           order.status === "NEW"
-                            ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
+                            ? "bg-app-hover text-app-primary border-app-border font-bold"
                             : order.status === "PENDING"
-                            ? "bg-blue-500/15 text-blue-800 dark:text-blue-300 border border-blue-500/30"
+                            ? "bg-app-card text-app-primary border-app-border font-bold"
                             : order.status === "COMPLETED"
-                            ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30"
-                            : "bg-rose-500/15 text-rose-800 dark:text-rose-300 border border-rose-500/30"
+                            ? "bg-app-accent text-app-accent-fg border-transparent font-bold"
+                            : "bg-app-card text-app-muted border-app-border line-through"
                         }`}
                       >
                         {order.status === "NEW"
@@ -316,17 +316,17 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                           <span className="px-2 py-0.5 bg-app-card border border-app-border text-app-muted font-mono text-[10px] rounded-md flex items-center gap-1">
                             {method === "pickup" ? (
                               <>
-                                <Store size={10} className="text-indigo-400" />
+                                <Store size={10} className="text-app-muted" />
                                 <span>Самовывоз</span>
                               </>
                             ) : method === "online" ? (
                               <>
-                                <Globe size={10} className="text-sky-400" />
+                                <Globe size={10} className="text-app-muted" />
                                 <span>Онлайн-услуги</span>
                               </>
                             ) : (
                               <>
-                                <Truck size={10} className="text-emerald-400" />
+                                <Truck size={10} className="text-app-muted" />
                                 <span>Курьер</span>
                               </>
                             )}
@@ -341,7 +341,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                   </div>
 
                   <div className="text-right">
-                    <p className="font-mono font-bold text-base text-emerald-400">
+                    <p className="font-mono font-bold text-base text-app-primary">
                       {order.totalPrice ?? (order as any).totalAmount ?? 0} ₽
                     </p>
                   </div>
@@ -360,10 +360,10 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                     </p>
                     {order.customerPhone && (
                       <p className="text-app-secondary flex items-center gap-1">
-                        <Phone size={11} className="text-emerald-400" />
+                        <Phone size={11} className="text-app-muted" />
                         <a
                           href={`tel:${order.customerPhone}`}
-                          className="hover:underline"
+                          className="hover:underline text-app-primary"
                         >
                           {order.customerPhone}
                         </a>
@@ -371,13 +371,13 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                     )}
                     {order.deliveryAddress && (
                       <p className="text-app-secondary flex items-start gap-1 pt-1 border-t border-app-border/50">
-                        <MapPin size={11} className="text-rose-400 shrink-0 mt-0.5" />
+                        <MapPin size={11} className="text-app-muted shrink-0 mt-0.5" />
                         <span>{order.deliveryAddress}</span>
                       </p>
                     )}
                     {order.comment && (
-                      <p className="text-amber-400/90 text-[11px] italic pt-1 border-t border-app-border/50 flex items-start gap-1">
-                        <FileText size={11} className="shrink-0 mt-0.5" />
+                      <p className="text-app-secondary text-[11px] italic pt-1 border-t border-app-border/50 flex items-start gap-1">
+                        <FileText size={11} className="text-app-muted shrink-0 mt-0.5" />
                         <span>«{order.comment}»</span>
                       </p>
                     )}
@@ -395,7 +395,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                           className="flex justify-between items-center text-app-secondary border-b border-app-border/30 last:border-0 pb-1"
                         >
                           <span>
-                            {item.title} <strong className="text-emerald-400">x{item.quantity}</strong>
+                            {item.title} <strong className="text-app-primary font-semibold">x{item.quantity}</strong>
                           </span>
                           <span className="text-app-primary font-bold">
                             {item.price * item.quantity} ₽
@@ -409,20 +409,22 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                 {/* Status Action Buttons */}
                 <div className="pt-3 border-t border-app-border flex items-center justify-between gap-2 flex-wrap font-mono text-xs">
                   <span className="text-[11px] text-app-muted">Изменить статус:</span>
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {order.status !== "PENDING" && (
                       <button
+                        type="button"
                         onClick={() => handleStatusChange(order.id, "PENDING")}
-                        className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                        className="px-3.5 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary hover:border-app-muted/50 font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-[0.98]"
                       >
-                        <Clock size={12} />
+                        <Clock size={12} className="text-app-muted" />
                         <span>В работу</span>
                       </button>
                     )}
                     {order.status !== "COMPLETED" && (
                       <button
+                        type="button"
                         onClick={() => handleStatusChange(order.id, "COMPLETED")}
-                        className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                        className="px-3.5 py-1.5 bg-app-accent hover:opacity-90 text-app-accent-fg font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-[0.98]"
                       >
                         <CheckCircle2 size={12} />
                         <span>Завершить</span>
@@ -430,10 +432,11 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                     )}
                     {order.status !== "CANCELLED" && (
                       <button
+                        type="button"
                         onClick={() => handleStatusChange(order.id, "CANCELLED")}
-                        className="px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                        className="px-3.5 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary hover:text-app-primary font-medium rounded-xl transition-all cursor-pointer flex items-center gap-1.5 active:scale-[0.98]"
                       >
-                        <XCircle size={12} />
+                        <XCircle size={12} className="text-app-muted" />
                         <span>Отменить</span>
                       </button>
                     )}

@@ -57,24 +57,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
         const res = await fetch("/api/auth/me", {
           headers: {
             Authorization: `Bearer ${storedToken}`
-          }
+          },
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (res.ok) {
           const userData = await res.json();
           setUser(userData);
           setToken(storedToken);
-        } else {
-          // Токен истек или недействителен
+        } else if (res.status === 401 || res.status === 403 || res.status === 404) {
+          // Token is genuinely invalid or expired
           localStorage.removeItem("auth_token");
           setUser(null);
           setToken(null);
+        } else {
+          console.warn("Auth check returned non-critical status:", res.status);
         }
       } catch (err) {
-        console.error("Failed to verify token:", err);
+        console.warn("Auth check network/timeout error:", err);
       } finally {
         setIsLoading(false);
       }

@@ -18,7 +18,7 @@ import { useTheme } from "../context/ThemeContext";
 import QrGeneratorModal from "../components/QrGeneratorModal";
 import PlanModal from "../components/PlanModal";
 import AnalyticsTab from "../components/AnalyticsTab";
-import { AdminPageSkeleton, ReviewSkeletonList, SpinnerLoader, Skeleton } from "../components/Skeleton";
+import { AdminPageSkeleton, AdminContentSkeleton, ReviewSkeletonList, SpinnerLoader, Skeleton } from "../components/Skeleton";
 import ImageUploader from "../components/ImageUploader";
 import { AdminAuthModal } from "../components/admin/AdminAuthModal";
 import { AdminSettingsTab } from "../components/admin/AdminSettingsTab";
@@ -1423,7 +1423,12 @@ export default function AdminPage() {
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      const res = await fetch("/api/shops", { headers });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const res = await fetch("/api/shops", { headers, signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (!res.ok) {
         let errMsg = `Server error (${res.status})`;
         const text = await res.text();
@@ -1448,7 +1453,9 @@ export default function AdminPage() {
       });
     } catch (err: any) {
       if (!silent) {
-        if (err instanceof TypeError || (err?.message && err.message.includes("Failed to fetch"))) {
+        if (err?.name === "AbortError") {
+          console.warn("fetchShops timed out");
+        } else if (err instanceof TypeError || (err?.message && err.message.includes("Failed to fetch"))) {
           console.warn("Failed to fetch shops (network offline):", err.message);
         } else {
           console.error(err);
@@ -3423,7 +3430,7 @@ export default function AdminPage() {
 
         {/* Tab Views Content Container */}
         <div className="p-4 sm:p-6 flex-1 space-y-6">
-          {loading && <AdminPageSkeleton />}
+          {loading && <AdminContentSkeleton />}
 
           {/* PAGE VIEW: PROFILE */}
           {activeTab === "profile" && !loading && (

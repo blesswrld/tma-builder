@@ -624,7 +624,7 @@ export function DesktopAdminSkeleton() {
   );
 }
 
-/** Adaptive Admin Page Skeleton */
+/** Adaptive Admin Page Skeleton (Used for full page loading / auth initialization) */
 export function AdminPageSkeleton() {
   return (
     <>
@@ -638,6 +638,57 @@ export function AdminPageSkeleton() {
         <DesktopAdminSkeleton />
       </div>
     </>
+  );
+}
+
+/** Content-only Skeleton for Admin Panel (Used inside the already rendered Admin layout, NO duplicate sidebar!) */
+export function AdminContentSkeleton() {
+  return (
+    <div className="space-y-6 font-sans animate-fade-in w-full">
+      {/* 4 KPI Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="p-4 sm:p-5 rounded-2xl bg-app-surface border border-app-border space-y-3 shadow-xs">
+            <div className="flex justify-between items-center">
+              <Skeleton className="h-3.5 w-24 rounded-md" />
+              <Skeleton className="w-7 h-7 rounded-lg" />
+            </div>
+            <Skeleton className="h-7 w-28 rounded-lg" />
+            <div className="flex items-center gap-2">
+              <SkeletonBadge className="w-12 h-4" />
+              <Skeleton className="h-3 w-16 rounded-md" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter / Search & Action Bar */}
+      <div className="p-3 sm:p-4 rounded-2xl bg-app-surface border border-app-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex gap-2 overflow-x-auto scrollbar-none">
+          <Skeleton className="h-8 w-20 rounded-xl" />
+          <Skeleton className="h-8 w-24 rounded-xl" />
+          <Skeleton className="h-8 w-28 rounded-xl" />
+          <Skeleton className="h-8 w-20 rounded-xl" />
+        </div>
+        <Skeleton className="h-9 w-full sm:w-64 rounded-xl" />
+      </div>
+
+      {/* Services / Items Grid */}
+      <div className="p-4 sm:p-6 rounded-3xl bg-app-surface border border-app-border space-y-4 shadow-xs">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-5 w-36 rounded-md" />
+          <Skeleton className="h-8 w-28 rounded-xl" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <DesktopServiceCardSkeleton />
+          <DesktopServiceCardSkeleton />
+          <DesktopServiceCardSkeleton />
+          <DesktopServiceCardSkeleton />
+          <DesktopServiceCardSkeleton />
+          <DesktopServiceCardSkeleton />
+        </div>
+      </div>
+    </div>
   );
 }
 

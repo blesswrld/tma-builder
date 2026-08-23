@@ -130,189 +130,179 @@ function getPrismaClient(): PrismaClient | null {
 }
 
 let orderSchemaChecked = false;
+let schemaInitPromise: Promise<void> | null = null;
+
 async function ensureOrderSchema(db: PrismaClient) {
   if (orderSchemaChecked) return;
-  try {
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "Order" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "shopId" TEXT NOT NULL,
-        "customerName" TEXT NOT NULL,
-        "customerPhone" TEXT NOT NULL,
-        "tableNumber" TEXT,
-        "preferredTime" TEXT,
-        "items" TEXT NOT NULL,
-        "totalPrice" INTEGER NOT NULL,
-        "status" TEXT NOT NULL DEFAULT 'PENDING',
-        "note" TEXT,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'PENDING';`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "note" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "tableNumber" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "preferredTime" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "fulfillmentMethod" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "deliveryAddress" TEXT;`);
+  if (!schemaInitPromise) {
+    schemaInitPromise = (async () => {
+      try {
+        await db.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "Order" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "shopId" TEXT NOT NULL,
+            "customerName" TEXT NOT NULL,
+            "customerPhone" TEXT NOT NULL,
+            "tableNumber" TEXT,
+            "preferredTime" TEXT,
+            "items" TEXT NOT NULL,
+            "totalPrice" INTEGER NOT NULL,
+            "status" TEXT NOT NULL DEFAULT 'PENDING',
+            "note" TEXT,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+          ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'PENDING';
+          ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "note" TEXT;
+          ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "tableNumber" TEXT;
+          ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "preferredTime" TEXT;
+          ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "fulfillmentMethod" TEXT;
+          ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "deliveryAddress" TEXT;
 
-    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "category" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "isAvailable" BOOLEAN DEFAULT true;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "fulfillment" TEXT DEFAULT 'pickup';`);
+          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "category" TEXT;
+          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "isAvailable" BOOLEAN DEFAULT true;
+          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "fulfillment" TEXT DEFAULT 'pickup';
 
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "Promocode" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "shopId" TEXT NOT NULL,
-        "code" TEXT NOT NULL,
-        "discountPercent" INTEGER NOT NULL DEFAULT 0,
-        "discountAmount" INTEGER NOT NULL DEFAULT 0,
-        "isActive" BOOLEAN NOT NULL DEFAULT true,
-        "maxUses" INTEGER NOT NULL DEFAULT 100,
-        "usedCount" INTEGER NOT NULL DEFAULT 0,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+          CREATE TABLE IF NOT EXISTS "Promocode" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "shopId" TEXT NOT NULL,
+            "code" TEXT NOT NULL,
+            "discountPercent" INTEGER NOT NULL DEFAULT 0,
+            "discountAmount" INTEGER NOT NULL DEFAULT 0,
+            "isActive" BOOLEAN NOT NULL DEFAULT true,
+            "maxUses" INTEGER NOT NULL DEFAULT 100,
+            "usedCount" INTEGER NOT NULL DEFAULT 0,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
 
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "Review" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "shopId" TEXT NOT NULL,
-        "customerName" TEXT NOT NULL,
-        "rating" INTEGER NOT NULL DEFAULT 5,
-        "comment" TEXT,
-        "reply" TEXT,
-        "imageUrl" TEXT,
-        "isEdited" BOOLEAN DEFAULT false,
-        "authorToken" TEXT,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    await db.$executeRawUnsafe(`ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "isEdited" BOOLEAN DEFAULT false;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "authorToken" TEXT;`);
+          CREATE TABLE IF NOT EXISTS "Review" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "shopId" TEXT NOT NULL,
+            "customerName" TEXT NOT NULL,
+            "rating" INTEGER NOT NULL DEFAULT 5,
+            "comment" TEXT,
+            "reply" TEXT,
+            "imageUrl" TEXT,
+            "isEdited" BOOLEAN DEFAULT false,
+            "authorToken" TEXT,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+          ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+          ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "isEdited" BOOLEAN DEFAULT false;
+          ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "authorToken" TEXT;
 
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "User" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "email" TEXT NOT NULL UNIQUE,
-        "password" TEXT NOT NULL,
-        "name" TEXT,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "Banner" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "shopId" TEXT NOT NULL,
-        "title" TEXT NOT NULL,
-        "subtitle" TEXT,
-        "imageUrl" TEXT,
-        "badge" TEXT,
-        "bgGradient" TEXT DEFAULT 'from-slate-900 to-indigo-950',
-        "isActive" BOOLEAN NOT NULL DEFAULT true,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+          CREATE TABLE IF NOT EXISTS "User" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "email" TEXT NOT NULL UNIQUE,
+            "password" TEXT NOT NULL,
+            "name" TEXT,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
 
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "Broadcast" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "shopId" TEXT NOT NULL,
-        "title" TEXT NOT NULL,
-        "message" TEXT NOT NULL,
-        "imageUrl" TEXT,
-        "buttonText" TEXT DEFAULT '📱 Открыть Меню',
-        "targetFilter" TEXT DEFAULT 'ALL',
-        "sentCount" INTEGER NOT NULL DEFAULT 0,
-        "status" TEXT DEFAULT 'SENT',
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+          CREATE TABLE IF NOT EXISTS "Banner" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "shopId" TEXT NOT NULL,
+            "title" TEXT NOT NULL,
+            "subtitle" TEXT,
+            "imageUrl" TEXT,
+            "badge" TEXT,
+            "bgGradient" TEXT DEFAULT 'from-slate-900 to-indigo-950',
+            "isActive" BOOLEAN NOT NULL DEFAULT true,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
 
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "Customer" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "shopId" TEXT NOT NULL,
-        "phone" TEXT NOT NULL,
-        "name" TEXT NOT NULL,
-        "bonusBalance" INTEGER NOT NULL DEFAULT 0,
-        "totalSpent" INTEGER NOT NULL DEFAULT 0,
-        "ordersCount" INTEGER NOT NULL DEFAULT 0,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+          CREATE TABLE IF NOT EXISTS "Broadcast" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "shopId" TEXT NOT NULL,
+            "title" TEXT NOT NULL,
+            "message" TEXT NOT NULL,
+            "imageUrl" TEXT,
+            "buttonText" TEXT DEFAULT '📱 Открыть Меню',
+            "targetFilter" TEXT DEFAULT 'ALL',
+            "sentCount" INTEGER NOT NULL DEFAULT 0,
+            "status" TEXT DEFAULT 'SENT',
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
 
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "VerificationCode" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "email" TEXT NOT NULL,
-        "code" TEXT NOT NULL,
-        "type" TEXT NOT NULL DEFAULT 'LOGIN',
-        "expiresAt" TIMESTAMP(3) NOT NULL,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+          CREATE TABLE IF NOT EXISTS "Customer" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "shopId" TEXT NOT NULL,
+            "phone" TEXT NOT NULL,
+            "name" TEXT NOT NULL,
+            "bonusBalance" INTEGER NOT NULL DEFAULT 0,
+            "totalSpent" INTEGER NOT NULL DEFAULT 0,
+            "ordersCount" INTEGER NOT NULL DEFAULT 0,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
 
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "cashbackPercent" INTEGER DEFAULT 5;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "ownerId" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "workingHours" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "address" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "phone" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "isOpen" BOOLEAN DEFAULT true;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "bannerUrl" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "currency" TEXT DEFAULT 'RUB';`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "currencySymbol" TEXT DEFAULT '₽';`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "socialLinks" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "deliveryOptions" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "paymentInstructions" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "botToken" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "adminChatId" TEXT;`);
+          CREATE TABLE IF NOT EXISTS "VerificationCode" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "email" TEXT NOT NULL,
+            "code" TEXT NOT NULL,
+            "type" TEXT NOT NULL DEFAULT 'LOGIN',
+            "expiresAt" TIMESTAMP(3) NOT NULL,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
 
-    await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "plan" TEXT DEFAULT 'FREE';`);
-    await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "subscriptionExpiresAt" TIMESTAMP(3);`);
-    await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarUrl" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "phone" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegramHandle" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "companyName" TEXT;`);
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "cashbackPercent" INTEGER DEFAULT 5;
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "ownerId" TEXT;
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "workingHours" TEXT;
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "address" TEXT;
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "phone" TEXT;
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "isOpen" BOOLEAN DEFAULT true;
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT;
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "bannerUrl" TEXT;
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "currency" TEXT DEFAULT 'RUB';
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "currencySymbol" TEXT DEFAULT '₽';
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "socialLinks" TEXT;
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "deliveryOptions" TEXT;
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "paymentInstructions" TEXT;
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "botToken" TEXT;
+          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "adminChatId" TEXT;
 
-    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "oldPrice" INTEGER;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "gallery" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "badge" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "tags" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "prepTime" TEXT;`);
-    await db.$executeRawUnsafe(`ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "weight" TEXT;`);
+          ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "plan" TEXT DEFAULT 'FREE';
+          ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "subscriptionExpiresAt" TIMESTAMP(3);
+          ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarUrl" TEXT;
+          ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "phone" TEXT;
+          ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegramHandle" TEXT;
+          ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "companyName" TEXT;
 
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "ShopMember" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "shopId" TEXT NOT NULL,
-        "userId" TEXT NOT NULL,
-        "role" TEXT NOT NULL DEFAULT 'STAFF',
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "oldPrice" INTEGER;
+          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "gallery" TEXT;
+          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "badge" TEXT;
+          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "tags" TEXT;
+          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "prepTime" TEXT;
+          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "weight" TEXT;
 
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "ShopInvite" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "shopId" TEXT NOT NULL,
-        "code" TEXT NOT NULL UNIQUE,
-        "role" TEXT NOT NULL DEFAULT 'STAFF',
-        "createdById" TEXT NOT NULL,
-        "maxUses" INTEGER NOT NULL DEFAULT 10,
-        "usedCount" INTEGER NOT NULL DEFAULT 0,
-        "expiresAt" TIMESTAMP(3),
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+          CREATE TABLE IF NOT EXISTS "ShopMember" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "shopId" TEXT NOT NULL,
+            "userId" TEXT NOT NULL,
+            "role" TEXT NOT NULL DEFAULT 'STAFF',
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
 
-    orderSchemaChecked = true;
-  } catch (e) {
-    console.warn("ensureOrderSchema warning:", e);
+          CREATE TABLE IF NOT EXISTS "ShopInvite" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "shopId" TEXT NOT NULL,
+            "code" TEXT NOT NULL UNIQUE,
+            "role" TEXT NOT NULL DEFAULT 'STAFF',
+            "createdById" TEXT NOT NULL,
+            "maxUses" INTEGER NOT NULL DEFAULT 10,
+            "usedCount" INTEGER NOT NULL DEFAULT 0,
+            "expiresAt" TIMESTAMP(3),
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+        orderSchemaChecked = true;
+      } catch (e) {
+        console.warn("ensureOrderSchema warning:", e);
+        orderSchemaChecked = true;
+      }
+    })();
   }
+  await schemaInitPromise;
 }
 
 async function canManageShop(db: PrismaClient, shopId: string, authUser: { id: string } | null): Promise<boolean> {
