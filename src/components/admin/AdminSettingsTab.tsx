@@ -20,6 +20,8 @@ import {
   ExternalLink,
   Github,
   ShieldCheck,
+  Bug,
+  HelpCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ImageUploader from "../ImageUploader";
@@ -90,6 +92,7 @@ interface AdminSettingsTabProps {
   isSettingWebhook?: boolean;
   webhookStatus?: string | null;
   isSendingTestNotification?: boolean;
+  onOpenReport?: () => void;
 }
 
 export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
@@ -116,6 +119,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
   isSettingWebhook,
   webhookStatus,
   isSendingTestNotification,
+  onOpenReport,
 }) => {
   const [activeSubTab, setActiveSubTab] = React.useState<
     "general" | "branding" | "currency" | "delivery" | "social" | "telegram"
@@ -183,7 +187,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-app-border pb-4">
           <div>
             <h3 className="text-base font-bold font-mono flex items-center gap-2 text-app-primary">
-              <Settings size={18} className="text-emerald-400" />
+              <Settings size={18} className="text-app-muted" />
               Настройки заведения: {selectedShop.name}
             </h3>
             <p className="text-xs text-app-muted mt-0.5 font-sans">
@@ -196,7 +200,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
               onClick={() => setIsQrModalOpen(true)}
               className="px-3 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
-              <QrCode size={14} />
+              <QrCode size={14} className="text-app-muted" />
               <span>QR-Код</span>
             </button>
             {handleClearSettingsFields && (
@@ -214,10 +218,10 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
               <button
                 type="button"
                 onClick={handleUndoReset}
-                className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-mono text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md hover:shadow-lg active:scale-95 animate-fade-in shrink-0"
+                className="px-3.5 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 animate-fade-in shrink-0"
                 title="Отменить сброс и восстановить сохраненные поля"
               >
-                <Undo2 size={14} strokeWidth={2.5} />
+                <Undo2 size={14} strokeWidth={2.5} className="text-app-muted" />
                 <span>Отмена</span>
               </button>
             )}
@@ -257,15 +261,15 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
 
       {/* Notifications */}
       {settingsError && (
-        <div className="p-4 bg-rose-500/15 border border-rose-500/30 text-rose-800 dark:text-rose-300 rounded-2xl text-xs flex items-center gap-2.5 font-mono font-medium">
-          <AlertCircle size={16} className="shrink-0 text-rose-600 dark:text-rose-400" />
+        <div className="p-4 bg-app-card border border-app-border text-app-primary rounded-2xl text-xs flex items-center gap-2.5 font-mono font-medium">
+          <AlertCircle size={16} className="shrink-0 text-app-muted" />
           <span>{settingsError}</span>
         </div>
       )}
 
       {settingsSuccess && (
-        <div className="p-4 bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 rounded-2xl text-xs flex items-center gap-2.5 font-mono font-medium">
-          <Check size={16} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+        <div className="p-4 bg-app-card border border-app-border text-app-primary rounded-2xl text-xs flex items-center gap-2.5 font-mono font-medium">
+          <Check size={16} className="shrink-0 text-app-primary" />
           <span>{settingsSuccess}</span>
         </div>
       )}
@@ -276,7 +280,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
         {activeSubTab === "general" && (
           <div className="space-y-5 font-sans text-xs">
             <h4 className="text-xs font-bold font-mono text-app-primary uppercase tracking-wider flex items-center gap-2 border-b border-app-border pb-3">
-              <Store size={16} className="text-emerald-400" />
+              <Store size={16} className="text-app-muted" />
               Основная информация и режим работы
             </h4>
 
@@ -413,7 +417,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                   }
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-slate-300 dark:bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                <div className="w-11 h-6 bg-zinc-300 dark:bg-zinc-800 border border-black/10 dark:border-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-zinc-900 dark:peer-checked:bg-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:after:bg-zinc-400 peer-checked:after:bg-white dark:peer-checked:after:bg-black after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-sm"></div>
               </label>
             </div>
           </div>
@@ -423,7 +427,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
         {activeSubTab === "branding" && (
           <div className="space-y-5 font-sans text-xs">
             <h4 className="text-xs font-bold font-mono text-app-primary uppercase tracking-wider flex items-center gap-2 border-b border-app-border pb-3">
-              <ImageIcon size={16} className="text-emerald-400" />
+              <ImageIcon size={16} className="text-app-muted" />
               Оформление, Аватар и Шапка
             </h4>
 
@@ -463,7 +467,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
         {activeSubTab === "currency" && (
           <div className="space-y-5 font-sans text-xs">
             <h4 className="text-xs font-bold font-mono text-app-primary uppercase tracking-wider flex items-center gap-2 border-b border-app-border pb-3">
-              <CreditCard size={16} className="text-emerald-400" />
+              <CreditCard size={16} className="text-app-muted" />
               Валюта, Лояльность и Реквизиты оплаты
             </h4>
 
@@ -554,7 +558,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
         {activeSubTab === "delivery" && (
           <div className="space-y-5 font-sans text-xs">
             <h4 className="text-xs font-bold font-mono text-app-primary uppercase tracking-wider flex items-center gap-2 border-b border-app-border pb-3">
-              <Truck size={16} className="text-emerald-400" />
+              <Truck size={16} className="text-app-muted" />
               Способы доставки и минимальный заказ
             </h4>
 
@@ -573,7 +577,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                       deliveryOptions: { ...s.deliveryOptions, pickup: e.target.checked },
                     }))
                   }
-                  className="w-4 h-4 accent-emerald-500 cursor-pointer"
+                  className="w-4 h-4 accent-app-primary cursor-pointer"
                 />
               </label>
 
@@ -591,7 +595,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                       deliveryOptions: { ...s.deliveryOptions, courier: e.target.checked },
                     }))
                   }
-                  className="w-4 h-4 accent-emerald-500 cursor-pointer"
+                  className="w-4 h-4 accent-app-primary cursor-pointer"
                 />
               </label>
 
@@ -609,7 +613,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                       deliveryOptions: { ...s.deliveryOptions, shipping: e.target.checked },
                     }))
                   }
-                  className="w-4 h-4 accent-emerald-500 cursor-pointer"
+                  className="w-4 h-4 accent-app-primary cursor-pointer"
                 />
               </label>
             </div>
@@ -658,7 +662,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
         {activeSubTab === "social" && (
           <div className="space-y-5 font-sans text-xs">
             <h4 className="text-xs font-bold font-mono text-app-primary uppercase tracking-wider flex items-center gap-2 border-b border-app-border pb-3">
-              <Share2 size={16} className="text-emerald-400" />
+              <Share2 size={16} className="text-app-muted" />
               Ссылки на соцсети и мессенджеры
             </h4>
 
@@ -761,13 +765,13 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
           <div className="space-y-5 font-sans text-xs">
             <div className="flex items-center justify-between border-b border-app-border pb-3">
               <h4 className="text-xs font-bold font-mono text-app-primary uppercase tracking-wider flex items-center gap-2">
-                <Smartphone size={16} className="text-emerald-400" />
+                <Smartphone size={16} className="text-app-muted" />
                 Интеграция с Telegram Ботом
               </h4>
               <button
                 type="button"
                 onClick={() => setIsTgGuideOpen(!isTgGuideOpen)}
-                className="text-[11px] font-mono text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-[11px] font-mono text-app-primary hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>Инструкция</span>
                 <ChevronDown
@@ -784,7 +788,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="p-4 bg-app-card/80 border border-app-border rounded-2xl text-xs space-y-2.5 font-sans overflow-hidden"
+                  className="p-4 bg-app-card border border-app-border rounded-2xl text-xs space-y-2.5 font-sans overflow-hidden"
                 >
                   <p className="font-bold font-mono text-app-primary">
                     Как привязать своего Telegram бота:
@@ -796,14 +800,14 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                         href="https://t.me/BotFather"
                         target="_blank"
                         rel="noreferrer"
-                        className="text-emerald-400 hover:underline inline-flex items-center gap-1"
+                        className="text-app-primary underline inline-flex items-center gap-1 font-semibold"
                       >
                         @BotFather <ExternalLink size={10} />
                       </a>
                     </li>
                     <li>
                       Отправьте команду{" "}
-                      <code className="bg-app-surface px-1.5 py-0.5 rounded text-emerald-400">
+                      <code className="bg-app-surface border border-app-border px-1.5 py-0.5 rounded text-app-primary">
                         /newbot
                       </code>{" "}
                       и введите название и юзернейм бота
@@ -815,7 +819,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                         href="https://t.me/userinfobot"
                         target="_blank"
                         rel="noreferrer"
-                        className="text-emerald-400 hover:underline inline-flex items-center gap-1"
+                        className="text-app-primary underline inline-flex items-center gap-1 font-semibold"
                       >
                         @userinfobot <ExternalLink size={10} />
                       </a>{" "}
@@ -878,7 +882,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                   disabled={isTestingBot || !botToken}
                   className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  {isTestingBot ? <SpinnerLoader size={12} /> : <Bot size={14} />}
+                  {isTestingBot ? <SpinnerLoader size={12} /> : <Bot size={14} className="text-app-muted" />}
                   <span>Проверить бота</span>
                 </button>
               )}
@@ -888,9 +892,9 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                   type="button"
                   onClick={handleSetupWebhook}
                   disabled={isSettingWebhook || !botToken}
-                  className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-emerald-400 font-mono text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  {isSettingWebhook ? <SpinnerLoader size={12} /> : <Send size={14} />}
+                  {isSettingWebhook ? <SpinnerLoader size={12} /> : <Send size={14} className="text-app-muted" />}
                   <span>Настроить Webhook</span>
                 </button>
               )}
@@ -900,9 +904,9 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                   type="button"
                   onClick={handleSendTestNotification}
                   disabled={isSendingTestNotification || !botToken || !adminChatId}
-                  className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-blue-400 font-mono text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  {isSendingTestNotification ? <SpinnerLoader size={12} /> : <Send size={14} />}
+                  {isSendingTestNotification ? <SpinnerLoader size={12} /> : <Send size={14} className="text-app-muted" />}
                   <span>Тестовое уведомление</span>
                 </button>
               )}
@@ -911,17 +915,13 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
             {/* Bot Test Output Status */}
             {botTestResult && (
               <div
-                className={`p-3.5 rounded-xl border text-xs font-mono font-medium ${
-                  botTestResult.error
-                    ? "bg-rose-500/15 border-rose-500/30 text-rose-800 dark:text-rose-300"
-                    : "bg-emerald-500/15 border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
-                }`}
+                className="p-3.5 rounded-xl border border-app-border bg-app-card text-xs font-mono font-medium text-app-primary flex items-center gap-2"
               >
                 {botTestResult.error ? (
                   <p>Ошибка: {botTestResult.error}</p>
                 ) : (
                   <p>
-                    ✅ Бот успешно авторизован! Имя: {botTestResult.botInfo?.first_name} (@
+                    Бот успешно авторизован: {botTestResult.botInfo?.first_name} (@
                     {botTestResult.botInfo?.username})
                   </p>
                 )}
@@ -929,7 +929,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
             )}
 
             {webhookStatus && (
-              <div className="p-3.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 rounded-xl text-xs font-mono font-medium">
+              <div className="p-3.5 bg-app-card border border-app-border text-app-primary rounded-xl text-xs font-mono font-medium">
                 {webhookStatus}
               </div>
             )}
@@ -943,22 +943,36 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
           }`}
         >
           {activeSubTab === "general" && (
-            <button
-              type="button"
-              onClick={() =>
-                requestConfirm(
-                  "Удаление заведения",
-                  `Вы уверены, что хотите безвозвратно удалить "${selectedShop.name}"? Это действие нельзя отменить!`,
-                  () => handleDeleteShop(selectedShop.id),
-                  "Удалить безвозвратно",
-                  true
-                )
-              }
-              className="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 px-3.5 py-2 rounded-xl transition-colors cursor-pointer w-full sm:w-auto font-mono flex items-center justify-center gap-1.5"
-            >
-              <Trash2 size={14} />
-              <span>Удалить заведение</span>
-            </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() =>
+                  requestConfirm(
+                    "Удаление заведения",
+                    `Вы уверены, что хотите безвозвратно удалить "${selectedShop.name}"? Это действие нельзя отменить!`,
+                    () => handleDeleteShop(selectedShop.id),
+                    "Удалить безвозвратно",
+                    true
+                  )
+                }
+                className="text-xs text-app-primary hover:text-app-primary bg-app-card hover:bg-app-hover border border-app-border px-3.5 py-2 rounded-xl transition-all cursor-pointer flex-1 sm:flex-none font-mono flex items-center justify-center gap-1.5 font-medium backdrop-blur-sm"
+              >
+                <Trash2 size={14} className="text-app-muted" />
+                <span>Удалить заведение</span>
+              </button>
+
+              {onOpenReport && (
+                <button
+                  type="button"
+                  onClick={onOpenReport}
+                  className="text-xs text-app-secondary hover:text-app-primary hover:bg-app-hover border border-app-border px-3.5 py-2 rounded-xl transition-colors cursor-pointer flex-1 sm:flex-none font-mono flex items-center justify-center gap-1.5"
+                  title="Сообщить о баге или проблеме в заведении"
+                >
+                  <Bug size={14} className="text-app-muted" />
+                  <span>Сообщить о баге</span>
+                </button>
+              )}
+            </div>
           )}
 
           <button

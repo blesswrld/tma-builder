@@ -12,41 +12,37 @@ export const getOrderStatusInfo = (status: string) => {
     case "PENDING":
       return {
         label: "В ОЖИДАНИИ",
-        textClass: "text-amber-500",
-        bgBadge: "from-amber-500/10 via-amber-500/5 to-amber-500/10 border-amber-500/30",
-        barColor: "bg-amber-500",
+        textClass: "text-app-muted",
+        barColor: "bg-app-primary",
         progressWidth: "w-1/4",
-        dotColor: "bg-amber-500",
-        dotPing: "bg-amber-400",
+        dotColor: "bg-app-primary",
+        dotPing: "bg-app-muted",
         isPulse: true,
       };
     case "CONFIRMED":
       return {
         label: "ПОДТВЕРЖДЁН",
-        textClass: "text-blue-400",
-        bgBadge: "from-blue-500/10 via-indigo-500/5 to-blue-500/10 border-blue-500/30",
-        barColor: "bg-blue-500",
+        textClass: "text-app-primary",
+        barColor: "bg-app-primary",
         progressWidth: "w-2/4",
-        dotColor: "bg-blue-500",
-        dotPing: "bg-blue-400",
+        dotColor: "bg-app-primary",
+        dotPing: "bg-app-muted",
         isPulse: true,
       };
     case "IN_PROGRESS":
       return {
         label: "В РАБОТЕ",
-        textClass: "text-indigo-400",
-        bgBadge: "from-indigo-500/10 via-purple-500/5 to-indigo-500/10 border-indigo-500/30",
-        barColor: "bg-indigo-500",
+        textClass: "text-app-primary",
+        barColor: "bg-app-primary",
         progressWidth: "w-3/4",
-        dotColor: "bg-indigo-500",
-        dotPing: "bg-indigo-400",
+        dotColor: "bg-app-primary",
+        dotPing: "bg-app-muted",
         isPulse: true,
       };
     case "COMPLETED":
       return {
         label: "ЗАВЕРШЁН",
-        textClass: "text-emerald-400",
-        bgBadge: "from-emerald-500/10 via-emerald-500/5 to-emerald-500/10 border-emerald-500/30",
+        textClass: "text-emerald-500",
         barColor: "bg-emerald-500",
         progressWidth: "w-full",
         dotColor: "bg-emerald-500",
@@ -56,8 +52,7 @@ export const getOrderStatusInfo = (status: string) => {
     case "CANCELLED":
       return {
         label: "ОТМЕНЁН",
-        textClass: "text-rose-400",
-        bgBadge: "from-rose-500/10 via-rose-500/5 to-rose-500/10 border-rose-500/30",
+        textClass: "text-rose-500",
         barColor: "bg-rose-500",
         progressWidth: "w-full",
         dotColor: "bg-rose-500",
@@ -67,12 +62,11 @@ export const getOrderStatusInfo = (status: string) => {
     default:
       return {
         label: status ? status.toUpperCase() : "В ОЖИДАНИИ",
-        textClass: "text-amber-500",
-        bgBadge: "from-amber-500/10 via-indigo-500/10 to-emerald-500/10 border-amber-500/30",
-        barColor: "bg-amber-500",
+        textClass: "text-app-muted",
+        barColor: "bg-app-primary",
         progressWidth: "w-1/2",
-        dotColor: "bg-amber-500",
-        dotPing: "bg-amber-400",
+        dotColor: "bg-app-primary",
+        dotPing: "bg-app-muted",
         isPulse: true,
       };
   }
@@ -88,7 +82,7 @@ export const ShopActiveOrderTracker: React.FC<ShopActiveOrderTrackerProps> = ({
   const info = getOrderStatusInfo(activeOrder.status);
 
   return (
-    <div className={`p-4 rounded-2xl bg-gradient-to-r ${info.bgBadge} border space-y-3 shadow-sm transition-all duration-300`}>
+    <div className="p-4 rounded-2xl bg-app-surface border border-app-border space-y-3 shadow-xs transition-all duration-300">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
@@ -112,7 +106,7 @@ export const ShopActiveOrderTracker: React.FC<ShopActiveOrderTrackerProps> = ({
       </div>
       <div className="flex justify-between items-center text-[11px] font-mono text-app-muted">
         <span>Сумма: {activeOrder.totalPrice} ₽</span>
-        <button onClick={onOpenMyOrders} className="text-app-primary font-bold underline hover:text-amber-500 transition-colors">
+        <button onClick={onOpenMyOrders} className="text-app-primary font-bold underline hover:opacity-80 transition-opacity cursor-pointer">
           Детали заказа →
         </button>
       </div>

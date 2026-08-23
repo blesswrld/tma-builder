@@ -21,10 +21,10 @@ import {
 import ImageUploader from "../ImageUploader";
 
 const FULFILLMENT_OPTIONS = [
-  { value: "courier,pickup", label: "В заведении и Доставка", icon: Store, color: "text-amber-400" },
-  { value: "pickup", label: "Только в заведении / Самовывоз", icon: Store, color: "text-indigo-400" },
-  { value: "courier", label: "Только Доставка курьером", icon: Truck, color: "text-emerald-400" },
-  { value: "online", label: "Онлайн услуга", icon: Globe, color: "text-sky-400" },
+  { value: "courier,pickup", label: "В заведении и Доставка", icon: Store, color: "text-app-muted" },
+  { value: "pickup", label: "Только в заведении / Самовывоз", icon: Store, color: "text-app-muted" },
+  { value: "courier", label: "Только Доставка курьером", icon: Truck, color: "text-app-muted" },
+  { value: "online", label: "Онлайн услуга", icon: Globe, color: "text-app-muted" },
 ];
 
 interface FulfillmentCustomSelectProps {
@@ -54,7 +54,7 @@ const FulfillmentCustomSelect: React.FC<FulfillmentCustomSelectProps> = ({ value
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary flex items-center justify-between gap-2 focus:outline-none hover:border-amber-500/50 transition-all font-mono cursor-pointer"
+        className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary flex items-center justify-between gap-2 focus:outline-none hover:border-app-accent transition-all font-mono cursor-pointer"
       >
         <div className="flex items-center gap-2 truncate">
           <IconComp size={14} className={currentOption.color} />
@@ -77,14 +77,14 @@ const FulfillmentCustomSelect: React.FC<FulfillmentCustomSelectProps> = ({ value
                   setIsOpen(false);
                 }}
                 className={`w-full px-3.5 py-2.5 text-xs flex items-center justify-between font-mono transition-colors text-left cursor-pointer ${
-                  isSelected ? "bg-amber-500/15 text-amber-400 font-bold" : "text-app-primary hover:bg-app-hover"
+                  isSelected ? "bg-app-hover text-app-primary font-bold" : "text-app-primary hover:bg-app-hover"
                 }`}
               >
                 <div className="flex items-center gap-2 truncate">
                   <OptIcon size={14} className={opt.color} />
                   <span>{opt.label}</span>
                 </div>
-                {isSelected && <Check size={14} className="text-amber-400 shrink-0" />}
+                {isSelected && <Check size={14} className="text-app-primary shrink-0" />}
               </button>
             );
           })}
@@ -249,7 +249,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
         <div className="max-w-4xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm">
           <div className="flex justify-between items-center border-b border-app-border pb-4">
             <h3 className="text-base font-bold font-mono text-app-primary flex items-center gap-2">
-              <Edit3 size={18} className="text-emerald-400" />
+              <Edit3 size={18} className="text-app-primary" />
               {editingService ? "Редактировать услугу / товар" : "Новая услуга / товар"}
             </h3>
             <button
@@ -463,7 +463,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                       <button
                         type="button"
                         onClick={() => handleRemoveGalleryImage(idx)}
-                        className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-rose-500 text-white rounded-lg opacity-80 group-hover:opacity-100 transition-all cursor-pointer"
+                        className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-black/90 text-white rounded-lg opacity-80 group-hover:opacity-100 transition-all cursor-pointer backdrop-blur-sm"
                       >
                         <X size={12} />
                       </button>
@@ -483,7 +483,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                 <button
                   type="button"
                   onClick={() => handleAddGalleryImage(newGalleryInput)}
-                  className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-emerald-400 font-mono text-xs rounded-xl flex items-center gap-1 cursor-pointer"
+                  className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Plus size={14} />
                   <span>Добавить</span>
@@ -510,7 +510,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                   }
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-slate-300 dark:bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                <div className="w-11 h-6 bg-zinc-300 dark:bg-zinc-800 border border-black/10 dark:border-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-zinc-900 dark:peer-checked:bg-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:after:bg-zinc-400 peer-checked:after:bg-white dark:peer-checked:after:bg-black after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-sm"></div>
               </label>
             </div>
 
@@ -565,7 +565,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                         className="w-full h-full object-cover"
                       />
                       {service.badge && (
-                        <span className="absolute top-2.5 left-2.5 px-2 py-0.5 bg-emerald-500 text-black font-mono text-[9px] font-bold rounded-md shadow-sm">
+                        <span className="absolute top-2.5 left-2.5 px-2 py-0.5 bg-app-accent text-app-accent-fg font-mono text-[9px] font-bold rounded-md shadow-sm">
                           {service.badge}
                         </span>
                       )}
@@ -582,7 +582,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                           </span>
                         )}
                         {service.tags && (
-                          <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 font-mono text-[9px] rounded-md">
+                          <span className="px-2 py-0.5 bg-app-card border border-app-border text-app-muted font-mono text-[9px] rounded-md">
                             {service.tags}
                           </span>
                         )}
@@ -592,7 +592,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                       </h4>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-mono font-bold text-sm text-emerald-400">
+                      <p className="font-mono font-bold text-sm text-app-primary">
                         {service.price} ₽
                       </p>
                       {service.oldPrice && (
@@ -614,19 +614,19 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                   <div className="flex items-center gap-2 flex-wrap text-[10px] font-mono text-app-muted">
                     {service.prepTime && (
                       <span className="flex items-center gap-1 px-2 py-0.5 bg-app-card border border-app-border rounded-md">
-                        <Clock size={11} className="text-amber-400" />
+                        <Clock size={11} className="text-app-muted" />
                         <span>{service.prepTime}</span>
                       </span>
                     )}
                     {service.weight && (
                       <span className="flex items-center gap-1 px-2 py-0.5 bg-app-card border border-app-border rounded-md">
-                        <Weight size={11} className="text-blue-400" />
+                        <Weight size={11} className="text-app-muted" />
                         <span>{service.weight}</span>
                       </span>
                     )}
                     {service.fulfillment && (
                       <span className="flex items-center gap-1 px-2 py-0.5 bg-app-card border border-app-border rounded-md">
-                        <Truck size={11} className="text-emerald-400" />
+                        <Truck size={11} className="text-app-muted" />
                         <span>
                           {service.fulfillment === "pickup"
                             ? "В заведении"
@@ -664,18 +664,18 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                     }
                     className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
                       service.isAvailable
-                        ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30"
-                        : "bg-rose-500/15 text-rose-800 dark:text-rose-300 border border-rose-500/30"
+                        ? "bg-app-card text-app-primary border border-app-border"
+                        : "bg-app-card text-app-muted border border-app-border opacity-70"
                     }`}
                   >
                     {service.isAvailable ? (
                       <>
-                        <CheckCircle2 size={11} />
+                        <CheckCircle2 size={11} className="text-app-primary" />
                         <span>Доступен</span>
                       </>
                     ) : (
                       <>
-                        <XCircle size={11} />
+                        <XCircle size={11} className="text-app-muted" />
                         <span>Скрыт</span>
                       </>
                     )}
@@ -729,7 +729,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                     <button
                       type="button"
                       onClick={() => handleDeleteService(service.id)}
-                      className="p-1.5 text-app-muted hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+                      className="p-1.5 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-hover border border-transparent hover:border-app-border transition-all cursor-pointer backdrop-blur-sm"
                       title="Удалить"
                     >
                       <Trash2 size={14} />

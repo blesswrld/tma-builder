@@ -1,6 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AlertCircle } from "lucide-react";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  useScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   return (
@@ -36,8 +39,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           className="max-w-sm w-full bg-app-card border border-app-border rounded-2xl p-6 text-app-primary shadow-2xl space-y-5"
         >
           <div className="space-y-2">
-            <h3 className="text-sm font-bold tracking-tight text-app-primary flex items-center gap-2">
-              <AlertCircle size={16} className={isDangerous ? "text-rose-500" : "text-amber-500"} />
+            <h3 className="text-sm font-bold tracking-tight text-app-primary flex items-center gap-2 font-mono">
+              <AlertCircle size={16} className="text-app-muted" />
               {title}
             </h3>
             <p className="text-xs text-app-secondary leading-relaxed font-sans">
@@ -56,11 +59,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             <button
               type="button"
               onClick={onConfirm}
-              className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-colors cursor-pointer ${
-                isDangerous 
-                  ? "bg-rose-500 hover:bg-rose-600 text-white shadow-md shadow-rose-500/20" 
-                  : "bg-app-accent text-app-accent-fg hover:opacity-90"
-              }`}
+              className="px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer bg-app-accent text-app-accent-fg hover:opacity-90 shadow-sm"
             >
               {confirmText}
             </button>

@@ -132,174 +132,219 @@ function getPrismaClient(): PrismaClient | null {
 let orderSchemaChecked = false;
 let schemaInitPromise: Promise<void> | null = null;
 
+async function ensureReportTable(db: PrismaClient) {
+  try {
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Report" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "type" TEXT NOT NULL DEFAULT 'BUG',
+        "title" TEXT,
+        "description" TEXT NOT NULL,
+        "attachments" TEXT,
+        "contact" TEXT,
+        "userId" TEXT,
+        "shopId" TEXT,
+        "metadata" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'NEW',
+        "developerEmail" TEXT DEFAULT 'gelgaev.dev@mail.ru',
+        "developerNotes" TEXT,
+        "resolvedAt" TIMESTAMP(3),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await db.$executeRawUnsafe(`ALTER TABLE "Report" ADD COLUMN IF NOT EXISTS "developerEmail" TEXT DEFAULT 'gelgaev.dev@mail.ru'`).catch(() => {});
+    await db.$executeRawUnsafe(`ALTER TABLE "Report" ADD COLUMN IF NOT EXISTS "developerNotes" TEXT`).catch(() => {});
+    await db.$executeRawUnsafe(`ALTER TABLE "Report" ADD COLUMN IF NOT EXISTS "resolvedAt" TIMESTAMP(3)`).catch(() => {});
+  } catch (err) {
+    console.warn("ensureReportTable warning:", err);
+  }
+}
+
 async function ensureOrderSchema(db: PrismaClient) {
   if (orderSchemaChecked) return;
   if (!schemaInitPromise) {
     schemaInitPromise = (async () => {
-      try {
-        await db.$executeRawUnsafe(`
-          CREATE TABLE IF NOT EXISTS "Order" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "shopId" TEXT NOT NULL,
-            "customerName" TEXT NOT NULL,
-            "customerPhone" TEXT NOT NULL,
-            "tableNumber" TEXT,
-            "preferredTime" TEXT,
-            "items" TEXT NOT NULL,
-            "totalPrice" INTEGER NOT NULL,
-            "status" TEXT NOT NULL DEFAULT 'PENDING',
-            "note" TEXT,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
-          ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'PENDING';
-          ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "note" TEXT;
-          ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "tableNumber" TEXT;
-          ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "preferredTime" TEXT;
-          ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "fulfillmentMethod" TEXT;
-          ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "deliveryAddress" TEXT;
+      const statements = [
+        `CREATE TABLE IF NOT EXISTS "Order" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "shopId" TEXT NOT NULL,
+          "customerName" TEXT NOT NULL,
+          "customerPhone" TEXT NOT NULL,
+          "tableNumber" TEXT,
+          "preferredTime" TEXT,
+          "items" TEXT NOT NULL,
+          "totalPrice" INTEGER NOT NULL,
+          "status" TEXT NOT NULL DEFAULT 'PENDING',
+          "note" TEXT,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'PENDING'`,
+        `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "note" TEXT`,
+        `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "tableNumber" TEXT`,
+        `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "preferredTime" TEXT`,
+        `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "fulfillmentMethod" TEXT`,
+        `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "deliveryAddress" TEXT`,
 
-          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "category" TEXT;
-          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
-          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "isAvailable" BOOLEAN DEFAULT true;
-          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "fulfillment" TEXT DEFAULT 'pickup';
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "category" TEXT`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "isAvailable" BOOLEAN DEFAULT true`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "fulfillment" TEXT DEFAULT 'pickup'`,
 
-          CREATE TABLE IF NOT EXISTS "Promocode" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "shopId" TEXT NOT NULL,
-            "code" TEXT NOT NULL,
-            "discountPercent" INTEGER NOT NULL DEFAULT 0,
-            "discountAmount" INTEGER NOT NULL DEFAULT 0,
-            "isActive" BOOLEAN NOT NULL DEFAULT true,
-            "maxUses" INTEGER NOT NULL DEFAULT 100,
-            "usedCount" INTEGER NOT NULL DEFAULT 0,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
+        `CREATE TABLE IF NOT EXISTS "Promocode" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "shopId" TEXT NOT NULL,
+          "code" TEXT NOT NULL,
+          "discountPercent" INTEGER NOT NULL DEFAULT 0,
+          "discountAmount" INTEGER NOT NULL DEFAULT 0,
+          "isActive" BOOLEAN NOT NULL DEFAULT true,
+          "maxUses" INTEGER NOT NULL DEFAULT 100,
+          "usedCount" INTEGER NOT NULL DEFAULT 0,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
 
-          CREATE TABLE IF NOT EXISTS "Review" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "shopId" TEXT NOT NULL,
-            "customerName" TEXT NOT NULL,
-            "rating" INTEGER NOT NULL DEFAULT 5,
-            "comment" TEXT,
-            "reply" TEXT,
-            "imageUrl" TEXT,
-            "isEdited" BOOLEAN DEFAULT false,
-            "authorToken" TEXT,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
-          ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
-          ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "isEdited" BOOLEAN DEFAULT false;
-          ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "authorToken" TEXT;
+        `CREATE TABLE IF NOT EXISTS "Review" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "shopId" TEXT NOT NULL,
+          "customerName" TEXT NOT NULL,
+          "rating" INTEGER NOT NULL DEFAULT 5,
+          "comment" TEXT,
+          "reply" TEXT,
+          "imageUrl" TEXT,
+          "isEdited" BOOLEAN DEFAULT false,
+          "authorToken" TEXT,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT`,
+        `ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "isEdited" BOOLEAN DEFAULT false`,
+        `ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "authorToken" TEXT`,
 
-          CREATE TABLE IF NOT EXISTS "User" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "email" TEXT NOT NULL UNIQUE,
-            "password" TEXT NOT NULL,
-            "name" TEXT,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
+        `CREATE TABLE IF NOT EXISTS "User" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "email" TEXT NOT NULL UNIQUE,
+          "password" TEXT NOT NULL,
+          "name" TEXT,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
 
-          CREATE TABLE IF NOT EXISTS "Banner" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "shopId" TEXT NOT NULL,
-            "title" TEXT NOT NULL,
-            "subtitle" TEXT,
-            "imageUrl" TEXT,
-            "badge" TEXT,
-            "bgGradient" TEXT DEFAULT 'from-slate-900 to-indigo-950',
-            "isActive" BOOLEAN NOT NULL DEFAULT true,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
+        `CREATE TABLE IF NOT EXISTS "Banner" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "shopId" TEXT NOT NULL,
+          "title" TEXT NOT NULL,
+          "subtitle" TEXT,
+          "imageUrl" TEXT,
+          "badge" TEXT,
+          "bgGradient" TEXT DEFAULT 'from-slate-900 to-indigo-950',
+          "isActive" BOOLEAN NOT NULL DEFAULT true,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
 
-          CREATE TABLE IF NOT EXISTS "Broadcast" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "shopId" TEXT NOT NULL,
-            "title" TEXT NOT NULL,
-            "message" TEXT NOT NULL,
-            "imageUrl" TEXT,
-            "buttonText" TEXT DEFAULT '📱 Открыть Меню',
-            "targetFilter" TEXT DEFAULT 'ALL',
-            "sentCount" INTEGER NOT NULL DEFAULT 0,
-            "status" TEXT DEFAULT 'SENT',
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
+        `CREATE TABLE IF NOT EXISTS "Broadcast" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "shopId" TEXT NOT NULL,
+          "title" TEXT NOT NULL,
+          "message" TEXT NOT NULL,
+          "imageUrl" TEXT,
+          "buttonText" TEXT DEFAULT '📱 Открыть Меню',
+          "targetFilter" TEXT DEFAULT 'ALL',
+          "sentCount" INTEGER NOT NULL DEFAULT 0,
+          "status" TEXT DEFAULT 'SENT',
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
 
-          CREATE TABLE IF NOT EXISTS "Customer" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "shopId" TEXT NOT NULL,
-            "phone" TEXT NOT NULL,
-            "name" TEXT NOT NULL,
-            "bonusBalance" INTEGER NOT NULL DEFAULT 0,
-            "totalSpent" INTEGER NOT NULL DEFAULT 0,
-            "ordersCount" INTEGER NOT NULL DEFAULT 0,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
+        `CREATE TABLE IF NOT EXISTS "Customer" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "shopId" TEXT NOT NULL,
+          "phone" TEXT NOT NULL,
+          "name" TEXT NOT NULL,
+          "bonusBalance" INTEGER NOT NULL DEFAULT 0,
+          "totalSpent" INTEGER NOT NULL DEFAULT 0,
+          "ordersCount" INTEGER NOT NULL DEFAULT 0,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
 
-          CREATE TABLE IF NOT EXISTS "VerificationCode" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "email" TEXT NOT NULL,
-            "code" TEXT NOT NULL,
-            "type" TEXT NOT NULL DEFAULT 'LOGIN',
-            "expiresAt" TIMESTAMP(3) NOT NULL,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
+        `CREATE TABLE IF NOT EXISTS "VerificationCode" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "email" TEXT NOT NULL,
+          "code" TEXT NOT NULL,
+          "type" TEXT NOT NULL DEFAULT 'LOGIN',
+          "expiresAt" TIMESTAMP(3) NOT NULL,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
 
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "cashbackPercent" INTEGER DEFAULT 5;
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "ownerId" TEXT;
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "workingHours" TEXT;
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "address" TEXT;
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "phone" TEXT;
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "isOpen" BOOLEAN DEFAULT true;
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT;
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "bannerUrl" TEXT;
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "currency" TEXT DEFAULT 'RUB';
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "currencySymbol" TEXT DEFAULT '₽';
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "socialLinks" TEXT;
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "deliveryOptions" TEXT;
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "paymentInstructions" TEXT;
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "botToken" TEXT;
-          ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "adminChatId" TEXT;
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "cashbackPercent" INTEGER DEFAULT 5`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "ownerId" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "workingHours" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "address" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "phone" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "isOpen" BOOLEAN DEFAULT true`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "bannerUrl" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "currency" TEXT DEFAULT 'RUB'`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "currencySymbol" TEXT DEFAULT '₽'`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "socialLinks" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "deliveryOptions" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "paymentInstructions" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "botToken" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "adminChatId" TEXT`,
 
-          ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "plan" TEXT DEFAULT 'FREE';
-          ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "subscriptionExpiresAt" TIMESTAMP(3);
-          ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarUrl" TEXT;
-          ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "phone" TEXT;
-          ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegramHandle" TEXT;
-          ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "companyName" TEXT;
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "plan" TEXT DEFAULT 'FREE'`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "subscriptionExpiresAt" TIMESTAMP(3)`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarUrl" TEXT`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "phone" TEXT`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegramHandle" TEXT`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "companyName" TEXT`,
 
-          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "oldPrice" INTEGER;
-          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "gallery" TEXT;
-          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "badge" TEXT;
-          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "tags" TEXT;
-          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "prepTime" TEXT;
-          ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "weight" TEXT;
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "oldPrice" INTEGER`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "gallery" TEXT`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "badge" TEXT`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "tags" TEXT`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "prepTime" TEXT`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "weight" TEXT`,
 
-          CREATE TABLE IF NOT EXISTS "ShopMember" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "shopId" TEXT NOT NULL,
-            "userId" TEXT NOT NULL,
-            "role" TEXT NOT NULL DEFAULT 'STAFF',
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
+        `CREATE TABLE IF NOT EXISTS "ShopMember" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "shopId" TEXT NOT NULL,
+          "userId" TEXT NOT NULL,
+          "role" TEXT NOT NULL DEFAULT 'STAFF',
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
 
-          CREATE TABLE IF NOT EXISTS "ShopInvite" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "shopId" TEXT NOT NULL,
-            "code" TEXT NOT NULL UNIQUE,
-            "role" TEXT NOT NULL DEFAULT 'STAFF',
-            "createdById" TEXT NOT NULL,
-            "maxUses" INTEGER NOT NULL DEFAULT 10,
-            "usedCount" INTEGER NOT NULL DEFAULT 0,
-            "expiresAt" TIMESTAMP(3),
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
-        `);
-        orderSchemaChecked = true;
-      } catch (e) {
-        console.warn("ensureOrderSchema warning:", e);
-        orderSchemaChecked = true;
+        `CREATE TABLE IF NOT EXISTS "ShopInvite" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "shopId" TEXT NOT NULL,
+          "code" TEXT NOT NULL UNIQUE,
+          "role" TEXT NOT NULL DEFAULT 'STAFF',
+          "createdById" TEXT NOT NULL,
+          "maxUses" INTEGER NOT NULL DEFAULT 10,
+          "usedCount" INTEGER NOT NULL DEFAULT 0,
+          "expiresAt" TIMESTAMP(3),
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+
+        `CREATE TABLE IF NOT EXISTS "Report" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "type" TEXT NOT NULL DEFAULT 'BUG',
+          "title" TEXT,
+          "description" TEXT NOT NULL,
+          "attachments" TEXT,
+          "contact" TEXT,
+          "userId" TEXT,
+          "shopId" TEXT,
+          "metadata" TEXT,
+          "status" TEXT NOT NULL DEFAULT 'NEW',
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`
+      ];
+
+      for (const stmt of statements) {
+        try {
+          await db.$executeRawUnsafe(stmt);
+        } catch (err) {
+          // ignore individual statement errors to let remaining ones execute
+        }
       }
+      orderSchemaChecked = true;
     })();
   }
   await schemaInitPromise;
@@ -3238,6 +3283,341 @@ app.post("/api/shops", async (req, res) => {
     } catch (err) {
       console.error("Ошибка Telegram Webhook:", err);
       res.sendStatus(200);
+    }
+  });
+
+  // Bug Report / Feedback API for Lead Developer (gelgaev.dev@mail.ru)
+  app.post("/api/reports", async (req, res) => {
+    try {
+      const db = getPrismaClient() as any;
+      if (!db) {
+        return res.status(500).json({ error: "Database not connected" });
+      }
+      await ensureReportTable(db);
+
+      const authUser = getAuthUser(req);
+      const {
+        type = "BUG",
+        title = "",
+        description = "",
+        attachments = [],
+        contact = "",
+        shopId = null,
+        metadata = {}
+      } = req.body;
+
+      if (!description || typeof description !== "string" || !description.trim()) {
+        return res.status(400).json({ error: "Описание проблемы обязательно для заполнения" });
+      }
+
+      const trimmedDescription = description.trim();
+      if (trimmedDescription.length > 2000) {
+        return res.status(400).json({ error: "Описание слишком длинное (максимум 2000 символов)" });
+      }
+
+      let sanitizedAttachments: any[] = [];
+      if (Array.isArray(attachments)) {
+        if (attachments.length > 3) {
+          return res.status(400).json({ error: "Максимум 3 прикрепленных файла" });
+        }
+        sanitizedAttachments = attachments.slice(0, 3).map((item) => {
+          if (typeof item === "string") {
+            return item;
+          }
+          if (typeof item === "object" && item !== null) {
+            return {
+              name: String(item.name || "").slice(0, 120),
+              size: Number(item.size) || 0,
+              type: String(item.type || "").slice(0, 50),
+              url: String(item.url || "").slice(0, 15000000) // ~15MB data uri
+            };
+          }
+          return null;
+        }).filter(Boolean);
+      }
+
+      const reportId = `rep_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
+      const attachmentsJson = JSON.stringify(sanitizedAttachments);
+      const metadataJson = typeof metadata === "object" ? JSON.stringify(metadata) : String(metadata || "{}");
+      const devRecipientEmail = "gelgaev.dev@mail.ru";
+      const senderContact = String(contact || (authUser ? authUser.email : "")).slice(0, 150) || "Анонимный пользователь";
+
+      await db.$executeRawUnsafe(
+        `INSERT INTO "Report" ("id", "type", "title", "description", "attachments", "contact", "userId", "shopId", "metadata", "status", "developerEmail", "createdAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)`,
+        reportId,
+        String(type || "BUG").slice(0, 30),
+        String(title || "").slice(0, 150),
+        trimmedDescription,
+        attachmentsJson,
+        senderContact,
+        authUser ? authUser.id : null,
+        shopId ? String(shopId) : null,
+        metadataJson,
+        "NEW",
+        devRecipientEmail
+      );
+
+      console.log(`[Report -> Developer (${devRecipientEmail})] New ${type} registered: ID=${reportId}, Contact=${senderContact}`);
+
+      // Try sending Email to Developer (gelgaev.dev@mail.ru) via Nodemailer if SMTP is available
+      try {
+        const smtpHost = process.env.SMTP_HOST;
+        const smtpPort = Number(process.env.SMTP_PORT) || 587;
+        const smtpUser = process.env.SMTP_USER;
+        const smtpPass = process.env.SMTP_PASS;
+
+        if (smtpHost && smtpUser && smtpPass) {
+          const transporter = nodemailer.createTransport({
+            host: smtpHost,
+            port: smtpPort,
+            secure: smtpPort === 465,
+            auth: { user: smtpUser, pass: smtpPass }
+          });
+
+          const typeLabel = type === "BUG" ? "🐞 БАГ / ОШИБКА" : type === "FEATURE" ? "💡 ИДЕЯ / ПРЕДЛОЖЕНИЕ" : "❓ ВОПРОС / ДРУГОЕ";
+          const subject = `[TMA Dev Reports] ${typeLabel}: ${title || trimmedDescription.slice(0, 40)}`;
+
+          await transporter.sendMail({
+            from: `"${process.env.SMTP_FROM_NAME || "Mini App Studio Reports"}" <${smtpUser}>`,
+            to: devRecipientEmail,
+            subject,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #121316; color: #f4f4f5; border-radius: 12px; border: 1px solid #27272a;">
+                <h2 style="color: #ffffff; border-bottom: 1px solid #27272a; padding-bottom: 12px; margin-top: 0;">
+                  ${typeLabel}
+                </h2>
+                <p><strong>ID обращения:</strong> <code>${reportId}</code></p>
+                <p><strong>Тема:</strong> ${title || "Без темы"}</p>
+                <p><strong>Контакт отправителя:</strong> ${senderContact}</p>
+                <p><strong>Заведение:</strong> ${shopId || "Не указано"}</p>
+                <div style="background-color: #18181b; padding: 16px; border-radius: 8px; border: 1px solid #3f3f46; margin: 16px 0;">
+                  <strong style="display: block; margin-bottom: 8px; color: #a1a1aa;">Описание проблемы:</strong>
+                  <div style="white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${trimmedDescription.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+                </div>
+                ${sanitizedAttachments.length > 0 ? `<p><strong>Прикреплено файлов:</strong> ${sanitizedAttachments.length} шт.</p>` : ""}
+                <hr style="border: none; border-top: 1px solid #27272a; margin: 20px 0;" />
+                <p style="font-size: 12px; color: #71717a; margin: 0;">
+                  Отправлено в панель разработчика gelgaev.dev@mail.ru • Mini App Studio
+                </p>
+              </div>
+            `
+          }).catch((mailErr) => {
+            console.warn("[Report Email] Could not send email via SMTP, stored in DB successfully:", mailErr.message);
+          });
+        }
+      } catch (mailErr) {
+        console.warn("[Report Email Transport warning]:", mailErr);
+      }
+
+      // Broadcast realtime event to Developer Reports Page
+      broadcastEvent({
+        type: "NEW_REPORT",
+        payload: {
+          id: reportId,
+          type,
+          title,
+          description: trimmedDescription,
+          contact: senderContact,
+          shopId,
+          attachments: attachmentsJson,
+          metadata: metadataJson,
+          developerEmail: devRecipientEmail,
+          status: "NEW",
+          developerNotes: null,
+          createdAt: new Date().toISOString()
+        }
+      });
+
+      res.status(201).json({
+        success: true,
+        report: {
+          id: reportId,
+          type,
+          title,
+          status: "NEW",
+          developerEmail: devRecipientEmail,
+          createdAt: new Date().toISOString()
+        }
+      });
+    } catch (error: any) {
+      console.error("Ошибка при создании репорта:", error);
+      res.status(500).json({ error: error.message || "Не удалось сохранить репорт" });
+    }
+  });
+
+  app.get("/api/reports", async (req, res) => {
+    try {
+      const db = getPrismaClient() as any;
+      if (!db) {
+        return res.status(500).json({ error: "Database not connected" });
+      }
+      await ensureReportTable(db);
+
+      const authUser = getAuthUser(req);
+      const isDeveloper = authUser?.email?.toLowerCase() === "gelgaev.dev@mail.ru" || req.query.dev === "true";
+
+      const typeFilter = req.query.type ? String(req.query.type) : null;
+      const statusFilter = req.query.status ? String(req.query.status) : null;
+      const search = req.query.search ? String(req.query.search).toLowerCase() : null;
+
+      let reports = await db.$queryRawUnsafe(
+        `SELECT * FROM "Report" ORDER BY "createdAt" DESC LIMIT 200`
+      );
+
+      let list = Array.isArray(reports) ? reports : [];
+
+      if (typeFilter && typeFilter !== "ALL") {
+        list = list.filter((r: any) => r.type === typeFilter);
+      }
+      if (statusFilter && statusFilter !== "ALL") {
+        list = list.filter((r: any) => r.status === statusFilter);
+      }
+      if (search) {
+        list = list.filter((r: any) => 
+          (r.title && r.title.toLowerCase().includes(search)) ||
+          (r.description && r.description.toLowerCase().includes(search)) ||
+          (r.contact && r.contact.toLowerCase().includes(search)) ||
+          (r.id && r.id.toLowerCase().includes(search))
+        );
+      }
+
+      res.json({ reports: list, isDeveloper });
+    } catch (error: any) {
+      console.error("Ошибка получения репортов:", error);
+      res.status(500).json({ error: error.message || "Ошибка при получении репортов" });
+    }
+  });
+
+  app.patch("/api/reports/:id", async (req, res) => {
+    try {
+      const db = getPrismaClient() as any;
+      if (!db) {
+        return res.status(500).json({ error: "Database not connected" });
+      }
+      await ensureReportTable(db);
+
+      const reportId = req.params.id;
+      const { status, developerNotes } = req.body;
+
+      let updateFields: string[] = [];
+      let params: any[] = [reportId];
+      let paramIdx = 2;
+
+      if (status) {
+        updateFields.push(`"status" = $${paramIdx++}`);
+        params.push(String(status));
+        if (status === "RESOLVED" || status === "CLOSED") {
+          updateFields.push(`"resolvedAt" = CURRENT_TIMESTAMP`);
+        }
+      }
+
+      if (developerNotes !== undefined) {
+        updateFields.push(`"developerNotes" = $${paramIdx++}`);
+        params.push(String(developerNotes));
+      }
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({ error: "Нет полей для обновления" });
+      }
+
+      await db.$executeRawUnsafe(
+        `UPDATE "Report" SET ${updateFields.join(", ")} WHERE "id" = $1`,
+        ...params
+      );
+
+      broadcastEvent({
+        type: "REPORT_UPDATED",
+        payload: { id: reportId, status, developerNotes }
+      });
+
+      res.json({ success: true, id: reportId, status, developerNotes });
+    } catch (error: any) {
+      console.error("Ошибка обновления репорта:", error);
+      res.status(500).json({ error: error.message || "Ошибка обновления репорта" });
+    }
+  });
+
+  app.delete("/api/reports/:id", async (req, res) => {
+    try {
+      const db = getPrismaClient() as any;
+      if (!db) {
+        return res.status(500).json({ error: "Database not connected" });
+      }
+      await ensureReportTable(db);
+
+      const reportId = req.params.id;
+      await db.$executeRawUnsafe(`DELETE FROM "Report" WHERE "id" = $1`, reportId);
+
+      broadcastEvent({
+        type: "REPORT_DELETED",
+        payload: { id: reportId }
+      });
+
+      res.json({ success: true, id: reportId });
+    } catch (error: any) {
+      console.error("Ошибка удаления репорта:", error);
+      res.status(500).json({ error: error.message || "Ошибка удаления репорта" });
+    }
+  });
+
+  app.post("/api/reports/batch-status", async (req, res) => {
+    try {
+      const db = getPrismaClient() as any;
+      if (!db) {
+        return res.status(500).json({ error: "Database not connected" });
+      }
+      await ensureReportTable(db);
+
+      const { ids, status } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0 || !status) {
+        return res.status(400).json({ error: "Некорректные параметры" });
+      }
+
+      for (const id of ids) {
+        await db.$executeRawUnsafe(
+          `UPDATE "Report" SET "status" = $1 ${status === 'RESOLVED' || status === 'CLOSED' ? ', "resolvedAt" = CURRENT_TIMESTAMP' : ''} WHERE "id" = $2`,
+          String(status),
+          String(id)
+        );
+        broadcastEvent({
+          type: "REPORT_UPDATED",
+          payload: { id, status }
+        });
+      }
+
+      res.json({ success: true, count: ids.length, status });
+    } catch (error: any) {
+      console.error("Ошибка массового обновления статусов:", error);
+      res.status(500).json({ error: error.message || "Ошибка обновления" });
+    }
+  });
+
+  app.post("/api/reports/batch-delete", async (req, res) => {
+    try {
+      const db = getPrismaClient() as any;
+      if (!db) {
+        return res.status(500).json({ error: "Database not connected" });
+      }
+      await ensureReportTable(db);
+
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "Некорректные параметры" });
+      }
+
+      for (const id of ids) {
+        await db.$executeRawUnsafe(`DELETE FROM "Report" WHERE "id" = $1`, String(id));
+        broadcastEvent({
+          type: "REPORT_DELETED",
+          payload: { id }
+        });
+      }
+
+      res.json({ success: true, count: ids.length });
+    } catch (error: any) {
+      console.error("Ошибка массового удаления:", error);
+      res.status(500).json({ error: error.message || "Ошибка удаления" });
     }
   });
 

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Store, Truck, Clock, Scale, Heart, Plus } from "lucide-react";
 import { Service } from "../../types";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface ServiceDetailModalProps {
   service: Service | null;
@@ -20,6 +21,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
   onAddToCart,
   onShowToast,
 }) => {
+  useScrollLock(Boolean(service));
   const [detailItemNote, setDetailItemNote] = useState("");
 
   if (!service) return null;
@@ -118,14 +120,14 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
 
             {/* Fulfillment constraint info */}
             {!hasCourier && (
-              <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center gap-2.5 text-xs text-amber-900 dark:text-amber-200 font-mono font-medium">
-                <Store size={16} className="shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="p-3 bg-app-card border border-app-border rounded-xl flex items-center gap-2.5 text-xs text-app-secondary font-mono font-medium">
+                <Store size={16} className="shrink-0 text-app-muted" />
                 <span>Только самовывоз или оказание услуги в заведении (доставка недоступна).</span>
               </div>
             )}
             {!hasPickup && (
-              <div className="p-3 bg-sky-500/15 border border-sky-500/30 rounded-xl flex items-center gap-2.5 text-xs text-sky-900 dark:text-sky-200 font-mono font-medium">
-                <Truck size={16} className="shrink-0 text-sky-600 dark:text-sky-400" />
+              <div className="p-3 bg-app-card border border-app-border rounded-xl flex items-center gap-2.5 text-xs text-app-secondary font-mono font-medium">
+                <Truck size={16} className="shrink-0 text-app-muted" />
                 <span>Только курьерская доставка (самовывоз недоступен).</span>
               </div>
             )}
@@ -134,8 +136,8 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
             {(service.prepTime || service.weight || service.tags) && (
               <div className="grid grid-cols-2 gap-2 pt-1 font-sans">
                 {service.prepTime && (
-                  <div className="p-2.5 bg-app-card rounded-xl flex items-center gap-2">
-                    <Clock size={16} className="text-amber-500 shrink-0" />
+                  <div className="p-2.5 bg-app-card rounded-xl flex items-center gap-2 border border-app-border">
+                    <Clock size={16} className="text-app-muted shrink-0" />
                     <div>
                       <span className="block text-[9px] font-mono text-app-muted uppercase">Время</span>
                       <span className="text-xs font-semibold text-app-primary">{service.prepTime}</span>
@@ -143,8 +145,8 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                   </div>
                 )}
                 {service.weight && (
-                  <div className="p-2.5 bg-app-card rounded-xl flex items-center gap-2">
-                    <Scale size={16} className="text-sky-500 shrink-0" />
+                  <div className="p-2.5 bg-app-card rounded-xl flex items-center gap-2 border border-app-border">
+                    <Scale size={16} className="text-app-muted shrink-0" />
                     <div>
                       <span className="block text-[9px] font-mono text-app-muted uppercase">Вес / Объём</span>
                       <span className="text-xs font-semibold text-app-primary">{service.weight}</span>
@@ -152,11 +154,11 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                   </div>
                 )}
                 {service.tags && (
-                  <div className="col-span-2 p-2.5 bg-app-card rounded-xl space-y-1">
+                  <div className="col-span-2 p-2.5 bg-app-card rounded-xl space-y-1 border border-app-border">
                     <span className="block text-[9px] font-mono text-app-muted uppercase">Теги</span>
                     <div className="flex flex-wrap gap-1.5">
                       {service.tags.split(",").map(t => t.trim()).filter(Boolean).map(tag => (
-                        <span key={tag} className="text-xs font-mono text-app-accent">
+                        <span key={tag} className="text-xs font-mono text-app-muted hover:text-app-primary transition-colors">
                           #{tag}
                         </span>
                       ))}

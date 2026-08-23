@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Star, X, MessageSquare, Send, Edit2, Trash2, Image as ImageIcon, ZoomIn } from "lucide-react";
 import { Review, Shop } from "../../types";
 import { ReviewSkeletonList, SpinnerLoader } from "../Skeleton";
 import ImageUploader from "../ImageUploader";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface ReviewsModalProps {
   shop: Shop | null;
@@ -58,16 +59,8 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
 }) => {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
-  // Lock background scroll when modal sidebar is open
-  useEffect(() => {
-    if (isOpen) {
-      const prevOverflow = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = prevOverflow;
-      };
-    }
-  }, [isOpen]);
+  // Lock background scroll when modal or lightbox is open
+  useScrollLock(isOpen || Boolean(lightboxImage));
 
   if (!isOpen) return null;
 
@@ -90,8 +83,8 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
         {/* Header */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-app-border bg-app-modal-header shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
-              <Star size={18} className="fill-amber-400 text-amber-400" />
+            <div className="p-2 bg-app-card border border-app-border text-app-primary rounded-xl">
+              <Star size={18} className="text-app-primary" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-app-primary flex items-center gap-2">
@@ -131,10 +124,10 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                         size={13}
                         className={
                           star <= Math.floor(avg)
-                            ? "fill-amber-400 text-amber-400"
+                            ? "fill-app-primary text-app-primary"
                             : star - 0.5 <= avg
-                            ? "fill-amber-400/50 text-amber-400"
-                            : "text-zinc-600 fill-zinc-800"
+                            ? "fill-app-primary/40 text-app-primary"
+                            : "text-app-muted/30 fill-transparent"
                         }
                       />
                     );
@@ -177,7 +170,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                   <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-app-primary flex items-center gap-1.5">
                     {editingReviewId ? (
                       <>
-                        <Edit2 size={13} className="text-amber-400" />
+                        <Edit2 size={13} className="text-app-primary" />
                         <span>Редактировать отзыв</span>
                       </>
                     ) : (
@@ -190,12 +183,12 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                 </div>
 
                 {reviewSubmitError && (
-                  <p className="text-xs text-rose-800 dark:text-rose-300 font-mono font-medium bg-rose-500/15 p-2.5 rounded-xl border border-rose-500/30">
+                  <p className="text-xs text-rose-500 font-mono font-medium bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20">
                     {reviewSubmitError}
                   </p>
                 )}
                 {reviewSubmitSuccess && (
-                  <p className="text-xs text-emerald-800 dark:text-emerald-300 font-mono font-medium bg-emerald-500/15 p-2.5 rounded-xl border border-emerald-500/30">
+                  <p className="text-xs text-app-primary font-mono font-medium bg-app-surface p-2.5 rounded-xl border border-app-border">
                     {editingReviewId ? "Отзыв успешно обновлен!" : "Спасибо за ваш отзыв! Он опубликован."}
                   </p>
                 )}
@@ -210,7 +203,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                     value={newReview.name}
                     onChange={(e) => setNewReview((p) => ({ ...p, name: e.target.value }))}
                     placeholder="Ваше имя (до 50 символов)..."
-                    className="w-full bg-app-surface border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent font-sans"
+                    className="w-full bg-app-surface border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border font-sans"
                   />
                 </div>
 
@@ -233,13 +226,13 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                           >
                             <Star
                               size={18}
-                              className={active ? "fill-amber-400 text-amber-400" : "text-zinc-600 fill-zinc-800"}
+                              className={active ? "fill-app-primary text-app-primary" : "text-app-muted/30 fill-transparent"}
                             />
                           </button>
                         );
                       })}
                     </div>
-                    <span className="text-[11px] font-mono text-amber-400 font-semibold">
+                    <span className="text-[11px] font-mono text-app-primary font-semibold">
                       {(hoverRating !== null ? hoverRating : newReview.rating)} / 5 ★
                     </span>
                   </div>
@@ -344,11 +337,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                   return (
                     <div
                       key={rev.id}
-                      className={`p-4 border rounded-2xl space-y-2.5 transition-all ${
-                        isMyReview
-                          ? "bg-app-surface border-emerald-500/40 shadow-sm"
-                          : "bg-app-surface border-app-border"
-                      }`}
+                      className="p-4 border border-app-border rounded-2xl space-y-2.5 transition-all bg-app-surface shadow-xs"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -361,7 +350,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                                 {rev.customerName || "Клиент"}
                               </span>
                               {isMyReview && (
-                                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-app-card text-app-primary border border-app-border font-medium">
                                   Мой отзыв
                                 </span>
                               )}
@@ -375,7 +364,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                                 })}
                               </span>
                               {rev.isEdited && (
-                                <span className="text-[9px] font-mono italic text-amber-400/90 bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/20">
+                                <span className="text-[9px] font-mono italic text-app-muted bg-app-card px-1 py-0.2 rounded border border-app-border">
                                   изменен
                                 </span>
                               )}
@@ -383,8 +372,8 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1 font-mono text-xs text-amber-400 font-semibold">
-                          <Star size={12} className="fill-amber-400 text-amber-400" />
+                        <div className="flex items-center gap-1 font-mono text-xs text-app-primary font-semibold">
+                          <Star size={12} className="fill-app-primary text-app-primary" />
                           <span>{rev.rating}.0</span>
                         </div>
                       </div>
@@ -416,8 +405,8 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
 
                       {/* REPLY */}
                       {rev.reply && (
-                        <div className="mt-2 pt-1 pl-3 border-l-2 border-emerald-500/70 space-y-0.5">
-                          <span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
+                        <div className="mt-2 pt-1 pl-3 border-l-2 border-app-border space-y-0.5">
+                          <span className="text-[10px] font-mono font-bold text-app-primary uppercase tracking-wider block">
                             Ответ заведения
                           </span>
                           <p className="text-xs text-app-secondary leading-relaxed font-sans">{rev.reply}</p>
@@ -431,7 +420,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                             <button
                               type="button"
                               onClick={() => onStartEditReview(rev)}
-                              className="px-2.5 py-1 rounded-lg bg-app-card border border-app-border text-app-primary hover:border-amber-500/50 hover:text-amber-500 transition-colors flex items-center gap-1 cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-app-card border border-app-border text-app-primary hover:bg-app-hover hover:border-app-border transition-all flex items-center gap-1 cursor-pointer"
                             >
                               <Edit2 size={11} />
                               <span>Редактировать</span>
@@ -441,7 +430,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                             <button
                               type="button"
                               onClick={() => onDeleteReview(rev.id)}
-                              className="px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-800 dark:text-rose-300 hover:bg-rose-500/25 transition-colors flex items-center gap-1 cursor-pointer font-medium"
+                              className="px-2.5 py-1 rounded-lg bg-app-card border border-app-border text-app-muted hover:text-app-primary hover:bg-app-hover transition-all flex items-center gap-1 cursor-pointer"
                             >
                               <Trash2 size={11} />
                               <span>Удалить</span>

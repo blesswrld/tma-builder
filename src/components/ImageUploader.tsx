@@ -100,7 +100,7 @@ export default function ImageUploader({
             <button
               type="button"
               onClick={() => onChange("")}
-              className="text-[10px] text-rose-400 font-mono hover:underline flex items-center gap-0.5 cursor-pointer"
+              className="text-[10px] text-app-muted hover:text-app-primary font-mono flex items-center gap-0.5 cursor-pointer transition-colors"
             >
               <X size={12} /> Очистить
             </button>
@@ -143,7 +143,7 @@ export default function ImageUploader({
       {tab === "file" && (
         <div
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-app-border hover:border-emerald-500/50 bg-app-card/50 hover:bg-app-card rounded-2xl p-4 text-center cursor-pointer transition-all space-y-1.5"
+          className="border-2 border-dashed border-app-border hover:border-app-accent/40 bg-app-card/50 hover:bg-app-card rounded-2xl p-4 text-center cursor-pointer transition-all space-y-1.5"
         >
           <input
             type="file"
@@ -152,7 +152,7 @@ export default function ImageUploader({
             accept="image/*"
             className="hidden"
           />
-          <div className="w-8 h-8 bg-app-card text-emerald-500 border border-app-border rounded-full flex items-center justify-center mx-auto shadow-sm">
+          <div className="w-8 h-8 bg-app-card text-app-primary border border-app-border rounded-full flex items-center justify-center mx-auto shadow-sm">
             {isCompressing ? <Sparkles size={16} className="animate-spin" /> : <Upload size={16} />}
           </div>
           <p className="text-xs text-app-primary font-medium">
@@ -171,7 +171,7 @@ export default function ImageUploader({
               onClick={() => onChange(pr.url)}
               className={`p-1.5 rounded-xl border text-[10px] font-mono transition-all flex items-center gap-1.5 text-left cursor-pointer ${
                 value === pr.url
-                  ? "bg-app-accent text-app-accent-fg border-emerald-400 font-bold shadow-sm"
+                  ? "bg-app-accent text-app-accent-fg border-app-border font-bold shadow-sm"
                   : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:border-app-border"
               }`}
             >
@@ -228,7 +228,7 @@ export default function ImageUploader({
                 setCropperImage(value);
                 setCropperOpen(true);
               }}
-              className="p-1.5 bg-black/85 hover:bg-emerald-600 text-white rounded-full transition-colors cursor-pointer shadow-lg flex items-center gap-1 text-[10px] font-mono px-2.5"
+              className="p-1.5 bg-black/75 hover:bg-black/90 text-white rounded-full transition-all cursor-pointer shadow-lg flex items-center gap-1 text-[10px] font-mono px-2.5 backdrop-blur-sm"
               title="Кадрировать / Обрезать фото"
             >
               <Crop size={12} className="text-white shrink-0" />
@@ -237,7 +237,7 @@ export default function ImageUploader({
             <button
               type="button"
               onClick={() => onChange("")}
-              className="p-1.5 bg-black/85 text-white rounded-full hover:bg-rose-600 transition-colors cursor-pointer shadow-lg"
+              className="p-1.5 bg-black/75 text-white rounded-full hover:bg-black/90 transition-all cursor-pointer shadow-lg backdrop-blur-sm"
               title="Удалить фото"
             >
               <X size={14} className="text-white shrink-0" />

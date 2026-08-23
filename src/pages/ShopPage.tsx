@@ -22,6 +22,7 @@ import { CheckoutModal } from "../components/shop/CheckoutModal";
 import { MyOrdersModal } from "../components/shop/MyOrdersModal";
 import { ReviewsModal } from "../components/shop/ReviewsModal";
 import { ConfirmModal } from "../components/shop/ConfirmModal";
+import ReportModal from "../components/ReportModal";
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   let binary = "";
@@ -56,6 +57,7 @@ export default function ShopPage() {
 
   // Modals & Drawers state
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedServiceDetail, setSelectedServiceDetail] = useState<Service | null>(null);
   const [detailItemNote, setDetailItemNote] = useState<string>("");
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -854,6 +856,7 @@ export default function ShopPage() {
         onOpenInfoModal={() => setShowInfoModal(true)}
         onOpenMyOrders={handleOpenMyOrders}
         onOpenReviews={handleOpenReviews}
+        onOpenReport={() => setIsReportOpen(true)}
       />
 
       {/* Main Container */}
@@ -1034,6 +1037,15 @@ export default function ShopPage() {
         isDangerous={confirmModal.isDangerous}
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Bug Report / Feedback Modal */}
+      <ReportModal
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+        shopId={shop?.id}
+        shopName={shop?.name}
+        sourceContext="shop_storefront"
       />
 
       {/* Toast Notifications System */}

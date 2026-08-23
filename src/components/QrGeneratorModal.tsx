@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import QRCode from "qrcode";
 import { X, Printer, Download, QrCode, Copy, Check } from "lucide-react";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 interface QrGeneratorModalProps {
   isOpen: boolean;
@@ -15,6 +16,8 @@ export default function QrGeneratorModal({
   shopName,
   shopSlug
 }: QrGeneratorModalProps) {
+  useScrollLock(isOpen);
+
   const [mode, setMode] = useState<"single" | "batch">("single");
   const [tableNumber, setTableNumber] = useState("");
   const [batchStart, setBatchStart] = useState("1");

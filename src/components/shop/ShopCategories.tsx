@@ -39,11 +39,11 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
             onClick={() => onSelectCategory("FAVORITES")}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 flex items-center gap-1.5 ${
               selectedCategory === "FAVORITES"
-                ? "bg-rose-500 text-white font-bold shadow-sm"
-                : "bg-app-surface text-app-muted hover:bg-app-hover hover:text-rose-400"
+                ? "bg-app-accent text-app-accent-fg font-bold shadow-sm"
+                : "bg-app-surface text-app-muted hover:bg-app-hover hover:text-app-primary"
             }`}
           >
-            <Heart size={13} className={favoritesCount > 0 ? "fill-current" : ""} />
+            <Heart size={13} className={favoritesCount > 0 ? "fill-current text-app-primary" : "text-app-muted"} />
             <span>Избранное ({favoritesCount})</span>
           </button>
 

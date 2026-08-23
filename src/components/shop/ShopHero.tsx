@@ -40,12 +40,8 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         
         {/* Status Badge in top right corner */}
         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
-          <span className={`px-3 py-1.5 rounded-full text-xs font-mono font-bold flex items-center gap-2 backdrop-blur-md shadow-md border ${
-            shop.isOpen !== false 
-              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" 
-              : "bg-rose-500/20 text-rose-400 border-rose-500/40"
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${shop.isOpen !== false ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" : "bg-rose-400"}`} />
+          <span className="px-3 py-1.5 rounded-full text-xs font-mono font-bold flex items-center gap-2 backdrop-blur-md shadow-md border bg-black/60 text-white border-white/10">
+            <span className={`w-2 h-2 rounded-full ${shop.isOpen !== false ? "bg-white animate-pulse" : "bg-white/40"}`} />
             <span>{shop.isOpen !== false ? "Открыто" : "Закрыто"}</span>
           </span>
         </div>
@@ -69,7 +65,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-app-primary">{shop.name}</h1>
               {shop.workingHours && (
                 <div className="flex items-center gap-1.5 text-xs text-app-muted font-mono mt-1">
-                  <Clock size={13} className="text-amber-500 shrink-0" />
+                  <Clock size={13} className="text-app-muted shrink-0" />
                   <span>{shop.workingHours}</span>
                 </div>
               )}
@@ -81,17 +77,17 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
             <button
               type="button"
               onClick={handleOpenInfo}
-              className="px-3.5 py-2 rounded-xl bg-app-surface border border-app-border hover:border-amber-500/50 hover:text-app-primary text-xs font-mono font-semibold text-app-secondary transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+              className="px-3.5 py-2 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover hover:text-app-primary text-xs font-mono font-semibold text-app-secondary transition-all flex items-center gap-2 cursor-pointer shadow-sm backdrop-blur-sm"
             >
-              <Info size={14} className="text-amber-500 shrink-0" />
+              <Info size={14} className="text-app-muted shrink-0" />
               <span>О заведении</span>
             </button>
             {shop.phone && (
               <a
                 href={`tel:${shop.phone}`}
-                className="px-3.5 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 text-xs font-mono font-semibold transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+                className="px-3.5 py-2 rounded-xl bg-app-surface text-app-primary border border-app-border hover:bg-app-hover text-xs font-mono font-semibold transition-all flex items-center gap-2 cursor-pointer shadow-sm backdrop-blur-sm"
               >
-                <PhoneIcon size={14} />
+                <PhoneIcon size={14} className="text-app-muted" />
                 <span className="hidden xs:inline">Позвонить</span>
               </a>
             )}
@@ -108,29 +104,29 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         {/* Quick Details Chips */}
         <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-mono">
           {shop.address && (
-            <div className="px-3 py-1.5 rounded-xl bg-app-surface text-app-secondary flex items-center gap-2">
-              <MapPin size={13} className="text-rose-400 shrink-0" />
+            <div className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border text-app-secondary flex items-center gap-2">
+              <MapPin size={13} className="text-app-muted shrink-0" />
               <span className="truncate max-w-[220px] sm:max-w-xs">{shop.address}</span>
             </div>
           )}
 
           {shop.cashbackPercent ? (
-            <div className="px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-800 dark:text-amber-300 flex items-center gap-2 font-bold">
-              <Gift size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center gap-2 font-medium">
+              <Gift size={13} className="shrink-0 text-app-muted" />
               <span>Кэшбэк {shop.cashbackPercent}%</span>
             </div>
           ) : null}
 
           {(delivery.courier || delivery.deliveryMinOrder || delivery.deliveryFee) && (
-            <div className="px-3 py-1.5 rounded-xl bg-sky-500/15 text-sky-800 dark:text-sky-300 flex items-center gap-2 font-medium">
-              <Truck size={13} className="shrink-0 text-sky-600 dark:text-sky-400" />
+            <div className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center gap-2 font-medium">
+              <Truck size={13} className="shrink-0 text-app-muted" />
               <span>Доставка</span>
             </div>
           )}
 
           {(delivery.pickup || delivery.pickupAddress) && (
-            <div className="px-3 py-1.5 rounded-xl bg-app-surface text-app-secondary flex items-center gap-2">
-              <Store size={13} className="text-indigo-400 shrink-0" />
+            <div className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border text-app-secondary flex items-center gap-2">
+              <Store size={13} className="text-app-muted shrink-0" />
               <span>Самовывоз</span>
             </div>
           )}
@@ -139,15 +135,15 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         {/* Social Networks Row */}
         {hasSocials && (
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-app-border/40">
-            <span className="text-[10px] font-mono text-app-muted uppercase mr-1">Соцсети и связь:</span>
+            <span className="text-[10px] font-mono text-app-muted uppercase mr-1">Соцсети:</span>
             {socials.telegram && (
               <a
                 href={socials.telegram.startsWith("http") ? socials.telegram : `https://t.me/${socials.telegram.replace("@", "")}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-800 dark:text-sky-300 hover:bg-sky-500/25 text-[11px] font-mono font-medium flex items-center gap-1.5 transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-[11px] font-mono font-medium flex items-center gap-1.5 transition-all backdrop-blur-sm"
               >
-                <Send size={12} />
+                <Send size={12} className="text-app-muted" />
                 <span>Telegram</span>
               </a>
             )}
@@ -156,9 +152,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.instagram.startsWith("http") ? socials.instagram : `https://instagram.com/${socials.instagram}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-pink-500/15 text-pink-800 dark:text-pink-300 hover:bg-pink-500/25 text-[11px] font-mono font-medium flex items-center gap-1.5 transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-[11px] font-mono font-medium flex items-center gap-1.5 transition-all backdrop-blur-sm"
               >
-                <ExternalLink size={12} />
+                <ExternalLink size={12} className="text-app-muted" />
                 <span>Instagram</span>
               </a>
             )}
@@ -167,9 +163,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.whatsapp.startsWith("http") ? socials.whatsapp : `https://wa.me/${socials.whatsapp.replace(/\D/g, "")}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/25 text-[11px] font-mono font-medium flex items-center gap-1.5 transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-[11px] font-mono font-medium flex items-center gap-1.5 transition-all backdrop-blur-sm"
               >
-                <MessageCircle size={12} />
+                <MessageCircle size={12} className="text-app-muted" />
                 <span>WhatsApp</span>
               </a>
             )}
@@ -178,9 +174,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.vk.startsWith("http") ? socials.vk : `https://vk.com/${socials.vk}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-blue-500/15 text-blue-800 dark:text-blue-300 hover:bg-blue-500/25 text-[11px] font-mono font-medium flex items-center gap-1.5 transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-[11px] font-mono font-medium flex items-center gap-1.5 transition-all backdrop-blur-sm"
               >
-                <Globe size={12} />
+                <Globe size={12} className="text-app-muted" />
                 <span>ВКонтакте</span>
               </a>
             )}
@@ -189,9 +185,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.website.startsWith("http") ? socials.website : `https://${socials.website}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-app-surface text-app-primary hover:bg-app-hover text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-[11px] font-mono flex items-center gap-1.5 transition-all backdrop-blur-sm"
               >
-                <Globe size={12} />
+                <Globe size={12} className="text-app-muted" />
                 <span>Сайт</span>
               </a>
             )}

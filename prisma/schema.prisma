@@ -165,3 +165,37 @@ model Review {
   authorToken  String?
   createdAt    DateTime @default(now())
 }
+
+model Report {
+  id          String   @id @default(cuid())
+  type        String   @default("BUG")
+  title       String?
+  description String
+  attachments String?
+  contact     String?
+  userId      String?
+  shopId      String?
+  metadata    String?
+  status      String   @default("NEW")
+  createdAt   DateTime @default(now())
+}
+
+model ShopMember {
+  id        String   @id @default(cuid())
+  shopId    String
+  userId    String
+  role      String   @default("STAFF")
+  createdAt DateTime @default(now())
+}
+
+model ShopInvite {
+  id          String    @id @default(cuid())
+  shopId      String
+  code        String    @unique
+  role        String    @default("STAFF")
+  createdById String
+  maxUses     Int       @default(10)
+  usedCount   Int       @default(0)
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+}

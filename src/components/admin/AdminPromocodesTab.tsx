@@ -80,7 +80,8 @@ export function AdminPromocodesTab({
               </div>
               <button
                 onClick={() => handleDeletePromocode(promo.id)}
-                className="p-1.5 text-app-muted hover:text-rose-400 cursor-pointer"
+                className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-lg transition-all cursor-pointer backdrop-blur-sm"
+                title="Удалить промокод"
               >
                 <Trash2 size={14} />
               </button>

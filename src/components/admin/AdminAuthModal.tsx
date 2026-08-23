@@ -10,6 +10,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { SpinnerLoader } from "../Skeleton";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface AdminAuthModalProps {
   isOpen: boolean;
@@ -64,6 +65,8 @@ export function AdminAuthModal({
   handleSendOtpCode,
   handleVerifyOtpCode,
 }: AdminAuthModalProps) {
+  useScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   return (
@@ -71,7 +74,7 @@ export function AdminAuthModal({
       <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4 shadow-2xl">
         <div className="flex justify-between items-center border-b border-app-border pb-3">
           <div className="flex items-center gap-2">
-            <ShieldCheck size={18} className="text-emerald-400" />
+            <ShieldCheck size={18} className="text-app-muted" />
             <h3 className="text-sm font-semibold tracking-tight uppercase font-mono">
               {authMode === "otp" && "Вход по коду из E-mail"}
               {authMode === "login" && "Вход по паролю"}
@@ -101,10 +104,10 @@ export function AdminAuthModal({
               setAuthError(null);
               setAuthSuccessMsg(null);
             }}
-            className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+            className={`py-1.5 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 border cursor-pointer ${
               authMode === "otp"
-                ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30"
-                : "text-app-muted hover:text-app-primary"
+                ? "bg-app-accent text-app-accent-fg border-app-border font-bold shadow-sm"
+                : "border-transparent text-app-muted hover:text-app-primary"
             }`}
           >
             <Mail size={12} />
@@ -145,15 +148,15 @@ export function AdminAuthModal({
         </div>
 
         {authError && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 text-rose-400 text-xs">
-            <AlertCircle size={15} className="shrink-0" />
+          <div className="p-3 bg-app-card border border-app-border rounded-xl flex items-center gap-2 text-app-primary text-xs font-mono">
+            <AlertCircle size={15} className="shrink-0 text-app-muted" />
             <span>{authError}</span>
           </div>
         )}
 
         {authSuccessMsg && (
-          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-emerald-400 text-xs">
-            <CheckCircle2 size={15} className="shrink-0" />
+          <div className="p-3 bg-app-card border border-app-border rounded-xl flex items-center gap-2 text-app-primary text-xs font-mono">
+            <CheckCircle2 size={15} className="shrink-0 text-app-primary" />
             <span>{authSuccessMsg}</span>
           </div>
         )}
@@ -173,33 +176,33 @@ export function AdminAuthModal({
               )}
             </p>
             {authDevCode ? (
-              <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-200 text-xs space-y-2">
+              <div className="p-3 bg-app-card border border-app-border rounded-xl text-app-primary text-xs space-y-2 font-mono">
                 <div className="flex items-start gap-2">
-                  <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <AlertCircle size={16} className="text-app-muted shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-amber-950 dark:text-amber-100">
-                      SMTP-сервер не настроен в <code>.env</code>
+                    <p className="font-semibold text-app-primary">
+                      Тестовый режим отправки кода
                     </p>
-                    <p className="text-[11px] text-amber-900/90 dark:text-amber-300/80 mt-0.5">
-                      В тестовом контейнере нет почтового сервера, поэтому код сгенерирован локально:
+                    <p className="text-[11px] text-app-muted mt-0.5">
+                      Код сгенерирован для мгновенной авторизации:
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between bg-black/40 p-2 rounded-lg border border-amber-500/30 font-mono">
-                  <span className="text-sm font-bold text-white tracking-widest">{authDevCode}</span>
+                <div className="flex items-center justify-between bg-app-surface p-2 rounded-lg border border-app-border font-mono">
+                  <span className="text-sm font-bold text-app-primary tracking-widest">{authDevCode}</span>
                   <button
                     type="button"
                     onClick={() => setAuthOtpCode(authDevCode)}
-                    className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-zinc-950 text-[10px] font-bold rounded transition-colors cursor-pointer"
+                    className="px-2.5 py-1 bg-app-card hover:bg-app-hover border border-app-border text-app-primary text-[10px] font-bold rounded transition-colors cursor-pointer"
                   >
                     Вставить код
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="p-2.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-900 dark:text-emerald-200 text-[11px] flex items-center gap-2">
-                <CheckCircle2 size={15} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <span>Письмо успешно отправлено по SMTP на {authEmail}. Проверьте папку «Входящие» или «Спам».</span>
+              <div className="p-2.5 bg-app-card border border-app-border rounded-xl text-app-primary text-[11px] flex items-center gap-2 font-mono">
+                <CheckCircle2 size={15} className="shrink-0 text-app-primary" />
+                <span>Письмо успешно отправлено на {authEmail}. Проверьте папку «Входящие» или «Спам».</span>
               </div>
             )}
             <div>
@@ -211,13 +214,13 @@ export function AdminAuthModal({
                 value={authOtpCode}
                 onChange={e => setAuthOtpCode(e.target.value)}
                 placeholder="123456"
-                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-3 text-center text-lg font-mono font-bold tracking-[8px] text-emerald-400 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-3 text-center text-lg font-mono font-bold tracking-[8px] text-app-primary focus:outline-none focus:border-app-accent"
               />
             </div>
             <button
               type="submit"
               disabled={isSubmittingAuth || authOtpCode.length !== 6}
-              className="w-full py-2.5 bg-emerald-500 text-black font-mono font-bold text-xs rounded-xl hover:bg-emerald-400 transition-colors uppercase flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-sm"
             >
               {isSubmittingAuth ? <SpinnerLoader size={14} /> : <ShieldCheck size={14} />}
               {isSubmittingAuth
@@ -260,13 +263,13 @@ export function AdminAuthModal({
                   value={authEmail}
                   onChange={e => setAuthEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-emerald-500/50"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
                 />
                 <button
                   type="button"
                   disabled={isSubmittingAuth}
                   onClick={() => handleSendOtpCode("LOGIN")}
-                  className="w-full py-2.5 bg-emerald-500 text-black font-mono font-bold text-xs rounded-xl hover:bg-emerald-400 transition-colors uppercase flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                 >
                   {isSubmittingAuth ? <SpinnerLoader size={14} /> : <Mail size={14} />}
                   {isSubmittingAuth ? "Отправка кода..." : "Получить код на E-mail"}

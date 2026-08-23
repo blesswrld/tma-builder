@@ -18,6 +18,7 @@ import {
   Eye,
   EyeOff
 } from "lucide-react";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 interface ImageCropperModalProps {
   isOpen: boolean;
@@ -50,6 +51,8 @@ export default function ImageCropperModal({
   onCropComplete,
   defaultAspectRatio = "free"
 }: ImageCropperModalProps) {
+  useScrollLock(isOpen);
+
   const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>(defaultAspectRatio);
   const [zoom, setZoom] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
@@ -303,14 +306,14 @@ export default function ImageCropperModal({
         {/* Modal Header */}
         <div className="p-4 border-b border-app-border flex items-center justify-between bg-app-surface">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center border border-emerald-500/20 shrink-0">
-              <Crop size={19} />
+            <div className="w-9 h-9 rounded-xl bg-app-card text-app-primary flex items-center justify-center border border-app-border shrink-0 shadow-sm">
+              <Crop size={19} className="text-app-muted" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-app-primary">Редактор и кадрирование фото</h3>
                 {naturalSize.width > 0 && (
-                  <span className="text-[10px] font-mono bg-app-hover text-app-muted px-2 py-0.5 rounded-md border border-app-border">
+                  <span className="text-[10px] font-mono bg-app-card text-app-muted px-2 py-0.5 rounded-md border border-app-border">
                     {naturalSize.width} × {naturalSize.height} px
                   </span>
                 )}
@@ -344,8 +347,8 @@ export default function ImageCropperModal({
               }}
               className={`px-3 py-1.5 rounded-xl text-xs font-mono shrink-0 transition-all cursor-pointer border flex items-center gap-1.5 ${
                 aspectRatio === ar.value
-                  ? "bg-emerald-500 text-black font-bold border-emerald-400 shadow-md shadow-emerald-500/20"
-                  : "bg-app-card text-app-secondary border-app-border hover:border-emerald-500/40 hover:bg-app-hover hover:text-app-primary"
+                  ? "bg-app-accent text-app-accent-fg font-bold border-app-border shadow-sm"
+                  : "bg-app-card text-app-secondary border-app-border hover:bg-app-hover hover:text-app-primary"
               }`}
             >
               {ar.icon}
@@ -368,11 +371,11 @@ export default function ImageCropperModal({
               width: `${frameW}px`,
               height: `${frameH}px`
             }}
-            className="relative overflow-hidden cursor-grab active:cursor-grabbing shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] rounded-xl border-2 border-emerald-400 z-10"
+            className="relative overflow-hidden cursor-grab active:cursor-grabbing shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] rounded-xl border-2 border-white/80 z-10"
           >
             {/* Rule of Thirds Grid Lines (toggleable) */}
             {showGrid && (
-              <div className="absolute inset-0 pointer-events-none z-20 grid grid-cols-3 grid-rows-3 border border-emerald-400/30">
+              <div className="absolute inset-0 pointer-events-none z-20 grid grid-cols-3 grid-rows-3 border border-white/20">
                 <div className="border-r border-b border-emerald-400/20"></div>
                 <div className="border-r border-b border-emerald-400/20"></div>
                 <div className="border-b border-emerald-400/20"></div>
@@ -386,7 +389,7 @@ export default function ImageCropperModal({
             )}
 
             {/* Drag Badge */}
-            <div className="absolute top-2.5 left-2.5 z-30 bg-black/80 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-mono text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5 pointer-events-none shadow-md">
+            <div className="absolute top-2.5 left-2.5 z-30 bg-black/75 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-mono text-white/90 border border-white/20 flex items-center gap-1.5 pointer-events-none shadow-md">
               <Move size={12} /> Зажмите и тяните
             </div>
 
@@ -434,7 +437,7 @@ export default function ImageCropperModal({
               step="0.05"
               value={zoom}
               onChange={(e) => setZoom(parseFloat(e.target.value))}
-              className="flex-1 accent-emerald-500 cursor-pointer h-1.5 bg-app-card rounded-lg"
+              className="flex-1 cursor-pointer h-1.5 bg-app-card rounded-lg accent-app-accent"
             />
             <button
               type="button"
@@ -444,7 +447,7 @@ export default function ImageCropperModal({
             >
               <ZoomIn size={14} />
             </button>
-            <span className="text-xs font-mono text-emerald-500 font-bold w-12 text-right">
+            <span className="text-xs font-mono text-app-primary font-bold w-12 text-right">
               {Math.round(zoom * 100)}%
             </span>
           </div>
@@ -473,7 +476,7 @@ export default function ImageCropperModal({
                 onClick={() => setFlipX(!flipX)}
                 className={`px-2.5 py-1.5 text-xs font-mono rounded-xl border flex items-center gap-1 cursor-pointer transition-all ${
                   flipX
-                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                    ? "bg-app-accent text-app-accent-fg border-app-border font-semibold shadow-sm"
                     : "bg-app-card hover:bg-app-hover text-app-primary border-app-border"
                 }`}
                 title="Отразить по горизонтали"
@@ -485,7 +488,7 @@ export default function ImageCropperModal({
                 onClick={() => setShowGrid(!showGrid)}
                 className={`px-2.5 py-1.5 text-xs font-mono rounded-xl border flex items-center gap-1 cursor-pointer transition-all ${
                   showGrid
-                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                    ? "bg-app-accent text-app-accent-fg border-app-border font-semibold shadow-sm"
                     : "bg-app-card hover:bg-app-hover text-app-muted border-app-border"
                 }`}
                 title="Показать / скрыть сетку"
@@ -497,7 +500,7 @@ export default function ImageCropperModal({
               <button
                 type="button"
                 onClick={handleReset}
-                className="px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-800 dark:text-rose-300 text-xs font-mono font-medium rounded-xl border border-rose-500/30 flex items-center gap-1.5 cursor-pointer transition-all"
+                className="px-3 py-1.5 bg-app-card hover:bg-app-hover text-app-muted hover:text-app-primary text-xs font-mono font-medium rounded-xl border border-app-border flex items-center gap-1.5 cursor-pointer transition-all backdrop-blur-sm"
                 title="Сбросить все изменения к исходному фото"
               >
                 <RefreshCw size={13} /> Сброс
@@ -508,7 +511,7 @@ export default function ImageCropperModal({
             <button
               type="button"
               onClick={handleSaveCrop}
-              className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl shadow-md shadow-emerald-500/20 flex items-center gap-2 cursor-pointer transition-all shrink-0"
+              className="px-5 py-2 bg-app-accent hover:opacity-90 text-app-accent-fg font-bold text-xs rounded-xl shadow-sm flex items-center gap-2 cursor-pointer transition-all shrink-0 font-mono uppercase tracking-wider"
             >
               <Check size={16} /> Сохранить фото
             </button>

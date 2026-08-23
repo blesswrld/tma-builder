@@ -2,6 +2,7 @@ import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
 import { Order } from "../../types";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface MyOrdersModalProps {
   isOpen: boolean;
@@ -18,6 +19,8 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
   myOrdersLoading,
   onReorder,
 }) => {
+  useScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   return (

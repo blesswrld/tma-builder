@@ -173,6 +173,24 @@ export interface Broadcast {
   sentAt: string;
 }
 
+export interface BugReport {
+  id?: string;
+  type: "BUG" | "FEATURE" | "OTHER";
+  title?: string;
+  description: string;
+  attachments?: Array<{ name: string; size: number; type: string; url: string }> | string;
+  contact?: string;
+  userId?: string;
+  shopId?: string;
+  metadata?: any;
+  status?: "NEW" | "IN_PROGRESS" | "RESOLVED" | "REJECTED" | "CLOSED" | string;
+  developerEmail?: string;
+  developerNotes?: string;
+  resolvedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   let binary = "";
   const bytes = new Uint8Array(buffer);

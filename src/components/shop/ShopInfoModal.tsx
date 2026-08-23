@@ -1,7 +1,8 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Clock, MapPin, Navigation, Phone as PhoneIcon, Gift, Store, Truck, Receipt, Sparkles, CreditCard, Send, ExternalLink, MessageCircle, Globe, Github, ShieldCheck } from "lucide-react";
 import { Shop, parseSocialLinks, parseDeliveryOptions } from "../../types";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface ShopInfoModalProps {
   shop: Shop;
@@ -10,16 +11,7 @@ interface ShopInfoModalProps {
 }
 
 export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onClose }) => {
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
+  useScrollLock(isOpen);
 
   if (!isOpen) return null;
 
@@ -119,7 +111,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
               <div className="p-3.5 bg-app-card border border-app-border rounded-2xl space-y-2.5 text-xs text-app-secondary font-mono">
                 {shop.workingHours && (
                   <div className="flex items-center gap-2.5">
-                    <Clock size={15} className="text-amber-500 shrink-0" />
+                    <Clock size={15} className="text-app-muted shrink-0" />
                     <div>
                       <span className="block text-[9px] text-app-muted uppercase">Режим работы</span>
                       <span className="text-app-primary font-medium">{shop.workingHours}</span>
@@ -128,7 +120,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                 )}
                 {shop.address && (
                   <div className="flex items-start gap-2.5 pt-1 border-t border-app-border/60">
-                    <MapPin size={15} className="text-rose-400 shrink-0 mt-0.5" />
+                    <MapPin size={15} className="text-app-muted shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <span className="block text-[9px] text-app-muted uppercase">Адрес</span>
                       <span className="text-app-primary font-medium block">{shop.address}</span>
@@ -137,16 +129,16 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                       href={`https://yandex.ru/maps/?text=${encodeURIComponent(shop.address)}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] font-bold shrink-0 hover:bg-rose-500/20 transition-colors flex items-center gap-1"
+                      className="px-2.5 py-1 rounded-lg bg-app-surface text-app-primary border border-app-border text-[10px] font-bold shrink-0 hover:bg-app-hover transition-colors flex items-center gap-1"
                     >
-                      <Navigation size={11} />
+                      <Navigation size={11} className="text-app-muted" />
                       <span>Карта</span>
                     </a>
                   </div>
                 )}
                 {shop.phone && (
                   <div className="flex items-center gap-2.5 pt-1 border-t border-app-border/60">
-                    <PhoneIcon size={15} className="text-emerald-400 shrink-0" />
+                    <PhoneIcon size={15} className="text-app-muted shrink-0" />
                     <div className="flex-1 min-w-0">
                       <span className="block text-[9px] text-app-muted uppercase">Телефон для связи</span>
                       <a href={`tel:${shop.phone}`} className="text-app-primary font-medium hover:underline block">
@@ -155,9 +147,9 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                     </div>
                     <a
                       href={`tel:${shop.phone}`}
-                      className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold shrink-0 hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
+                      className="px-2.5 py-1 rounded-lg bg-app-surface text-app-primary border border-app-border text-[10px] font-bold shrink-0 hover:bg-app-hover transition-colors flex items-center gap-1"
                     >
-                      <PhoneIcon size={11} />
+                      <PhoneIcon size={11} className="text-app-muted" />
                       <span>Вызов</span>
                     </a>
                   </div>
@@ -167,14 +159,14 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
 
             {/* Cashback Bonus System */}
             {Boolean(shop.cashbackPercent) && (
-              <div className="p-3.5 bg-amber-500/15 border border-amber-500/30 rounded-2xl flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-                  <Gift size={20} />
+              <div className="p-3.5 bg-app-card border border-app-border rounded-2xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center justify-center shrink-0">
+                  <Gift size={20} className="text-app-muted" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 font-mono">Бонусная программа</h4>
+                  <h4 className="text-xs font-bold text-app-primary font-mono">Бонусная программа</h4>
                   <p className="text-[11px] text-app-secondary leading-snug font-sans font-medium">
-                    Начисляем <strong className="text-amber-900 dark:text-amber-200 font-mono">{shop.cashbackPercent}% кэшбэка</strong> на ваш бонусный счёт с каждой покупки!
+                    Начисляем <strong className="text-app-primary font-mono">{shop.cashbackPercent}% кэшбэка</strong> на ваш бонусный счёт с каждой покупки!
                   </p>
                 </div>
               </div>
@@ -187,25 +179,25 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                 <div className="p-3.5 bg-app-card border border-app-border rounded-2xl space-y-2 text-xs font-mono text-app-secondary">
                   {del.pickupAddress && (
                     <div className="flex items-center gap-2">
-                      <Store size={14} className="text-indigo-400 shrink-0" />
+                      <Store size={14} className="text-app-muted shrink-0" />
                       <span>Пункт самовывоза: {del.pickupAddress}</span>
                     </div>
                   )}
                   {(del.deliveryMinOrder || del.minOrder) && (
                     <div className="flex items-center gap-2">
-                      <Truck size={14} className="text-sky-400 shrink-0" />
+                      <Truck size={14} className="text-app-muted shrink-0" />
                       <span>Минимальная сумма заказа: {del.deliveryMinOrder || del.minOrder} ₽</span>
                     </div>
                   )}
                   {(del.deliveryFee || del.deliveryFeeVal) && (
                     <div className="flex items-center gap-2">
-                      <Receipt size={14} className="text-emerald-400 shrink-0" />
+                      <Receipt size={14} className="text-app-muted shrink-0" />
                       <span>Стоимость доставки: {del.deliveryFee || del.deliveryFeeVal} ₽</span>
                     </div>
                   )}
                   {del.freeDeliveryThreshold ? (
-                    <div className="flex items-center gap-2 text-emerald-400 font-semibold">
-                      <Sparkles size={14} className="shrink-0" />
+                    <div className="flex items-center gap-2 text-app-primary font-semibold">
+                      <Sparkles size={14} className="text-app-muted shrink-0" />
                       <span>Бесплатная доставка от {del.freeDeliveryThreshold} ₽</span>
                     </div>
                   ) : null}
@@ -219,7 +211,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                 <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider block">Инструкция по оплате</span>
                 <div className="p-3.5 bg-app-card border border-app-border rounded-2xl space-y-1.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-app-primary font-mono">
-                    <CreditCard size={15} className="text-amber-500 shrink-0" />
+                    <CreditCard size={15} className="text-app-muted shrink-0" />
                     <span>Способ оплаты / Реквизиты</span>
                   </div>
                   <p className="text-xs text-app-secondary leading-relaxed font-sans whitespace-pre-line bg-app-surface p-2.5 rounded-xl border border-app-border/60">
@@ -239,9 +231,9 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                       href={socials.telegram.startsWith("http") ? socials.telegram : `https://t.me/${socials.telegram.replace("@", "")}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="py-2.5 px-3 bg-sky-500/15 text-sky-800 dark:text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                      className="py-2.5 px-3 bg-app-card text-app-primary border border-app-border hover:bg-app-hover font-mono text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
                     >
-                      <Send size={14} />
+                      <Send size={14} className="text-app-muted" />
                       <span>Telegram</span>
                     </a>
                   )}
@@ -250,9 +242,9 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                       href={socials.instagram.startsWith("http") ? socials.instagram : `https://instagram.com/${socials.instagram}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="py-2.5 px-3 bg-pink-500/15 text-pink-800 dark:text-pink-300 border border-pink-500/30 hover:bg-pink-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                      className="py-2.5 px-3 bg-app-card text-app-primary border border-app-border hover:bg-app-hover font-mono text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
                     >
-                      <ExternalLink size={14} />
+                      <ExternalLink size={14} className="text-app-muted" />
                       <span>Instagram</span>
                     </a>
                   )}
@@ -261,9 +253,9 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                       href={socials.whatsapp.startsWith("http") ? socials.whatsapp : `https://wa.me/${socials.whatsapp.replace(/\D/g, "")}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="py-2.5 px-3 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                      className="py-2.5 px-3 bg-app-card text-app-primary border border-app-border hover:bg-app-hover font-mono text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
                     >
-                      <MessageCircle size={14} />
+                      <MessageCircle size={14} className="text-app-muted" />
                       <span>WhatsApp</span>
                     </a>
                   )}
@@ -272,9 +264,9 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                       href={socials.vk.startsWith("http") ? socials.vk : `https://vk.com/${socials.vk}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="py-2.5 px-3 bg-blue-500/15 text-blue-800 dark:text-blue-300 border border-blue-500/30 hover:bg-blue-500/25 font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                      className="py-2.5 px-3 bg-app-card text-app-primary border border-app-border hover:bg-app-hover font-mono text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
                     >
-                      <Globe size={14} />
+                      <Globe size={14} className="text-app-muted" />
                       <span>ВКонтакте</span>
                     </a>
                   )}
@@ -283,9 +275,9 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                       href={socials.website.startsWith("http") ? socials.website : `https://${socials.website}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="col-span-2 py-2.5 px-3 bg-app-card text-app-primary border border-app-border hover:bg-app-hover font-mono text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                      className="col-span-2 py-2.5 px-3 bg-app-card text-app-primary border border-app-border hover:bg-app-hover font-mono text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
                     >
-                      <Globe size={14} />
+                      <Globe size={14} className="text-app-muted" />
                       <span>Официальный сайт</span>
                     </a>
                   )}
@@ -311,7 +303,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                     <span className="text-[10px] text-app-muted font-normal block">github.com/blesswrld/tma-builder</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-emerald-500 text-[11px] font-bold">
+                <div className="flex items-center gap-1 text-app-muted group-hover:text-app-primary text-[11px] font-bold">
                   <ShieldCheck size={14} />
                   <ExternalLink size={13} className="group-hover:translate-x-0.5 transition-transform" />
                 </div>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, Check, Crown, CreditCard, QrCode, Ticket, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { SpinnerLoader } from "./Skeleton";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 interface PlanModalProps {
   isOpen: boolean;
@@ -17,6 +18,8 @@ export default function PlanModal({
   token,
   onPlanUpdated
 }: PlanModalProps) {
+  useScrollLock(isOpen);
+
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "sbp" | "promo">("card");
   

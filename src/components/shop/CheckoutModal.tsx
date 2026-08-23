@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ShoppingBag, X, Gift, CreditCard, Truck, Store, Globe, AlertCircle } from "lucide-react";
 import { Shop, Service } from "../../types";
 import { SpinnerLoader } from "../Skeleton";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface CheckoutModalProps {
   shop: Shop;
@@ -87,6 +88,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   isSubmitting,
   handleSubmitOrder,
 }) => {
+  useScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   return (
@@ -150,11 +153,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   {isValidatingPromo ? "Проверка..." : "Применить"}
                 </button>
               </div>
-              {promoError && <p className="text-xs text-rose-400 font-mono">{promoError}</p>}
+              {promoError && <p className="text-xs text-rose-500 font-mono">{promoError}</p>}
               {appliedPromo && (
-                <div className="flex justify-between items-center text-xs font-mono text-emerald-500">
+                <div className="flex justify-between items-center text-xs font-mono text-app-primary">
                   <span>Промокод {appliedPromo.code} применён</span>
-                  <span>-{discountValue} ₽</span>
+                  <span className="font-semibold">-{discountValue} ₽</span>
                 </div>
               )}
             </div>
@@ -163,7 +166,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <div className="mt-6 pt-4 border-t border-app-border space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">Чаевые персоналу</span>
-                {tipAmount > 0 && <span className="text-xs font-mono text-amber-500 font-bold">+{tipAmount} ₽</span>}
+                {tipAmount > 0 && <span className="text-xs font-mono text-app-primary font-bold">+{tipAmount} ₽</span>}
               </div>
               <div className="grid grid-cols-4 gap-2">
                 {[0, 5, 10, 15].map(p => (
@@ -176,7 +179,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     }}
                     className={`py-2 rounded-xl text-xs font-mono border transition-all cursor-pointer ${
                       tipPercent === p && !customTip 
-                        ? "bg-amber-500/20 text-amber-400 border-amber-500/40 font-bold shadow-sm" 
+                        ? "bg-app-accent text-app-accent-fg border-app-accent font-bold shadow-sm" 
                         : "bg-app-surface text-app-secondary border-app-border hover:text-app-primary hover:bg-app-hover"
                     }`}
                   >
@@ -192,20 +195,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <span>{totalPrice} ₽</span>
               </div>
               {discountValue > 0 && (
-                <div className="flex justify-between items-center text-xs text-emerald-500">
+                <div className="flex justify-between items-center text-xs text-app-primary">
                   <span>Скидка</span>
-                  <span>-{discountValue} ₽</span>
+                  <span className="font-semibold">-{discountValue} ₽</span>
                 </div>
               )}
               {tipAmount > 0 && (
-                <div className="flex justify-between items-center text-xs text-amber-500">
+                <div className="flex justify-between items-center text-xs text-app-primary">
                   <span>Чаевые</span>
-                  <span>+{tipAmount} ₽</span>
+                  <span className="font-semibold">+{tipAmount} ₽</span>
                 </div>
               )}
-              <div className="flex justify-between items-center text-xs text-sky-400">
+              <div className="flex justify-between items-center text-xs text-app-muted">
                 <span>Доставка</span>
-                <span>
+                <span className="text-app-primary font-medium">
                   {fulfillmentMethod === "courier"
                     ? (calculatedDeliveryFee === 0 
                         ? (isDeliveryFree ? "Бесплатно (акция)" : "Бесплатно") 
@@ -219,9 +222,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
 
               {Boolean(shop.cashbackPercent) && (
-                <div className="pt-2 flex items-center justify-between text-[11px] font-mono text-amber-400 font-semibold bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+                <div className="pt-2 flex items-center justify-between text-[11px] font-mono text-app-primary font-semibold bg-app-card p-2.5 rounded-xl border border-app-border">
                   <div className="flex items-center gap-1.5">
-                    <Gift size={13} className="shrink-0" />
+                    <Gift size={13} className="shrink-0 text-app-muted" />
                     <span>Бонус за заказ ({shop.cashbackPercent}%)</span>
                   </div>
                   <span>+{Math.round((finalTotalPrice * (shop.cashbackPercent || 5)) / 100)} ₽</span>
@@ -233,7 +236,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           {shop.paymentInstructions && (
             <div className="p-3.5 bg-app-card border border-app-border rounded-2xl space-y-1.5">
               <div className="flex items-center gap-2 text-xs font-bold text-app-primary font-mono">
-                <CreditCard size={14} className="text-amber-500 shrink-0" />
+                <CreditCard size={14} className="text-app-muted shrink-0" />
                 <span>Инструкции по оплате</span>
               </div>
               <p className="text-xs text-app-secondary leading-relaxed font-sans whitespace-pre-line bg-app-surface p-2.5 rounded-xl border border-app-border/60">
@@ -255,7 +258,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   isCourierDisabled
                     ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
                     : fulfillmentMethod === "courier"
-                    ? "bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-sm cursor-pointer"
+                    ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
                     : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
                 }`}
                 title={isCourierDisabled ? "Доставка недоступна для выбранных позиций" : undefined}
@@ -271,7 +274,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   isPickupDisabled
                     ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
                     : fulfillmentMethod === "pickup"
-                    ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-sm cursor-pointer"
+                    ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
                     : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
                 }`}
                 title={isPickupDisabled ? "Самовывоз недоступен для выбранных позиций" : undefined}
@@ -287,7 +290,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   isOnlineDisabled
                     ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
                     : fulfillmentMethod === "online"
-                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm cursor-pointer"
+                    ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
                     : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
                 }`}
                 title={isOnlineDisabled ? "Онлайн недоступен для выбранных позиций" : undefined}
@@ -318,12 +321,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   {formErrors.deliveryAddress && <p className="text-[11px] text-rose-400 mt-1 font-mono">{formErrors.deliveryAddress}</p>}
                   
                   {deliveryMinOrderVal > 0 && totalPrice < deliveryMinOrderVal && (
-                    <p className="text-[11px] text-amber-400 mt-1 font-mono">
+                    <p className="text-[11px] text-app-muted mt-1 font-mono">
                       Минимальный заказ для доставки: {deliveryMinOrderVal} ₽ (не хватает {deliveryMinOrderVal - totalPrice} ₽)
                     </p>
                   )}
                   {isDeliveryFree ? (
-                    <p className="text-[11px] text-emerald-400 mt-1 font-mono">
+                    <p className="text-[11px] text-app-primary font-semibold mt-1 font-mono">
                       ✓ Бесплатная доставка при заказе от {freeDeliveryThreshVal} ₽ применены!
                     </p>
                   ) : freeDeliveryThreshVal > 0 ? (

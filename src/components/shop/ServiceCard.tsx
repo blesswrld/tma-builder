@@ -136,15 +136,15 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           {/* Fulfillment restriction badge */}
           {!hasCourier && (
             <div className="pt-0.5">
-              <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded-md text-[10px] font-mono">
-                <Store size={11} /> Только самовывоз
+              <span className="inline-flex items-center gap-1 bg-app-card text-app-secondary border border-app-border px-2 py-0.5 rounded-md text-[10px] font-mono">
+                <Store size={11} className="text-app-muted" /> Только самовывоз
               </span>
             </div>
           )}
           {!hasPickup && (
             <div className="pt-0.5">
-              <span className="inline-flex items-center gap-1 bg-sky-500/15 text-sky-400 px-2 py-0.5 rounded-md text-[10px] font-mono">
-                <Truck size={11} /> Только доставка
+              <span className="inline-flex items-center gap-1 bg-app-card text-app-secondary border border-app-border px-2 py-0.5 rounded-md text-[10px] font-mono">
+                <Truck size={11} className="text-app-muted" /> Только доставка
               </span>
             </div>
           )}
@@ -165,14 +165,14 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] font-mono text-app-muted cursor-pointer"
             >
               {service.prepTime && (
-                <span className="inline-flex items-center gap-1 bg-app-card px-2.5 py-1 rounded-lg text-app-secondary">
-                  <Clock size={11} className="text-amber-500 shrink-0" />
+                <span className="inline-flex items-center gap-1 bg-app-card border border-app-border px-2 py-0.5 rounded-lg text-app-secondary">
+                  <Clock size={11} className="text-app-muted shrink-0" />
                   <span>{service.prepTime}</span>
                 </span>
               )}
               {service.weight && (
-                <span className="inline-flex items-center gap-1 bg-app-card px-2.5 py-1 rounded-lg text-app-secondary">
-                  <Scale size={11} className="text-sky-500 shrink-0" />
+                <span className="inline-flex items-center gap-1 bg-app-card border border-app-border px-2 py-0.5 rounded-lg text-app-secondary">
+                  <Scale size={11} className="text-app-muted shrink-0" />
                   <span>{service.weight}</span>
                 </span>
               )}

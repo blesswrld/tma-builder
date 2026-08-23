@@ -77,11 +77,11 @@ export function AdminBroadcastsTab({
                 <div className="flex justify-between items-start">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-mono rounded-md font-semibold">
-                        ✅ ОТПРАВЛЕНО
+                      <span className="px-2 py-0.5 bg-app-card border border-app-border text-app-primary text-[9px] font-mono rounded-md font-semibold">
+                        ОТПРАВЛЕНО
                       </span>
                       <span className="px-2 py-0.5 bg-app-card border border-app-border text-app-secondary text-[9px] font-mono rounded-md">
-                        🎯 {targetLabels[bc.targetFilter || ""] || bc.targetFilter || "Все клиенты"}
+                        {targetLabels[bc.targetFilter || ""] || bc.targetFilter || "Все клиенты"}
                       </span>
                     </div>
                     <h3 className="text-sm font-bold text-app-primary font-mono pt-1">
@@ -90,7 +90,7 @@ export function AdminBroadcastsTab({
                   </div>
                   <button
                     onClick={() => handleDeleteBroadcast(bc.id)}
-                    className="p-1.5 text-app-muted hover:text-rose-400 hover:bg-rose-500/5 rounded-lg transition-colors cursor-pointer"
+                    className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-lg transition-all cursor-pointer backdrop-blur-sm"
                   >
                     <Trash2 size={14} />
                   </button>

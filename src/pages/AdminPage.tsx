@@ -1,5 +1,5 @@
 import React, { useEffect, useState, FormEvent, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Plus, Trash2, ExternalLink, Store, ShoppingBag, Check, Copy, Settings, 
@@ -10,13 +10,15 @@ import {
   Image as ImageIcon, Send, Users, Radio, Gift, ChevronDown, ChevronUp, 
   Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon, Globe, ArrowLeft,
   ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare, GripVertical, Keyboard,
-  UserPlus, CheckCircle, Key, Loader2, Truck, CreditCard, Github
+  UserPlus, CheckCircle, Key, Loader2, Truck, CreditCard, Github, Bug
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
 import { useTheme } from "../context/ThemeContext";
+import { useScrollLock } from "../hooks/useScrollLock";
 import QrGeneratorModal from "../components/QrGeneratorModal";
 import PlanModal from "../components/PlanModal";
+import ReportModal from "../components/ReportModal";
 import AnalyticsTab from "../components/AnalyticsTab";
 import { AdminPageSkeleton, AdminContentSkeleton, ReviewSkeletonList, SpinnerLoader, Skeleton } from "../components/Skeleton";
 import ImageUploader from "../components/ImageUploader";
@@ -107,8 +109,30 @@ interface Shop {
 }
 
 export default function AdminPage() {
+  const navigate = useNavigate();
   const { user, token, isLoading: authLoading, login, register, logout, sendCode, verifyCode, resetPassword, updateProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
+
+  // Developer unhandled reports counter
+  const [unhandledReportsCount, setUnhandledReportsCount] = useState(0);
+
+  const fetchReportsCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/reports?status=NEW&dev=true");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.reports)) {
+          setUnhandledReportsCount(data.reports.length);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchReportsCount();
+  }, [fetchReportsCount]);
 
   // Auth modal
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -160,6 +184,8 @@ export default function AdminPage() {
     cancelText: "Отмена",
     isDangerous: true
   });
+
+  useScrollLock(confirmModal.isOpen);
 
   // Custom Toast Notifications State
   const [toasts, setToasts] = useState<Array<{
@@ -693,6 +719,7 @@ export default function AdminPage() {
   // SaaS Features Modals
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHotkeysModalOpen, setIsHotkeysModalOpen] = useState(false);
 
@@ -827,6 +854,7 @@ export default function AdminPage() {
       isDeletingShop ||
       isQrModalOpen ||
       isPlanModalOpen ||
+      isReportModalOpen ||
       isHotkeysModalOpen ||
       confirmModal?.isOpen ||
       newOrderAlert
@@ -851,6 +879,7 @@ export default function AdminPage() {
     isDeletingShop,
     isQrModalOpen,
     isPlanModalOpen,
+    isReportModalOpen,
     isHotkeysModalOpen,
     confirmModal?.isOpen,
     newOrderAlert
@@ -882,6 +911,10 @@ export default function AdminPage() {
         }
         if (isHotkeysModalOpen) {
           setIsHotkeysModalOpen(false);
+          return;
+        }
+        if (isReportModalOpen) {
+          setIsReportModalOpen(false);
           return;
         }
         if (isAuthModalOpen) {
@@ -3098,7 +3131,7 @@ export default function AdminPage() {
                 </a>
                 <button
                   onClick={() => handleDeleteShop(selectedShop)}
-                  className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg transition-colors cursor-pointer"
+                  className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-all cursor-pointer backdrop-blur-sm"
                   title="Удалить заведение"
                 >
                   <Trash2 size={13} />
@@ -3120,6 +3153,7 @@ export default function AdminPage() {
               { id: "team", label: "Команда и доступ", icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
               { id: "analytics", label: "Аналитика", icon: BarChart3 },
               { id: "botsim", label: "Симулятор бота", icon: Smartphone },
+              { id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 },
               { id: "profile", label: "Профиль администратора", icon: User }
             ].map((tab) => {
               const Icon = tab.icon;
@@ -3128,7 +3162,9 @@ export default function AdminPage() {
                 <button
                   key={tab.id}
                   onClick={() => {
-                    if (tab.id === "profile") {
+                    if (tab.id === "reports") {
+                      navigate("/reports");
+                    } else if (tab.id === "profile") {
                       handleOpenProfile();
                     } else {
                       closeSubView();
@@ -3143,7 +3179,7 @@ export default function AdminPage() {
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon size={15} className={isActive ? "text-app-accent-fg" : "text-app-muted"} />
+                    <Icon size={15} className={isActive ? "text-app-accent-fg" : (tab.id === "reports" && unhandledReportsCount > 0 ? "text-rose-500" : "text-app-muted")} />
                     <span>{tab.label}</span>
                   </div>
                   {tab.badge !== undefined && tab.badge > 0 && (
@@ -3235,7 +3271,7 @@ export default function AdminPage() {
                       handleLogoutRequest();
                       setIsSidebarOpen(false);
                     }} 
-                    className="p-1.5 text-app-muted hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer" 
+                    className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-lg transition-all cursor-pointer backdrop-blur-sm" 
                     title="Выйти из аккаунта"
                   >
                     <LogOut size={14} />
@@ -3257,12 +3293,12 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* GitHub Open Source Link */}
+          {/* GitHub Open Source Link (Adjusted background to match profile card exactly) */}
           <a
             href="https://github.com/blesswrld/tma-builder"
             target="_blank"
             rel="noreferrer"
-            className="p-2.5 bg-app-card hover:bg-app-hover border border-app-border rounded-2xl flex items-center justify-between text-xs font-mono transition-colors group cursor-pointer"
+            className="p-2.5 bg-app-surface hover:bg-app-hover border border-app-border rounded-2xl flex items-center justify-between text-xs font-mono transition-colors group cursor-pointer shadow-sm"
             title="Открыть исходный код приложения на GitHub"
           >
             <div className="flex items-center gap-2 min-w-0">
@@ -3372,6 +3408,17 @@ export default function AdminPage() {
             >
               <Keyboard size={14} className="text-app-muted" />
               <span className="hidden lg:inline text-[9px] font-bold text-app-muted border border-app-border/80 px-1 py-0.5 rounded bg-app-surface/50">?</span>
+            </button>
+
+            {/* Report Bug / Feedback Button */}
+            <button
+              type="button"
+              onClick={() => setIsReportModalOpen(true)}
+              className="px-2.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 text-xs font-mono"
+              title="Сообщить об ошибке / отправить идею"
+            >
+              <Bug size={14} className="text-app-muted" />
+              <span className="hidden sm:inline text-[11px] font-semibold">Баг-репорт</span>
             </button>
 
             {["settings", "profile", "createshop", "addservice", "editservice"].includes(activeTab) && (
@@ -3622,17 +3669,17 @@ export default function AdminPage() {
                           type="button"
                           onClick={handleSendProfileCode}
                           disabled={isSendingProfileCode}
-                          className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 text-xs font-mono rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+                          className="px-3 py-1.5 bg-app-card hover:bg-app-hover text-app-primary border border-app-border text-xs font-mono rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
                         >
                           {isSendingProfileCode && <SpinnerLoader size={12} />}
-                          <Send size={12} />
+                          <Send size={12} className="text-app-muted" />
                           <span>{isSendingProfileCode ? "Отправка..." : "Запросить код на E-mail"}</span>
                         </button>
                       </div>
 
                       {profileCodeSentMsg && (
-                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-mono flex items-center gap-2">
-                          <Check size={14} className="shrink-0" />
+                        <div className="p-3 bg-app-card border border-app-border text-app-primary rounded-xl text-xs font-mono flex items-center gap-2">
+                          <Check size={14} className="shrink-0 text-app-primary" />
                           <span>{profileCodeSentMsg}</span>
                         </div>
                       )}
@@ -3672,9 +3719,9 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={handleClearProfileFields}
-                    className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-mono text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2"
+                    className="px-4 py-2.5 bg-app-card hover:bg-app-hover text-app-primary border border-app-border font-mono text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 font-medium"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={14} className="text-app-muted" />
                     <span>Очистить поля</span>
                   </button>
                   <button
@@ -3813,6 +3860,7 @@ export default function AdminPage() {
               isSettingWebhook={isSettingWebhook}
               webhookStatus={webhookStatus}
               isSendingTestNotification={isSendingTestNotification}
+              onOpenReport={() => setIsReportModalOpen(true)}
             />
           )}
 
@@ -4160,24 +4208,24 @@ export default function AdminPage() {
                     <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
                       <span className="text-app-primary font-medium">Фильтр по статусу (Все/Новые/В работе/Выполнен/Отменен)</span>
                       <div className="flex gap-1 font-mono text-[10px]">
-                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-accent font-bold">1</kbd>
-                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-accent font-bold">2</kbd>
-                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-accent font-bold">3</kbd>
-                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-accent font-bold">4</kbd>
-                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-accent font-bold">5</kbd>
+                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-primary font-bold">1</kbd>
+                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-primary font-bold">2</kbd>
+                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-primary font-bold">3</kbd>
+                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-primary font-bold">4</kbd>
+                        <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-app-primary font-bold">5</kbd>
                       </div>
                     </div>
                     <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
                       <span className="text-app-primary font-medium">Принять новый заказ в работу</span>
-                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-emerald-400 font-bold">A</kbd>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-primary font-bold">A</kbd>
                     </div>
                     <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
                       <span className="text-app-primary font-medium">Завершить заказ в работе</span>
-                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-indigo-400 font-bold">C</kbd>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-primary font-bold">C</kbd>
                     </div>
                     <div className="flex items-center justify-between p-2.5 bg-app-card border border-app-border rounded-xl">
                       <span className="text-app-primary font-medium">Экспорт всех заказов в CSV</span>
-                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-amber-400 font-bold">E</kbd>
+                      <kbd className="px-2 py-0.5 bg-app-surface border border-app-border font-mono text-[10px] rounded text-app-primary font-bold">E</kbd>
                     </div>
                   </div>
                 </div>
@@ -4226,6 +4274,15 @@ export default function AdminPage() {
             user.plan = newPlan as any;
           }
         }}
+      />
+
+      {/* Bug Report & Feedback Modal */}
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        shopId={selectedShop?.id}
+        shopName={selectedShop?.name}
+        sourceContext="admin_panel"
       />
 
       {/* Custom Confirmation Modal */}

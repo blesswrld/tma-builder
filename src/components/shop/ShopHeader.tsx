@@ -1,5 +1,5 @@
 import React from "react";
-import { Sun, Moon, Star, Receipt } from "lucide-react";
+import { Sun, Moon, Star, Receipt, Bug } from "lucide-react";
 import { Shop } from "../../types";
 
 interface ShopHeaderProps {
@@ -9,6 +9,7 @@ interface ShopHeaderProps {
   onToggleTheme?: () => void;
   onOpenReviews: () => void;
   onOpenMyOrders: () => void;
+  onOpenReport?: () => void;
 }
 
 export const ShopHeader: React.FC<ShopHeaderProps> = ({
@@ -18,6 +19,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
   onToggleTheme,
   onOpenReviews,
   onOpenMyOrders,
+  onOpenReport,
 }) => {
   const handleToggleTheme = onToggleTheme || toggleTheme || (() => {});
   const isDark = theme === "dark";
@@ -58,7 +60,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
               </h1>
               <span
                 className={`w-2 h-2 rounded-full shrink-0 ${
-                  shop.isOpen !== false ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-rose-500"
+                  shop.isOpen !== false ? "bg-emerald-500" : "bg-zinc-400"
                 }`}
               />
             </div>
@@ -83,7 +85,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
             }`}
             title={isDark ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
           >
-            {isDark ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-500" />}
+            {isDark ? <Sun size={15} className="text-zinc-300" /> : <Moon size={15} className="text-zinc-600" />}
           </button>
 
           <button
@@ -95,7 +97,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
                 : "bg-zinc-100 hover:bg-zinc-200/80 text-zinc-700 hover:text-zinc-900 border-zinc-200/80"
             }`}
           >
-            <Star size={13} className="text-amber-500 fill-amber-500 shrink-0" />
+            <Star size={13} className="text-zinc-400 shrink-0" />
             <span className="hidden xs:inline sm:inline">Отзывы</span>
           </button>
 
@@ -111,6 +113,21 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
             <Receipt size={13} className={isDark ? "text-zinc-400 shrink-0" : "text-zinc-500 shrink-0"} />
             <span className="hidden xs:inline sm:inline">Заказы</span>
           </button>
+
+          {onOpenReport && (
+            <button
+              type="button"
+              onClick={onOpenReport}
+              className={`p-2 rounded-xl text-xs transition-all flex items-center justify-center font-mono cursor-pointer shrink-0 border ${
+                isDark
+                  ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border-zinc-700"
+                  : "bg-zinc-100 hover:bg-zinc-200/80 text-zinc-500 hover:text-zinc-900 border-zinc-200/80"
+              }`}
+              title="Сообщить об ошибке / отзыв"
+            >
+              <Bug size={14} className="shrink-0" />
+            </button>
+          )}
         </div>
       </div>
     </header>

@@ -50,7 +50,7 @@ export function AdminBannersTab({
             >
               <button
                 onClick={() => handleDeleteBanner(banner.id)}
-                className="absolute top-4 right-4 p-1.5 text-app-muted hover:text-rose-500 transition-colors cursor-pointer"
+                className="absolute top-4 right-4 p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-lg transition-all cursor-pointer backdrop-blur-sm"
                 title="Удалить"
               >
                 <Trash2 size={15} />
