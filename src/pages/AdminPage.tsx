@@ -2990,7 +2990,7 @@ export default function AdminPage() {
                 <span className="font-bold text-sm tracking-tight text-app-primary font-mono">TMA BUILDER</span>
               </div>
               <span className="px-1.5 py-0.5 rounded-md bg-app-card border border-app-border text-[9px] font-mono text-app-muted uppercase">
-                v2.4
+                v2.5
               </span>
             </div>
 
