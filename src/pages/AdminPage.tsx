@@ -23,6 +23,7 @@ import AnalyticsTab from "../components/AnalyticsTab";
 import { AdminPageSkeleton, AdminContentSkeleton, ReviewSkeletonList, SpinnerLoader, Skeleton } from "../components/Skeleton";
 import ImageUploader from "../components/ImageUploader";
 import { AdminAuthModal } from "../components/admin/AdminAuthModal";
+import { updatePageSeo } from "../lib/seo";
 import { AdminSettingsTab } from "../components/admin/AdminSettingsTab";
 import { AdminServicesTab } from "../components/admin/AdminServicesTab";
 import { AdminOrdersTab } from "../components/admin/AdminOrdersTab";
@@ -133,6 +134,14 @@ export default function AdminPage() {
   useEffect(() => {
     fetchReportsCount();
   }, [fetchReportsCount]);
+
+  useEffect(() => {
+    updatePageSeo({
+      title: "Панель управления",
+      description: "Управление заведениями, заказами, каталогом и Telegram Mini App.",
+      noIndex: true
+    });
+  }, []);
 
   // Auth modal
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -2971,11 +2980,12 @@ export default function AdminPage() {
 
       {/* Sleek Vercel / Linear Left Sidebar Navigation */}
       <aside
-        style={{ width: `${sidebarWidth}px` }}
+        style={{ ["--sidebar-w" as any]: `${sidebarWidth}px` }}
         className={`
-          fixed md:sticky top-0 left-0 z-50 h-[100dvh] max-h-[100dvh] bg-app-surface border-r border-app-border max-w-[85vw] sm:max-w-[320px] md:max-w-none shrink-0 relative
-          ${isResizingSidebar ? "select-none" : "transition-[transform] duration-200"}
-          ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"}
+          fixed md:sticky top-0 left-0 z-50 h-[100dvh] md:h-screen max-h-[100dvh] md:max-h-screen bg-app-surface border-r border-app-border
+          w-[280px] max-w-[85vw] md:w-[var(--sidebar-w)] md:max-w-none shrink-0
+          ${isResizingSidebar ? "select-none" : "transition-transform duration-200 ease-out"}
+          ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0 shadow-none"}
         `}
       >
         {/* Inner Scrollable Navigation Container */}
@@ -2989,9 +2999,19 @@ export default function AdminPage() {
                 </div>
                 <span className="font-bold text-sm tracking-tight text-app-primary font-mono">TMA BUILDER</span>
               </div>
-              <span className="px-1.5 py-0.5 rounded-md bg-app-card border border-app-border text-[9px] font-mono text-app-muted uppercase">
-                v2.5
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded-md bg-app-card border border-app-border text-[9px] font-mono text-app-muted uppercase">
+                  v2.5
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="p-1 rounded-lg text-app-muted hover:text-app-primary bg-app-card border border-app-border md:hidden cursor-pointer"
+                  title="Закрыть меню"
+                >
+                  <X size={14} />
+                </button>
+              </div>
             </div>
 
           {/* Workspace / Custom Shop Selector Dropdown */}

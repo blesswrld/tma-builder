@@ -126,7 +126,42 @@
     -webkit-tap-highlight-color: transparent;
     letter-spacing: -0.011em;
     transition: background-color 0.25s ease, color 0.25s ease;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    overflow-x: hidden;
   }
+}
+
+/* Safe Area & Mobile Viewport Utilities */
+.pt-safe {
+  padding-top: max(1rem, env(safe-area-inset-top, 1rem));
+}
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
+}
+.pl-safe {
+  padding-left: max(1rem, env(safe-area-inset-left, 1rem));
+}
+.pr-safe {
+  padding-right: max(1rem, env(safe-area-inset-right, 1rem));
+}
+
+.min-h-screen-safe {
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+/* Touch-friendly inputs and buttons */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Prevent unwanted layout shifts on horizontal scroll containers */
+.touch-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
 }
 
 /* Explicit text selection styling for high contrast & legibility across themes */

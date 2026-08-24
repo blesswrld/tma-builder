@@ -95,6 +95,14 @@ interface AdminSettingsTabProps {
   onOpenReport?: () => void;
 }
 
+const CURRENCY_OPTIONS = [
+  { code: "RUB", symbol: "₽", label: "RUB — Российский рубль (₽)", name: "Российский рубль" },
+  { code: "USD", symbol: "$", label: "USD — Доллар США ($)", name: "Доллар США" },
+  { code: "EUR", symbol: "€", label: "EUR — Евро (€)", name: "Евро" },
+  { code: "KZT", symbol: "₸", label: "KZT — Казахстанский тенге (₸)", name: "Казахстанский тенге" },
+  { code: "BYN", symbol: "Br", label: "BYN — Белорусский рубль (Br)", name: "Белорусский рубль" },
+];
+
 export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
   selectedShop,
   settingsData,
@@ -127,6 +135,22 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
 
   const [isTgGuideOpen, setIsTgGuideOpen] = React.useState(false);
   const [backupSettingsData, setBackupSettingsData] = React.useState<any | null>(null);
+  const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = React.useState(false);
+  const currencyDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (currencyDropdownRef.current && !currencyDropdownRef.current.contains(e.target as Node)) {
+        setIsCurrencyDropdownOpen(false);
+      }
+    };
+    if (isCurrencyDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isCurrencyDropdownOpen]);
 
   const handleResetWithBackup = () => {
     // Save current checkpoint before clearing
@@ -472,33 +496,87 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
+              <div className="relative" ref={currencyDropdownRef}>
                 <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
                   Код валюты
                 </label>
-                <select
-                  value={settingsData.currency}
-                  onChange={(e) => {
-                    const code = e.target.value;
-                    let symbol = "₽";
-                    if (code === "USD") symbol = "$";
-                    else if (code === "EUR") symbol = "€";
-                    else if (code === "KZT") symbol = "₸";
-                    else if (code === "BYN") symbol = "Br";
-                    setSettingsData((s: any) => ({
-                      ...s,
-                      currency: code,
-                      currencySymbol: symbol,
-                    }));
-                  }}
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                <button
+                  type="button"
+                  onClick={() => setIsCurrencyDropdownOpen(!isCurrencyDropdownOpen)}
+                  className={`w-full bg-app-card hover:bg-app-hover border ${
+                    isCurrencyDropdownOpen ? "border-app-accent ring-1 ring-app-accent/30" : "border-app-border"
+                  } rounded-xl px-3.5 py-2.5 text-xs text-app-primary flex items-center justify-between gap-2 transition-all cursor-pointer shadow-xs focus:outline-none`}
                 >
-                  <option value="RUB">RUB — Российский рубль (₽)</option>
-                  <option value="USD">USD — Доллар США ($)</option>
-                  <option value="EUR">EUR — Евро (€)</option>
-                  <option value="KZT">KZT — Казахстанский тенге (₸)</option>
-                  <option value="BYN">BYN — Белорусский рубль (Br)</option>
-                </select>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-5 h-5 rounded-md bg-app-surface border border-app-border flex items-center justify-center text-[11px] font-mono font-bold text-app-primary shrink-0">
+                      {settingsData.currencySymbol || "₽"}
+                    </span>
+                    <span className="truncate font-mono font-medium text-app-primary">
+                      {CURRENCY_OPTIONS.find((c) => c.code === settingsData.currency)?.label ||
+                        `${settingsData.currency} (${settingsData.currencySymbol || "₽"})`}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    size={14}
+                    className={`text-app-muted shrink-0 transition-transform duration-200 ${
+                      isCurrencyDropdownOpen ? "rotate-180 text-app-primary" : ""
+                    }`}
+                  />
+                </button>
+
+                <AnimatePresence>
+                  {isCurrencyDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                      transition={{ duration: 0.12, ease: "easeOut" }}
+                      className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-app-surface border border-app-border rounded-2xl shadow-xl p-1.5 overflow-hidden backdrop-blur-md"
+                    >
+                      <div className="space-y-0.5">
+                        {CURRENCY_OPTIONS.map((c) => {
+                          const isSelected = settingsData.currency === c.code;
+                          return (
+                            <button
+                              key={c.code}
+                              type="button"
+                              onClick={() => {
+                                setSettingsData((s: any) => ({
+                                  ...s,
+                                  currency: c.code,
+                                  currencySymbol: c.symbol,
+                                }));
+                                setIsCurrencyDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-mono flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                                isSelected
+                                  ? "bg-app-accent text-app-accent-fg font-semibold"
+                                  : "text-app-secondary hover:text-app-primary hover:bg-app-card"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span
+                                  className={`w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-mono font-bold shrink-0 ${
+                                    isSelected
+                                      ? "bg-black/15 text-app-accent-fg border border-white/20"
+                                      : "bg-app-card text-app-primary border border-app-border"
+                                  }`}
+                                >
+                                  {c.symbol}
+                                </span>
+                                <div className="truncate">
+                                  <span className="font-bold">{c.code}</span>
+                                  <span className={`ml-1.5 opacity-80 text-[11px]`}>— {c.name}</span>
+                                </div>
+                              </div>
+                              {isSelected && <Check size={14} className="shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div>
@@ -960,18 +1038,6 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                 <Trash2 size={14} className="text-app-muted" />
                 <span>Удалить заведение</span>
               </button>
-
-              {onOpenReport && (
-                <button
-                  type="button"
-                  onClick={onOpenReport}
-                  className="text-xs text-app-secondary hover:text-app-primary hover:bg-app-hover border border-app-border px-3.5 py-2 rounded-xl transition-colors cursor-pointer flex-1 sm:flex-none font-mono flex items-center justify-center gap-1.5"
-                  title="Сообщить о баге или проблеме в заведении"
-                >
-                  <Bug size={14} className="text-app-muted" />
-                  <span>Сообщить о баге</span>
-                </button>
-              )}
             </div>
           )}
 

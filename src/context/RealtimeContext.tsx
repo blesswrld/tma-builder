@@ -31,6 +31,9 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
     let retryCount = 0;
 
     const connect = () => {
+      if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const wsUrl = `${protocol}//${window.location.host}/ws`;
 
@@ -42,7 +45,9 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
           setIsConnected(true);
           retryCount = 0;
           if (subscribedShopIdRef.current) {
-            ws.send(JSON.stringify({ type: "subscribe", shopId: subscribedShopIdRef.current }));
+            try {
+              ws.send(JSON.stringify({ type: "subscribe", shopId: subscribedShopIdRef.current }));
+            } catch {}
           }
         };
 
@@ -63,13 +68,18 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
 
         ws.onclose = () => {
           setIsConnected(false);
+          wsRef.current = null;
           retryCount++;
           const delay = Math.min(3000 * Math.pow(1.5, Math.min(retryCount, 6)), 30000);
           reconnectTimeout = setTimeout(connect, delay);
         };
 
         ws.onerror = () => {
-          ws.close();
+          try {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.close();
+            }
+          } catch {}
         };
       } catch (err) {
         retryCount++;
@@ -82,7 +92,9 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     const pingInterval = setInterval(() => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: "ping" }));
+        try {
+          wsRef.current.send(JSON.stringify({ type: "ping" }));
+        } catch {}
       }
     }, 25000);
 
@@ -91,12 +103,21 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (wsRef.current) {
         const ws = wsRef.current;
+        wsRef.current = null;
         ws.onopen = null;
         ws.onclose = null;
         ws.onerror = null;
         ws.onmessage = null;
-        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-          ws.close();
+        if (ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.close();
+          } catch {}
+        } else if (ws.readyState === WebSocket.CONNECTING) {
+          ws.onopen = () => {
+            try {
+              ws.close();
+            } catch {}
+          };
         }
       }
     };

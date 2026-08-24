@@ -42,7 +42,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   return (
     <motion.div 
       layout
-      className={`rounded-2xl border overflow-hidden transition-all flex flex-col justify-between group ${
+      className={`rounded-2xl border overflow-hidden transition-all flex flex-col justify-between group font-sans ${
         isOutOfStock 
           ? "bg-app-surface/50 border-app-border/40 opacity-50" 
           : "bg-app-surface border-app-border hover:border-app-border hover:bg-app-card-hover"
@@ -52,7 +52,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         <div className="relative">
           <div 
             onClick={() => handleOpenDetail(service)}
-            className="h-40 w-full overflow-hidden bg-app-surface border-b border-app-border relative cursor-pointer"
+            className="h-40 sm:h-44 w-full overflow-hidden bg-app-surface border-b border-app-border relative cursor-pointer"
           >
             <img
               src={service.imageUrl}
@@ -61,7 +61,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               referrerPolicy="no-referrer"
             />
             {service.category && (
-              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/70 border border-white/20 text-[9px] font-mono text-white keep-white uppercase tracking-wider backdrop-blur-md shadow-sm">
+              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/70 border border-white/20 text-[9px] font-mono text-white keep-white uppercase tracking-wider backdrop-blur-md shadow-xs">
                 {service.category}
               </span>
             )}
@@ -101,13 +101,13 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         </div>
       )}
 
-      <div className="p-5 pt-2 flex-1 flex flex-col justify-between">
+      <div className="p-4 sm:p-5 pt-2 flex-1 flex flex-col justify-between">
         <div className="space-y-2 mb-4">
           <div 
             onClick={() => handleOpenDetail(service)}
-            className="flex justify-between items-start gap-3 cursor-pointer"
+            className="flex justify-between items-start gap-2.5 cursor-pointer"
           >
-            <h3 className={`text-sm font-semibold tracking-tight hover:underline ${isOutOfStock ? "text-app-muted" : "text-app-primary"}`}>
+            <h3 className={`text-sm font-semibold tracking-tight hover:underline leading-snug ${isOutOfStock ? "text-app-muted" : "text-app-primary"}`}>
               {service.title}
             </h3>
             <div className="flex flex-col items-end shrink-0">
@@ -116,7 +116,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                   {service.oldPrice} ₽
                 </span>
               )}
-              <span className="text-xs font-mono font-bold text-app-primary px-2.5 py-1 rounded-lg bg-app-card">
+              <span className="text-xs font-mono font-bold text-app-primary px-2 py-1 rounded-lg bg-app-card border border-app-border shrink-0">
                 {service.price} ₽
               </span>
             </div>
@@ -189,7 +189,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           )}
         </div>
         
-        <div className="flex justify-between items-center mt-auto pt-4 border-t border-app-border">
+        <div className="flex justify-between items-center mt-auto pt-3.5 border-t border-app-border">
           <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">
             {currentQty > 0 ? `В корзине: ${currentQty}` : ""}
           </span>
@@ -198,25 +198,28 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             {isOutOfStock ? (
               <span className="text-xs text-app-muted font-mono">Недоступно</span>
             ) : currentQty > 0 ? (
-              <div className="flex items-center gap-2 bg-app-card rounded-xl p-1 border border-app-border">
+              <div className="flex items-center gap-1 sm:gap-2 bg-app-card rounded-xl p-1 border border-app-border">
                 <button 
+                  type="button"
                   onClick={() => onRemoveFromCart(service.id)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-app-secondary text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-app-secondary text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
                 >
-                  <Minus size={12} />
+                  <Minus size={13} />
                 </button>
-                <span className="text-xs font-mono font-bold w-5 text-center text-app-primary">{currentQty}</span>
+                <span className="text-xs font-mono font-bold w-6 text-center text-app-primary">{currentQty}</span>
                 <button 
+                  type="button"
                   onClick={() => onAddToCart(service.id)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-app-accent text-app-accent-fg hover:bg-app-hover transition-colors cursor-pointer"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-app-accent text-app-accent-fg hover:opacity-90 transition-opacity cursor-pointer"
                 >
-                  <Plus size={12} />
+                  <Plus size={13} />
                 </button>
               </div>
             ) : (
               <button 
+                type="button"
                 onClick={() => handleOpenDetail(service)}
-                className="px-4 py-1.5 rounded-xl bg-app-accent text-app-accent-fg font-medium text-xs hover:bg-app-hover transition-all font-mono cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-app-accent text-app-accent-fg font-bold text-xs hover:opacity-90 transition-opacity font-mono cursor-pointer shadow-xs"
               >
                 Выбрать
               </button>

@@ -28,12 +28,13 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
     <header
       className={`sticky top-0 z-40 transition-colors ${
         isDark
-          ? "bg-zinc-900 border-b border-zinc-800 shadow-md text-white"
-          : "bg-white border-b border-zinc-200/80 shadow-sm text-zinc-900"
+          ? "bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 shadow-md text-white"
+          : "bg-white/90 backdrop-blur-md border-b border-zinc-200/80 shadow-sm text-zinc-900"
       }`}
     >
-      <div className="max-w-5xl mx-auto px-3 sm:px-6 min-h-[3.75rem] sm:h-16 py-2 sm:py-0 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
+      <div className="max-w-5xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
+        {/* Shop Avatar & Name */}
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
           <div
             className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-mono font-bold text-xs sm:text-sm shrink-0 overflow-hidden ${
               shop.logoUrl
@@ -65,7 +66,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
               />
             </div>
             <p
-              className={`text-[10px] sm:text-[11px] font-mono truncate max-w-[120px] sm:max-w-xs ${
+              className={`text-[10px] sm:text-[11px] font-mono truncate max-w-[110px] sm:max-w-xs ${
                 isDark ? "text-zinc-400" : "text-zinc-500"
               }`}
             >
@@ -74,11 +75,13 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Action Controls */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Theme switcher */}
           <button
             type="button"
             onClick={handleToggleTheme}
-            className={`p-2 rounded-xl transition-all cursor-pointer shrink-0 ${
+            className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer shrink-0 ${
               isDark
                 ? "text-zinc-400 hover:text-white hover:bg-zinc-800"
                 : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
@@ -88,37 +91,42 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
             {isDark ? <Sun size={15} className="text-zinc-300" /> : <Moon size={15} className="text-zinc-600" />}
           </button>
 
+          {/* Reviews button */}
           <button
             type="button"
             onClick={onOpenReviews}
-            className={`px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0 border ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0 border ${
               isDark
                 ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
                 : "bg-zinc-100 hover:bg-zinc-200/80 text-zinc-700 hover:text-zinc-900 border-zinc-200/80"
             }`}
+            title="Отзывы заведения"
           >
-            <Star size={13} className="text-zinc-400 shrink-0" />
-            <span className="hidden xs:inline sm:inline">Отзывы</span>
+            <Star size={13} className="text-amber-400 shrink-0" />
+            <span className="hidden min-[440px]:inline">Отзывы</span>
           </button>
 
+          {/* Orders History button */}
           <button
             type="button"
             onClick={onOpenMyOrders}
-            className={`px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0 border ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0 border ${
               isDark
                 ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
                 : "bg-zinc-100 hover:bg-zinc-200/80 text-zinc-700 hover:text-zinc-900 border-zinc-200/80"
             }`}
+            title="Мои заказы"
           >
             <Receipt size={13} className={isDark ? "text-zinc-400 shrink-0" : "text-zinc-500 shrink-0"} />
-            <span className="hidden xs:inline sm:inline">Заказы</span>
+            <span className="hidden min-[440px]:inline">Заказы</span>
           </button>
 
+          {/* Bug / Feedback report */}
           {onOpenReport && (
             <button
               type="button"
               onClick={onOpenReport}
-              className={`p-2 rounded-xl text-xs transition-all flex items-center justify-center font-mono cursor-pointer shrink-0 border ${
+              className={`p-1.5 sm:p-2 rounded-xl text-xs transition-all flex items-center justify-center font-mono cursor-pointer shrink-0 border ${
                 isDark
                   ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border-zinc-700"
                   : "bg-zinc-100 hover:bg-zinc-200/80 text-zinc-500 hover:text-zinc-900 border-zinc-200/80"

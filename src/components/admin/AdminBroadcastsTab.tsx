@@ -298,50 +298,52 @@ export function AdminBroadcastsTab({
                   </div>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="block text-[11px] text-app-muted font-mono uppercase tracking-wider">
                     Интерактивная кнопка
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newBroadcastData.buttonText || ""}
-                      onChange={(e) =>
-                        setNewBroadcastData((p) => ({ ...p, buttonText: e.target.value }))
-                      }
-                      placeholder="Например: 🛒 Открыть Меню"
-                      className="flex-1 bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border"
-                    />
-                    <div className="flex gap-1">
-                      {["🛒 Заказать", "⭐ Оставить отзыв", "🎁 Забрать бонус"].map(
-                        (btnPreset) => (
-                          <button
-                            key={btnPreset}
-                            type="button"
-                            onClick={() =>
-                              setNewBroadcastData((p) => ({ ...p, buttonText: btnPreset }))
-                            }
-                            className="px-2 py-1 bg-app-secondary hover:bg-app-hover text-[10px] rounded-lg text-app-primary transition-colors cursor-pointer"
-                          >
-                            {btnPreset.split(" ")[1] || btnPreset}
-                          </button>
-                        )
-                      )}
-                    </div>
+                  <input
+                    type="text"
+                    value={newBroadcastData.buttonText || ""}
+                    onChange={(e) =>
+                      setNewBroadcastData((p) => ({ ...p, buttonText: e.target.value }))
+                    }
+                    placeholder="Например: 🛒 Открыть Меню"
+                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border"
+                  />
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {["🛒 Заказать", "⭐ Оставить отзыв", "🎁 Забрать бонус"].map(
+                      (btnPreset) => (
+                        <button
+                          key={btnPreset}
+                          type="button"
+                          onClick={() =>
+                            setNewBroadcastData((p) => ({ ...p, buttonText: btnPreset }))
+                          }
+                          className={`px-2.5 py-1 text-[10px] font-mono rounded-lg border transition-colors cursor-pointer ${
+                            newBroadcastData.buttonText === btnPreset
+                              ? "bg-app-accent text-app-accent-fg border-transparent font-semibold"
+                              : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-hover"
+                          }`}
+                        >
+                          {btnPreset}
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-3 border-t border-app-border">
+                <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-app-border">
                   <button
                     type="button"
                     onClick={() => setIsCreatingBroadcast(false)}
-                    className="flex-1 py-2.5 bg-app-secondary hover:bg-app-hover text-app-primary font-mono font-bold rounded-xl transition-colors uppercase tracking-wider cursor-pointer"
+                    className="w-full sm:w-auto sm:flex-1 py-2.5 px-4 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary hover:text-app-primary font-mono font-bold text-xs rounded-xl transition-colors uppercase tracking-wider cursor-pointer text-center"
                   >
                     Отмена
                   </button>
                   <button
                     type="submit"
-                    className="flex-[2] py-2.5 bg-app-accent text-app-accent-fg hover:opacity-90 font-mono font-bold rounded-xl transition-colors uppercase tracking-wider cursor-pointer"
+                    className="w-full sm:w-auto sm:flex-[2] py-2.5 px-4 bg-app-accent text-app-accent-fg hover:opacity-90 font-mono font-bold text-xs rounded-xl transition-opacity uppercase tracking-wider cursor-pointer shadow-xs text-center"
                   >
                     🚀 Запустить рассылку
                   </button>

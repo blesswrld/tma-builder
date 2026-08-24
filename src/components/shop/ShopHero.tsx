@@ -23,9 +23,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
   const hasSocials = Boolean(socials.telegram || socials.instagram || socials.whatsapp || socials.vk || socials.website);
 
   return (
-    <div className="rounded-3xl bg-app-card border border-app-border overflow-hidden shadow-sm relative space-y-0">
+    <div className="rounded-3xl bg-app-card border border-app-border overflow-hidden shadow-xs relative space-y-0 font-sans">
       {/* Cover Banner Image or Gradient Hero */}
-      <div className="relative h-36 sm:h-52 w-full bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 overflow-hidden">
+      <div className="relative h-32 xs:h-36 sm:h-52 w-full bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 overflow-hidden">
         {shop.bannerUrl ? (
           <img
             src={shop.bannerUrl}
@@ -41,18 +41,18 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         {/* Status Badge in top right corner */}
         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
           <span className="px-3 py-1.5 rounded-full text-xs font-mono font-bold flex items-center gap-2 backdrop-blur-md shadow-md border bg-black/60 text-white border-white/10">
-            <span className={`w-2 h-2 rounded-full ${shop.isOpen !== false ? "bg-white animate-pulse" : "bg-white/40"}`} />
+            <span className={`w-2 h-2 rounded-full ${shop.isOpen !== false ? "bg-emerald-400 animate-pulse" : "bg-zinc-400"}`} />
             <span>{shop.isOpen !== false ? "Открыто" : "Закрыто"}</span>
           </span>
         </div>
       </div>
 
       {/* Shop Content Header Body */}
-      <div className="px-5 sm:px-6 pb-6 pt-3 relative space-y-4">
+      <div className="px-4 sm:px-6 pb-6 pt-3 relative space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-end gap-3.5">
             {/* Store Logo */}
-            <div className={`-mt-12 sm:-mt-16 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center font-mono font-bold text-2xl text-app-primary shrink-0 shadow-lg overflow-hidden ${
+            <div className={`-mt-10 sm:-mt-16 w-18 h-18 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center font-mono font-bold text-xl sm:text-2xl text-app-primary shrink-0 shadow-lg overflow-hidden border-2 border-app-card ${
               shop.logoUrl ? "bg-transparent" : "bg-app-surface"
             }`}>
               {shop.logoUrl ? (
@@ -61,8 +61,8 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 shop.name.charAt(0).toUpperCase()
               )}
             </div>
-            <div className="pt-1 sm:pt-0">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-app-primary">{shop.name}</h1>
+            <div className="pt-1 sm:pt-0 min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-app-primary truncate">{shop.name}</h1>
               {shop.workingHours && (
                 <div className="flex items-center gap-1.5 text-xs text-app-muted font-mono mt-1">
                   <Clock size={13} className="text-app-muted shrink-0" />
@@ -73,11 +73,11 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
           </div>
 
           {/* Actions / Info trigger */}
-          <div className="flex items-center gap-2 self-start sm:self-end">
+          <div className="flex items-center gap-2 flex-wrap self-stretch sm:self-end">
             <button
               type="button"
               onClick={handleOpenInfo}
-              className="px-3.5 py-2 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover hover:text-app-primary text-xs font-mono font-semibold text-app-secondary transition-all flex items-center gap-2 cursor-pointer shadow-sm backdrop-blur-sm"
+              className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover hover:text-app-primary text-xs font-mono font-semibold text-app-secondary transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs backdrop-blur-sm"
             >
               <Info size={14} className="text-app-muted shrink-0" />
               <span>О заведении</span>
@@ -85,10 +85,10 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
             {shop.phone && (
               <a
                 href={`tel:${shop.phone}`}
-                className="px-3.5 py-2 rounded-xl bg-app-surface text-app-primary border border-app-border hover:bg-app-hover text-xs font-mono font-semibold transition-all flex items-center gap-2 cursor-pointer shadow-sm backdrop-blur-sm"
+                className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-app-surface text-app-primary border border-app-border hover:bg-app-hover text-xs font-mono font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs backdrop-blur-sm"
               >
                 <PhoneIcon size={14} className="text-app-muted" />
-                <span className="hidden xs:inline">Позвонить</span>
+                <span>Позвонить</span>
               </a>
             )}
           </div>
@@ -106,7 +106,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
           {shop.address && (
             <div className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border text-app-secondary flex items-center gap-2">
               <MapPin size={13} className="text-app-muted shrink-0" />
-              <span className="truncate max-w-[220px] sm:max-w-xs">{shop.address}</span>
+              <span className="truncate max-w-[200px] sm:max-w-xs">{shop.address}</span>
             </div>
           )}
 

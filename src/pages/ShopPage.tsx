@@ -10,6 +10,7 @@ import { jsPDF } from "jspdf";
 import { validateCustomerName, validateCisPhone } from "../lib/validation";
 
 import { Service, Shop, Banner, Review, Order, parseDeliveryOptions, getServiceBadges } from "../types";
+import { updatePageSeo } from "../lib/seo";
 import { ShopHeader } from "../components/shop/ShopHeader";
 import { ShopHero } from "../components/shop/ShopHero";
 import { ShopActiveOrderTracker } from "../components/shop/ShopActiveOrderTracker";
@@ -188,6 +189,39 @@ export default function ShopPage() {
         if (!isMounted) return;
         setShop(data);
         setError(null);
+
+        // Update Dynamic SEO with LocalBusiness JSON-LD Structured Data
+        updatePageSeo({
+          title: data.name,
+          description: data.description || `Каталог услуг и меню заведения «${data.name}». Быстрый онлайн-заказ и актуальные цены.`,
+          keywords: [
+            data.name,
+            "онлайн-заказ",
+            "меню",
+            "услуги",
+            "каталог",
+            data.address || "",
+            data.slug
+          ].filter(Boolean),
+          ogTitle: `${data.name} — Онлайн заказ`,
+          ogDescription: data.description || `Ознакомьтесь с меню и услугами «${data.name}».`,
+          ogType: "website",
+          structuredData: {
+            "@context": "https://schema.org",
+            "@type": "LocalBusiness",
+            "name": data.name,
+            "description": data.description || `Онлайн витрина заведения ${data.name}`,
+            "telephone": data.phone || undefined,
+            "address": data.address ? {
+              "@type": "PostalAddress",
+              "streetAddress": data.address,
+              "addressCountry": "RU"
+            } : undefined,
+            "openingHours": data.workSchedule || undefined,
+            "priceRange": data.currencySymbol || "₽",
+            "hasMenu": window.location.href
+          }
+        });
 
         // Fetch banners
         fetch(`/api/public/shops/${data.id}/banners`)
@@ -1048,25 +1082,25 @@ export default function ShopPage() {
         sourceContext="shop_storefront"
       />
 
-      {/* Toast Notifications System */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
+      {/* Toast Notifications System - Positioned at top to never overlap checkout bar */}
+      <div className="fixed top-4 inset-x-4 sm:inset-x-auto sm:right-6 sm:top-6 z-50 flex flex-col gap-2 max-w-sm pointer-events-none items-center sm:items-end">
         <AnimatePresence>
           {toasts.map(toast => (
             <motion.div
               key={toast.id}
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className={`p-4 rounded-xl border shadow-lg pointer-events-auto flex items-start gap-3 backdrop-blur-md ${
+              className={`p-3.5 sm:p-4 rounded-2xl border shadow-xl pointer-events-auto flex items-start gap-3 backdrop-blur-md w-full sm:w-auto ${
                 toast.type === "success" 
-                  ? "bg-[#0b2518]/90 text-emerald-200 border-emerald-800/40" 
+                  ? "bg-[#0b2518]/95 text-emerald-200 border-emerald-800/50" 
                   : toast.type === "error" 
-                  ? "bg-[#2d0f13]/90 text-rose-200 border-rose-800/40" 
-                  : "bg-[#2d210f]/90 text-amber-200 border-amber-800/40"
+                  ? "bg-[#2d0f13]/95 text-rose-200 border-rose-800/50" 
+                  : "bg-[#2d210f]/95 text-amber-200 border-amber-800/50"
               }`}
             >
-              <p className="text-xs font-sans leading-relaxed">{toast.message}</p>
+              <p className="text-xs font-sans font-medium leading-relaxed">{toast.message}</p>
             </motion.div>
           ))}
         </AnimatePresence>

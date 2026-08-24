@@ -3621,6 +3621,66 @@ app.post("/api/shops", async (req, res) => {
     }
   });
 
+  // SEO: robots.txt endpoint
+  app.get("/robots.txt", (req, res) => {
+    res.type("text/plain");
+    res.send(`User-agent: *
+Allow: /
+Allow: /api/public/
+Disallow: /admin
+Disallow: /dev-reports
+Disallow: /api/admin/
+Disallow: /api/reports/
+Disallow: /api/auth/
+
+Sitemap: ${req.protocol}://${req.get("host")}/sitemap.xml
+`);
+  });
+
+  // SEO: Dynamic sitemap.xml endpoint
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const db = getPrismaClient();
+      let shops: { slug: string; createdAt?: Date }[] = [];
+      if (db) {
+        shops = await db.shop.findMany({
+          select: { slug: true, createdAt: true }
+        });
+      }
+
+      const host = `${req.protocol}://${req.get("host")}`;
+      const now = new Date().toISOString().split("T")[0];
+
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${host}/</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>`;
+
+      for (const s of shops) {
+        const lastMod = s.createdAt ? new Date(s.createdAt).toISOString().split("T")[0] : now;
+        xml += `
+  <url>
+    <loc>${host}/${s.slug}</loc>
+    <lastmod>${lastMod}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+  </url>`;
+      }
+
+      xml += `
+</urlset>`;
+
+      res.type("application/xml");
+      res.send(xml);
+    } catch (e) {
+      res.status(500).send("Error generating sitemap");
+    }
+  });
+
 // Vite middleware / сервер для статической локальной работы (вне Vercel)
 if (!process.env.VERCEL) {
   async function startServer() {

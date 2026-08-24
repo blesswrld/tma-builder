@@ -7,6 +7,9 @@ import {
   Copy,
   X,
   CheckCircle,
+  Crown,
+  ShieldCheck,
+  Check,
 } from "lucide-react";
 import { Shop } from "../../types";
 
@@ -91,13 +94,14 @@ export function AdminTeamTab({
             {selectedShop?.owner && (
               <div className="p-4 bg-app-card border border-app-border rounded-2xl flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center justify-center font-bold text-sm shrink-0">
-                    👑
+                  <div className="w-10 h-10 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                    <Crown size={18} className="text-amber-500 dark:text-amber-400" />
                   </div>
                   <div>
                     <div className="font-bold text-xs text-app-primary flex items-center gap-2">
                       <span>{selectedShop.owner.name || selectedShop.owner.email}</span>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium bg-app-surface text-app-primary border border-app-border">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium bg-app-surface text-app-primary border border-app-border flex items-center gap-1">
+                        <Crown size={11} className="text-amber-500 dark:text-amber-400" />
                         Владелец
                       </span>
                     </div>
@@ -219,15 +223,40 @@ export function AdminTeamTab({
             {!createdInviteUrl ? (
               <div className="space-y-4 font-mono text-xs">
                 <div>
-                  <label className="block text-app-muted mb-1.5">Роль для приглашаемого</label>
-                  <select
-                    value={inviteRole}
-                    onChange={e => setInviteRole(e.target.value as any)}
-                    className="w-full bg-app-card border border-app-border rounded-xl p-2.5 text-app-primary focus:outline-none focus:border-app-accent"
-                  >
-                    <option value="STAFF">Сотрудник (просмотр и обработка заказов)</option>
-                    <option value="MANAGER">Менеджер (полное управление)</option>
-                  </select>
+                  <label className="block text-app-muted mb-2">Роль для приглашаемого</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setInviteRole("STAFF")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        inviteRole === "STAFF"
+                          ? "bg-app-accent text-app-accent-fg border-transparent font-semibold shadow-xs"
+                          : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-hover"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-xs">Сотрудник</span>
+                        {inviteRole === "STAFF" && <Check size={14} />}
+                      </div>
+                      <p className="text-[10px] opacity-80 leading-tight">Просмотр и обработка заказов</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setInviteRole("MANAGER")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        inviteRole === "MANAGER"
+                          ? "bg-app-accent text-app-accent-fg border-transparent font-semibold shadow-xs"
+                          : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-hover"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-xs">Менеджер</span>
+                        {inviteRole === "MANAGER" && <Check size={14} />}
+                      </div>
+                      <p className="text-[10px] opacity-80 leading-tight">Полное управление заведением</p>
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-app-muted mb-1.5">Лимит активаций ссылки</label>

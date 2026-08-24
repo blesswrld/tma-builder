@@ -539,40 +539,40 @@ export default function DeveloperReportsPage() {
   return (
     <div className="min-h-screen bg-app-bg text-app-primary flex flex-col font-sans transition-colors duration-200">
       {/* Top Navbar */}
-      <header className="sticky top-0 z-30 bg-app-surface/90 backdrop-blur-md border-b border-app-border px-4 lg:px-8 py-3 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-30 bg-app-surface/90 backdrop-blur-md border-b border-app-border px-3 sm:px-4 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between shadow-xs gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={() => navigate("/admin")}
-            className="p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-secondary hover:text-app-primary transition-all cursor-pointer flex items-center gap-1.5 text-xs font-mono"
+            className="p-1.5 sm:p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-secondary hover:text-app-primary transition-all cursor-pointer flex items-center gap-1.5 text-xs font-mono shrink-0"
             title="Вернуться в панель управления заведениями"
           >
             <ArrowLeft size={15} />
-            <span className="hidden sm:inline">Панель управления</span>
+            <span className="hidden md:inline">Панель управления</span>
           </button>
 
-          <div className="h-4 w-[1px] bg-app-border mx-1" />
+          <div className="h-4 w-[1px] bg-app-border mx-0.5 sm:mx-1 shrink-0" />
 
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm sm:text-base font-bold tracking-tight text-app-primary flex items-center gap-1.5">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h1 className="text-xs sm:text-base font-bold tracking-tight text-app-primary flex items-center gap-1.5 truncate">
                 <Shield size={16} className="text-emerald-500 shrink-0" />
-                <span>Центр отчётов разработчика</span>
+                <span className="truncate">Центр отчётов</span>
               </h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+              <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
                 gelgaev.dev@mail.ru
               </span>
             </div>
-            <p className="text-[11px] text-app-muted font-mono hidden md:block">
+            <p className="text-[10px] sm:text-[11px] text-app-muted font-mono hidden lg:block truncate">
               Прямой сбор всех баг-репортов, предложений и обратной связи от пользователей
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Sound toggle */}
           <button
             onClick={handleToggleSound}
-            className={`p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono transition-colors cursor-pointer ${
+            className={`p-1.5 sm:p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono transition-colors cursor-pointer ${
               soundEnabled ? "text-emerald-500" : "text-app-muted"
             }`}
             title={soundEnabled ? "Звуковые уведомления включены" : "Звуковые уведомления отключены"}
@@ -596,7 +596,7 @@ export default function DeveloperReportsPage() {
           <button
             onClick={() => fetchReports()}
             disabled={isRefreshing}
-            className="p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-muted hover:text-app-primary transition-colors cursor-pointer disabled:opacity-50"
+            className="p-1.5 sm:p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-muted hover:text-app-primary transition-colors cursor-pointer disabled:opacity-50"
             title="Обновить список отчётов"
           >
             <RefreshCw size={15} className={isRefreshing ? "animate-spin text-app-primary" : ""} />
@@ -627,7 +627,7 @@ export default function DeveloperReportsPage() {
           {/* Theme switcher */}
           <button
             onClick={toggleTheme}
-            className="p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-muted hover:text-app-primary transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-muted hover:text-app-primary transition-colors cursor-pointer"
             title="Сменить тему"
           >
             {theme === "dark" ? (
@@ -640,33 +640,33 @@ export default function DeveloperReportsPage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 lg:p-8 space-y-4 sm:space-y-6">
         {/* Developer verified card banner */}
-        <div className="p-4 bg-app-surface border border-app-border rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
-          <div className="flex items-start sm:items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-app-card border border-app-border flex items-center justify-center text-app-primary shrink-0 shadow-xs">
-              <Mail size={20} className="text-app-primary" />
+        <div className="p-3.5 sm:p-4 bg-app-surface border border-app-border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shadow-xs">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-app-card border border-app-border flex items-center justify-center text-app-primary shrink-0 shadow-xs mt-0.5 sm:mt-0">
+              <Mail size={18} className="text-app-primary" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
                 <span className="text-xs font-bold font-mono text-app-primary">
                   Главный аккаунт разработчика:
                 </span>
-                <span className="text-xs font-mono font-bold text-app-primary underline decoration-app-border">
+                <span className="text-xs font-mono font-bold text-app-primary underline decoration-app-border break-all">
                   gelgaev.dev@mail.ru
                 </span>
               </div>
-              <p className="text-xs text-app-muted font-sans mt-0.5">
+              <p className="text-[11px] sm:text-xs text-app-muted font-sans leading-relaxed">
                 Все поступающие репорты сохраняются в базу данных, дублируются на этот почтовый ящик и
                 транслируются в реальном времени.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+          <div className="flex items-center gap-2 self-stretch sm:self-center shrink-0 pt-1 sm:pt-0">
             <button
               onClick={() => handleCopy("gelgaev.dev@mail.ru", "dev_email")}
-              className="px-3 py-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono text-app-secondary hover:text-app-primary transition-all flex items-center gap-1.5 cursor-pointer"
+              className="w-full sm:w-auto justify-center px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono text-app-secondary hover:text-app-primary transition-all flex items-center gap-1.5 cursor-pointer"
             >
               {copiedId === "dev_email" ? (
                 <>
@@ -1356,20 +1356,20 @@ export default function DeveloperReportsPage() {
             exit={{ opacity: 0, y: 40 }}
             className="fixed bottom-6 inset-x-0 z-40 flex justify-center px-4 pointer-events-none"
           >
-            <div className="pointer-events-auto bg-app-surface border border-app-border rounded-2xl shadow-2xl p-3 sm:px-6 flex items-center gap-3 sm:gap-4 font-mono text-xs max-w-2xl w-full justify-between backdrop-blur-lg">
+            <div className="pointer-events-auto bg-app-surface/95 border border-app-border rounded-2xl shadow-2xl p-2.5 sm:p-3 sm:px-5 flex items-center gap-3 sm:gap-4 font-mono text-xs max-w-xl w-full justify-between backdrop-blur-xl">
               <div className="flex items-center gap-2">
-                <CheckSquare size={16} className="text-emerald-500 shrink-0" />
+                <CheckSquare size={15} className="text-app-primary shrink-0" />
                 <span className="font-bold text-app-primary">
                   Выбрано: {selectedIds.length}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 <button
                   type="button"
                   disabled={isBatchProcessing}
                   onClick={() => handleBatchStatus("RESOLVED")}
-                  className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  className="px-3 py-1.5 bg-app-accent text-app-accent-fg hover:opacity-90 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
                 >
                   <CheckCircle2 size={13} />
                   <span className="hidden sm:inline">Отметить решёнными</span>
@@ -1380,17 +1380,17 @@ export default function DeveloperReportsPage() {
                   type="button"
                   disabled={isBatchProcessing}
                   onClick={() => handleBatchStatus("IN_PROGRESS")}
-                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  className="px-3 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
                 >
-                  <span className="hidden sm:inline">В работу</span>
-                  <span className="sm:hidden">В работу</span>
+                  <Clock size={13} className="text-app-muted" />
+                  <span>В работу</span>
                 </button>
 
                 <button
                   type="button"
                   disabled={isBatchProcessing}
                   onClick={() => setIsBatchDeleteConfirmOpen(true)}
-                  className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  className="px-3 py-1.5 bg-app-card hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/30 border border-app-border text-app-secondary rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
                 >
                   <Trash2 size={13} />
                   <span className="hidden sm:inline">Удалить</span>
@@ -1399,7 +1399,7 @@ export default function DeveloperReportsPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedIds([])}
-                  className="p-1.5 text-app-muted hover:text-app-primary rounded-lg cursor-pointer"
+                  className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-card rounded-lg transition-colors cursor-pointer"
                   title="Сбросить выбор"
                 >
                   <X size={15} />
@@ -1482,14 +1482,14 @@ export default function DeveloperReportsPage() {
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmId(null)}
-                  className="px-3 py-1.5 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary rounded-xl text-xs font-mono cursor-pointer"
+                  className="px-3.5 py-2 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary rounded-xl text-xs font-mono font-medium cursor-pointer transition-colors"
                 >
                   Отмена
                 </button>
                 <button
                   type="button"
                   onClick={() => deleteConfirmId && handleDeleteReport(deleteConfirmId)}
-                  className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-mono font-bold cursor-pointer"
+                  className="px-3.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/30 rounded-xl text-xs font-mono font-bold cursor-pointer transition-colors"
                 >
                   Удалить
                 </button>
@@ -1524,7 +1524,7 @@ export default function DeveloperReportsPage() {
                 <button
                   type="button"
                   onClick={() => setIsBatchDeleteConfirmOpen(false)}
-                  className="px-3 py-1.5 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary rounded-xl text-xs font-mono cursor-pointer"
+                  className="px-3.5 py-2 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary rounded-xl text-xs font-mono font-medium cursor-pointer transition-colors"
                 >
                   Отмена
                 </button>
@@ -1532,7 +1532,7 @@ export default function DeveloperReportsPage() {
                   type="button"
                   onClick={handleBatchDelete}
                   disabled={isBatchProcessing}
-                  className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-mono font-bold cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/30 rounded-xl text-xs font-mono font-bold cursor-pointer disabled:opacity-50 transition-colors"
                 >
                   {isBatchProcessing ? "Удаление..." : "Удалить все"}
                 </button>

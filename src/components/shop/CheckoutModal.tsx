@@ -90,21 +90,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 }) => {
   useScrollLock(isOpen);
 
-  if (!isOpen) return null;
-
   return (
     <AnimatePresence>
-      <motion.div 
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="fixed inset-0 bg-black/75 backdrop-blur-md z-50"
-      />
-      <motion.div 
-        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} 
-        transition={{ type: "spring", damping: 28, stiffness: 220 }}
-        className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-50 flex flex-col shadow-2xl text-app-primary font-sans"
-      >
-        <div className="h-16 flex items-center justify-between px-6 border-b border-app-border bg-app-modal-header">
+      {isOpen && (
+        <div key="checkout-modal-container" className="fixed inset-0 z-50">
+          <motion.div 
+            key="checkout-backdrop"
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/75 backdrop-blur-md z-50"
+          />
+          <motion.div 
+            key="checkout-panel"
+            initial={{ x: "100%" }} 
+            animate={{ x: 0 }} 
+            exit={{ x: "100%" }} 
+            transition={{ type: "spring", damping: 28, stiffness: 220 }}
+            className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-50 flex flex-col shadow-2xl text-app-primary font-sans"
+          >
+            <div className="h-16 flex items-center justify-between px-6 border-b border-app-border bg-app-modal-header">
           <div className="flex items-center gap-2">
             <ShoppingBag size={18} className="text-app-muted" />
             <h2 className="text-sm font-semibold tracking-tight text-app-primary">Корзина</h2>
@@ -403,7 +409,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
         </div>
         
-        <div className="p-6 border-t border-app-border bg-app-bg">
+        <div className="p-4 sm:p-6 border-t border-app-border bg-app-bg pb-safe">
           <button
             form="checkout-form"
             type="submit"
@@ -423,7 +429,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             )}
           </button>
         </div>
-      </motion.div>
+          </motion.div>
+        </div>
+      )}
     </AnimatePresence>
   );
 };
