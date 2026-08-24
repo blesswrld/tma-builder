@@ -128,21 +128,41 @@ export function AdminTeamTab({
                     <p className="text-[11px] text-app-muted font-mono">{m.email}</p>
                   </div>
                 </div>
-                {user && selectedShop?.ownerId === user.id && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      requestConfirm(
-                        "Исключить сотрудника",
-                        `Удалить ${m.name || m.email} из команды заведения?`,
-                        () => handleRemoveMember(m.userId)
-                      )
-                    }
-                    className="p-2 text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-xl transition-all cursor-pointer"
-                    title="Исключить из команды"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                {/* Delete button: Owner can delete anyone, Manager can delete only Staff */}
+                {user && (
+                  (selectedShop?.ownerId === user.id || selectedShop?.currentUserRole === "OWNER") ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        requestConfirm(
+                          "Исключить сотрудника",
+                          `Удалить ${m.name || m.email} из команды заведения?`,
+                          () => handleRemoveMember(m.userId)
+                        )
+                      }
+                      className="p-2 text-app-muted hover:text-rose-500 hover:bg-app-hover border border-transparent hover:border-app-border rounded-xl transition-all cursor-pointer"
+                      title="Исключить из команды"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  ) : (
+                    m.role === "STAFF" && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          requestConfirm(
+                            "Исключить сотрудника",
+                            `Удалить ${m.name || m.email} из команды заведения?`,
+                            () => handleRemoveMember(m.userId)
+                          )
+                        }
+                        className="p-2 text-app-muted hover:text-rose-500 hover:bg-app-hover border border-transparent hover:border-app-border rounded-xl transition-all cursor-pointer"
+                        title="Исключить сотрудника"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )
+                  )
                 )}
               </div>
             ))}
@@ -169,6 +189,9 @@ export function AdminTeamTab({
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-xs text-app-primary px-2.5 py-0.5 bg-app-surface rounded-lg border border-app-border">
                         {inv.code}
+                      </span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-app-surface border border-app-border text-app-muted">
+                        {inv.role === "MANAGER" ? "Менеджер" : "Сотрудник"}
                       </span>
                       <span className="text-[11px] text-app-muted font-mono">
                         Использовано: {inv.usedCount} из {inv.maxUses}
@@ -243,18 +266,32 @@ export function AdminTeamTab({
 
                     <button
                       type="button"
-                      onClick={() => setInviteRole("MANAGER")}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        inviteRole === "MANAGER"
-                          ? "bg-app-accent text-app-accent-fg border-transparent font-semibold shadow-xs"
-                          : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-hover"
+                      disabled={selectedShop?.ownerId !== user?.id && selectedShop?.currentUserRole !== "OWNER"}
+                      onClick={() => {
+                        if (selectedShop?.ownerId === user?.id || selectedShop?.currentUserRole === "OWNER") {
+                          setInviteRole("MANAGER");
+                        } else {
+                          showToast("Назначать менеджеров может только владелец заведения.", "warning");
+                        }
+                      }}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        selectedShop?.ownerId !== user?.id && selectedShop?.currentUserRole !== "OWNER"
+                          ? "bg-app-card/40 border-app-border/40 text-app-muted cursor-not-allowed opacity-60"
+                          : inviteRole === "MANAGER"
+                          ? "bg-app-accent text-app-accent-fg border-transparent font-semibold shadow-xs cursor-pointer"
+                          : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-hover cursor-pointer"
                       }`}
+                      title={selectedShop?.ownerId !== user?.id && selectedShop?.currentUserRole !== "OWNER" ? "Только владелец заведения может назначать менеджеров" : ""}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-bold text-xs">Менеджер</span>
                         {inviteRole === "MANAGER" && <Check size={14} />}
                       </div>
-                      <p className="text-[10px] opacity-80 leading-tight">Полное управление заведением</p>
+                      <p className="text-[10px] opacity-80 leading-tight">
+                        {selectedShop?.ownerId !== user?.id && selectedShop?.currentUserRole !== "OWNER"
+                          ? "Только для владельца"
+                          : "Полное управление заведением"}
+                      </p>
                     </button>
                   </div>
                 </div>

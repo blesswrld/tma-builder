@@ -76,6 +76,7 @@ export interface Shop {
     name?: string | null;
   } | null;
   services?: Service[];
+  currentUserRole?: "OWNER" | "MANAGER" | "STAFF";
   _count?: {
     orders?: number;
   };

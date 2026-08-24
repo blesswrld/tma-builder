@@ -93,6 +93,7 @@ interface AdminSettingsTabProps {
   webhookStatus?: string | null;
   isSendingTestNotification?: boolean;
   onOpenReport?: () => void;
+  isOwner?: boolean;
 }
 
 const CURRENCY_OPTIONS = [
@@ -128,6 +129,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
   webhookStatus,
   isSendingTestNotification,
   onOpenReport,
+  isOwner = true,
 }) => {
   const [activeSubTab, setActiveSubTab] = React.useState<
     "general" | "branding" | "currency" | "delivery" | "social" | "telegram"
@@ -1020,7 +1022,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
             activeSubTab === "general" ? "justify-between" : "justify-end"
           }`}
         >
-          {activeSubTab === "general" && (
+          {activeSubTab === "general" && isOwner && (
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 type="button"

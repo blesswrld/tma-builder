@@ -114,6 +114,7 @@ export interface Service {
 interface AdminServicesTabProps {
   services: Service[];
   selectedShop: any;
+  isStaff?: boolean;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   selectedCategory: string;
@@ -149,6 +150,7 @@ interface AdminServicesTabProps {
 
 export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
   services,
+  isStaff = false,
   searchQuery,
   setSearchQuery,
   selectedCategory,
@@ -681,60 +683,62 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                     )}
                   </button>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleDuplicateService(service)}
-                      className="p-1.5 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-card transition-colors cursor-pointer"
-                      title="Дублировать"
-                    >
-                      <Copy size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingService(service);
-                        let parsedGallery: string[] = [];
-                        if (service.gallery) {
-                          try {
-                            parsedGallery = JSON.parse(service.gallery);
-                          } catch {
-                            parsedGallery = service.gallery
-                              .split(",")
-                              .map((s) => s.trim())
-                              .filter(Boolean);
+                  {!isStaff && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateService(service)}
+                        className="p-1.5 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-card transition-colors cursor-pointer"
+                        title="Дублировать"
+                      >
+                        <Copy size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingService(service);
+                          let parsedGallery: string[] = [];
+                          if (service.gallery) {
+                            try {
+                              parsedGallery = JSON.parse(service.gallery);
+                            } catch {
+                              parsedGallery = service.gallery
+                                .split(",")
+                                .map((s) => s.trim())
+                                .filter(Boolean);
+                            }
                           }
-                        }
-                        setNewServiceData({
-                          title: service.title,
-                          price: String(service.price),
-                          oldPrice: service.oldPrice ? String(service.oldPrice) : "",
-                          description: service.description || "",
-                          category: service.category || "",
-                          badge: service.badge || "",
-                          imageUrl: service.imageUrl || "",
-                          gallery: parsedGallery,
-                          tags: service.tags || "",
-                          prepTime: service.prepTime || "",
-                          weight: service.weight || "",
-                          fulfillment: service.fulfillment || "courier,pickup",
-                          isAvailable: service.isAvailable !== false,
-                        });
-                      }}
-                      className="p-1.5 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-card transition-colors cursor-pointer"
-                      title="Редактировать"
-                    >
-                      <Edit3 size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteService(service.id)}
-                      className="p-1.5 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-hover border border-transparent hover:border-app-border transition-all cursor-pointer backdrop-blur-sm"
-                      title="Удалить"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                          setNewServiceData({
+                            title: service.title,
+                            price: String(service.price),
+                            oldPrice: service.oldPrice ? String(service.oldPrice) : "",
+                            description: service.description || "",
+                            category: service.category || "",
+                            badge: service.badge || "",
+                            imageUrl: service.imageUrl || "",
+                            gallery: parsedGallery,
+                            tags: service.tags || "",
+                            prepTime: service.prepTime || "",
+                            weight: service.weight || "",
+                            fulfillment: service.fulfillment || "courier,pickup",
+                            isAvailable: service.isAvailable !== false,
+                          });
+                        }}
+                        className="p-1.5 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-card transition-colors cursor-pointer"
+                        title="Редактировать"
+                      >
+                        <Edit3 size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteService(service.id)}
+                        className="p-1.5 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-hover border border-transparent hover:border-app-border transition-all cursor-pointer backdrop-blur-sm"
+                        title="Удалить"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );

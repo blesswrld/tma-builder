@@ -114,12 +114,24 @@ export default function AdminPage() {
   const { user, token, isLoading: authLoading, login, register, logout, sendCode, verifyCode, resetPassword, updateProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
+  // Developer check for gelgaev.dev@mail.ru
+  const isDeveloperUser = Boolean(
+    user?.email && user.email.toLowerCase().trim() === "gelgaev.dev@mail.ru"
+  );
+
   // Developer unhandled reports counter
   const [unhandledReportsCount, setUnhandledReportsCount] = useState(0);
 
   const fetchReportsCount = useCallback(async () => {
+    if (!isDeveloperUser) {
+      setUnhandledReportsCount(0);
+      return;
+    }
     try {
-      const res = await fetch("/api/reports?status=NEW&dev=true");
+      const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+      const res = await fetch("/api/reports?status=NEW", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.reports)) {
@@ -129,7 +141,7 @@ export default function AdminPage() {
     } catch {
       // ignore
     }
-  }, []);
+  }, [isDeveloperUser]);
 
   useEffect(() => {
     fetchReportsCount();
@@ -438,13 +450,35 @@ export default function AdminPage() {
   // Admin tabs
   const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">("services");
 
+  // User role in the currently selected shop
+  const currentUserRole: "OWNER" | "MANAGER" | "STAFF" =
+    selectedShop?.currentUserRole ||
+    (selectedShop && user && selectedShop.ownerId === user.id ? "OWNER" : "STAFF");
+
+  const isOwner = currentUserRole === "OWNER";
+  const isManager = currentUserRole === "MANAGER";
+  const isStaff = currentUserRole === "STAFF";
+
+  // Auto-switch away from restricted tabs if user is STAFF or if non-developer enters reports
+  useEffect(() => {
+    if (isStaff) {
+      const allowed = ["orders", "botsim", "profile"];
+      if (isDeveloperUser) allowed.push("reports");
+      if (!allowed.includes(activeTab)) {
+        setActiveTab("orders");
+      }
+    } else if (!isDeveloperUser && activeTab === ("reports" as any)) {
+      setActiveTab("services");
+    }
+  }, [isStaff, isDeveloperUser, activeTab, selectedShop?.id]);
+
   const closeSubView = () => {
     setIsSettingsOpen(false);
     setIsProfileOpen(false);
     setIsCreatingShop(false);
     setIsAddingService(false);
     setEditingService(null);
-    setActiveTab("services");
+    setActiveTab(isStaff ? "orders" : "services");
   };
 
   // Broadcasts
@@ -1373,7 +1407,7 @@ export default function AdminPage() {
   }, [user, token, urlInviteCode]);
 
   const fetchTeam = async (shopId: string, silent = false) => {
-    if (!token) return;
+    if (!token || isStaff) return;
     if (!silent) setTeamLoading(true);
     try {
       const res = await fetch(`/api/shops/${shopId}/members`, {
@@ -1385,17 +1419,17 @@ export default function AdminPage() {
         setTeamInvites(data.invites || []);
       }
     } catch (err) {
-      console.error("Failed to fetch team:", err);
+      if (!silent) console.error("Failed to fetch team:", err);
     } finally {
       if (!silent) setTeamLoading(false);
     }
   };
 
   useEffect(() => {
-    if (selectedShop?.id) {
+    if (selectedShop?.id && !isStaff) {
       fetchTeam(selectedShop.id);
     }
-  }, [selectedShop?.id, token]);
+  }, [selectedShop?.id, token, isStaff]);
 
   const handleCreateInvite = async () => {
     if (!selectedShop || !token) return;
@@ -1629,6 +1663,10 @@ export default function AdminPage() {
   };
 
   const handleOpenCreateShop = () => {
+    if (isStaff || isManager) {
+      showToast("Создание заведений доступно только для независимых владельцев.", "warning");
+      return;
+    }
     setIsSidebarOpen(false);
     setIsSlugCustomized(false);
     setNewShopData({ name: "", slug: "", description: "" });
@@ -1972,7 +2010,7 @@ export default function AdminPage() {
   };
 
   const fetchPromocodes = async (silent = false) => {
-    if (!selectedShop) return;
+    if (!selectedShop || isStaff) return;
     if (!silent) setPromocodesLoading(true);
     try {
       const headers: Record<string, string> = {};
@@ -2116,7 +2154,7 @@ export default function AdminPage() {
   };
 
   const fetchBanners = async (silent = false) => {
-    if (!selectedShop) return;
+    if (!selectedShop || isStaff) return;
     if (!silent) setBannersLoading(true);
     try {
       const res = await fetch(`/api/shops/${selectedShop.id}/banners`);
@@ -2182,7 +2220,7 @@ export default function AdminPage() {
   };
 
   const fetchBroadcasts = async (silent = false) => {
-    if (!selectedShop) return;
+    if (!selectedShop || isStaff) return;
     if (!silent) setBroadcastsLoading(true);
     try {
       const headers: Record<string, string> = {};
@@ -2250,7 +2288,7 @@ export default function AdminPage() {
   };
 
   const fetchCustomers = async (silent = false) => {
-    if (!selectedShop) return;
+    if (!selectedShop || isStaff) return;
     if (!silent) setCustomersLoading(true);
     try {
       const headers: Record<string, string> = {};
@@ -2275,24 +2313,28 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (selectedShop) {
-      fetchPromocodes();
+      if (!isStaff) {
+        fetchPromocodes();
+        fetchBanners();
+        fetchBroadcasts();
+        fetchCustomers();
+      }
       fetchReviews();
-      fetchBanners();
-      fetchBroadcasts();
-      fetchCustomers();
 
       const interval = setInterval(() => {
-        fetchPromocodes(true);
+        if (!isStaff) {
+          fetchPromocodes(true);
+          fetchBanners(true);
+          fetchBroadcasts(true);
+          fetchCustomers(true);
+        }
         fetchReviews(true);
-        fetchBanners(true);
-        fetchBroadcasts(true);
-        fetchCustomers(true);
         fetchShops(true);
       }, 4000);
 
       return () => clearInterval(interval);
     }
-  }, [selectedShop?.id]);
+  }, [selectedShop?.id, isStaff]);
 
   const handleOpenProfile = () => {
     setIsSidebarOpen(false);
@@ -3026,7 +3068,7 @@ export default function AdminPage() {
                 onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
                 className="w-full bg-app-card hover:bg-app-hover border border-app-border text-xs font-medium text-app-primary rounded-xl px-3 py-2.5 flex items-center justify-between gap-2 transition-all cursor-pointer shadow-sm focus:outline-none"
               >
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 pr-1 truncate">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
                   <span className="truncate font-semibold text-app-primary">
                     {selectedShop ? selectedShop.name : "Выберите заведение"}
@@ -3078,6 +3120,7 @@ export default function AdminPage() {
                       ) : (
                         activeShops.map((s) => {
                           const isSelected = selectedShop?.id === s.id;
+                          const sRole = s.currentUserRole || (user && s.ownerId === user.id ? "OWNER" : "STAFF");
                           return (
                             <button
                               key={s.id}
@@ -3098,6 +3141,17 @@ export default function AdminPage() {
                                 <span className={`text-[10px] ${isSelected ? "text-app-accent-fg/80" : "text-app-muted"} shrink-0`}>
                                   ({s.slug})
                                 </span>
+                                <span className={`text-[9px] px-1 py-0.2 rounded border ${
+                                  isSelected
+                                    ? "bg-white/20 text-white border-white/30"
+                                    : sRole === "OWNER"
+                                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                    : sRole === "MANAGER"
+                                    ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+                                    : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                } shrink-0`}>
+                                  {sRole === "OWNER" ? "Владелец" : sRole === "MANAGER" ? "Менеджер" : "Сотрудник"}
+                                </span>
                               </div>
                               {isSelected && <Check size={14} className="text-app-accent-fg shrink-0" />}
                             </button>
@@ -3106,19 +3160,21 @@ export default function AdminPage() {
                       )}
                     </div>
 
-                    <div className="pt-1.5 border-t border-app-border">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsShopDropdownOpen(false);
-                          handleOpenCreateShop();
-                        }}
-                        className="w-full py-2 px-2.5 rounded-xl text-xs font-mono font-bold bg-app-card hover:bg-app-hover text-app-primary border border-app-border flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                      >
-                        <Plus size={14} className="text-emerald-500" />
-                        <span>Создать новое заведение</span>
-                      </button>
-                    </div>
+                    {!isStaff && !isManager && (
+                      <div className="pt-1.5 border-t border-app-border">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsShopDropdownOpen(false);
+                            handleOpenCreateShop();
+                          }}
+                          className="w-full py-2 px-2.5 rounded-xl text-xs font-mono font-bold bg-app-card hover:bg-app-hover text-app-primary border border-app-border flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <Plus size={14} className="text-emerald-500" />
+                          <span>Создать новое заведение</span>
+                        </button>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -3127,19 +3183,23 @@ export default function AdminPage() {
             {/* Quick Actions Bar */}
             {selectedShop && (
               <div className="flex items-center justify-between gap-1 px-1 pt-1">
-                <button
-                  onClick={handleOpenCreateShop}
-                  className="flex-1 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-[11px] font-mono text-app-secondary hover:text-app-primary rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <Plus size={12} /> Заведение
-                </button>
-                <button
-                  onClick={() => handleOpenSettings(selectedShop)}
-                  className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-colors cursor-pointer"
-                  title="Настройки заведения"
-                >
-                  <Settings size={13} />
-                </button>
+                {!isStaff && (
+                  <button
+                    onClick={handleOpenCreateShop}
+                    className="flex-1 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-[11px] font-mono text-app-secondary hover:text-app-primary rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Plus size={12} /> Заведение
+                  </button>
+                )}
+                {!isStaff && (
+                  <button
+                    onClick={() => handleOpenSettings(selectedShop)}
+                    className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-colors cursor-pointer"
+                    title="Настройки заведения"
+                  >
+                    <Settings size={13} />
+                  </button>
+                )}
                 <a
                   href={`/${selectedShop.slug}`}
                   target="_blank"
@@ -3149,33 +3209,43 @@ export default function AdminPage() {
                 >
                   <ExternalLink size={13} />
                 </a>
-                <button
-                  onClick={() => handleDeleteShop(selectedShop)}
-                  className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-all cursor-pointer backdrop-blur-sm"
-                  title="Удалить заведение"
-                >
-                  <Trash2 size={13} />
-                </button>
+                {isOwner && (
+                  <button
+                    onClick={() => handleDeleteShop(selectedShop)}
+                    className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-all cursor-pointer backdrop-blur-sm"
+                    title="Удалить заведение"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
               </div>
             )}
           </div>
 
           {/* Navigation Items */}
           <nav className="space-y-1 font-mono text-xs">
-            {[
-              { id: "services", label: "Меню и услуги", icon: Layers, badge: (selectedShop?.services || []).length },
-              { id: "orders", label: "Заказы", icon: ShoppingBag, badge: (orders || []).filter(o => o.status === "PENDING").length, alert: (orders || []).filter(o => o.status === "PENDING").length > 0 },
-              { id: "promocodes", label: "Промокоды", icon: Tag, badge: (promocodes || []).length },
-              { id: "reviews", label: "Отзывы", icon: Star, badge: (reviews || []).length },
-              { id: "banners", label: "Баннеры", icon: ImageIcon, badge: (banners || []).length },
-              { id: "broadcasts", label: "Рассылки", icon: Send, badge: (broadcasts || []).length },
-              { id: "customers", label: "Клиенты CRM", icon: Users, badge: (customers || []).length },
-              { id: "team", label: "Команда и доступ", icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
-              { id: "analytics", label: "Аналитика", icon: BarChart3 },
-              { id: "botsim", label: "Симулятор бота", icon: Smartphone },
-              { id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 },
-              { id: "profile", label: "Профиль администратора", icon: User }
-            ].map((tab) => {
+            {(isStaff
+              ? [
+                  { id: "orders", label: "Заказы", icon: ShoppingBag, badge: (orders || []).filter(o => o.status === "PENDING").length, alert: (orders || []).filter(o => o.status === "PENDING").length > 0 },
+                  { id: "botsim", label: "Симулятор бота", icon: Smartphone },
+                  ...(isDeveloperUser ? [{ id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }] : []),
+                  { id: "profile", label: "Профиль сотрудника", icon: User }
+                ]
+              : [
+                  { id: "services", label: "Меню и услуги", icon: Layers, badge: (selectedShop?.services || []).length },
+                  { id: "orders", label: "Заказы", icon: ShoppingBag, badge: (orders || []).filter(o => o.status === "PENDING").length, alert: (orders || []).filter(o => o.status === "PENDING").length > 0 },
+                  { id: "promocodes", label: "Промокоды", icon: Tag, badge: (promocodes || []).length },
+                  { id: "reviews", label: "Отзывы", icon: Star, badge: (reviews || []).length },
+                  { id: "banners", label: "Баннеры", icon: ImageIcon, badge: (banners || []).length },
+                  { id: "broadcasts", label: "Рассылки", icon: Send, badge: (broadcasts || []).length },
+                  { id: "customers", label: "Клиенты CRM", icon: Users, badge: (customers || []).length },
+                  { id: "team", label: "Команда и доступ", icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
+                  { id: "analytics", label: "Аналитика", icon: BarChart3 },
+                  { id: "botsim", label: "Симулятор бота", icon: Smartphone },
+                  ...(isDeveloperUser ? [{ id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }] : []),
+                  { id: "profile", label: "Профиль администратора", icon: User }
+                ]
+            ).map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
@@ -3450,7 +3520,7 @@ export default function AdminPage() {
               </button>
             )}
 
-            {activeTab === "services" && !isAddingService && !editingService && (
+            {activeTab === "services" && !isStaff && !isAddingService && !editingService && (
               <button
                 onClick={() => {
                   setNewServiceData({ title: "", price: "", category: "", imageUrl: "", description: "", badge: "", prepTime: "", weight: "", tags: "", isAvailable: true, oldPrice: "", fulfillment: "courier,pickup" });
@@ -3466,7 +3536,7 @@ export default function AdminPage() {
               </button>
             )}
 
-            {activeTab === "promocodes" && (
+            {activeTab === "promocodes" && !isStaff && (
               <button
                 onClick={() => setIsCreatingPromo(true)}
                 className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer"
@@ -3475,7 +3545,7 @@ export default function AdminPage() {
               </button>
             )}
 
-            {activeTab === "banners" && (
+            {activeTab === "banners" && !isStaff && (
               <button
                 onClick={() => setIsCreatingBanner(true)}
                 className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer"
@@ -3484,7 +3554,7 @@ export default function AdminPage() {
               </button>
             )}
 
-            {activeTab === "broadcasts" && (
+            {activeTab === "broadcasts" && !isStaff && (
               <button
                 onClick={() => setIsCreatingBroadcast(true)}
                 className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer"
@@ -3854,6 +3924,7 @@ export default function AdminPage() {
           {activeTab === "settings" && !loading && selectedShop && (
             <AdminSettingsTab
               selectedShop={selectedShop}
+              isOwner={isOwner}
               shops={shops}
               settingsData={settingsData}
               setSettingsData={setSettingsData}
@@ -3889,6 +3960,7 @@ export default function AdminPage() {
             <AdminServicesTab
               services={filteredServices}
               selectedShop={selectedShop}
+              isStaff={isStaff}
               searchQuery={serviceSearchQuery}
               setSearchQuery={setServiceSearchQuery}
               selectedCategory={selectedCategoryFilter}

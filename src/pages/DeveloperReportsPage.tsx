@@ -76,9 +76,11 @@ function playNotificationChime() {
 
 export default function DeveloperReportsPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { isConnected, lastEvent } = useRealtime();
+
+  const isDeveloperUser = user?.email?.toLowerCase().trim() === "gelgaev.dev@mail.ru";
 
   const [reports, setReports] = useState<BugReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -153,6 +155,10 @@ export default function DeveloperReportsPage() {
   }, []);
 
   const fetchReports = async (silent = false) => {
+    if (!isDeveloperUser) {
+      setIsLoading(false);
+      return;
+    }
     if (!silent) setIsRefreshing(true);
     setError(null);
     try {
@@ -164,8 +170,11 @@ export default function DeveloperReportsPage() {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
-      const res = await fetch("/api/reports?dev=true", { headers });
+      const res = await fetch("/api/reports", { headers });
       if (!res.ok) {
+        if (res.status === 403 || res.status === 401) {
+          throw new Error("Доступ запрещен. Страница доступна только для разработчика (gelgaev.dev@mail.ru)");
+        }
         throw new Error("Не удалось загрузить отчёты");
       }
       const data = await res.json();
@@ -190,8 +199,14 @@ export default function DeveloperReportsPage() {
   };
 
   useEffect(() => {
-    fetchReports();
-  }, []);
+    if (!authLoading) {
+      if (isDeveloperUser) {
+        fetchReports();
+      } else {
+        setIsLoading(false);
+      }
+    }
+  }, [authLoading, isDeveloperUser]);
 
   // Listen for realtime events
   useEffect(() => {
@@ -536,6 +551,59 @@ export default function DeveloperReportsPage() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-app-bg text-app-primary flex items-center justify-center font-mono text-xs">
+        <div className="flex items-center gap-2 text-app-muted">
+          <RefreshCw size={16} className="animate-spin text-app-primary" />
+          <span>Проверка прав доступа...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isDeveloperUser) {
+    return (
+      <div className="min-h-screen bg-app-bg text-app-primary flex items-center justify-center p-4 font-sans">
+        <div className="max-w-md w-full p-6 sm:p-8 bg-app-surface border border-app-border rounded-3xl shadow-2xl text-center space-y-5">
+          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto shadow-inner">
+            <Shield size={32} />
+          </div>
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20 uppercase tracking-wider">
+              403 Forbidden • Доступ ограничен
+            </div>
+            <h2 className="text-xl font-bold text-app-primary">Закрытый раздел платформы</h2>
+            <p className="text-xs text-app-muted font-sans leading-relaxed">
+              Центр отчётов разработчика и телеметрии доступен исключительно для авторизованной учётной записи главного разработчика:
+            </p>
+            <div className="p-2.5 bg-app-card border border-app-border rounded-xl font-mono text-xs font-semibold text-app-primary">
+              gelgaev.dev@mail.ru
+            </div>
+            {user?.email ? (
+              <p className="text-[11px] text-app-muted font-mono pt-1">
+                Текущий аккаунт: <span className="text-app-primary font-medium">{user.email}</span> (доступ ограничен)
+              </p>
+            ) : (
+              <p className="text-[11px] text-amber-400 font-mono pt-1">
+                Вы не авторизованы в системе
+              </p>
+            )}
+          </div>
+          <div className="pt-2 space-y-2">
+            <button
+              onClick={() => navigate("/admin")}
+              className="w-full py-2.5 px-4 bg-app-accent hover:opacity-90 text-app-accent-fg font-mono font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2"
+            >
+              <ArrowLeft size={14} />
+              <span>Вернуться в панель управления</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-app-bg text-app-primary flex flex-col font-sans transition-colors duration-200">
       {/* Top Navbar */}
@@ -584,11 +652,19 @@ export default function DeveloperReportsPage() {
           <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-app-card border border-app-border rounded-xl text-[11px] font-mono text-app-muted">
             <span
               className={`w-2 h-2 rounded-full ${
-                isConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                isRefreshing
+                  ? "bg-amber-500 animate-ping"
+                  : isConnected
+                  ? "bg-emerald-500 animate-pulse"
+                  : "bg-emerald-500"
               }`}
             />
             <span className="font-semibold text-app-primary">
-              {isConnected ? "Realtime активен" : "Подключение..."}
+              {isRefreshing
+                ? "Синхронизация..."
+                : isConnected
+                ? "Realtime активен"
+                : "Синхронизировано"}
             </span>
           </div>
 

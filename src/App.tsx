@@ -1,11 +1,34 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ShopPage from './pages/ShopPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AdminPage from './pages/AdminPage';
 import DeveloperReportsPage from './pages/DeveloperReportsPage';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import { ThemeProvider } from './context/ThemeContext';
+
+function DeveloperRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-app-bg flex items-center justify-center text-app-muted font-mono text-xs">
+        Проверка прав доступа...
+      </div>
+    );
+  }
+
+  const isDev = Boolean(
+    user?.email && user.email.toLowerCase().trim() === "gelgaev.dev@mail.ru"
+  );
+
+  if (!isDev) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  return <>{children}</>;
+}
 
 export default function App() {
   return (
@@ -16,9 +39,30 @@ export default function App() {
             <Routes>
               <Route path="/" element={<AdminPage />} />
               <Route path="/admin" element={<AdminPage />} />
-              <Route path="/reports" element={<DeveloperReportsPage />} />
-              <Route path="/dev-reports" element={<DeveloperReportsPage />} />
-              <Route path="/admin/reports" element={<DeveloperReportsPage />} />
+              <Route
+                path="/reports"
+                element={
+                  <DeveloperRoute>
+                    <DeveloperReportsPage />
+                  </DeveloperRoute>
+                }
+              />
+              <Route
+                path="/dev-reports"
+                element={
+                  <DeveloperRoute>
+                    <DeveloperReportsPage />
+                  </DeveloperRoute>
+                }
+              />
+              <Route
+                path="/admin/reports"
+                element={
+                  <DeveloperRoute>
+                    <DeveloperReportsPage />
+                  </DeveloperRoute>
+                }
+              />
               <Route path="/:slug" element={<ShopPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

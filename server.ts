@@ -350,33 +350,37 @@ async function ensureOrderSchema(db: PrismaClient) {
   await schemaInitPromise;
 }
 
-async function canManageShop(db: PrismaClient, shopId: string, authUser: { id: string } | null): Promise<boolean> {
-  // STRICT SECURITY: Unauthenticated users CANNOT manage or edit any shop!
-  if (!authUser) return false;
+export type UserShopRole = "OWNER" | "MANAGER" | "STAFF" | null;
+
+async function getShopUserRole(db: PrismaClient, shopId: string, authUser: { id: string } | null): Promise<UserShopRole> {
+  // STRICT SECURITY: Unauthenticated users have no role
+  if (!authUser) return null;
 
   const shop = await db.shop.findUnique({ where: { id: shopId } });
-  if (!shop) return false;
+  if (!shop) return null;
 
   // 1. Owner match
   if (shop.ownerId === authUser.id) {
-    return true;
+    return "OWNER";
   }
 
   // 2. Unassigned legacy shop -> assign to first logged-in user who accesses it
   if (!shop.ownerId) {
     await db.shop.update({ where: { id: shopId }, data: { ownerId: authUser.id } }).catch(() => {});
-    return true;
+    return "OWNER";
   }
 
-  // 3. Staff member check via ShopMember
+  // 3. Staff / Manager member check via ShopMember
   try {
     const members: any[] = await db.$queryRawUnsafe(
-      `SELECT * FROM "ShopMember" WHERE "shopId" = $1 AND "userId" = $2 LIMIT 1;`,
+      `SELECT "role" FROM "ShopMember" WHERE "shopId" = $1 AND "userId" = $2 LIMIT 1;`,
       shopId,
       authUser.id
     );
     if (members && members.length > 0) {
-      return true;
+      const rawRole = (members[0].role || "").toUpperCase();
+      if (rawRole === "MANAGER" || rawRole === "ADMIN") return "MANAGER";
+      return "STAFF";
     }
   } catch (e) {
     // Ignore error if query fails
@@ -386,10 +390,33 @@ async function canManageShop(db: PrismaClient, shopId: string, authUser: { id: s
   const existingOwner = await db.user.findUnique({ where: { id: shop.ownerId } });
   if (!existingOwner) {
     await db.shop.update({ where: { id: shopId }, data: { ownerId: authUser.id } }).catch(() => {});
-    return true;
+    return "OWNER";
   }
 
-  return false;
+  return null;
+}
+
+// Allows OWNER, MANAGER, and STAFF (view orders, update order status, export CSV)
+async function canProcessOrders(db: PrismaClient, shopId: string, authUser: { id: string } | null): Promise<boolean> {
+  const role = await getShopUserRole(db, shopId, authUser);
+  return role === "OWNER" || role === "MANAGER" || role === "STAFF";
+}
+
+// Allows OWNER and MANAGER (manage catalog/services, promo, reviews, banners, broadcasts, CRM, settings)
+async function canManageShopContent(db: PrismaClient, shopId: string, authUser: { id: string } | null): Promise<boolean> {
+  const role = await getShopUserRole(db, shopId, authUser);
+  return role === "OWNER" || role === "MANAGER";
+}
+
+// Allows OWNER only (delete shop, assign/remove manager roles)
+async function isShopOwner(db: PrismaClient, shopId: string, authUser: { id: string } | null): Promise<boolean> {
+  const role = await getShopUserRole(db, shopId, authUser);
+  return role === "OWNER";
+}
+
+// Backward compatibility alias for general management check
+async function canManageShop(db: PrismaClient, shopId: string, authUser: { id: string } | null): Promise<boolean> {
+  return canManageShopContent(db, shopId, authUser);
 }
 
 async function getUserShops(db: PrismaClient, userId: string) {
@@ -404,26 +431,38 @@ async function getUserShops(db: PrismaClient, userId: string) {
     orderBy: { createdAt: "desc" }
   });
 
-  // Shops where user is a staff member
-  let memberShopIds: string[] = [];
+  const ownedWithRole = ownedShops.map(s => ({
+    ...s,
+    currentUserRole: "OWNER" as const
+  }));
+
+  // Shops where user is a team member (staff or manager)
+  let memberRecords: any[] = [];
   try {
-    const members: any[] = await db.$queryRawUnsafe(
-      `SELECT "shopId" FROM "ShopMember" WHERE "userId" = $1;`,
+    memberRecords = await db.$queryRawUnsafe(
+      `SELECT "shopId", "role" FROM "ShopMember" WHERE "userId" = $1;`,
       userId
     );
-    if (members && members.length > 0) {
-      memberShopIds = members.map((m: any) => m.shopId);
-    }
   } catch (e) {
     // Ignore
   }
 
   let extraShops: any[] = [];
-  if (memberShopIds.length > 0) {
+  if (memberRecords && memberRecords.length > 0) {
     const existingOwnedIds = new Set(ownedShops.map(s => s.id));
-    const newMemberIds = memberShopIds.filter(id => !existingOwnedIds.has(id));
+    const memberRoleMap = new Map<string, "MANAGER" | "STAFF">();
+    const newMemberIds: string[] = [];
+
+    for (const m of memberRecords) {
+      if (!existingOwnedIds.has(m.shopId)) {
+        newMemberIds.push(m.shopId);
+        const raw = (m.role || "").toUpperCase();
+        memberRoleMap.set(m.shopId, raw === "MANAGER" || raw === "ADMIN" ? "MANAGER" : "STAFF");
+      }
+    }
+
     if (newMemberIds.length > 0) {
-      extraShops = await db.shop.findMany({
+      const rawExtra = await db.shop.findMany({
         where: { id: { in: newMemberIds } },
         include: {
           services: true,
@@ -432,10 +471,15 @@ async function getUserShops(db: PrismaClient, userId: string) {
         },
         orderBy: { createdAt: "desc" }
       });
+
+      extraShops = rawExtra.map(s => ({
+        ...s,
+        currentUserRole: memberRoleMap.get(s.id) || ("STAFF" as const)
+      }));
     }
   }
 
-  return [...ownedShops, ...extraShops];
+  return [...ownedWithRole, ...extraShops];
 }
 
 export const prisma = getPrismaClient();
@@ -1029,9 +1073,13 @@ app.post("/api/shops/:shopId/invites", async (req, res) => {
     if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
     await ensureOrderSchema(db);
 
-    const hasPermission = await canManageShop(db, shopId, authUser);
-    if (!hasPermission) {
-      return res.status(403).json({ error: "У вас нет прав для создания приглашений в это заведение." });
+    const userRole = await getShopUserRole(db, shopId, authUser);
+    if (!userRole || userRole === "STAFF") {
+      return res.status(403).json({ error: "У сотрудников нет прав на создание приглашений. Обратитесь к менеджеру или владельцу." });
+    }
+
+    if (userRole === "MANAGER" && role === "MANAGER") {
+      return res.status(403).json({ error: "Менеджер может создавать приглашения только для роли «Сотрудник». Назначать менеджеров может только владелец." });
     }
 
     const code = "INV-" + Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -1079,9 +1127,9 @@ app.get("/api/shops/:shopId/members", async (req, res) => {
     if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
     await ensureOrderSchema(db);
 
-    const hasPermission = await canManageShop(db, shopId, authUser);
+    const hasPermission = await canManageShopContent(db, shopId, authUser);
     if (!hasPermission) {
-      return res.status(403).json({ error: "У вас нет прав на просмотр команды заведения." });
+      return res.status(403).json({ error: "У вас нет прав на просмотр команды заведения (требуются права Менеджера или Владельца)." });
     }
 
     const shop = await db.shop.findUnique({
@@ -1142,7 +1190,7 @@ app.delete("/api/invites/:code", async (req, res) => {
     }
 
     const invite = invites[0];
-    const hasPermission = await canManageShop(db, invite.shopId, authUser);
+    const hasPermission = await canManageShopContent(db, invite.shopId, authUser);
     if (!hasPermission) {
       return res.status(403).json({ error: "У вас нет прав для удаления этого приглашения." });
     }
@@ -1168,8 +1216,26 @@ app.delete("/api/shops/:shopId/members/:userId", async (req, res) => {
     const shop = await db.shop.findUnique({ where: { id: shopId } });
     if (!shop) return res.status(404).json({ error: "Заведение не найдено." });
 
-    if (shop.ownerId !== authUser.id) {
-      return res.status(403).json({ error: "Только владелец заведения может удалять сотрудников." });
+    const callerRole = await getShopUserRole(db, shopId, authUser);
+    if (callerRole !== "OWNER" && callerRole !== "MANAGER") {
+      return res.status(403).json({ error: "У вас нет прав на исключение участников." });
+    }
+
+    if (shop.ownerId === userId) {
+      return res.status(403).json({ error: "Нельзя исключить владельца заведения." });
+    }
+
+    if (callerRole === "MANAGER") {
+      const targetMember = ((await db.$queryRawUnsafe(
+        `SELECT "role" FROM "ShopMember" WHERE "shopId" = $1 AND "userId" = $2 LIMIT 1;`,
+        shopId, userId
+      ).catch(() => [])) || []) as any[];
+      if (Array.isArray(targetMember) && targetMember.length > 0) {
+        const tr = (targetMember[0].role || "").toUpperCase();
+        if (tr === "MANAGER" || tr === "ADMIN") {
+          return res.status(403).json({ error: "Менеджер не может исключить другого менеджера. Обратитесь к владельцу." });
+        }
+      }
     }
 
     await db.$executeRawUnsafe(
@@ -1359,6 +1425,21 @@ app.post("/api/shops", async (req, res) => {
       return res.status(400).json({ error: "Магазин с таким URL (slug) уже существует." });
     }
 
+    // Проверка прав: аккаунты сотрудников и менеджеров не могут создавать новые заведения
+    const memberRecord = await db.$queryRawUnsafe<any[]>(
+      `SELECT "role" FROM "ShopMember" WHERE "userId" = $1 LIMIT 1;`,
+      authUser.id
+    ).catch(() => []);
+
+    if (memberRecord && memberRecord.length > 0) {
+      const memberRole = memberRecord[0].role;
+      if (memberRole === "STAFF" || memberRole === "MANAGER") {
+        return res.status(403).json({
+          error: "Создание новых заведений запрещено для аккаунтов сотрудников и менеджеров."
+        });
+      }
+    }
+
     // Проверка лимита количества заведений по тарифу пользователя
     if (authUser) {
       const user = await db.user.findUnique({ where: { id: authUser.id } });
@@ -1420,9 +1501,9 @@ app.post("/api/shops", async (req, res) => {
         return res.status(404).json({ error: "Заведение не найдено." });
       }
 
-      const hasPermission = await canManageShop(db, id, authUser);
-      if (!hasPermission) {
-        return res.status(403).json({ error: "У вас нет прав на удаление этого заведения." });
+      const isOwner = await isShopOwner(db, id, authUser);
+      if (!isOwner) {
+        return res.status(403).json({ error: "Только владелец заведения может безвозвратно удалить заведение." });
       }
 
       // Используем транзакцию для безопасного каскадного удаления всех зависимых сущностей
@@ -2018,6 +2099,7 @@ app.post("/api/shops", async (req, res) => {
   app.get("/api/shops/:shopId/orders", async (req, res) => {
     try {
       const { shopId } = req.params;
+      const authUser = getAuthUser(req);
       if (!process.env.DATABASE_URL) {
         return res.status(503).json({ error: "База данных PostgreSQL не настроена." });
       }
@@ -2028,6 +2110,11 @@ app.post("/api/shops", async (req, res) => {
       }
 
       await ensureOrderSchema(db);
+
+      const hasPermission = await canProcessOrders(db, shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на просмотр заказов этого заведения." });
+      }
 
       const orders = await db.order.findMany({
         where: { shopId },
@@ -2092,9 +2179,9 @@ app.post("/api/shops", async (req, res) => {
         return res.status(404).json({ error: "Заказ не найден." });
       }
 
-      const hasPermission = await canManageShop(db, order.shopId, authUser);
+      const hasPermission = await canProcessOrders(db, order.shopId, authUser);
       if (!hasPermission) {
-        return res.status(403).json({ error: "У вас нет прав на обновление статуса заказов в чужом заведении." });
+        return res.status(403).json({ error: "У вас нет прав на обновление статуса заказов в этом заведении." });
       }
 
       const updatedOrder = await db.order.update({
@@ -2110,7 +2197,7 @@ app.post("/api/shops", async (req, res) => {
     }
   });
 
-  // API Route: Удалить заказ
+  // API Route: Удалить заказ (только Менеджеры и Владельцы)
   app.delete("/api/orders/:id", async (req, res) => {
     try {
       const { id } = req.params;
@@ -2128,9 +2215,9 @@ app.post("/api/shops", async (req, res) => {
         return res.status(404).json({ error: "Заказ не найден." });
       }
 
-      const hasPermission = await canManageShop(db, order.shopId, authUser);
+      const hasPermission = await canManageShopContent(db, order.shopId, authUser);
       if (!hasPermission) {
-        return res.status(403).json({ error: "У вас нет прав на удаление заказов из чужого заведения." });
+        return res.status(403).json({ error: "У сотрудников нет прав на удаление заказов из базы данных. Требуются права менеджера или владельца." });
       }
 
       await db.order.delete({ where: { id } });
@@ -2142,16 +2229,22 @@ app.post("/api/shops", async (req, res) => {
     }
   });
 
-  // API Route: Аналитика заведения
+  // API Route: Аналитика заведения (Менеджеры и Владельцы)
   app.get("/api/shops/:shopId/analytics", async (req, res) => {
     try {
       const { shopId } = req.params;
+      const authUser = getAuthUser(req);
       const db = getPrismaClient();
       if (!db) {
         return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
       }
 
       await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShopContent(db, shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "Аналитика доступна только для владельцев и менеджеров заведения." });
+      }
 
       const orders = await db.order.findMany({
         where: { shopId },
@@ -2699,7 +2792,7 @@ app.post("/api/shops", async (req, res) => {
 
       await ensureOrderSchema(db);
 
-      const hasPermission = await canManageShop(db, shopId, authUser);
+      const hasPermission = await canProcessOrders(db, shopId, authUser);
       if (!hasPermission) {
         return res.status(403).json({ error: "У вас нет прав на экспорт заказов этого заведения." });
       }
@@ -3455,7 +3548,11 @@ app.post("/api/shops", async (req, res) => {
       await ensureReportTable(db);
 
       const authUser = getAuthUser(req);
-      const isDeveloper = authUser?.email?.toLowerCase() === "gelgaev.dev@mail.ru" || req.query.dev === "true";
+      const isDeveloper = authUser?.email?.toLowerCase().trim() === "gelgaev.dev@mail.ru";
+
+      if (!isDeveloper) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы (gelgaev.dev@mail.ru)" });
+      }
 
       const typeFilter = req.query.type ? String(req.query.type) : null;
       const statusFilter = req.query.status ? String(req.query.status) : null;
@@ -3482,7 +3579,7 @@ app.post("/api/shops", async (req, res) => {
         );
       }
 
-      res.json({ reports: list, isDeveloper });
+      res.json({ reports: list, isDeveloper: true });
     } catch (error: any) {
       console.error("Ошибка получения репортов:", error);
       res.status(500).json({ error: error.message || "Ошибка при получении репортов" });
@@ -3491,6 +3588,11 @@ app.post("/api/shops", async (req, res) => {
 
   app.patch("/api/reports/:id", async (req, res) => {
     try {
+      const authUser = getAuthUser(req);
+      if (authUser?.email?.toLowerCase().trim() !== "gelgaev.dev@mail.ru") {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы (gelgaev.dev@mail.ru)" });
+      }
+
       const db = getPrismaClient() as any;
       if (!db) {
         return res.status(500).json({ error: "Database not connected" });
@@ -3540,6 +3642,11 @@ app.post("/api/shops", async (req, res) => {
 
   app.delete("/api/reports/:id", async (req, res) => {
     try {
+      const authUser = getAuthUser(req);
+      if (authUser?.email?.toLowerCase().trim() !== "gelgaev.dev@mail.ru") {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы (gelgaev.dev@mail.ru)" });
+      }
+
       const db = getPrismaClient() as any;
       if (!db) {
         return res.status(500).json({ error: "Database not connected" });
@@ -3563,6 +3670,11 @@ app.post("/api/shops", async (req, res) => {
 
   app.post("/api/reports/batch-status", async (req, res) => {
     try {
+      const authUser = getAuthUser(req);
+      if (authUser?.email?.toLowerCase().trim() !== "gelgaev.dev@mail.ru") {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы (gelgaev.dev@mail.ru)" });
+      }
+
       const db = getPrismaClient() as any;
       if (!db) {
         return res.status(500).json({ error: "Database not connected" });
@@ -3595,6 +3707,11 @@ app.post("/api/shops", async (req, res) => {
 
   app.post("/api/reports/batch-delete", async (req, res) => {
     try {
+      const authUser = getAuthUser(req);
+      if (authUser?.email?.toLowerCase().trim() !== "gelgaev.dev@mail.ru") {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы (gelgaev.dev@mail.ru)" });
+      }
+
       const db = getPrismaClient() as any;
       if (!db) {
         return res.status(500).json({ error: "Database not connected" });
