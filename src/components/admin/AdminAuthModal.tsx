@@ -184,7 +184,7 @@ export function AdminAuthModal({
                       Тестовый режим отправки кода
                     </p>
                     <p className="text-[11px] text-app-muted mt-0.5">
-                      Код сгенерирован для мгновенной авторизации:
+                      Код сгенерирован для быстрой авторизации:
                     </p>
                   </div>
                 </div>
@@ -217,9 +217,22 @@ export function AdminAuthModal({
                 className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-3 text-center text-lg font-mono font-bold tracking-[8px] text-app-primary focus:outline-none focus:border-app-accent"
               />
             </div>
+            {authMode === "reset" && (
+              <div>
+                <label className="text-[11px] text-app-muted font-mono mb-1 block">Новый пароль (не менее 6 символов)</label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={authPassword}
+                  onChange={e => setAuthPassword(e.target.value)}
+                  placeholder="Новый пароль"
+                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                />
+              </div>
+            )}
             <button
               type="submit"
-              disabled={isSubmittingAuth || authOtpCode.length !== 6}
+              disabled={isSubmittingAuth || authOtpCode.length !== 6 || (authMode === "reset" && authPassword.length < 6)}
               className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-sm"
             >
               {isSubmittingAuth ? <SpinnerLoader size={14} /> : <ShieldCheck size={14} />}
@@ -243,7 +256,7 @@ export function AdminAuthModal({
               </button>
               <button
                 type="button"
-                onClick={() => { setOtpStep("email"); setAuthOtpCode(""); }}
+                onClick={() => { setOtpStep("email"); setAuthOtpCode(""); setAuthError(null); setAuthSuccessMsg(null); }}
                 className="text-app-muted hover:text-app-primary font-mono text-[11px] underline cursor-pointer"
               >
                 Изменить данные
@@ -256,7 +269,7 @@ export function AdminAuthModal({
             {authMode === "otp" && (
               <div className="space-y-3 font-sans">
                 <p className="text-xs text-app-muted">
-                  Введите ваш E-mail. Мы мгновенно отправим 6-значный одноразовый код для входа.
+                  Вход по одноразовому коду из E-mail доступен только для существующих аккаунтов. Если вы еще не зарегистрированы, перейдите в «Создать».
                 </p>
                 <input
                   type="email"

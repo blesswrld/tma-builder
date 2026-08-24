@@ -8,6 +8,42 @@ export interface User {
   companyName?: string | null;
   plan?: "FREE" | "PRO" | "ENTERPRISE";
   subscriptionExpiresAt?: string | null;
+  isBanned?: boolean;
+  banReason?: string | null;
+  bannedAt?: string | null;
+  role?: "USER" | "DEVELOPER" | "ADMIN";
+  createdAt?: string;
+}
+
+export interface DevShopSummary {
+  id: string;
+  name: string;
+  slug: string;
+  isOpen: boolean;
+  servicesCount: number;
+  ordersCount: number;
+  totalRevenue: number;
+  botToken?: string | null;
+  createdAt: string;
+  address?: string | null;
+  phone?: string | null;
+}
+
+export interface DevUser extends User {
+  shopsCount: number;
+  totalOrdersCount: number;
+  totalRevenue: number;
+  shops: DevShopSummary[];
+}
+
+export interface DevUsersStats {
+  totalUsers: number;
+  activeUsers: number;
+  bannedUsers: number;
+  paidUsers: number;
+  totalShops: number;
+  totalOrders: number;
+  totalRevenue: number;
 }
 
 export interface Service {

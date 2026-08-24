@@ -45,6 +45,12 @@ function getAuthUser(req: express.Request) {
   }
 }
 
+function isDeveloperEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.toLowerCase().trim();
+  return normalized === "gelgaev.dev@mail.ru" || normalized === "roninfortnite71@gmail.com";
+}
+
 function formatUserResponse(user: any) {
   return {
     id: user.id,
@@ -55,7 +61,12 @@ function formatUserResponse(user: any) {
     telegramHandle: (user as any).telegramHandle || null,
     companyName: (user as any).companyName || null,
     plan: user.plan || "FREE",
-    subscriptionExpiresAt: user.subscriptionExpiresAt || null
+    subscriptionExpiresAt: user.subscriptionExpiresAt || null,
+    isBanned: Boolean((user as any).isBanned),
+    banReason: (user as any).banReason || null,
+    bannedAt: (user as any).bannedAt || null,
+    role: isDeveloperEmail((user as any).email) ? "DEVELOPER" : ((user as any).role || "USER"),
+    createdAt: (user as any).createdAt || null
   };
 }
 
@@ -294,6 +305,10 @@ async function ensureOrderSchema(db: PrismaClient) {
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "phone" TEXT`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegramHandle" TEXT`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "companyName" TEXT`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isBanned" BOOLEAN DEFAULT false`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "banReason" TEXT`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannedAt" TIMESTAMP(3)`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "role" TEXT DEFAULT 'USER'`,
 
         `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "oldPrice" INTEGER`,
         `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "gallery" TEXT`,
@@ -567,11 +582,20 @@ app.post("/api/auth/send-code", async (req, res) => {
     };
     const typeName = typeNames[type] || "подтверждения E-mail";
 
-    // Если тип RESET_PASSWORD, CHANGE_PASSWORD или LOGIN, проверяем существование пользователя при необходимости
+    // Если тип RESET_PASSWORD, CHANGE_PASSWORD или LOGIN, проверяем существование пользователя
+    if (type === "LOGIN") {
+      const user = await db.user.findUnique({ where: { email: cleanEmail } });
+      if (!user) {
+        return res.status(404).json({
+          error: "Аккаунт с таким E-mail не найден. Пожалуйста, перейдите во вкладку «Создать» для регистрации."
+        });
+      }
+    }
+
     if (type === "RESET_PASSWORD" || type === "CHANGE_PASSWORD") {
       const user = await db.user.findUnique({ where: { email: cleanEmail } });
       if (!user) {
-        return res.status(400).json({ error: "Пользователь с такой почтой не найден." });
+        return res.status(404).json({ error: "Пользователь с такой почтой не найден." });
       }
     }
 
@@ -648,13 +672,23 @@ app.post("/api/auth/verify-code", async (req, res) => {
     // Удаляем использованный код
     await db.$executeRawUnsafe(`DELETE FROM "VerificationCode" WHERE "email" = $1;`, cleanEmail).catch(() => {});
 
-    // Находим или создаем пользователя
+    const codeRecord = validCodes[0];
+    const codeType = (codeRecord.type || "LOGIN").toUpperCase();
+
     let user = await db.user.findUnique({ where: { email: cleanEmail } });
 
-    if (!user) {
-      const defaultPassword = password && password.length >= 6 ? password : "Pass_" + Math.random().toString(36).slice(2, 10);
-      const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-
+    if (codeType === "LOGIN") {
+      if (!user) {
+        return res.status(404).json({ error: "Аккаунт не найден. Пожалуйста, перейдите во вкладку «Создать» для регистрации." });
+      }
+    } else if (codeType === "REGISTER") {
+      if (user) {
+        return res.status(400).json({ error: "Пользователь с таким E-mail уже зарегистрирован. Пожалуйста, выполните вход." });
+      }
+      if (!password || String(password).length < 6) {
+        return res.status(400).json({ error: "Пароль должен содержать не менее 6 символов." });
+      }
+      const hashedPassword = await bcrypt.hash(String(password), 10);
       user = await db.user.create({
         data: {
           email: cleanEmail,
@@ -663,12 +697,12 @@ app.post("/api/auth/verify-code", async (req, res) => {
         }
       });
     } else {
-      // Если передали новый пароль
-      if (password && password.length >= 6) {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        user = await db.user.update({
-          where: { id: user.id },
-          data: { password: hashedPassword, name: name ? String(name).trim() : user.name }
+      if (!user) {
+        return res.status(404).json({ error: "Пользователь не найден." });
+      }
+      if (user.isBanned) {
+        return res.status(403).json({
+          error: `Ваш аккаунт заблокирован разработчиком платформы.${user.banReason ? ` Причина: ${user.banReason}` : ""}`
         });
       }
     }
@@ -822,6 +856,12 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(400).json({ error: "Неверный E-mail или пароль." });
     }
 
+    if (user.isBanned) {
+      return res.status(403).json({
+        error: `Ваш аккаунт заблокирован разработчиком платформы.${user.banReason ? ` Причина: ${user.banReason}` : ""}`
+      });
+    }
+
     const token = jwt.sign(
       { id: user.id, email: user.email, name: user.name },
       JWT_SECRET,
@@ -854,6 +894,14 @@ app.get("/api/auth/me", async (req, res) => {
     const user = await db.user.findUnique({ where: { id: authUser.id } });
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден." });
+    }
+
+    if (user.isBanned && !isDeveloperEmail(user.email)) {
+      return res.status(403).json({
+        error: `Ваш аккаунт заблокирован разработчиком платформы.${user.banReason ? ` Причина: ${user.banReason}` : ""}`,
+        isBanned: true,
+        banReason: user.banReason
+      });
     }
 
     res.json(formatUserResponse(user));
@@ -3548,7 +3596,7 @@ app.post("/api/shops", async (req, res) => {
       await ensureReportTable(db);
 
       const authUser = getAuthUser(req);
-      const isDeveloper = authUser?.email?.toLowerCase().trim() === "gelgaev.dev@mail.ru";
+      const isDeveloper = isDeveloperEmail(authUser?.email);
 
       if (!isDeveloper) {
         return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы (gelgaev.dev@mail.ru)" });
@@ -3589,7 +3637,7 @@ app.post("/api/shops", async (req, res) => {
   app.patch("/api/reports/:id", async (req, res) => {
     try {
       const authUser = getAuthUser(req);
-      if (authUser?.email?.toLowerCase().trim() !== "gelgaev.dev@mail.ru") {
+      if (!isDeveloperEmail(authUser?.email)) {
         return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы (gelgaev.dev@mail.ru)" });
       }
 
@@ -3643,7 +3691,7 @@ app.post("/api/shops", async (req, res) => {
   app.delete("/api/reports/:id", async (req, res) => {
     try {
       const authUser = getAuthUser(req);
-      if (authUser?.email?.toLowerCase().trim() !== "gelgaev.dev@mail.ru") {
+      if (!isDeveloperEmail(authUser?.email)) {
         return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы (gelgaev.dev@mail.ru)" });
       }
 
@@ -3671,7 +3719,7 @@ app.post("/api/shops", async (req, res) => {
   app.post("/api/reports/batch-status", async (req, res) => {
     try {
       const authUser = getAuthUser(req);
-      if (authUser?.email?.toLowerCase().trim() !== "gelgaev.dev@mail.ru") {
+      if (!isDeveloperEmail(authUser?.email)) {
         return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы (gelgaev.dev@mail.ru)" });
       }
 
@@ -3708,7 +3756,7 @@ app.post("/api/shops", async (req, res) => {
   app.post("/api/reports/batch-delete", async (req, res) => {
     try {
       const authUser = getAuthUser(req);
-      if (authUser?.email?.toLowerCase().trim() !== "gelgaev.dev@mail.ru") {
+      if (!isDeveloperEmail(authUser?.email)) {
         return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы (gelgaev.dev@mail.ru)" });
       }
 
@@ -3735,6 +3783,498 @@ app.post("/api/shops", async (req, res) => {
     } catch (error: any) {
       console.error("Ошибка массового удаления:", error);
       res.status(500).json({ error: error.message || "Ошибка удаления" });
+    }
+  });
+
+  // ==========================================
+  // DEVELOPER USER MANAGEMENT API (gelgaev.dev@mail.ru)
+  // ==========================================
+
+  // Получить всех пользователей системы с агрегированной аналитикой и заведениями
+  app.get("/api/dev/users", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!isDeveloperEmail(authUser?.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы (gelgaev.dev@mail.ru)" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const users = await db.user.findMany({
+        orderBy: { createdAt: "desc" },
+        include: {
+          shops: {
+            include: {
+              _count: {
+                select: {
+                  services: true,
+                  orders: true
+                }
+              },
+              orders: {
+                select: {
+                  totalPrice: true,
+                  status: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      let totalPlatformOrders = 0;
+      let totalPlatformRevenue = 0;
+      let totalPlatformShops = 0;
+
+      const formattedUsers = users.map((u: any) => {
+        let userOrdersCount = 0;
+        let userRevenue = 0;
+
+        const shopsSummaries = (u.shops || []).map((s: any) => {
+          totalPlatformShops++;
+          const shopOrdersCount = s._count?.orders || (s.orders || []).length || 0;
+          userOrdersCount += shopOrdersCount;
+          totalPlatformOrders += shopOrdersCount;
+
+          const shopRevenue = (s.orders || []).reduce((acc: number, ord: any) => {
+            return acc + (Number(ord.totalPrice) || 0);
+          }, 0);
+
+          userRevenue += shopRevenue;
+          totalPlatformRevenue += shopRevenue;
+
+          return {
+            id: s.id,
+            name: s.name,
+            slug: s.slug,
+            isOpen: s.isOpen !== false,
+            servicesCount: s._count?.services || 0,
+            ordersCount: shopOrdersCount,
+            totalRevenue: shopRevenue,
+            botToken: s.botToken ? "configured" : null,
+            createdAt: s.createdAt,
+            address: s.address || null,
+            phone: s.phone || null
+          };
+        });
+
+        return {
+          id: u.id,
+          email: u.email,
+          name: u.name || null,
+          phone: u.phone || null,
+          avatarUrl: u.avatarUrl || null,
+          telegramHandle: u.telegramHandle || null,
+          companyName: u.companyName || null,
+          plan: u.plan || "FREE",
+          subscriptionExpiresAt: u.subscriptionExpiresAt || null,
+          isBanned: Boolean(u.isBanned),
+          banReason: u.banReason || null,
+          bannedAt: u.bannedAt || null,
+          role: u.email?.toLowerCase().trim() === "gelgaev.dev@mail.ru" ? "DEVELOPER" : (u.role || "USER"),
+          createdAt: u.createdAt,
+          shopsCount: shopsSummaries.length,
+          totalOrdersCount: userOrdersCount,
+          totalRevenue: userRevenue,
+          shops: shopsSummaries
+        };
+      });
+
+      const stats = {
+        totalUsers: formattedUsers.length,
+        activeUsers: formattedUsers.filter((u: any) => !u.isBanned).length,
+        bannedUsers: formattedUsers.filter((u: any) => u.isBanned).length,
+        paidUsers: formattedUsers.filter((u: any) => u.plan && u.plan !== "FREE").length,
+        totalShops: totalPlatformShops,
+        totalOrders: totalPlatformOrders,
+        totalRevenue: totalPlatformRevenue
+      };
+
+      res.json({ users: formattedUsers, stats, isDeveloper: true });
+    } catch (error: any) {
+      console.error("Error fetching dev users:", error);
+      res.status(500).json({ error: error.message || "Ошибка при получении пользователей" });
+    }
+  });
+
+  // Заблокировать пользователя
+  app.post("/api/dev/users/:id/ban", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!isDeveloperEmail(authUser?.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчиков платформы" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const userId = req.params.id;
+      const { reason, disableShops } = req.body;
+
+      const target = await db.user.findUnique({ where: { id: userId } });
+      if (!target) return res.status(404).json({ error: "Пользователь не найден" });
+      if (isDeveloperEmail(target.email)) {
+        return res.status(400).json({ error: "Нельзя заблокировать аккаунт главного разработчика" });
+      }
+
+      const banReasonText = reason && String(reason).trim().length > 0
+        ? String(reason).trim()
+        : "Нарушение условий использования сервиса и нелегальная деятельность";
+
+      const updated = await db.user.update({
+        where: { id: userId },
+        data: {
+          isBanned: true,
+          banReason: banReasonText,
+          bannedAt: new Date()
+        }
+      });
+
+      if (disableShops !== false) {
+        await db.shop.updateMany({
+          where: { ownerId: userId },
+          data: { isOpen: false }
+        });
+      }
+
+      broadcastEvent({
+        type: "USER_BANNED",
+        payload: { userId, reason: banReasonText }
+      });
+
+      res.json({ success: true, user: formatUserResponse(updated) });
+    } catch (error: any) {
+      console.error("Error banning user:", error);
+      res.status(500).json({ error: error.message || "Ошибка при блокировке пользователя" });
+    }
+  });
+
+  // Разблокировать пользователя
+  app.post("/api/dev/users/:id/unban", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!isDeveloperEmail(authUser?.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчиков платформы" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const userId = req.params.id;
+
+      const target = await db.user.findUnique({ where: { id: userId } });
+      if (!target) return res.status(404).json({ error: "Пользователь не найден" });
+
+      const updated = await db.user.update({
+        where: { id: userId },
+        data: {
+          isBanned: false,
+          banReason: null,
+          bannedAt: null
+        }
+      });
+
+      broadcastEvent({
+        type: "USER_UNBANNED",
+        payload: { userId }
+      });
+
+      res.json({ success: true, user: formatUserResponse(updated) });
+    } catch (error: any) {
+      console.error("Error unbanning user:", error);
+      res.status(500).json({ error: error.message || "Ошибка при разблокировке пользователя" });
+    }
+  });
+
+  // Изменить тариф пользователя
+  app.patch("/api/dev/users/:id/plan", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!isDeveloperEmail(authUser?.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчиков платформы" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const userId = req.params.id;
+      const { plan, days } = req.body;
+
+      if (!plan || !["FREE", "PRO", "ENTERPRISE"].includes(plan)) {
+        return res.status(400).json({ error: "Некорректный тариф" });
+      }
+
+      let expiresAt: Date | null = null;
+      if (plan !== "FREE") {
+        const d = typeof days === "number" && days > 0 ? days : 365;
+        expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + d);
+      }
+
+      const updated = await db.user.update({
+        where: { id: userId },
+        data: {
+          plan,
+          subscriptionExpiresAt: expiresAt
+        }
+      });
+
+      broadcastEvent({
+        type: "USER_UPDATED",
+        payload: { userId, plan, subscriptionExpiresAt: expiresAt }
+      });
+
+      res.json({ success: true, user: formatUserResponse(updated) });
+    } catch (error: any) {
+      console.error("Error updating user plan:", error);
+      res.status(500).json({ error: error.message || "Ошибка обновления тарифа" });
+    }
+  });
+
+  // Редактировать пользователя (пароль, контакты, имя)
+  app.patch("/api/dev/users/:id", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!isDeveloperEmail(authUser?.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчиков платформы" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const userId = req.params.id;
+      const { name, email, phone, telegramHandle, companyName, newPassword } = req.body;
+
+      const dataToUpdate: any = {};
+      if (name !== undefined) dataToUpdate.name = name ? String(name).trim() : null;
+      if (phone !== undefined) dataToUpdate.phone = phone ? String(phone).trim() : null;
+      if (telegramHandle !== undefined) dataToUpdate.telegramHandle = telegramHandle ? String(telegramHandle).trim() : null;
+      if (companyName !== undefined) dataToUpdate.companyName = companyName ? String(companyName).trim() : null;
+      if (email !== undefined && String(email).trim()) {
+        dataToUpdate.email = String(email).toLowerCase().trim();
+      }
+      if (newPassword && String(newPassword).length >= 6) {
+        dataToUpdate.password = await bcrypt.hash(String(newPassword), 10);
+      }
+
+      const updated = await db.user.update({
+        where: { id: userId },
+        data: dataToUpdate
+      });
+
+      res.json({ success: true, user: formatUserResponse(updated) });
+    } catch (error: any) {
+      console.error("Error editing user:", error);
+      res.status(500).json({ error: error.message || "Ошибка редактирования пользователя" });
+    }
+  });
+
+  // Удалить пользователя и все его данные
+  app.delete("/api/dev/users/:id", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!isDeveloperEmail(authUser?.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчиков платформы" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const userId = req.params.id;
+      const target = await db.user.findUnique({ where: { id: userId } });
+      if (!target) return res.status(404).json({ error: "Пользователь не найден" });
+      if (isDeveloperEmail(target.email)) {
+        return res.status(400).json({ error: "Нельзя удалить аккаунт главного разработчика" });
+      }
+
+      const userShops = await db.shop.findMany({ where: { ownerId: userId }, select: { id: true } });
+      for (const s of userShops) {
+        await db.service.deleteMany({ where: { shopId: s.id } }).catch(() => {});
+        await db.order.deleteMany({ where: { shopId: s.id } }).catch(() => {});
+        await db.banner.deleteMany({ where: { shopId: s.id } }).catch(() => {});
+        await db.broadcast.deleteMany({ where: { shopId: s.id } }).catch(() => {});
+        await db.customer.deleteMany({ where: { shopId: s.id } }).catch(() => {});
+        await db.promocode.deleteMany({ where: { shopId: s.id } }).catch(() => {});
+        await db.review.deleteMany({ where: { shopId: s.id } }).catch(() => {});
+        await db.shopMember.deleteMany({ where: { shopId: s.id } }).catch(() => {});
+        await db.shopInvite.deleteMany({ where: { shopId: s.id } }).catch(() => {});
+        await db.shop.delete({ where: { id: s.id } }).catch(() => {});
+      }
+
+      await db.user.delete({ where: { id: userId } });
+
+      broadcastEvent({
+        type: "USER_DELETED",
+        payload: { userId }
+      });
+
+      res.json({ success: true, id: userId });
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ error: error.message || "Ошибка удаления пользователя" });
+    }
+  });
+
+  // Управление конкретным заведением любого пользователя
+  app.post("/api/dev/shops/:shopId/toggle", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!isDeveloperEmail(authUser?.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчиков платформы" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const shopId = req.params.shopId;
+      const { isOpen } = req.body;
+
+      const shop = await db.shop.update({
+        where: { id: shopId },
+        data: { isOpen: Boolean(isOpen) }
+      });
+
+      broadcastEvent({
+        type: "SHOP_UPDATED",
+        shopId,
+        payload: { isOpen: shop.isOpen }
+      });
+
+      res.json({ success: true, shopId, isOpen: shop.isOpen });
+    } catch (error: any) {
+      console.error("Error toggling shop:", error);
+      res.status(500).json({ error: error.message || "Ошибка переключения статуса заведения" });
+    }
+  });
+
+  app.delete("/api/dev/shops/:shopId", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!isDeveloperEmail(authUser?.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчиков платформы" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const shopId = req.params.shopId;
+      await db.service.deleteMany({ where: { shopId } }).catch(() => {});
+      await db.order.deleteMany({ where: { shopId } }).catch(() => {});
+      await db.banner.deleteMany({ where: { shopId } }).catch(() => {});
+      await db.broadcast.deleteMany({ where: { shopId } }).catch(() => {});
+      await db.customer.deleteMany({ where: { shopId } }).catch(() => {});
+      await db.promocode.deleteMany({ where: { shopId } }).catch(() => {});
+      await db.review.deleteMany({ where: { shopId } }).catch(() => {});
+      await db.shopMember.deleteMany({ where: { shopId } }).catch(() => {});
+      await db.shopInvite.deleteMany({ where: { shopId } }).catch(() => {});
+      await db.shop.delete({ where: { id: shopId } });
+
+      broadcastEvent({
+        type: "SHOP_DELETED",
+        shopId,
+        payload: { shopId }
+      });
+
+      res.json({ success: true, shopId });
+    } catch (error: any) {
+      console.error("Error deleting shop:", error);
+      res.status(500).json({ error: error.message || "Ошибка удаления заведения" });
+    }
+  });
+
+  // Массовая блокировка
+  app.post("/api/dev/users/batch-ban", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!isDeveloperEmail(authUser?.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчиков платформы" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const { ids, reason } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "Некорректные параметры" });
+      }
+
+      const banReasonText = reason || "Массовая блокировка разработчиком платформы";
+
+      for (const id of ids) {
+        const u = await db.user.findUnique({ where: { id } });
+        if (u && !isDeveloperEmail(u.email)) {
+          await db.user.update({
+            where: { id },
+            data: {
+              isBanned: true,
+              banReason: banReasonText,
+              bannedAt: new Date()
+            }
+          });
+          await db.shop.updateMany({
+            where: { ownerId: id },
+            data: { isOpen: false }
+          });
+          broadcastEvent({
+            type: "USER_BANNED",
+            payload: { userId: id, reason: banReasonText }
+          });
+        }
+      }
+
+      res.json({ success: true, count: ids.length });
+    } catch (error: any) {
+      console.error("Error batch banning:", error);
+      res.status(500).json({ error: error.message || "Ошибка массовой блокировки" });
+    }
+  });
+
+  // Массовая разблокировка
+  app.post("/api/dev/users/batch-unban", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!isDeveloperEmail(authUser?.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчиков платформы" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "Некорректные параметры" });
+      }
+
+      for (const id of ids) {
+        await db.user.update({
+          where: { id },
+          data: {
+            isBanned: false,
+            banReason: null,
+            bannedAt: null
+          }
+        });
+        broadcastEvent({
+          type: "USER_UNBANNED",
+          payload: { userId: id }
+        });
+      }
+
+      res.json({ success: true, count: ids.length });
+    } catch (error: any) {
+      console.error("Error batch unbanning:", error);
+      res.status(500).json({ error: error.message || "Ошибка массовой разблокировки" });
     }
   });
 

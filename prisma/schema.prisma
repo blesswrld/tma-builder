@@ -19,6 +19,10 @@ model User {
   phone                 String?
   telegramHandle        String?
   companyName           String?
+  isBanned              Boolean   @default(false)
+  banReason             String?
+  bannedAt              DateTime?
+  role                  String    @default("USER") // USER, DEVELOPER
   shops                 Shop[]
   createdAt             DateTime  @default(now())
 }

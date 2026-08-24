@@ -4,6 +4,7 @@ import ShopPage from './pages/ShopPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AdminPage from './pages/AdminPage';
 import DeveloperReportsPage from './pages/DeveloperReportsPage';
+import DeveloperUsersPage from './pages/DeveloperUsersPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -20,7 +21,10 @@ function DeveloperRoute({ children }: { children: React.ReactNode }) {
   }
 
   const isDev = Boolean(
-    user?.email && user.email.toLowerCase().trim() === "gelgaev.dev@mail.ru"
+    user?.email && (
+      user.email.toLowerCase().trim() === "gelgaev.dev@mail.ru" ||
+      user.email.toLowerCase().trim() === "roninfortnite71@gmail.com"
+    )
   );
 
   if (!isDev) {
@@ -39,6 +43,30 @@ export default function App() {
             <Routes>
               <Route path="/" element={<AdminPage />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route
+                path="/users"
+                element={
+                  <DeveloperRoute>
+                    <DeveloperUsersPage />
+                  </DeveloperRoute>
+                }
+              />
+              <Route
+                path="/dev-users"
+                element={
+                  <DeveloperRoute>
+                    <DeveloperUsersPage />
+                  </DeveloperRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <DeveloperRoute>
+                    <DeveloperUsersPage />
+                  </DeveloperRoute>
+                }
+              />
               <Route
                 path="/reports"
                 element={
