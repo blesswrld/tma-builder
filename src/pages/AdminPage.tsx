@@ -3001,7 +3001,7 @@ export default function AdminPage() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="px-1.5 py-0.5 rounded-md bg-app-card border border-app-border text-[9px] font-mono text-app-muted uppercase">
-                  v2.5
+                  v2.6
                 </span>
                 <button
                   type="button"
