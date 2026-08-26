@@ -241,9 +241,57 @@ export default function AdminPage() {
     });
   };
 
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [shops, setShops] = useState<Shop[]>(() => {
+    try {
+      const cached = localStorage.getItem("tma_cached_shops");
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [selectedShop, setSelectedShop] = useState<Shop | null>(() => {
+    try {
+      const cachedShops = localStorage.getItem("tma_cached_shops");
+      const cachedShopId = localStorage.getItem("tma_selected_shop_id");
+      if (cachedShops) {
+        const parsed: Shop[] = JSON.parse(cachedShops);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          if (cachedShopId) {
+            const found = parsed.find((s: Shop) => s.id === cachedShopId);
+            if (found) return found;
+          }
+          return parsed[0];
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Sync shops & selectedShop to localStorage cache
+  useEffect(() => {
+    if (shops && shops.length > 0) {
+      try {
+        localStorage.setItem("tma_cached_shops", JSON.stringify(shops));
+      } catch {
+        // ignore
+      }
+    }
+  }, [shops]);
+
+  useEffect(() => {
+    if (selectedShop?.id) {
+      try {
+        localStorage.setItem("tma_selected_shop_id", selectedShop.id);
+      } catch {
+        // ignore
+      }
+    }
+  }, [selectedShop?.id]);
+
+  const [loading, setLoading] = useState(!shops || shops.length === 0);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
   const { subscribeShop, isConnected } = useRealtime();
@@ -456,7 +504,9 @@ export default function AdminPage() {
   // User role in the currently selected shop
   const currentUserRole: "OWNER" | "MANAGER" | "STAFF" =
     selectedShop?.currentUserRole ||
-    (selectedShop && user && selectedShop.ownerId === user.id ? "OWNER" : "STAFF");
+    (selectedShop && user && selectedShop.ownerId === user.id
+      ? "OWNER"
+      : (loading || authLoading || !selectedShop ? "OWNER" : "STAFF"));
 
   const isOwner = currentUserRole === "OWNER";
   const isManager = currentUserRole === "MANAGER";
@@ -464,6 +514,7 @@ export default function AdminPage() {
 
   // Auto-switch away from restricted tabs if user is STAFF or if non-developer enters reports
   useEffect(() => {
+    if (loading || authLoading || !selectedShop) return;
     if (isStaff) {
       const allowed = ["orders", "botsim", "profile"];
       if (isDeveloperUser) allowed.push("reports");
@@ -473,7 +524,7 @@ export default function AdminPage() {
     } else if (!isDeveloperUser && activeTab === ("reports" as any)) {
       setActiveTab("services");
     }
-  }, [isStaff, isDeveloperUser, activeTab, selectedShop?.id]);
+  }, [isStaff, isDeveloperUser, activeTab, selectedShop?.id, loading, authLoading]);
 
   const closeSubView = () => {
     setIsSettingsOpen(false);
@@ -1537,6 +1588,11 @@ export default function AdminPage() {
         if (prev) {
           const updated = data.find((s: Shop) => s.id === prev.id);
           if (updated) return updated;
+        }
+        const cachedShopId = localStorage.getItem("tma_selected_shop_id");
+        if (cachedShopId) {
+          const found = data.find((s: Shop) => s.id === cachedShopId);
+          if (found) return found;
         }
         return data.length > 0 ? data[0] : null;
       });

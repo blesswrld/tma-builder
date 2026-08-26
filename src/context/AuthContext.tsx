@@ -38,9 +38,29 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const cached = localStorage.getItem("auth_user");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("auth_token"));
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Sync user state to localStorage cache
+  useEffect(() => {
+    if (user) {
+      try {
+        localStorage.setItem("auth_user", JSON.stringify(user));
+      } catch {
+        // ignore
+      }
+    } else {
+      localStorage.removeItem("auth_user");
+    }
+  }, [user]);
 
   useRealtimeEvent("USER_UPDATED", (event) => {
     if (event.payload?.id) {
@@ -52,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkAuth = async () => {
       const storedToken = localStorage.getItem("auth_token");
       if (!storedToken) {
+        setUser(null);
         setIsLoading(false);
         return;
       }
@@ -75,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (res.status === 401 || res.status === 403 || res.status === 404) {
           // Token is genuinely invalid or expired
           localStorage.removeItem("auth_token");
+          localStorage.removeItem("auth_user");
           setUser(null);
           setToken(null);
         } else {
@@ -219,6 +241,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
     setToken(null);
     setUser(null);
   };
