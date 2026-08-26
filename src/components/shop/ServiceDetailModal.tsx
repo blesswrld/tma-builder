@@ -24,15 +24,13 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
   useScrollLock(Boolean(service));
   const [detailItemNote, setDetailItemNote] = useState("");
 
-  if (!service) return null;
-
-  const badges = service.badge ? service.badge.split(",").map(b => b.trim()).filter(Boolean) : [];
-  const f = service.fulfillment || "courier,pickup";
+  const badges = service?.badge ? service.badge.split(",").map(b => b.trim()).filter(Boolean) : [];
+  const f = service?.fulfillment || "courier,pickup";
   const hasCourier = f.includes("courier");
   const hasPickup = f.includes("pickup");
 
   let galleryImages: string[] = [];
-  if (service.gallery) {
+  if (service?.gallery) {
     try {
       galleryImages = typeof service.gallery === "string" ? JSON.parse(service.gallery) : service.gallery;
     } catch {}
@@ -40,13 +38,28 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="max-w-md w-full bg-app-modal border border-app-border rounded-3xl overflow-hidden text-app-primary shadow-2xl flex flex-col max-h-[90vh]"
-        >
+      {service && (
+        <div key="service-detail-container" className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            key="service-detail-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => {
+              onClose();
+              setDetailItemNote("");
+            }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50"
+          />
+          <motion.div
+            key="service-detail-panel"
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={{ type: "spring", damping: 26, stiffness: 280 }}
+            className="max-w-md w-full bg-app-modal border border-app-border rounded-3xl overflow-hidden text-app-primary shadow-2xl flex flex-col max-h-[90vh] relative z-50"
+          >
           {service.imageUrl ? (
             <div className="relative h-56 w-full shrink-0">
               <img
@@ -196,16 +209,20 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
           </div>
 
           <div className="p-6 border-t border-app-border bg-app-bg flex gap-3">
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => {
                 onToggleFavorite(service.id);
               }}
-              className="p-3 rounded-2xl bg-app-surface border border-app-border hover:bg-app-hover text-app-primary transition-colors shrink-0"
+              className="p-3 rounded-2xl bg-app-surface border border-app-border hover:bg-app-hover text-app-primary transition-colors shrink-0 cursor-pointer"
               title="В избранное"
             >
               <Heart size={18} className={isFavorite ? "fill-rose-500 text-rose-500" : "text-app-muted"} />
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => {
                 onAddToCart(service.id, detailItemNote);
                 onClose();
@@ -216,10 +233,11 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
             >
               <Plus size={16} />
               <span>В корзину • {service.price} ₽</span>
-            </button>
+            </motion.button>
           </div>
         </motion.div>
       </div>
+      )}
     </AnimatePresence>
   );
 };

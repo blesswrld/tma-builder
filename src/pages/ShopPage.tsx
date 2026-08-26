@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, ShoppingCart } from "lucide-react";
+import { ArrowRight, ShoppingCart, ShieldCheck } from "lucide-react";
 import NotFoundPage from "./NotFoundPage";
 import { ShopPageSkeleton } from "../components/Skeleton";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -24,6 +24,7 @@ import { MyOrdersModal } from "../components/shop/MyOrdersModal";
 import { ReviewsModal } from "../components/shop/ReviewsModal";
 import { ConfirmModal } from "../components/shop/ConfirmModal";
 import ReportModal from "../components/ReportModal";
+import { PrivacyPolicyModal } from "../components/PrivacyPolicyModal";
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   let binary = "";
@@ -58,6 +59,7 @@ export default function ShopPage() {
 
   // Modals & Drawers state
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedServiceDetail, setSelectedServiceDetail] = useState<Service | null>(null);
   const [detailItemNote, setDetailItemNote] = useState<string>("");
@@ -949,28 +951,73 @@ export default function ShopPage() {
             </div>
           )}
         </section>
+
+        {/* Storefront Footer with Privacy Policy & Legal Links */}
+        <footer className="pt-10 pb-4 border-t border-app-border/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-app-muted">
+          <div className="flex items-center gap-2 text-center sm:text-left">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="truncate">© {new Date().getFullYear()} {shop.name}. Все права защищены.</span>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsPrivacyModalOpen(true)}
+              className="hover:text-app-primary underline flex items-center gap-1.5 transition-colors cursor-pointer text-app-secondary"
+            >
+              <ShieldCheck size={13} className="text-emerald-500 shrink-0" />
+              <span>Политика конфиденциальности</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowInfoModal(true)}
+              className="hover:text-app-primary transition-colors cursor-pointer"
+            >
+              О заведении
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenReviews}
+              className="hover:text-app-primary transition-colors cursor-pointer"
+            >
+              Отзывы
+            </button>
+          </div>
+        </footer>
       </main>
 
       {/* Floating Bottom Bar for Cart / Checkout */}
-      {totalItems > 0 && !isCheckoutOpen && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4">
-          <button
-            onClick={() => setIsCheckoutOpen(true)}
-            className="w-full h-13 bg-app-accent text-app-accent-fg rounded-2xl flex items-center justify-between px-5 shadow-2xl hover:scale-[1.01] transition-transform font-mono border border-app-border cursor-pointer"
+      <AnimatePresence>
+        {totalItems > 0 && !isCheckoutOpen && (
+          <motion.div
+            initial={{ y: 80, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 80, opacity: 0, scale: 0.95 }}
+            transition={{ type: "spring", damping: 24, stiffness: 300 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4"
           >
-            <div className="flex items-center gap-3">
-              <span className="w-7 h-7 bg-app-accent-fg/20 text-app-accent-fg rounded-xl flex items-center justify-center text-xs font-bold shrink-0">
-                {totalItems}
-              </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-app-accent-fg">Оформить заказ</span>
-            </div>
-            <div className="flex items-center gap-2 text-app-accent-fg">
-              <span className="text-sm font-bold">{totalPrice} ₽</span>
-              <ArrowRight size={16} />
-            </div>
-          </button>
-        </div>
-      )}
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setIsCheckoutOpen(true)}
+              className="w-full h-13 bg-app-accent text-app-accent-fg rounded-2xl flex items-center justify-between px-5 shadow-2xl transition-shadow hover:shadow-app-accent/20 font-mono border border-app-border cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-7 h-7 bg-app-accent-fg/20 text-app-accent-fg rounded-xl flex items-center justify-center text-xs font-bold shrink-0">
+                  {totalItems}
+                </span>
+                <span className="text-xs font-bold uppercase tracking-wider text-app-accent-fg">Оформить заказ</span>
+              </div>
+              <div className="flex items-center gap-2 text-app-accent-fg">
+                <span className="text-sm font-bold">{totalPrice} ₽</span>
+                <ArrowRight size={16} />
+              </div>
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Slide-over Checkout Modal */}
       <CheckoutModal
@@ -1006,6 +1053,7 @@ export default function ShopPage() {
         formErrors={formErrors}
         isSubmitting={isSubmitting}
         handleSubmitOrder={handleSubmitOrder}
+        onOpenPrivacy={() => setIsPrivacyModalOpen(true)}
       />
 
       {/* Info & Contacts Modal */}
@@ -1013,6 +1061,7 @@ export default function ShopPage() {
         shop={shop}
         isOpen={showInfoModal}
         onClose={() => setShowInfoModal(false)}
+        onOpenPrivacy={() => setIsPrivacyModalOpen(true)}
       />
 
       {/* Product Detail Customizer Modal */}
@@ -1080,6 +1129,15 @@ export default function ShopPage() {
         shopId={shop?.id}
         shopName={shop?.name}
         sourceContext="shop_storefront"
+      />
+
+      {/* Privacy Policy Modal */}
+      <PrivacyPolicyModal
+        isOpen={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
+        shopName={shop?.name}
+        shopSlug={shop?.slug}
+        source="shop"
       />
 
       {/* Toast Notifications System - Positioned at top to never overlap checkout bar */}

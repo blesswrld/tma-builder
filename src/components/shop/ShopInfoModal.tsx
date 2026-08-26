@@ -8,12 +8,11 @@ interface ShopInfoModalProps {
   shop: Shop;
   isOpen: boolean;
   onClose: () => void;
+  onOpenPrivacy?: () => void;
 }
 
-export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onClose }) => {
+export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onClose, onOpenPrivacy }) => {
   useScrollLock(isOpen);
-
-  if (!isOpen) return null;
 
   const socials = parseSocialLinks(shop.socialLinks);
   const del = parseDeliveryOptions(shop.deliveryOptions);
@@ -22,17 +21,29 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
 
   return (
     <AnimatePresence>
-      <div 
-        onClick={onClose}
-        className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-hidden"
-      >
-        <motion.div 
-          onClick={(e) => e.stopPropagation()}
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="max-w-lg w-full max-h-[90vh] bg-app-modal border border-app-border rounded-3xl overflow-hidden shadow-2xl relative flex flex-col text-app-primary my-auto"
+      {isOpen && (
+        <div 
+          key="shop-info-modal-wrapper"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
         >
+          <motion.div
+            key="shop-info-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/75 backdrop-blur-md z-50"
+          />
+          <motion.div 
+            key="shop-info-panel"
+            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={{ type: "spring", damping: 26, stiffness: 280 }}
+            className="max-w-lg w-full max-h-[90vh] bg-app-modal border border-app-border rounded-3xl overflow-hidden shadow-2xl relative z-50 flex flex-col text-app-primary my-auto"
+          >
           {/* Close Button */}
           <button 
             onClick={onClose} 
@@ -286,8 +297,32 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
             )}
 
             {/* Open Source / Security */}
+            {/* Security & Open Source & Privacy */}
             <div className="space-y-2">
-              <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider block">Безопасность и открытый код</span>
+              <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider block">Безопасность и правовая информация</span>
+              
+              {onOpenPrivacy && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenPrivacy();
+                  }}
+                  className="w-full p-3 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-2xl transition-all flex items-center justify-between group cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                      <ShieldCheck size={15} />
+                    </div>
+                    <div className="text-left">
+                      <span className="font-bold block text-xs">Политика конфиденциальности</span>
+                      <span className="text-[10px] text-app-muted font-normal block">Защита персональных данных (ФЗ-152)</span>
+                    </div>
+                  </div>
+                  <ExternalLink size={13} className="text-app-muted group-hover:text-app-primary group-hover:translate-x-0.5 transition-transform shrink-0" />
+                </button>
+              )}
+
               <a
                 href="https://github.com/blesswrld/tma-builder"
                 target="_blank"
@@ -319,6 +354,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
           </div>
         </motion.div>
       </div>
+      )}
     </AnimatePresence>
   );
 };

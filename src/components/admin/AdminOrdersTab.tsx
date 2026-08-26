@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Search,
   X,
@@ -271,7 +272,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
         </div>
       ) : (
         <div className="space-y-3">
-          {orders.map((order) => {
+          {orders.map((order, idx) => {
             let parsedItems: OrderItem[] = [];
             try {
               parsedItems = JSON.parse(order.items);
@@ -280,9 +281,13 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
             }
 
             return (
-              <div
+              <motion.div
                 key={order.id}
-                className="p-5 rounded-2xl bg-app-surface border border-app-border space-y-4 shadow-sm"
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: idx * 0.03 }}
+                whileHover={{ y: -2 }}
+                className="p-5 rounded-2xl bg-app-surface border border-app-border space-y-4 shadow-sm transition-shadow hover:shadow-md"
               >
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-app-border pb-3">
@@ -442,7 +447,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                     )}
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>

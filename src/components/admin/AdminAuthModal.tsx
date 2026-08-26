@@ -37,6 +37,7 @@ interface AdminAuthModalProps {
   handleAuthSubmit: (e: FormEvent) => void;
   handleSendOtpCode: (purpose: "LOGIN" | "REGISTER" | "RESET_PASSWORD") => void;
   handleVerifyOtpCode: (e: FormEvent) => void;
+  onOpenPrivacy?: () => void;
 }
 
 export function AdminAuthModal({
@@ -64,6 +65,7 @@ export function AdminAuthModal({
   handleAuthSubmit,
   handleSendOtpCode,
   handleVerifyOtpCode,
+  onOpenPrivacy,
 }: AdminAuthModalProps) {
   useScrollLock(isOpen);
 
@@ -368,6 +370,22 @@ export function AdminAuthModal({
             </button>
           )}
         </div>
+
+        {onOpenPrivacy && (
+          <div className="text-center pt-1 text-[11px] font-mono text-app-muted border-t border-app-border/60">
+            <span>Продолжая, вы соглашаетесь с </span>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenPrivacy();
+              }}
+              className="underline hover:text-app-primary text-app-secondary cursor-pointer transition-colors"
+            >
+              Политикой конфиденциальности
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

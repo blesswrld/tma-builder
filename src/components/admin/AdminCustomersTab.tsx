@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "motion/react";
 import { User, Phone, ShoppingBag, DollarSign, Search } from "lucide-react";
 
 interface Customer {
@@ -71,10 +72,14 @@ export function AdminCustomersTab({ customers }: AdminCustomersTabProps) {
         <>
           {/* Mobile Card View (< sm) */}
           <div className="grid grid-cols-1 gap-3 sm:hidden">
-            {filtered.map((c) => (
-              <div
+            {filtered.map((c, idx) => (
+              <motion.div
                 key={c.id}
-                className="p-4 rounded-2xl bg-app-surface border border-app-border space-y-3 shadow-xs"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: idx * 0.03 }}
+                whileHover={{ y: -2 }}
+                className="p-4 rounded-2xl bg-app-surface border border-app-border space-y-3 shadow-xs hover:shadow-md transition-shadow"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -107,7 +112,7 @@ export function AdminCustomersTab({ customers }: AdminCustomersTabProps) {
                     <span>{(c.totalSpent || 0).toLocaleString("ru-RU")} ₽</span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
 

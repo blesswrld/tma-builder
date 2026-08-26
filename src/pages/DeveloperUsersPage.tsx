@@ -996,14 +996,14 @@ export default function DeveloperUsersPage() {
                   </span>
                   <button
                     onClick={() => setBatchBanModalOpen(true)}
-                    className="px-2.5 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 bg-rose-50 dark:bg-rose-500/15 hover:bg-rose-100 dark:hover:bg-rose-500/25 border border-rose-300 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer"
                   >
                     <Ban size={13} />
                     <span>Забанить</span>
                   </button>
                   <button
                     onClick={() => setBatchUnbanConfirm(true)}
-                    className="px-2.5 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-500/15 hover:bg-emerald-100 dark:hover:bg-emerald-500/25 border border-emerald-300 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer"
                   >
                     <Unlock size={13} />
                     <span>Разбанить</span>
@@ -1244,7 +1244,7 @@ export default function DeveloperUsersPage() {
                         ) : (
                           <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-mono font-bold text-sm border ${
                             targetUser.isBanned
-                              ? "bg-rose-500/10 text-rose-300 border-rose-500/20"
+                              ? "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/20"
                               : isDev
                               ? "bg-app-card text-app-primary border-app-border"
                               : "bg-app-card text-app-primary border-app-border"
@@ -1267,11 +1267,11 @@ export default function DeveloperUsersPage() {
                           </h3>
 
                           {/* Plan Badge */}
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-medium uppercase tracking-wider ${
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold uppercase tracking-wider ${
                             targetUser.plan === "ENTERPRISE"
-                              ? "bg-purple-500/10 text-purple-300 border border-purple-500/20"
+                              ? "bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/20"
                               : targetUser.plan === "PRO"
-                              ? "bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                              ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/20"
                               : "bg-app-card text-app-muted border border-app-border"
                           }`}>
                             {targetUser.plan || "FREE"}
@@ -1279,17 +1279,17 @@ export default function DeveloperUsersPage() {
 
                           {/* Status Badge */}
                           {targetUser.isBanned ? (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-medium bg-rose-500/10 text-rose-300 border border-rose-500/20 flex items-center gap-1">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/20 flex items-center gap-1">
                               <Ban size={10} />
                               ЗАБЛОКИРОВАН
                             </span>
                           ) : isDev ? (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 flex items-center gap-1">
                               <Shield size={10} />
                               РАЗРАБОТЧИК
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
                               АКТИВЕН
                             </span>
                           )}
@@ -1352,7 +1352,7 @@ export default function DeveloperUsersPage() {
                       {targetUser.isBanned ? (
                         <button
                           onClick={() => setUnbanConfirmUser(targetUser)}
-                          className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 rounded-xl text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+                          className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 rounded-xl text-xs font-mono font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
                           title="Разблокировать пользователя"
                         >
                           <Unlock size={14} />
@@ -1362,10 +1362,10 @@ export default function DeveloperUsersPage() {
                         <button
                           onClick={() => openBanModal(targetUser)}
                           disabled={isDev}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all flex items-center gap-1.5 ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all flex items-center gap-1.5 ${
                             isDev
                               ? "bg-app-card text-app-muted border border-app-border opacity-50 cursor-not-allowed"
-                              : "bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/25 cursor-pointer"
+                              : "bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/25 cursor-pointer"
                           }`}
                           title={isDev ? "Нельзя забанить разработчика" : "Забанить пользователя и отключить его заведения"}
                         >
@@ -1419,10 +1419,10 @@ export default function DeveloperUsersPage() {
 
                   {/* Ban Notice Banner if user is banned */}
                   {targetUser.isBanned && (
-                    <div className="mt-3 p-3 bg-app-card border border-rose-500/20 rounded-xl flex items-start gap-2.5 text-xs text-rose-300 font-mono">
-                      <ShieldAlert size={16} className="shrink-0 mt-0.5 text-rose-400" />
+                    <div className="mt-3 p-3 bg-app-card border border-rose-500/20 rounded-xl flex items-start gap-2.5 text-xs text-rose-700 dark:text-rose-300 font-mono">
+                      <ShieldAlert size={16} className="shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
                       <div className="space-y-0.5 min-w-0">
-                        <div className="font-semibold text-rose-300">Причина блокировки:</div>
+                        <div className="font-semibold text-rose-800 dark:text-rose-300">Причина блокировки:</div>
                         <div className="text-app-primary font-sans">{targetUser.banReason || "Нарушение условий использования"}</div>
                         {targetUser.bannedAt && (
                           <div className="text-[10px] text-app-muted">
@@ -1509,7 +1509,7 @@ export default function DeveloperUsersPage() {
                                   className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
                                     s.isOpen
                                       ? "bg-app-surface text-app-text-secondary border-app-border hover:bg-app-hover"
-                                      : "bg-emerald-500/10 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/20"
+                                      : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20"
                                   }`}
                                 >
                                   {s.isOpen ? "Закрыть" : "Открыть"}
@@ -1611,11 +1611,11 @@ export default function DeveloperUsersPage() {
                         </td>
                         <td className="p-3">
                           {targetUser.isBanned ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/10 text-rose-300 border border-rose-500/20 font-medium">
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/20 font-semibold">
                               BANNED
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 font-semibold">
                               ACTIVE
                             </span>
                           )}
@@ -1631,7 +1631,7 @@ export default function DeveloperUsersPage() {
                             {targetUser.isBanned ? (
                               <button
                                 onClick={() => setUnbanConfirmUser(targetUser)}
-                                className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-lg cursor-pointer"
+                                className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg cursor-pointer"
                                 title="Разблокировать"
                               >
                                 <Unlock size={14} />
@@ -1640,7 +1640,7 @@ export default function DeveloperUsersPage() {
                               <button
                                 onClick={() => openBanModal(targetUser)}
                                 disabled={isDev}
-                                className="p-1.5 text-rose-400 hover:bg-rose-500/10 rounded-lg cursor-pointer disabled:opacity-30"
+                                className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-lg cursor-pointer disabled:opacity-30"
                                 title="Заблокировать"
                               >
                                 <Ban size={14} />
@@ -1686,8 +1686,8 @@ export default function DeveloperUsersPage() {
               className="w-full max-w-lg bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl"
             >
               <div className="flex items-center justify-between border-b border-app-border pb-3">
-                <div className="flex items-center gap-2.5 text-rose-300 font-bold text-base">
-                  <div className="p-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
+                <div className="flex items-center gap-2.5 text-rose-600 dark:text-rose-300 font-bold text-base">
+                  <div className="p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-xl">
                     <ShieldAlert size={18} />
                   </div>
                   <span>Блокировка пользователя</span>
@@ -1720,7 +1720,7 @@ export default function DeveloperUsersPage() {
                         }}
                         className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer text-xs ${
                           banReason === r && !customBanReason
-                            ? "bg-rose-500/10 border-rose-500/40 text-rose-200 font-medium"
+                            ? "bg-rose-50 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/40 text-rose-800 dark:text-rose-200 font-semibold"
                             : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-bg"
                         }`}
                       >
@@ -1764,7 +1764,7 @@ export default function DeveloperUsersPage() {
                   type="button"
                   onClick={handleBanUser}
                   disabled={isBanning}
-                  className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 font-medium rounded-xl text-xs font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-xs font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
                 >
                   <Ban size={14} />
                   <span>{isBanning ? "Блокировка..." : "Заблокировать аккаунт"}</span>
@@ -1914,7 +1914,7 @@ export default function DeveloperUsersPage() {
               className="w-full max-w-md bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl"
             >
               <div className="flex items-center justify-between border-b border-app-border pb-3">
-                <div className="flex items-center gap-2 text-rose-300 font-bold text-base">
+                <div className="flex items-center gap-2 text-rose-600 dark:text-rose-300 font-bold text-base">
                   <Ban size={18} />
                   <span>Массовая блокировка ({selectedUserIds.size})</span>
                 </div>
@@ -1941,7 +1941,7 @@ export default function DeveloperUsersPage() {
                         onClick={() => setBatchBanReason(r)}
                         className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer text-xs ${
                           batchBanReason === r
-                            ? "bg-rose-500/10 border-rose-500/40 text-rose-200 font-medium"
+                            ? "bg-rose-50 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/40 text-rose-800 dark:text-rose-200 font-semibold"
                             : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-bg"
                         }`}
                       >
@@ -1964,7 +1964,7 @@ export default function DeveloperUsersPage() {
                   type="button"
                   onClick={handleBatchBan}
                   disabled={isBatchBanning}
-                  className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 font-medium rounded-xl text-xs font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-xs font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
                 >
                   <Ban size={14} />
                   <span>{isBatchBanning ? "Блокировка..." : `Забанить (${selectedUserIds.size})`}</span>

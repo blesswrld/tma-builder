@@ -1,4 +1,5 @@
 import React from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Users,
   UserPlus,
@@ -112,8 +113,15 @@ export function AdminTeamTab({
             )}
 
             {/* Staff Members */}
-            {(teamMembers || []).map(m => (
-              <div key={m.id} className="p-4 bg-app-card border border-app-border rounded-2xl flex items-center justify-between">
+            {(teamMembers || []).map((m, idx) => (
+              <motion.div
+                key={m.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: idx * 0.04 }}
+                whileHover={{ y: -2 }}
+                className="p-4 bg-app-card border border-app-border rounded-2xl flex items-center justify-between shadow-xs hover:shadow-md transition-shadow"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-app-surface border border-app-border text-app-muted flex items-center justify-center font-bold text-sm font-mono shrink-0">
                     <User size={18} className="text-app-muted" />
@@ -164,7 +172,7 @@ export function AdminTeamTab({
                     )
                   )
                 )}
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>

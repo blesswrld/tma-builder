@@ -62,24 +62,27 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
   // Lock background scroll when modal or lightbox is open
   useScrollLock(isOpen || Boolean(lightboxImage));
 
-  if (!isOpen) return null;
-
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="fixed inset-0 bg-black/75 backdrop-blur-md z-50"
-      />
-      <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", damping: 28, stiffness: 220 }}
-        className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-50 flex flex-col shadow-2xl text-app-primary font-sans"
-      >
+      {isOpen && (
+        <div key="reviews-modal-container" className="fixed inset-0 z-50">
+          <motion.div
+            key="reviews-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/75 backdrop-blur-md z-50"
+          />
+          <motion.div
+            key="reviews-panel"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 28, stiffness: 220 }}
+            className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-50 flex flex-col shadow-2xl text-app-primary font-sans"
+          >
         {/* Header */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-app-border bg-app-modal-header shrink-0">
           <div className="flex items-center gap-2.5">
@@ -445,6 +448,8 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
           </div>
         </div>
       </motion.div>
+    </div>
+    )}
 
       {/* LIGHTBOX MODAL */}
       <AnimatePresence>

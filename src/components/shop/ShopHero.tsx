@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "motion/react";
 import { Clock, Info, Phone as PhoneIcon, MapPin, Gift, Truck, Store, Send, ExternalLink, MessageCircle, Globe } from "lucide-react";
 import { Shop, parseSocialLinks, parseDeliveryOptions } from "../../types";
 
@@ -23,7 +24,12 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
   const hasSocials = Boolean(socials.telegram || socials.instagram || socials.whatsapp || socials.vk || socials.website);
 
   return (
-    <div className="rounded-3xl bg-app-card border border-app-border overflow-hidden shadow-xs relative space-y-0 font-sans">
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="rounded-3xl bg-app-card border border-app-border overflow-hidden shadow-xs relative space-y-0 font-sans"
+    >
       {/* Cover Banner Image or Gradient Hero */}
       <div className="relative h-32 xs:h-36 sm:h-52 w-full bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 overflow-hidden">
         {shop.bannerUrl ? (
@@ -194,6 +200,6 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };

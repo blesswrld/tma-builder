@@ -31,19 +31,19 @@ export function ConfirmModal({
 
   const variantStyles = {
     danger: {
-      iconBg: "bg-rose-500/10 text-rose-400 border-rose-500/20",
+      iconBg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
       icon: AlertTriangle,
-      btnBg: "bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border-rose-500/30"
+      btnBg: "bg-rose-600 hover:bg-rose-700 text-white border-rose-600 shadow-sm font-semibold"
     },
     warning: {
-      iconBg: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+      iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
       icon: AlertTriangle,
-      btnBg: "bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border-amber-500/30"
+      btnBg: "bg-amber-600 hover:bg-amber-700 text-white border-amber-600 shadow-sm font-semibold"
     },
     info: {
       iconBg: "bg-app-primary/10 text-app-primary border-app-primary/20",
       icon: Info,
-      btnBg: "bg-app-primary/20 hover:bg-app-primary/30 text-app-primary border-app-primary/30"
+      btnBg: "bg-app-primary hover:opacity-90 text-app-bg border-app-primary font-semibold"
     }
   }[variant];
 

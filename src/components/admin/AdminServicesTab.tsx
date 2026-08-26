@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Search,
   X,
@@ -540,7 +541,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
       ) : (
         /* Services Grid Display */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {services.map((service) => {
+          {services.map((service, idx) => {
             let galleryList: string[] = [];
             if (service.gallery) {
               try {
@@ -551,9 +552,13 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
             }
 
             return (
-              <div
+              <motion.div
                 key={service.id}
-                className={`p-5 rounded-2xl bg-app-surface border border-app-border flex flex-col justify-between space-y-4 shadow-sm relative transition-all ${
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: idx * 0.03 }}
+                whileHover={{ y: -3 }}
+                className={`p-5 rounded-2xl bg-app-surface border border-app-border flex flex-col justify-between space-y-4 shadow-sm relative transition-all hover:shadow-md ${
                   !service.isAvailable ? "opacity-60" : ""
                 }`}
               >
@@ -740,7 +745,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>

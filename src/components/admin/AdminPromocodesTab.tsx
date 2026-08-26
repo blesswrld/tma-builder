@@ -1,4 +1,5 @@
 import React, { FormEvent } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { Tag, Trash2, X } from "lucide-react";
 
 interface Promocode {
@@ -54,10 +55,14 @@ export function AdminPromocodesTab({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {promocodes.map((promo) => (
-            <div
+          {promocodes.map((promo, idx) => (
+            <motion.div
               key={promo.id}
-              className="p-5 rounded-2xl bg-app-surface border border-app-border flex justify-between items-start"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: idx * 0.03 }}
+              whileHover={{ y: -3 }}
+              className="p-5 rounded-2xl bg-app-surface border border-app-border flex justify-between items-start shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="space-y-2.5">
                 <div>
@@ -85,7 +90,7 @@ export function AdminPromocodesTab({
               >
                 <Trash2 size={14} />
               </button>
-            </div>
+            </motion.div>
           ))}
         </div>
       )}

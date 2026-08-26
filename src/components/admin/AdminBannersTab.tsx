@@ -1,4 +1,5 @@
 import React, { FormEvent } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { Trash2, X } from "lucide-react";
 import { Banner } from "../../types";
 
@@ -43,10 +44,14 @@ export function AdminBannersTab({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {banners.map((banner) => (
-            <div
+          {banners.map((banner, idx) => (
+            <motion.div
               key={banner.id}
-              className="p-6 rounded-2xl bg-app-surface border border-app-border space-y-3 relative shadow-sm"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: idx * 0.04 }}
+              whileHover={{ y: -3 }}
+              className="p-6 rounded-2xl bg-app-surface border border-app-border space-y-3 relative shadow-sm hover:shadow-md transition-shadow"
             >
               <button
                 onClick={() => handleDeleteBanner(banner.id)}
@@ -68,7 +73,7 @@ export function AdminBannersTab({
                   {banner.subtitle}
                 </p>
               )}
-            </div>
+            </motion.div>
           ))}
         </div>
       )}

@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "motion/react";
 import { Search, Heart } from "lucide-react";
 
 interface ShopCategoriesProps {
@@ -23,7 +24,9 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
       {/* Category Pill Tabs */}
       <div className="relative flex-1 min-w-0">
         <div className="flex items-center gap-1.5 overflow-x-auto touch-scroll-x scrollbar-none py-1 w-full pr-8">
-          <button
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            whileHover={{ scale: 1.02 }}
             type="button"
             onClick={() => onSelectCategory("ALL")}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-medium font-mono transition-all shrink-0 cursor-pointer ${
@@ -33,10 +36,12 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
             }`}
           >
             Все
-          </button>
+          </motion.button>
           
           {/* Favorites Category Tab */}
-          <button
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            whileHover={{ scale: 1.02 }}
             type="button"
             onClick={() => onSelectCategory("FAVORITES")}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
@@ -47,11 +52,13 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
           >
             <Heart size={13} className={favoritesCount > 0 ? "fill-current text-rose-500" : "text-app-muted"} />
             <span>Избранное ({favoritesCount})</span>
-          </button>
+          </motion.button>
 
           {categories.map(cat => (
-            <button
+            <motion.button
               key={cat}
+              whileTap={{ scale: 0.96 }}
+              whileHover={{ scale: 1.02 }}
               type="button"
               onClick={() => onSelectCategory(cat)}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 cursor-pointer ${
@@ -61,7 +68,7 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
               }`}
             >
               {cat}
-            </button>
+            </motion.button>
           ))}
         </div>
         <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-app-bg to-transparent pointer-events-none" />

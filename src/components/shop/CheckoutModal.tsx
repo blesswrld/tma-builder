@@ -52,6 +52,7 @@ interface CheckoutModalProps {
   formErrors: { [key: string]: string };
   isSubmitting: boolean;
   handleSubmitOrder: (e: React.FormEvent) => void;
+  onOpenPrivacy?: () => void;
 }
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
@@ -87,6 +88,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   formErrors,
   isSubmitting,
   handleSubmitOrder,
+  onOpenPrivacy,
 }) => {
   useScrollLock(isOpen);
 
@@ -409,7 +411,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
         </div>
         
-        <div className="p-4 sm:p-6 border-t border-app-border bg-app-bg pb-safe">
+        <div className="p-4 sm:p-6 border-t border-app-border bg-app-bg pb-safe space-y-2.5">
           <button
             form="checkout-form"
             type="submit"
@@ -428,6 +430,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </>
             )}
           </button>
+
+          {onOpenPrivacy && (
+            <p className="text-[10px] text-app-muted text-center font-mono leading-tight">
+              Оформляя заказ, вы соглашаетесь с{" "}
+              <button
+                type="button"
+                onClick={onOpenPrivacy}
+                className="underline hover:text-app-primary text-app-secondary cursor-pointer transition-colors"
+              >
+                Политикой конфиденциальности
+              </button>
+            </p>
+          )}
         </div>
           </motion.div>
         </div>

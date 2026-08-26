@@ -42,7 +42,9 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   return (
     <motion.div 
       layout
-      className={`rounded-2xl border overflow-hidden transition-all flex flex-col justify-between group font-sans ${
+      whileHover={{ y: -3 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className={`rounded-2xl border overflow-hidden transition-all flex flex-col justify-between group font-sans hover:shadow-md ${
         isOutOfStock 
           ? "bg-app-surface/50 border-app-border/40 opacity-50" 
           : "bg-app-surface border-app-border hover:border-app-border hover:bg-app-card-hover"

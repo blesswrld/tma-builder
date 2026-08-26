@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   X,
   Bug,
@@ -98,8 +99,6 @@ export default function ReportModal({
       setSubmittedReportId(null);
     }
   }, [isOpen]);
-
-  if (!isOpen) return null;
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -224,14 +223,30 @@ export default function ReportModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fade-in font-sans"
-      onClick={handleClose}
-    >
-      <div
-        className="bg-app-surface border border-app-border rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-scale-up"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <AnimatePresence>
+      {isOpen && (
+        <div
+          key="report-modal-wrapper"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 font-sans"
+        >
+          <motion.div
+            key="report-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={handleClose}
+            className="fixed inset-0 bg-black/75 backdrop-blur-md z-50"
+          />
+          <motion.div
+            key="report-panel"
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={{ type: "spring", damping: 26, stiffness: 280 }}
+            className="bg-app-surface border border-app-border rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh] relative z-50"
+            onClick={(e) => e.stopPropagation()}
+          >
         {/* Header */}
         <div className="px-5 py-4 border-b border-app-border flex items-center justify-between bg-app-card/40">
           <div className="flex items-center gap-2.5">
@@ -517,18 +532,22 @@ export default function ReportModal({
 
               {/* Submit & Cancel Buttons */}
               <div className="pt-2 flex items-center justify-end gap-2 font-mono text-xs">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   type="button"
                   onClick={handleClose}
                   disabled={isSubmitting}
                   className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary hover:text-app-primary rounded-xl transition-all cursor-pointer disabled:opacity-50"
                 >
                   Отмена
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={isSubmitting || !description.trim()}
-                  className="px-4 py-2 bg-app-accent hover:opacity-90 text-app-accent-fg font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 active:scale-[0.98]"
+                  className="px-4 py-2 bg-app-accent hover:opacity-90 text-app-accent-fg font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>
@@ -541,12 +560,14 @@ export default function ReportModal({
                       <span>Отправить</span>
                     </>
                   )}
-                </button>
+                </motion.button>
               </div>
             </form>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
+    )}
+  </AnimatePresence>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import {
   AreaChart,
   Area,
@@ -95,7 +96,13 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
     <div className="space-y-6">
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, delay: 0 }}
+          whileHover={{ y: -2 }}
+          className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4 transition-shadow hover:shadow-md"
+        >
           <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
             <DollarSign size={20} />
           </div>
@@ -108,9 +115,15 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
               <TrendingUp size={12} /> Выполненные заказы
             </p>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, delay: 0.05 }}
+          whileHover={{ y: -2 }}
+          className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4 transition-shadow hover:shadow-md"
+        >
           <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
             <ShoppingBag size={20} />
           </div>
@@ -121,9 +134,15 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
               {summary.completedOrders} выполнено ({summary.totalOrders > 0 ? Math.round((summary.completedOrders / summary.totalOrders) * 100) : 0}%)
             </p>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, delay: 0.1 }}
+          whileHover={{ y: -2 }}
+          className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4 transition-shadow hover:shadow-md"
+        >
           <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
             <Award size={20} />
           </div>
@@ -134,9 +153,15 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
             </h3>
             <p className="text-[10px] text-app-secondary font-mono mt-0.5">На один заказ</p>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, delay: 0.15 }}
+          whileHover={{ y: -2 }}
+          className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4 transition-shadow hover:shadow-md"
+        >
           <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
             <BarChart2 size={20} />
           </div>
@@ -145,12 +170,17 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
             <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">{topServices.length}</h3>
             <p className="text-[10px] text-app-secondary font-mono mt-0.5">Активные позиции</p>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Revenue Chart + Top Services */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-app-surface p-6 rounded-2xl border border-app-border space-y-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+          className="lg:col-span-2 bg-app-surface p-6 rounded-2xl border border-app-border space-y-4"
+        >
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold text-app-primary">Динамика выручки</h3>
@@ -211,10 +241,15 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
               </div>
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Top Services */}
-        <div className="bg-app-surface p-6 rounded-2xl border border-app-border space-y-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.25 }}
+          className="bg-app-surface p-6 rounded-2xl border border-app-border space-y-4"
+        >
           <div>
             <h3 className="text-sm font-semibold text-app-primary">Популярные позиции</h3>
             <p className="text-xs text-app-muted font-mono">Лидеры продаж</p>
@@ -223,7 +258,13 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
           {topServices.length > 0 ? (
             <div className="space-y-3">
               {topServices.map((service, idx) => (
-                <div key={idx} className="flex items-center justify-between text-xs">
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2, delay: 0.3 + idx * 0.04 }}
+                  className="flex items-center justify-between text-xs hover:bg-app-hover/50 p-1.5 -mx-1.5 rounded-xl transition-colors"
+                >
                   <div className="flex items-center gap-2.5 min-w-0 pr-2">
                     <span
                       className="w-2 h-2 rounded-full shrink-0"
@@ -235,7 +276,7 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
                     <span className="font-semibold text-app-primary font-mono">{service.total.toLocaleString("ru-RU")} ₽</span>
                     <span className="text-[10px] text-app-muted font-mono block">{service.count} шт</span>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           ) : (
@@ -243,11 +284,16 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
               Данные о продажах отсутствуют
             </div>
           )}
-        </div>
+        </motion.div>
       </div>
 
       {/* Hourly Distribution */}
-      <div className="bg-app-surface p-6 rounded-2xl border border-app-border space-y-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.3 }}
+        className="bg-app-surface p-6 rounded-2xl border border-app-border space-y-4"
+      >
         <div>
           <h3 className="text-sm font-semibold text-app-primary">Пиковые часы</h3>
           <p className="text-xs text-app-muted font-mono">Распределение заказов по времени суток</p>
@@ -273,7 +319,7 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

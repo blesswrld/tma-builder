@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "motion/react";
 import { Sun, Moon, Star, Receipt, Bug } from "lucide-react";
 import { Shop } from "../../types";
 
@@ -78,7 +79,9 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
         {/* Action Controls */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Theme switcher */}
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             type="button"
             onClick={handleToggleTheme}
             className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer shrink-0 ${
@@ -89,10 +92,12 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
             title={isDark ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
           >
             {isDark ? <Sun size={15} className="text-zinc-300" /> : <Moon size={15} className="text-zinc-600" />}
-          </button>
+          </motion.button>
 
           {/* Reviews button */}
-          <button
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             type="button"
             onClick={onOpenReviews}
             className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0 border ${
@@ -104,10 +109,12 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
           >
             <Star size={13} className="text-amber-400 shrink-0" />
             <span className="hidden min-[440px]:inline">Отзывы</span>
-          </button>
+          </motion.button>
 
           {/* Orders History button */}
-          <button
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             type="button"
             onClick={onOpenMyOrders}
             className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0 border ${
@@ -119,11 +126,13 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
           >
             <Receipt size={13} className={isDark ? "text-zinc-400 shrink-0" : "text-zinc-500 shrink-0"} />
             <span className="hidden min-[440px]:inline">Заказы</span>
-          </button>
+          </motion.button>
 
           {/* Bug / Feedback report */}
           {onOpenReport && (
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               type="button"
               onClick={onOpenReport}
               className={`p-1.5 sm:p-2 rounded-xl text-xs transition-all flex items-center justify-center font-mono cursor-pointer shrink-0 border ${
@@ -134,7 +143,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
               title="Сообщить об ошибке / отзыв"
             >
               <Bug size={14} className="shrink-0" />
-            </button>
+            </motion.button>
           )}
         </div>
       </div>

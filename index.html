@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     
+    <!-- Critical DNS Prefetch & Preconnect for Google Fonts to minimize CLS and latency -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="dns-prefetch" href="https://telegram.org" />
+
     <!-- Primary Meta Tags -->
     <title>TMA Platform — Конструктор Telegram Web App & Онлайн-каталогов</title>
     <meta name="title" content="TMA Platform — Конструктор Telegram Web App & Онлайн-каталогов" />
@@ -32,15 +39,8 @@
     <meta name="twitter:title" content="TMA Platform — Конструктор Telegram Web App & Онлайн-каталогов" />
     <meta name="twitter:description" content="Платформа для создания онлайн-витрин, каталогов услуг, доставки и Telegram Mini Apps для вашего бизнеса с приёмом заказов и аналитикой." />
 
-    <!-- DNS Prefetch & Preconnect for Fast Loading -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
-    <link rel="dns-prefetch" href="https://telegram.org">
-
-    <!-- Web Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Web Fonts with font-display: swap to prevent layout shifts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     
     <!-- Schema.org JSON-LD Structured Data for Search Engines -->
     <script type="application/ld+json">

@@ -1,4 +1,5 @@
 import React, { FormEvent } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { Trash2, X } from "lucide-react";
 import { Shop } from "../../types";
 
@@ -68,10 +69,14 @@ export function AdminBroadcastsTab({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {broadcasts.map((bc) => (
-            <div
+          {broadcasts.map((bc, idx) => (
+            <motion.div
               key={bc.id}
-              className="p-5 rounded-2xl bg-app-surface border border-app-border flex flex-col justify-between space-y-4"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: idx * 0.04 }}
+              whileHover={{ y: -3 }}
+              className="p-5 rounded-2xl bg-app-surface border border-app-border flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="space-y-3">
                 <div className="flex justify-between items-start">
@@ -123,7 +128,7 @@ export function AdminBroadcastsTab({
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       )}

@@ -789,10 +789,10 @@ export default function DeveloperReportsPage() {
             <span className="text-[11px] font-mono text-app-muted uppercase tracking-wider block font-medium">
               Новые
             </span>
-            <div className="text-xl font-bold font-mono text-rose-300 flex items-center gap-1.5">
+            <div className="text-xl font-bold font-mono text-rose-600 dark:text-rose-300 flex items-center gap-1.5">
               <span>{stats.newCount}</span>
               {stats.newCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-rose-400" />
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
               )}
             </div>
             <div className="text-[10px] font-mono text-app-muted">Требуют внимания</div>
@@ -802,7 +802,7 @@ export default function DeveloperReportsPage() {
             <span className="text-[11px] font-mono text-app-muted uppercase tracking-wider block font-medium">
               В работе
             </span>
-            <div className="text-xl font-bold font-mono text-amber-300">{stats.inProgressCount}</div>
+            <div className="text-xl font-bold font-mono text-amber-600 dark:text-amber-300">{stats.inProgressCount}</div>
             <div className="text-[10px] font-mono text-app-muted">В процессе исправления</div>
           </div>
 
@@ -810,7 +810,7 @@ export default function DeveloperReportsPage() {
             <span className="text-[11px] font-mono text-app-muted uppercase tracking-wider block font-medium">
               Решено / Закрыто
             </span>
-            <div className="text-xl font-bold font-mono text-emerald-300">{stats.resolvedCount}</div>
+            <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-300">{stats.resolvedCount}</div>
             <div className="text-[10px] font-mono text-app-muted">Успешно закрыто</div>
           </div>
         </div>
@@ -1005,7 +1005,7 @@ export default function DeveloperReportsPage() {
 
         {/* Error alert */}
         {error && (
-          <div className="p-3 bg-app-card border border-app-border rounded-xl text-xs font-mono text-rose-300 flex items-center justify-between">
+          <div className="p-3 bg-app-card border border-app-border rounded-xl text-xs font-mono text-rose-700 dark:text-rose-300 font-medium flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertTriangle size={15} className="text-amber-400" />
               <span>{error}</span>
@@ -1055,25 +1055,25 @@ export default function DeveloperReportsPage() {
               let typeBadge = {
                 label: "Ошибка / Баг",
                 icon: Bug,
-                style: "bg-rose-500/10 text-rose-300 border-rose-500/20"
+                style: "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/20 font-semibold"
               };
               if (report.type === "FEATURE") {
                 typeBadge = {
                   label: "Предложение",
                   icon: Lightbulb,
-                  style: "bg-amber-500/10 text-amber-300 border-amber-500/20"
+                  style: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/20 font-semibold"
                 };
               } else if (report.type === "QUESTION") {
                 typeBadge = {
                   label: "Вопрос",
                   icon: HelpCircle,
-                  style: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20"
+                  style: "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/20 font-semibold"
                 };
               } else if (report.type === "OTHER") {
                 typeBadge = {
                   label: "Прочее",
                   icon: Layers,
-                  style: "bg-app-card text-app-secondary border-app-border"
+                  style: "bg-app-card text-app-primary border-app-border font-semibold"
                 };
               }
 
@@ -1136,7 +1136,7 @@ export default function DeveloperReportsPage() {
 
                           {/* Realtime tag */}
                           {isNewlyArrived && (
-                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-bold animate-pulse">
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 font-bold animate-pulse">
                               NEW REALTIME
                             </span>
                           )}

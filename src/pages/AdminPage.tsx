@@ -19,6 +19,7 @@ import { useScrollLock } from "../hooks/useScrollLock";
 import QrGeneratorModal from "../components/QrGeneratorModal";
 import PlanModal from "../components/PlanModal";
 import ReportModal from "../components/ReportModal";
+import { PrivacyPolicyModal } from "../components/PrivacyPolicyModal";
 import AnalyticsTab from "../components/AnalyticsTab";
 import { AdminPageSkeleton, AdminContentSkeleton, ReviewSkeletonList, SpinnerLoader, Skeleton } from "../components/Skeleton";
 import ImageUploader from "../components/ImageUploader";
@@ -817,6 +818,7 @@ export default function AdminPage() {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHotkeysModalOpen, setIsHotkeysModalOpen] = useState(false);
 
@@ -3151,7 +3153,27 @@ export default function AdminPage() {
               )}
             </>
           )}
+
+          {/* Legal / Privacy Policy footer link */}
+          <div className="text-center pt-2 text-[11px] font-mono text-app-muted border-t border-app-border/60">
+            <span>Продолжая, вы принимаете </span>
+            <button
+              type="button"
+              onClick={() => setIsPrivacyModalOpen(true)}
+              className="underline hover:text-app-primary text-app-secondary cursor-pointer transition-colors"
+            >
+              Политику конфиденциальности
+            </button>
+          </div>
         </div>
+
+        {/* Privacy Policy Modal */}
+        <PrivacyPolicyModal
+          isOpen={isPrivacyModalOpen}
+          onClose={() => setIsPrivacyModalOpen(false)}
+          shopName="TMA Builder"
+          source="admin"
+        />
       </div>
     );
   }
@@ -3434,8 +3456,10 @@ export default function AdminPage() {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
-                <button
+                <motion.button
                   key={tab.id}
+                  whileHover={{ x: 2, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     if (tab.id === "dev-users") {
                       navigate("/dev-users");
@@ -3449,18 +3473,18 @@ export default function AdminPage() {
                     }
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`relative w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     isActive 
                       ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" 
                       : "text-app-muted hover:text-app-primary hover:bg-app-hover"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 z-10">
                     <Icon size={15} className={isActive ? "text-app-accent-fg" : (tab.id === "reports" && unhandledReportsCount > 0 ? "text-rose-500" : "text-app-muted")} />
                     <span>{tab.label}</span>
                   </div>
                   {tab.badge !== undefined && tab.badge > 0 && (
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold transition-all ${
+                    <span className={`z-10 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold transition-all ${
                       tab.alert 
                         ? "bg-rose-500 text-white animate-pulse" 
                         : isActive 
@@ -3470,7 +3494,7 @@ export default function AdminPage() {
                       {tab.badge}
                     </span>
                   )}
-                </button>
+                </motion.button>
               );
             })}
           </nav>
@@ -3570,6 +3594,23 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* Privacy Policy Link */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsPrivacyModalOpen(true);
+              setIsSidebarOpen(false);
+            }}
+            className="w-full p-2.5 bg-app-surface hover:bg-app-hover border border-app-border rounded-2xl flex items-center justify-between text-xs font-mono transition-colors group cursor-pointer shadow-sm text-left"
+            title="Ознакомиться с Политикой конфиденциальности (ФЗ-152)"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <ShieldCheck size={15} className="text-emerald-500 shrink-0" />
+              <span className="truncate text-app-secondary group-hover:text-app-primary font-medium">Конфиденциальность</span>
+            </div>
+            <span className="text-[10px] text-app-muted font-mono uppercase shrink-0">ФЗ-152</span>
+          </button>
+
           {/* GitHub Open Source Link (Adjusted background to match profile card exactly) */}
           <a
             href="https://github.com/blesswrld/tma-builder"
@@ -3582,7 +3623,7 @@ export default function AdminPage() {
               <Github size={15} className="text-app-primary shrink-0" />
               <span className="truncate text-app-secondary group-hover:text-app-primary font-medium">Исходный код (GitHub)</span>
             </div>
-            <ShieldCheck size={15} className="text-emerald-500 shrink-0" />
+            <ExternalLink size={14} className="text-app-muted group-hover:text-app-primary transition-colors shrink-0" />
           </a>
         </div>
       </div>
@@ -3754,9 +3795,18 @@ export default function AdminPage() {
 
         {/* Tab Views Content Container */}
         <div className="p-4 sm:p-6 flex-1 space-y-6">
-          {loading && <AdminContentSkeleton />}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 12, scale: 0.995 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.995 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="space-y-6"
+            >
+              {loading && <AdminContentSkeleton />}
 
-          {/* PAGE VIEW: PROFILE */}
+              {/* PAGE VIEW: PROFILE */}
           {activeTab === "profile" && !loading && (
             <div className="max-w-3xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm">
               <div className="border-b border-app-border pb-5">
@@ -4329,6 +4379,8 @@ export default function AdminPage() {
               showToast={showToast}
             />
           )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
 
@@ -4362,6 +4414,7 @@ export default function AdminPage() {
         handleAuthSubmit={handleAuthSubmit}
         handleSendOtpCode={handleSendOtpCode}
         handleVerifyOtpCode={handleVerifyOtpCode}
+        onOpenPrivacy={() => setIsPrivacyModalOpen(true)}
       />
 
 
@@ -4562,6 +4615,15 @@ export default function AdminPage() {
         shopId={selectedShop?.id}
         shopName={selectedShop?.name}
         sourceContext="admin_panel"
+      />
+
+      {/* Privacy Policy Modal */}
+      <PrivacyPolicyModal
+        isOpen={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
+        shopName={selectedShop?.name || "TMA Builder"}
+        shopSlug={selectedShop?.slug}
+        source="admin"
       />
 
       {/* Custom Confirmation Modal */}
