@@ -14,6 +14,7 @@ import {
 import { TrendingUp, ShoppingBag, DollarSign, Award, RefreshCw, BarChart2 } from "lucide-react";
 import { AnalyticsSkeleton } from "./Skeleton";
 import { useRealtimeEvent } from "../context/RealtimeContext";
+import { useAuth } from "../context/AuthContext";
 
 interface AnalyticsData {
   summary: {
@@ -34,6 +35,7 @@ interface AnalyticsTabProps {
 const MONO_COLORS = ["var(--text-primary)", "var(--text-secondary)", "var(--text-muted)", "var(--border)"];
 
 export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
+  const { token } = useAuth();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,12 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/shops/${shopId}/analytics`);
+      const authToken = token || localStorage.getItem("auth_token");
+      const headers: Record<string, string> = {};
+      if (authToken) {
+        headers["Authorization"] = `Bearer ${authToken}`;
+      }
+      const res = await fetch(`/api/shops/${shopId}/analytics`, { headers });
       if (!res.ok) throw new Error("Не удалось загрузить аналитический отчёт");
       const analyticsData = await res.json();
       setData(analyticsData);

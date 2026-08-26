@@ -406,9 +406,13 @@ async function ensureOrderSchema(db: PrismaClient) {
 
 export type UserShopRole = "OWNER" | "MANAGER" | "STAFF" | null;
 
-async function getShopUserRole(db: PrismaClient, shopId: string, authUser: { id: string } | null): Promise<UserShopRole> {
+async function getShopUserRole(db: PrismaClient, shopId: string, authUser: { id: string; email?: string } | null): Promise<UserShopRole> {
   // STRICT SECURITY: Unauthenticated users have no role
   if (!authUser) return null;
+
+  if (isDeveloperEmail((authUser as any).email)) {
+    return "OWNER";
+  }
 
   const shop = await db.shop.findUnique({ where: { id: shopId } });
   if (!shop) return null;
@@ -915,6 +919,10 @@ app.post("/api/auth/login", async (req, res) => {
     console.error("Auth login error:", error);
     res.status(500).json({ error: "Ошибка при входе в аккаунт." });
   }
+});
+
+app.get("/favicon.ico", (_req, res) => {
+  res.status(204).end();
 });
 
 // Auth Route: Профиль текущего пользователя
