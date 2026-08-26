@@ -143,7 +143,7 @@ export default function ImageUploader({
       {tab === "file" && (
         <div
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-app-border hover:border-app-accent/40 bg-app-card/50 hover:bg-app-card rounded-2xl p-4 text-center cursor-pointer transition-all space-y-1.5"
+          className="border border-dashed border-app-border hover:border-app-accent/50 bg-app-card/60 hover:bg-app-card rounded-xl p-3 text-center cursor-pointer transition-all space-y-1 group"
         >
           <input
             type="file"
@@ -152,30 +152,30 @@ export default function ImageUploader({
             accept="image/*"
             className="hidden"
           />
-          <div className="w-8 h-8 bg-app-card text-app-primary border border-app-border rounded-full flex items-center justify-center mx-auto shadow-sm">
-            {isCompressing ? <Sparkles size={16} className="animate-spin" /> : <Upload size={16} />}
+          <div className="w-7 h-7 bg-app-surface text-app-primary border border-app-border rounded-lg flex items-center justify-center mx-auto shadow-xs group-hover:scale-105 transition-transform">
+            {isCompressing ? <Sparkles size={14} className="animate-spin text-app-accent" /> : <Upload size={14} />}
           </div>
-          <p className="text-xs text-app-primary font-medium">
+          <p className="text-[11px] text-app-primary font-medium">
             {isCompressing ? "Сжатие и обработка..." : "Нажмите или перетащите фото сюда"}
           </p>
-          <p className="text-[10px] text-app-muted font-mono">PNG, JPG, WEBP (до 15 МБ, с кадрированием)</p>
+          <p className="text-[9px] text-app-muted font-mono">PNG, JPG, WEBP (до 15 МБ, с кадрированием)</p>
         </div>
       )}
 
       {tab === "presets" && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-0.5 max-h-36 overflow-y-auto custom-scrollbar pr-1">
           {activePresets.map((pr) => (
             <button
               key={pr.label}
               type="button"
               onClick={() => onChange(pr.url)}
-              className={`p-1.5 rounded-xl border text-[10px] font-mono transition-all flex items-center gap-1.5 text-left cursor-pointer ${
+              className={`p-1.5 rounded-lg border text-[10px] font-mono transition-all flex items-center gap-1.5 text-left cursor-pointer ${
                 value === pr.url
-                  ? "bg-app-accent text-app-accent-fg border-app-border font-bold shadow-sm"
-                  : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:border-app-border"
+                  ? "bg-app-accent text-app-accent-fg border-app-border font-bold shadow-xs"
+                  : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-hover"
               }`}
             >
-              <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0 bg-app-card border border-app-border">
+              <div className="w-5 h-5 rounded-md overflow-hidden shrink-0 bg-app-surface border border-app-border/60">
                 <img src={pr.url} alt="" className="w-full h-full object-cover" />
               </div>
               <span className="truncate">{pr.label}</span>
@@ -190,18 +190,18 @@ export default function ImageUploader({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none font-mono"
+          className="w-full bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono transition-colors"
         />
       )}
 
       {/* Preview box if value is set */}
       {value && (
-        <div className="mt-2 relative rounded-2xl overflow-hidden bg-app-card p-2 flex items-center justify-center">
+        <div className="mt-2 relative rounded-xl overflow-hidden bg-app-card border border-app-border p-2 flex items-center justify-center">
           {type === "avatar" ? (
-            <div className="w-16 h-16 rounded-full overflow-hidden shadow-md">
+            <div className="w-18 h-18 rounded-2xl overflow-hidden shadow-sm border border-app-border/80 bg-app-surface">
               <img
                 src={value}
-                alt="Аватар"
+                alt="Логотип"
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300";
@@ -209,11 +209,11 @@ export default function ImageUploader({
               />
             </div>
           ) : (
-            <div className={`w-full ${maxHeightClass} overflow-hidden rounded-xl bg-app-surface flex items-center justify-center`}>
+            <div className={`w-full ${maxHeightClass} overflow-hidden rounded-lg bg-app-surface border border-app-border/60 flex items-center justify-center`}>
               <img
                 src={value}
                 alt="Превью"
-                className="max-h-full max-w-full object-cover rounded-lg"
+                className="max-h-full max-w-full object-cover rounded-md"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=500";
                 }}
@@ -221,26 +221,26 @@ export default function ImageUploader({
             </div>
           )}
 
-          <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+          <div className="absolute top-2.5 right-2.5 flex items-center gap-1 z-10">
             <button
               type="button"
               onClick={() => {
                 setCropperImage(value);
                 setCropperOpen(true);
               }}
-              className="p-1.5 bg-black/75 hover:bg-black/90 text-white rounded-full transition-all cursor-pointer shadow-lg flex items-center gap-1 text-[10px] font-mono px-2.5 backdrop-blur-sm"
+              className="p-1.5 bg-black/80 hover:bg-black text-white rounded-lg transition-all cursor-pointer shadow-md flex items-center gap-1 text-[10px] font-mono px-2 backdrop-blur-sm"
               title="Кадрировать / Обрезать фото"
             >
-              <Crop size={12} className="text-white shrink-0" />
+              <Crop size={11} className="text-white shrink-0" />
               <span>Обрезать</span>
             </button>
             <button
               type="button"
               onClick={() => onChange("")}
-              className="p-1.5 bg-black/75 text-white rounded-full hover:bg-black/90 transition-all cursor-pointer shadow-lg backdrop-blur-sm"
+              className="p-1.5 bg-black/80 text-white rounded-lg hover:bg-black transition-all cursor-pointer shadow-md backdrop-blur-sm"
               title="Удалить фото"
             >
-              <X size={14} className="text-white shrink-0" />
+              <X size={12} className="text-white shrink-0" />
             </button>
           </div>
         </div>

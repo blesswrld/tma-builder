@@ -62,11 +62,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  useRealtimeEvent("USER_UPDATED", (event) => {
-    if (event.payload?.id) {
-      setUser(prev => (prev && prev.id === event.payload.id ? { ...prev, ...event.payload } : prev));
+  // Realtime updates for user changes, plan changes, and bans
+  useRealtimeEvent(["USER_UPDATED", "PLAN_UPDATED"], (event) => {
+    const targetId = event.payload?.id || event.payload?.userId;
+    if (targetId) {
+      setUser(prev => {
+        if (!prev || prev.id !== targetId) return prev;
+        const next = { ...prev, ...event.payload, id: prev.id };
+        if (event.payload.plan) next.plan = event.payload.plan;
+        if (event.payload.subscriptionExpiresAt !== undefined) {
+          next.subscriptionExpiresAt = event.payload.subscriptionExpiresAt;
+        }
+        return next;
+      });
     }
   });
+
+  useRealtimeEvent("USER_BANNED", (event) => {
+    const targetId = event.payload?.userId || event.payload?.id;
+    if (targetId && user?.id === targetId) {
+      logout();
+    }
+  });
+
+  useRealtimeEvent("USER_DELETED", (event) => {
+    const targetId = event.payload?.userId || event.payload?.id;
+    if (targetId && user?.id === targetId) {
+      logout();
+    }
+  });
+
+  // Cross-tab sync via storage events
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "auth_user") {
+        try {
+          setUser(e.newValue ? JSON.parse(e.newValue) : null);
+        } catch {}
+      } else if (e.key === "auth_token") {
+        setToken(e.newValue);
+        if (!e.newValue) setUser(null);
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {

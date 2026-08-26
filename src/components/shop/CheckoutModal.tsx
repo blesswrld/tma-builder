@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ShoppingBag, X, Gift, CreditCard, Truck, Store, Globe, AlertCircle } from "lucide-react";
+import { ShoppingBag, X, Gift, CreditCard, Truck, Store, Package, Globe, AlertCircle } from "lucide-react";
 import { Shop, Service } from "../../types";
 import { SpinnerLoader } from "../Skeleton";
 import { useScrollLock } from "../../hooks/useScrollLock";
@@ -28,6 +28,7 @@ interface CheckoutModalProps {
   setFulfillmentMethod: (val: string) => void;
   isCourierDisabled: boolean;
   isPickupDisabled: boolean;
+  isShippingDisabled?: boolean;
   isOnlineDisabled?: boolean;
   calculatedDeliveryFee: number;
   isDeliveryFree: boolean;
@@ -78,6 +79,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   setFulfillmentMethod,
   isCourierDisabled,
   isPickupDisabled,
+  isShippingDisabled = false,
   isOnlineDisabled = false,
   calculatedDeliveryFee,
   isDeliveryFree,
@@ -91,6 +93,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onOpenPrivacy,
 }) => {
   useScrollLock(isOpen);
+
+  // Parse delivery options from shop
+  const deliveryOpts: any = shop.deliveryOptions
+    ? typeof shop.deliveryOptions === "string"
+      ? (() => {
+          try {
+            return JSON.parse(shop.deliveryOptions);
+          } catch {
+            return {};
+          }
+        })()
+      : shop.deliveryOptions
+    : {};
+
+  const hasCourierConfigured = deliveryOpts?.courier !== false;
+  const hasPickupConfigured = deliveryOpts?.pickup !== false;
+  const hasShippingConfigured = Boolean(deliveryOpts?.shipping);
+
+  const availableOptionsCount = (hasCourierConfigured ? 1 : 0) + (hasPickupConfigured ? 1 : 0) + (hasShippingConfigured ? 1 : 0);
+  const gridColsClass = availableOptionsCount >= 3 ? "grid-cols-3" : availableOptionsCount === 2 ? "grid-cols-2" : "grid-cols-1";
 
   return (
     <AnimatePresence>
@@ -221,6 +243,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     ? (calculatedDeliveryFee === 0 
                         ? (isDeliveryFree ? "Бесплатно (акция)" : "Бесплатно") 
                         : `+${calculatedDeliveryFee} ₽`)
+                    : fulfillmentMethod === "shipping"
+                    ? (calculatedDeliveryFee > 0 ? `+${calculatedDeliveryFee} ₽` : "0 ₽ (Почта / СДЭК)")
+                    : fulfillmentMethod === "online"
+                    ? "Онлайн (0 ₽)"
                     : "0 ₽ (Самовывоз)"}
                 </span>
               </div>
@@ -257,55 +283,82 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <h3 className="text-[10px] font-mono text-app-muted uppercase tracking-wider mb-3">Способ получения и данные</h3>
             
             {/* Fulfillment Method Selector */}
-            <div className="grid grid-cols-3 gap-2 mb-3 font-mono text-xs">
-              <button
-                type="button"
-                disabled={isCourierDisabled}
-                onClick={() => !isCourierDisabled && setFulfillmentMethod("courier")}
-                className={`p-2.5 rounded-xl border font-bold flex items-center justify-center gap-1.5 transition-all ${
-                  isCourierDisabled
-                    ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
-                    : fulfillmentMethod === "courier"
-                    ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
-                    : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
-                }`}
-                title={isCourierDisabled ? "Доставка недоступна для выбранных позиций" : undefined}
-              >
-                <Truck size={14} />
-                <span>Курьер</span>
-              </button>
-              <button
-                type="button"
-                disabled={isPickupDisabled}
-                onClick={() => !isPickupDisabled && setFulfillmentMethod("pickup")}
-                className={`p-2.5 rounded-xl border font-bold flex items-center justify-center gap-1.5 transition-all ${
-                  isPickupDisabled
-                    ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
-                    : fulfillmentMethod === "pickup"
-                    ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
-                    : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
-                }`}
-                title={isPickupDisabled ? "Самовывоз недоступен для выбранных позиций" : undefined}
-              >
-                <Store size={14} />
-                <span>Самовывоз</span>
-              </button>
-              <button
-                type="button"
-                disabled={isOnlineDisabled}
-                onClick={() => !isOnlineDisabled && setFulfillmentMethod("online")}
-                className={`p-2.5 rounded-xl border font-bold flex items-center justify-center gap-1.5 transition-all ${
-                  isOnlineDisabled
-                    ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
-                    : fulfillmentMethod === "online"
-                    ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
-                    : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
-                }`}
-                title={isOnlineDisabled ? "Онлайн недоступен для выбранных позиций" : undefined}
-              >
-                <Globe size={14} />
-                <span>Онлайн</span>
-              </button>
+            <div className={`grid ${gridColsClass} gap-2 mb-3 font-mono text-xs`}>
+              {hasCourierConfigured && (
+                <button
+                  type="button"
+                  disabled={isCourierDisabled}
+                  onClick={() => !isCourierDisabled && setFulfillmentMethod("courier")}
+                  className={`p-2.5 rounded-xl border font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    isCourierDisabled
+                      ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
+                      : fulfillmentMethod === "courier"
+                      ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
+                      : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
+                  }`}
+                  title={isCourierDisabled ? "Доставка курьером недоступна" : undefined}
+                >
+                  <Truck size={14} />
+                  <span>Курьер</span>
+                </button>
+              )}
+
+              {hasPickupConfigured && (
+                <button
+                  type="button"
+                  disabled={isPickupDisabled}
+                  onClick={() => !isPickupDisabled && setFulfillmentMethod("pickup")}
+                  className={`p-2.5 rounded-xl border font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    isPickupDisabled
+                      ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
+                      : fulfillmentMethod === "pickup"
+                      ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
+                      : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
+                  }`}
+                  title={isPickupDisabled ? "Самовывоз недоступен" : undefined}
+                >
+                  <Store size={14} />
+                  <span>Самовывоз</span>
+                </button>
+              )}
+
+              {hasShippingConfigured && (
+                <button
+                  type="button"
+                  disabled={isShippingDisabled}
+                  onClick={() => !isShippingDisabled && setFulfillmentMethod("shipping")}
+                  className={`p-2.5 rounded-xl border font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    isShippingDisabled
+                      ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
+                      : fulfillmentMethod === "shipping"
+                      ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
+                      : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
+                  }`}
+                  title={isShippingDisabled ? "Доставка Почтой / СДЭК недоступна" : undefined}
+                >
+                  <Package size={14} />
+                  <span>Почта / СДЭК</span>
+                </button>
+              )}
+
+              {!hasShippingConfigured && isOnlineDisabled === false && !hasCourierConfigured && (
+                <button
+                  type="button"
+                  disabled={isOnlineDisabled}
+                  onClick={() => !isOnlineDisabled && setFulfillmentMethod("online")}
+                  className={`p-2.5 rounded-xl border font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    isOnlineDisabled
+                      ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
+                      : fulfillmentMethod === "online"
+                      ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
+                      : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
+                  }`}
+                  title={isOnlineDisabled ? "Онлайн недоступен для выбранных позиций" : undefined}
+                >
+                  <Globe size={14} />
+                  <span>Онлайн</span>
+                </button>
+              )}
             </div>
 
             {formErrors.general && (
@@ -342,6 +395,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       Добавьте ещё на {freeDeliveryThreshVal - totalPrice} ₽ для бесплатной доставки!
                     </p>
                   ) : null}
+                </div>
+              )}
+
+              {fulfillmentMethod === "shipping" && (
+                <div className="space-y-1.5">
+                  <input 
+                    type="text" 
+                    maxLength={150}
+                    value={formData.deliveryAddress} 
+                    onChange={e => setFormData(p => ({ ...p, deliveryAddress: e.target.value }))} 
+                    placeholder="Город, индекс, отделение Почты или СДЭК *" 
+                    className="w-full bg-app-input border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-border transition-colors font-sans" 
+                  />
+                  {formErrors.deliveryAddress && <p className="text-[11px] text-rose-400 mt-1 font-mono">{formErrors.deliveryAddress}</p>}
+                  <p className="text-[11px] text-app-muted font-mono leading-tight">
+                    📦 Укажите ваш город, индекс и адрес ближайшего отделения Почты России или ПВЗ СДЭК.
+                  </p>
                 </div>
               )}
 

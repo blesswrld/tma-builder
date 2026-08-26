@@ -10,18 +10,21 @@ type RealtimeListener = (event: RealtimeEvent) => void;
 
 interface RealtimeContextType {
   isConnected: boolean;
+  lastEvent: RealtimeEvent | null;
   subscribeShop: (shopId: string) => void;
   addListener: (listener: RealtimeListener) => () => void;
 }
 
 const RealtimeContext = createContext<RealtimeContextType>({
   isConnected: false,
+  lastEvent: null,
   subscribeShop: () => {},
   addListener: () => () => {},
 });
 
 export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
+  const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const listenersRef = useRef<Set<RealtimeListener>>(new Set());
   const subscribedShopIdRef = useRef<string | null>(null);
@@ -54,6 +57,9 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
         ws.onmessage = (event) => {
           try {
             const data: RealtimeEvent = JSON.parse(event.data);
+            if (data.type !== "pong" && data.type !== "connected") {
+              setLastEvent(data);
+            }
             listenersRef.current.forEach((listener) => {
               try {
                 listener(data);
@@ -70,7 +76,7 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
           setIsConnected(false);
           wsRef.current = null;
           retryCount++;
-          const delay = Math.min(3000 * Math.pow(1.5, Math.min(retryCount, 6)), 30000);
+          const delay = Math.min(2000 * Math.pow(1.3, Math.min(retryCount, 6)), 15000);
           reconnectTimeout = setTimeout(connect, delay);
         };
 
@@ -83,7 +89,7 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
         };
       } catch (err) {
         retryCount++;
-        const delay = Math.min(3000 * Math.pow(1.5, Math.min(retryCount, 6)), 30000);
+        const delay = Math.min(2000 * Math.pow(1.3, Math.min(retryCount, 6)), 15000);
         reconnectTimeout = setTimeout(connect, delay);
       }
     };
@@ -96,7 +102,7 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
           wsRef.current.send(JSON.stringify({ type: "ping" }));
         } catch {}
       }
-    }, 25000);
+    }, 20000);
 
     return () => {
       clearInterval(pingInterval);
@@ -138,8 +144,8 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, []);
 
   const value = useMemo(
-    () => ({ isConnected, subscribeShop, addListener }),
-    [isConnected, subscribeShop, addListener]
+    () => ({ isConnected, lastEvent, subscribeShop, addListener }),
+    [isConnected, lastEvent, subscribeShop, addListener]
   );
 
   return (

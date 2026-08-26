@@ -45,6 +45,111 @@ export function cleanSlugForSubmit(str: string): string {
 }
 
 /**
+ * Генерация уникального URL-слага из случайных слогов и корней названия
+ */
+export function generateRandomSyllableSlug(name: string, previousSlugs?: string | string[]): string {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return "";
+
+  const translit = cleanSlugForSubmit(transliterateToSlug(trimmed));
+  const words = translit.split('-').filter(Boolean);
+
+  const excludedSet = new Set<string>();
+  if (translit) excludedSet.add(translit);
+
+  if (Array.isArray(previousSlugs)) {
+    previousSlugs.forEach(s => {
+      const clean = cleanSlugForSubmit(s);
+      if (clean) excludedSet.add(clean);
+    });
+  } else if (previousSlugs) {
+    const clean = cleanSlugForSubmit(previousSlugs);
+    if (clean) excludedSet.add(clean);
+  }
+
+  const syllables = [
+    "zen", "vibe", "nova", "hub", "spot", "loft", "bar", "lab", 
+    "box", "pro", "mix", "bay", "lux", "co", "go", "one", 
+    "star", "flow", "wave", "craft", "joy", "top", "zone", "fox", 
+    "lumi", "sol", "orbit", "pulse", "nord", "apex", "aura", "echo", 
+    "kai", "rio", "nero", "flux", "tide", "core", "neon", "drift",
+    "prime", "mint", "spark", "pure", "glow", "nest", "haven", "bloom"
+  ];
+
+  const shortSyllables = [
+    "ka", "ro", "vi", "ta", "lu", "ze", "no", "mi", "ba", "fo", 
+    "da", "re", "ko", "pa", "si", "ti", "la", "mo", "xi", "zo",
+    "ne", "va", "le", "to", "yu", "ma", "sa", "pe", "ri", "go"
+  ];
+
+  const roots: string[] = [];
+  for (const w of words) {
+    if (w.length >= 3) {
+      roots.push(w.slice(0, Math.min(w.length, 5)));
+      if (w.length > 5) {
+        roots.push(w.slice(0, 3));
+      }
+    } else if (w.length > 0) {
+      roots.push(w);
+    }
+  }
+
+  const baseRoot = roots[0] || "shop";
+  const secondRoot = roots[1] || "";
+
+  for (let i = 0; i < 60; i++) {
+    const r1 = syllables[Math.floor(Math.random() * syllables.length)];
+    const r2 = syllables[Math.floor(Math.random() * syllables.length)];
+    const s1 = shortSyllables[Math.floor(Math.random() * shortSyllables.length)];
+    const s2 = shortSyllables[Math.floor(Math.random() * shortSyllables.length)];
+    const num = Math.floor(Math.random() * 89 + 10);
+    const shortNum = Math.floor(Math.random() * 9 + 1);
+
+    const templates = [
+      `${baseRoot}-${r1}`,
+      `${r1}-${baseRoot}`,
+      secondRoot ? `${baseRoot}-${secondRoot}-${s1}` : `${baseRoot}-${s1}-${s2}`,
+      secondRoot ? `${baseRoot}-${s1}-${secondRoot}` : `${baseRoot}-${r1}-${shortNum}`,
+      `${baseRoot}${s1}-${r1}`,
+      `${r1}-${baseRoot}-${num}`,
+      `${baseRoot}-${s1}${s2}`,
+      `${baseRoot}-${s1}-${num}`,
+      `${r1}-${s1}-${baseRoot}`,
+      `${baseRoot}-${r1}-${r2}`,
+      `${s1}${s2}-${baseRoot}`,
+      `${baseRoot}-${num}${s1}`,
+      secondRoot ? `${secondRoot}-${r1}-${shortNum}` : `${baseRoot}-${r2}-${num}`
+    ];
+
+    const chosen = cleanSlugForSubmit(templates[Math.floor(Math.random() * templates.length)]);
+
+    if (
+      chosen &&
+      !excludedSet.has(chosen) &&
+      !RESERVED_SLUGS.has(chosen) &&
+      chosen.length >= 3 &&
+      chosen.length <= 25
+    ) {
+      return chosen;
+    }
+  }
+
+  // Guaranteed fallback distinct from all excluded slugs
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const fallbackSyl = syllables[Math.floor(Math.random() * syllables.length)];
+    const randomHex = Math.random().toString(36).substring(2, 6);
+    const candidate = `${baseRoot.slice(0, 4)}-${fallbackSyl}-${randomHex}`;
+    if (!excludedSet.has(candidate) && !RESERVED_SLUGS.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  const fallbackSyl = syllables[Math.floor(Math.random() * syllables.length)];
+  const fallbackNum = Math.floor(Math.random() * 899 + 100);
+  return `${baseRoot.slice(0, 4)}-${fallbackSyl}-${fallbackNum}`;
+}
+
+/**
  * Проверка валидности URL-слага
  */
 export function validateSlug(slugInput: string): { isValid: boolean; cleanSlug: string; error?: string } {

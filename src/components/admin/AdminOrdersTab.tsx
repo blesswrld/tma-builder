@@ -7,6 +7,7 @@ import {
   Download,
   MapPin,
   Truck,
+  Package,
   Phone,
   User,
   Clock,
@@ -58,6 +59,7 @@ const ORDER_TYPE_OPTIONS = [
   { value: "ALL", label: "Все виды", icon: Filter },
   { value: "courier", label: "Курьер", icon: Truck },
   { value: "pickup", label: "Самовывоз", icon: Store },
+  { value: "shipping", label: "Почта / СДЭК", icon: Package },
   { value: "online", label: "Онлайн-услуги", icon: Globe },
 ];
 
@@ -323,6 +325,11 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                               <>
                                 <Store size={10} className="text-app-muted" />
                                 <span>Самовывоз</span>
+                              </>
+                            ) : method === "shipping" ? (
+                              <>
+                                <Package size={10} className="text-app-muted" />
+                                <span>Почта / СДЭК</span>
                               </>
                             ) : method === "online" ? (
                               <>

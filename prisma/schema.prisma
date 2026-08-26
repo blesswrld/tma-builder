@@ -129,18 +129,20 @@ model Service {
 }
 
 model Order {
-  id            String   @id @default(cuid())
-  shopId        String
-  shop          Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  customerName  String
-  customerPhone String
-  tableNumber   String?
-  preferredTime String?
-  items         String   // JSON string storing ordered items
-  totalPrice    Int
-  status        String   @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
-  note          String?
-  createdAt     DateTime @default(now())
+  id                String   @id @default(cuid())
+  shopId            String
+  shop              Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  customerName      String
+  customerPhone     String
+  tableNumber       String?
+  preferredTime     String?
+  items             String   // JSON string storing ordered items
+  totalPrice        Int
+  status            String   @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+  note              String?
+  fulfillmentMethod String?  @default("courier")
+  deliveryAddress   String?
+  createdAt         DateTime @default(now())
 }
 
 model Promocode {
@@ -203,3 +205,33 @@ model ShopInvite {
   expiresAt   DateTime?
   createdAt   DateTime  @default(now())
 }
+
+model Payment {
+  id              String    @id @default(cuid())
+  userId          String
+  plan            String    // PRO, ENTERPRISE
+  amount          Int
+  paymentMethod   String    // card, sbp, promo
+  status          String    @default("PENDING") // PENDING, SUCCEEDED, CANCELED
+  yooPaymentId    String?   @unique
+  confirmationUrl String?
+  qrUrl           String?
+  promocode       String?
+  paidAt          DateTime?
+  metadata        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model SystemPromocode {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  discountPercent Int       @default(100)
+  applicablePlan  String?   // ALL, PRO, ENTERPRISE
+  maxUses         Int       @default(1000)
+  usedCount       Int       @default(0)
+  isActive        Boolean   @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+}
+

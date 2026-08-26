@@ -157,7 +157,7 @@ export interface Order {
   customerPhone: string;
   tableNumber?: string | null;
   preferredTime?: string | null;
-  fulfillmentMethod?: "courier" | "pickup" | string;
+  fulfillmentMethod?: "courier" | "pickup" | "shipping" | "online" | string;
   deliveryAddress?: string | null;
   items: string; // JSON string of OrderItem[]
   totalPrice: number;

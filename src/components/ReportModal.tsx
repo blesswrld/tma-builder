@@ -14,7 +14,8 @@ import {
   Loader2,
   Trash2,
   Info,
-  Send
+  Send,
+  Layers
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { BugReport } from "../types";
@@ -164,7 +165,7 @@ export default function ReportModal({
 
     const trimmedDesc = description.trim();
     if (!trimmedDesc) {
-      setError("Пожалуйста, опишите обнаруженную ошибку или ваш вопрос.");
+      setError("Пожалуйста, подробно опишите суть вашего обращения.");
       return;
     }
 
@@ -301,7 +302,7 @@ export default function ReportModal({
                 <div>
                   <span className="text-app-secondary">Тип:</span>{" "}
                   <span className="text-app-primary">
-                    {type === "BUG" ? "Ошибка / Баг" : type === "FEATURE" ? "Предложение" : "Вопрос"}
+                    {type === "BUG" ? "Ошибка / Баг" : type === "FEATURE" ? "Предложение" : "Прочее"}
                   </span>
                 </div>
                 {attachments.length > 0 && (
@@ -371,8 +372,8 @@ export default function ReportModal({
                         : "text-app-muted hover:text-app-primary"
                     }`}
                   >
-                    <HelpCircle size={13} />
-                    <span>Другое</span>
+                    <Layers size={13} />
+                    <span>Прочее</span>
                   </button>
                 </div>
               </div>

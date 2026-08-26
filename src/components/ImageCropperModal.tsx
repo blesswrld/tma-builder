@@ -82,7 +82,7 @@ export default function ImageCropperModal({
     }
   }, [imageUrl]);
 
-  // Reset state when modal opens & lock body scroll to prevent page shift
+  // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
       setZoom(1);
@@ -91,20 +91,6 @@ export default function ImageCropperModal({
       setShowGrid(true);
       setPosition({ x: 0, y: 0 });
       setAspectRatio(defaultAspectRatio);
-
-      const originalOverflow = document.body.style.overflow;
-      const originalPaddingRight = document.body.style.paddingRight;
-      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-
-      document.body.style.overflow = "hidden";
-      if (scrollbarWidth > 0) {
-        document.body.style.paddingRight = `${scrollbarWidth}px`;
-      }
-
-      return () => {
-        document.body.style.overflow = originalOverflow;
-        document.body.style.paddingRight = originalPaddingRight;
-      };
     }
   }, [isOpen, imageUrl, defaultAspectRatio]);
 

@@ -45,6 +45,7 @@ import { useRealtime } from "../context/RealtimeContext";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { CustomDropdown } from "../components/CustomDropdown";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { playNotificationSound, playToggleOnSound, playToggleOffSound } from "../lib/sound";
 
 export interface DevShopSummary {
   id: string;
@@ -102,25 +103,6 @@ const BAN_REASONS = [
   "Мошенничество и обман покупателей",
   "Неоплата тарифа / Задолженность"
 ];
-
-function playNotificationChime() {
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
-    gain.gain.setValueAtTime(0.08, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.35);
-  } catch {
-    // Ignore audio errors
-  }
-}
 
 async function getErrorMessage(res: Response, defaultText: string): Promise<string> {
   try {
@@ -237,11 +219,16 @@ export default function DeveloperUsersPage() {
   };
 
   const handleToggleSound = () => {
-    setSoundEnabled((prev) => {
-      const next = !prev;
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    try {
       localStorage.setItem("dev_users_sound", String(next));
-      return next;
-    });
+    } catch {}
+    if (next) {
+      playToggleOnSound();
+    } else {
+      playToggleOffSound();
+    }
   };
 
   // Fetch all users
@@ -295,12 +282,21 @@ export default function DeveloperUsersPage() {
       lastEvent.type === "USER_BANNED" ||
       lastEvent.type === "USER_UNBANNED" ||
       lastEvent.type === "USER_UPDATED" ||
+      lastEvent.type === "PLAN_UPDATED" ||
+      lastEvent.type === "PAYMENT_UPDATED" ||
       lastEvent.type === "USER_DELETED" ||
       lastEvent.type === "SHOP_UPDATED" ||
-      lastEvent.type === "SHOP_DELETED"
+      lastEvent.type === "SHOP_DELETED" ||
+      lastEvent.type === "SHOP_CREATED"
     ) {
+      if (lastEvent.type === "USER_UPDATED" || lastEvent.type === "PLAN_UPDATED") {
+        const uId = lastEvent.payload?.id || lastEvent.payload?.userId;
+        if (uId && lastEvent.payload) {
+          setUsers(prev => prev.map(u => u.id === uId ? { ...u, ...lastEvent.payload, id: u.id } : u));
+        }
+      }
       if (soundEnabled) {
-        playNotificationChime();
+        playNotificationSound();
       }
       fetchUsers(false);
     }
@@ -815,12 +811,21 @@ export default function DeveloperUsersPage() {
           {/* Sound toggle */}
           <button
             onClick={handleToggleSound}
-            className={`p-1.5 sm:p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono transition-colors cursor-pointer shrink-0 flex-none ${
-              soundEnabled ? "text-emerald-500" : "text-app-muted"
+            className={`relative p-1.5 sm:p-2 bg-app-card hover:bg-app-hover border rounded-xl text-xs font-mono transition-all cursor-pointer shrink-0 flex-none flex items-center justify-center ${
+              soundEnabled
+                ? "border-emerald-500/30 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                : "border-app-border text-app-muted hover:text-app-primary"
             }`}
-            title={soundEnabled ? "Звуковые сигналы включены" : "Звуковые сигналы отключены"}
+            title={soundEnabled ? "Звуковые сигналы включены (нажмите, чтобы выключить)" : "Звуковые сигналы отключены (нажмите, чтобы включить)"}
           >
-            {soundEnabled ? <Volume2 size={15} className="shrink-0" /> : <VolumeX size={15} className="shrink-0" />}
+            {soundEnabled ? (
+              <>
+                <Volume2 size={15} className="text-emerald-400 shrink-0" />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-app-surface" />
+              </>
+            ) : (
+              <VolumeX size={15} className="text-app-muted shrink-0" />
+            )}
           </button>
 
           {/* Realtime WebSocket indicator */}

@@ -138,7 +138,27 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
   const [isTgGuideOpen, setIsTgGuideOpen] = React.useState(false);
   const [backupSettingsData, setBackupSettingsData] = React.useState<any | null>(null);
   const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = React.useState(false);
+  const [isSlugCustomized, setIsSlugCustomized] = React.useState(false);
   const currencyDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (selectedShop) {
+      const isTranslit = cleanSlugForSubmit(selectedShop.slug) === cleanSlugForSubmit(transliterateToSlug(selectedShop.name));
+      setIsSlugCustomized(!isTranslit);
+    }
+  }, [selectedShop?.id]);
+
+  const handleRestoreNameSlug = () => {
+    const autoSlug = cleanSlugForSubmit(transliterateToSlug(settingsData.name));
+    setIsSlugCustomized(false);
+    setSettingsData((s: any) => ({ ...s, slug: autoSlug }));
+    showToast(`Восстановлен URL из названия: /${autoSlug || "slug"}`, "info");
+  };
+
+  const handleRegenerateClick = () => {
+    setIsSlugCustomized(true);
+    handleRegenerateSlug();
+  };
 
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -207,13 +227,13 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
   const adminChatId = settingsData.adminChatId || settingsData.telegramChatId || "";
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-4">
       {/* Header & Sub-tabs */}
-      <div className="bg-app-surface border border-app-border rounded-3xl p-5 sm:p-6 text-app-primary shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-app-border pb-4">
+      <div className="bg-app-surface border border-app-border rounded-2xl p-4 sm:p-5 text-app-primary shadow-sm space-y-3.5">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-app-border pb-3.5">
           <div>
-            <h3 className="text-base font-bold font-mono flex items-center gap-2 text-app-primary">
-              <Settings size={18} className="text-app-muted" />
+            <h3 className="text-sm font-bold font-mono flex items-center gap-2 text-app-primary">
+              <Settings size={16} className="text-app-muted" />
               Настройки заведения: {selectedShop.name}
             </h3>
             <p className="text-xs text-app-muted mt-0.5 font-sans">
@@ -226,17 +246,17 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
               onClick={() => setIsQrModalOpen(true)}
               className="px-3 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
-              <QrCode size={14} className="text-app-muted" />
+              <QrCode size={14} className="text-app-primary" />
               <span>QR-Код</span>
             </button>
             {handleClearSettingsFields && (
               <button
                 type="button"
                 onClick={handleResetWithBackup}
-                className="px-3 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary font-mono text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
                 title="Очистить доп. поля текущей секции"
               >
-                <RotateCcw size={13} />
+                <RotateCcw size={13} className="text-app-primary" />
                 <span>Сбросить поля</span>
               </button>
             )}
@@ -255,7 +275,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
         </div>
 
         {/* Sub-tab Navigation Buttons */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1 font-mono text-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 font-mono text-xs">
           {[
             { id: "general", label: "Основное", icon: Store },
             { id: "branding", label: "Брендинг", icon: ImageIcon },
@@ -271,7 +291,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => changeSubTab(tab.id as any)}
-                className={`px-3.5 py-2 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
                   isActive
                     ? "bg-app-accent text-app-accent-fg shadow-sm"
                     : "bg-app-card border border-app-border text-app-muted hover:text-app-primary"
@@ -287,21 +307,21 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
 
       {/* Notifications */}
       {settingsError && (
-        <div className="p-4 bg-app-card border border-app-border text-app-primary rounded-2xl text-xs flex items-center gap-2.5 font-mono font-medium">
-          <AlertCircle size={16} className="shrink-0 text-app-muted" />
+        <div className="p-3.5 bg-app-card border border-app-border text-app-primary rounded-xl text-xs flex items-center gap-2.5 font-mono font-medium">
+          <AlertCircle size={15} className="shrink-0 text-app-muted" />
           <span>{settingsError}</span>
         </div>
       )}
 
       {settingsSuccess && (
-        <div className="p-4 bg-app-card border border-app-border text-app-primary rounded-2xl text-xs flex items-center gap-2.5 font-mono font-medium">
-          <Check size={16} className="shrink-0 text-app-primary" />
+        <div className="p-3.5 bg-app-card border border-app-border text-app-primary rounded-xl text-xs flex items-center gap-2.5 font-mono font-medium">
+          <Check size={15} className="shrink-0 text-app-primary" />
           <span>{settingsSuccess}</span>
         </div>
       )}
 
       {/* Form Container */}
-      <form onSubmit={handleSaveSettings} className="bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 space-y-6 shadow-sm">
+      <form onSubmit={handleSaveSettings} className="bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 space-y-5 shadow-sm">
         {/* SUBTAB: GENERAL */}
         {activeSubTab === "general" && (
           <div className="space-y-5 font-sans text-xs">
@@ -320,13 +340,15 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                   value={settingsData.name}
                   onChange={(e) => {
                     const nameVal = e.target.value;
+                    const autoSlug = cleanSlugForSubmit(transliterateToSlug(nameVal));
+
                     setSettingsData((s: any) => {
-                      const autoSlug = transliterateToSlug(nameVal);
-                      return {
-                        ...s,
-                        name: nameVal,
-                        slug: autoSlug || s.slug,
-                      };
+                      const prevAutoSlug = cleanSlugForSubmit(transliterateToSlug(s.name));
+                      if (!isSlugCustomized || !s.slug || s.slug === prevAutoSlug) {
+                        setIsSlugCustomized(false);
+                        return { ...s, name: nameVal, slug: autoSlug };
+                      }
+                      return { ...s, name: nameVal };
                     });
                   }}
                   placeholder="Например: Барбершоп «Борода»"
@@ -335,28 +357,47 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                 />
               </div>
               <div>
-                <div className="flex justify-between items-center mb-1.5">
+                <div className="flex justify-between items-center mb-1.5 font-mono text-[10px]">
                   <label className="block text-[11px] font-mono text-app-muted uppercase tracking-wider">
                     URL Slug (ссылка) *
                   </label>
-                  <button
-                    type="button"
-                    onClick={handleRegenerateSlug}
-                    className="text-[10px] text-emerald-400 hover:underline font-mono cursor-pointer flex items-center gap-1"
-                  >
-                    <RefreshCw size={10} />
-                    <span>Сгенерировать</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {(isSlugCustomized || (settingsData.slug && settingsData.name && settingsData.slug !== cleanSlugForSubmit(transliterateToSlug(settingsData.name)))) && (
+                      <button
+                        type="button"
+                        onClick={handleRestoreNameSlug}
+                        className="text-emerald-400 hover:underline cursor-pointer flex items-center gap-1"
+                        title="Вернуть автоматический URL из названия"
+                      >
+                        <RotateCcw size={10} />
+                        <span>Из названия</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleRegenerateClick}
+                      className="text-emerald-400 hover:underline cursor-pointer flex items-center gap-1"
+                      title="Сгенерировать случайный уникальный URL"
+                    >
+                      <RefreshCw size={10} />
+                      <span>Рандомный URL</span>
+                    </button>
+                  </div>
                 </div>
                 <input
                   type="text"
                   value={settingsData.slug}
-                  onChange={(e) =>
-                    setSettingsData((s: any) => ({
-                      ...s,
-                      slug: cleanSlugForSubmit(e.target.value),
-                    }))
-                  }
+                  onChange={(e) => {
+                    const clean = cleanSlugForSubmit(e.target.value);
+                    const autoSlug = cleanSlugForSubmit(transliterateToSlug(settingsData.name));
+                    if (!clean || clean === autoSlug) {
+                      setIsSlugCustomized(false);
+                      setSettingsData((s: any) => ({ ...s, slug: autoSlug }));
+                    } else {
+                      setIsSlugCustomized(true);
+                      setSettingsData((s: any) => ({ ...s, slug: clean }));
+                    }
+                  }}
                   placeholder="my-barbershop"
                   className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
                   required

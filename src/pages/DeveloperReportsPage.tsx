@@ -51,27 +51,9 @@ import {
   ReportStatusType
 } from "../components/reports/ReportStatusDropdown";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { playNotificationSound, playToggleOnSound, playToggleOffSound } from "../lib/sound";
 
 type SortOption = "NEWEST" | "OLDEST" | "STATUS" | "TYPE";
-
-function playNotificationChime() {
-  try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
-    gain.gain.setValueAtTime(0.12, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.3);
-  } catch {}
-}
 
 async function getErrorMessage(res: Response, defaultText: string): Promise<string> {
   try {
@@ -154,9 +136,13 @@ export default function DeveloperReportsPage() {
   const handleToggleSound = () => {
     const next = !soundEnabled;
     setSoundEnabled(next);
-    localStorage.setItem("dev_reports_sound", String(next));
+    try {
+      localStorage.setItem("dev_reports_sound", String(next));
+    } catch {}
     if (next) {
-      playNotificationChime();
+      playToggleOnSound();
+    } else {
+      playToggleOffSound();
     }
   };
 
@@ -236,7 +222,7 @@ export default function DeveloperReportsPage() {
     if (lastEvent.type === "NEW_REPORT" && lastEvent.payload) {
       const newRep = lastEvent.payload;
       if (soundEnabled) {
-        playNotificationChime();
+        playNotificationSound();
       }
 
       setReports((prev) => {
@@ -427,7 +413,13 @@ export default function DeveloperReportsPage() {
   const filteredReports = useMemo(() => {
     return reports
       .filter((r) => {
-        if (typeFilter !== "ALL" && r.type !== typeFilter) return false;
+        if (typeFilter !== "ALL") {
+          if (typeFilter === "OTHER") {
+            if (r.type !== "OTHER" && r.type !== "QUESTION") return false;
+          } else if (r.type !== typeFilter) {
+            return false;
+          }
+        }
         if (statusFilter !== "ALL" && r.status !== statusFilter) return false;
         if (shopFilter !== "ALL" && r.shopName !== shopFilter) return false;
 
@@ -646,12 +638,21 @@ export default function DeveloperReportsPage() {
           {/* Sound toggle */}
           <button
             onClick={handleToggleSound}
-            className={`p-1.5 sm:p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono transition-colors cursor-pointer shrink-0 flex-none ${
-              soundEnabled ? "text-emerald-500" : "text-app-muted"
+            className={`relative p-1.5 sm:p-2 bg-app-card hover:bg-app-hover border rounded-xl text-xs font-mono transition-all cursor-pointer shrink-0 flex-none flex items-center justify-center ${
+              soundEnabled
+                ? "border-emerald-500/30 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                : "border-app-border text-app-muted hover:text-app-primary"
             }`}
-            title={soundEnabled ? "Звуковые уведомления включены" : "Звуковые уведомления отключены"}
+            title={soundEnabled ? "Звуковые уведомления включены (нажмите, чтобы выключить)" : "Звуковые уведомления отключены (нажмите, чтобы включить)"}
           >
-            {soundEnabled ? <Volume2 size={15} className="shrink-0" /> : <VolumeX size={15} className="shrink-0" />}
+            {soundEnabled ? (
+              <>
+                <Volume2 size={15} className="text-emerald-400 shrink-0" />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-app-surface" />
+              </>
+            ) : (
+              <VolumeX size={15} className="text-app-muted shrink-0" />
+            )}
           </button>
 
           {/* Realtime WebSocket status */}
@@ -844,7 +845,7 @@ export default function DeveloperReportsPage() {
                 { id: "ALL", label: `Все (${stats.total})` },
                 { id: "BUG", label: `Баги (${stats.bugs})`, icon: Bug },
                 { id: "FEATURE", label: `Идеи (${stats.features})`, icon: Lightbulb },
-                { id: "QUESTION", label: "Вопросы", icon: HelpCircle }
+                { id: "OTHER", label: `Прочее (${stats.others})`, icon: Layers }
               ].map((t) => {
                 const Icon = t.icon;
                 const active = typeFilter === t.id;
@@ -1057,19 +1058,19 @@ export default function DeveloperReportsPage() {
                 icon: Bug,
                 style: "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/20 font-semibold"
               };
-              if (report.type === "FEATURE") {
+              if (report.type === "BUG") {
+                typeBadge = {
+                  label: "Ошибка / Баг",
+                  icon: Bug,
+                  style: "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/20 font-semibold"
+                };
+              } else if (report.type === "FEATURE") {
                 typeBadge = {
                   label: "Предложение",
                   icon: Lightbulb,
                   style: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/20 font-semibold"
                 };
-              } else if (report.type === "QUESTION") {
-                typeBadge = {
-                  label: "Вопрос",
-                  icon: HelpCircle,
-                  style: "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/20 font-semibold"
-                };
-              } else if (report.type === "OTHER") {
+              } else if (report.type === "OTHER" || report.type === "QUESTION") {
                 typeBadge = {
                   label: "Прочее",
                   icon: Layers,

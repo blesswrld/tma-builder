@@ -10,7 +10,7 @@ import {
   Image as ImageIcon, Send, Users, Radio, Gift, ChevronDown, ChevronUp, 
   Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon, Globe, ArrowLeft,
   ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare, GripVertical, Keyboard,
-  UserPlus, CheckCircle, Key, Loader2, Truck, CreditCard, Github, Bug, ShieldAlert
+  UserPlus, CheckCircle, Key, Loader2, Truck, CreditCard, Github, Bug, ShieldAlert, Info
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -25,6 +25,7 @@ import { AdminPageSkeleton, AdminContentSkeleton, ReviewSkeletonList, SpinnerLoa
 import ImageUploader from "../components/ImageUploader";
 import { AdminAuthModal } from "../components/admin/AdminAuthModal";
 import { updatePageSeo } from "../lib/seo";
+import { playNotificationSound, playToggleOnSound, playToggleOffSound } from "../lib/sound";
 import { AdminSettingsTab } from "../components/admin/AdminSettingsTab";
 import { AdminServicesTab } from "../components/admin/AdminServicesTab";
 import { AdminOrdersTab } from "../components/admin/AdminOrdersTab";
@@ -35,8 +36,10 @@ import { AdminBroadcastsTab } from "../components/admin/AdminBroadcastsTab";
 import { AdminBannersTab } from "../components/admin/AdminBannersTab";
 import { AdminPromocodesTab } from "../components/admin/AdminPromocodesTab";
 import { AdminReviewsTab } from "../components/admin/AdminReviewsTab";
+import AdminPaymentsTab from "../components/admin/AdminPaymentsTab";
+import { AdminCreateShopTab } from "../components/admin/AdminCreateShopTab";
 import { 
-  validateShopName, validateSlug, cleanSlugForSubmit, transliterateToSlug, validateCisPhone, 
+  validateShopName, validateSlug, cleanSlugForSubmit, transliterateToSlug, generateRandomSyllableSlug, validateCisPhone, 
   validateTelegramBotToken, validateTelegramChatId, validateItemTitle, 
   validatePrice, validatePromoCodeData, validateAddress 
 } from "../lib/validation";
@@ -216,10 +219,10 @@ export default function AdminPage() {
   const [toasts, setToasts] = useState<Array<{
     id: string;
     message: string;
-    type: "success" | "error" | "warning";
+    type: "success" | "error" | "warning" | "info";
   }>>([]);
 
-  const showToast = (message: string, type: "success" | "error" | "warning" = "success") => {
+  const showToast = (message: string, type: "success" | "error" | "warning" | "info" = "success") => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
@@ -443,29 +446,29 @@ export default function AdminPage() {
   });
 
   useRealtimeEvent("SHOP_UPDATED", (event) => {
-    if (event.payload?.id) {
-      setShops(prev => prev.map(s => s.id === event.payload.id ? { ...s, ...event.payload } : s));
-      if (selectedShop?.id === event.payload.id) {
-        setSelectedShop(prev => prev ? { ...prev, ...event.payload } : prev);
+    const targetShopId = event.payload?.id || event.shopId;
+    if (targetShopId) {
+      setShops(prev => (prev || []).map(s => s.id === targetShopId ? { ...s, ...event.payload, id: s.id } : s));
+      if (selectedShop?.id === targetShopId) {
+        setSelectedShop(prev => prev ? { ...prev, ...event.payload, id: prev.id } : prev);
       }
       fetchShops(true);
     }
   });
 
-  useRealtimeEvent("SHOP_CREATED", (event) => {
-    if (event.payload?.id) {
-      fetchShops(true);
-    }
-  });
-
-  useRealtimeEvent("SHOP_DELETED", (event) => {
-    if (event.payload?.id) {
-      setShops(prev => prev.filter(s => s.id !== event.payload.id));
-      if (selectedShop?.id === event.payload.id) {
+  useRealtimeEvent(["SHOP_CREATED", "SHOP_DELETED"], (event) => {
+    const targetShopId = event.payload?.id || event.shopId;
+    if (event.type === "SHOP_DELETED" && targetShopId) {
+      setShops(prev => (prev || []).filter(s => s.id !== targetShopId));
+      if (selectedShop?.id === targetShopId) {
         setSelectedShop(null);
       }
-      fetchShops(true);
     }
+    fetchShops(true);
+  });
+
+  useRealtimeEvent(["USER_UPDATED", "PLAN_UPDATED"], () => {
+    fetchShops(true);
   });
 
   useRealtimeEvent("TEAM_MEMBER_ADDED", (event) => {
@@ -500,7 +503,7 @@ export default function AdminPage() {
   });
 
   // Admin tabs
-  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">("services");
+  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "payments" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">("services");
 
   // User role in the currently selected shop
   const currentUserRole: "OWNER" | "MANAGER" | "STAFF" =
@@ -938,7 +941,27 @@ export default function AdminPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("admin_audio_enabled");
+      return saved !== "false";
+    } catch {
+      return true;
+    }
+  });
+
+  const handleToggleAdminAudio = () => {
+    const next = !isAudioEnabled;
+    setIsAudioEnabled(next);
+    try {
+      localStorage.setItem("admin_audio_enabled", String(next));
+    } catch {}
+    if (next) {
+      playToggleOnSound();
+    } else {
+      playToggleOffSound();
+    }
+  };
   const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
   const prevOrdersCountRef = useRef<number | null>(null);
 
@@ -1206,32 +1229,7 @@ export default function AdminPage() {
 
   const playOrderChime = () => {
     if (!isAudioEnabled) return;
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc1 = audioCtx.createOscillator();
-      const gain1 = audioCtx.createGain();
-      osc1.type = "sine";
-      osc1.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-      gain1.gain.setValueAtTime(0.25, audioCtx.currentTime);
-      gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-      osc1.connect(gain1);
-      gain1.connect(audioCtx.destination);
-      osc1.start(audioCtx.currentTime);
-      osc1.stop(audioCtx.currentTime + 0.3);
-
-      const osc2 = audioCtx.createOscillator();
-      const gain2 = audioCtx.createGain();
-      osc2.type = "sine";
-      osc2.frequency.setValueAtTime(880, audioCtx.currentTime + 0.12);
-      gain2.gain.setValueAtTime(0.3, audioCtx.currentTime + 0.12);
-      gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-      osc2.connect(gain2);
-      gain2.connect(audioCtx.destination);
-      osc2.start(audioCtx.currentTime + 0.12);
-      osc2.stop(audioCtx.currentTime + 0.5);
-    } catch (err) {
-      console.error("Audio chime error:", err);
-    }
+    playNotificationSound();
   };
 
   const exportOrdersToCsv = () => {
@@ -1751,70 +1749,15 @@ export default function AdminPage() {
     setActiveTab("createshop");
   };
 
-  const validateCreateShop = () => {
-    const errors: { name?: string; slug?: string; description?: string } = {};
-
-    const nameRes = validateShopName(newShopData.name);
-    if (!nameRes.isValid) {
-      errors.name = nameRes.error;
+  const handleCreateShopSuccess = async (newShop: any) => {
+    if (newShop?.id) {
+      linkShopToDevice(newShop.id);
     }
-
-    const slugRes = validateSlug(newShopData.slug);
-    if (!slugRes.isValid) {
-      errors.slug = slugRes.error;
-    }
-
-    if (newShopData.description && newShopData.description.trim().length > 300) {
-      errors.description = "Описание не должно превышать 300 символов";
-    }
-
-    setCreateShopFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleCreateShop = async (e: FormEvent) => {
-    e.preventDefault();
-    setCreateShopError(null);
-
-    if (!validateCreateShop()) return;
-
-    try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const res = await fetch("/api/shops", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          name: newShopData.name.trim(),
-          slug: cleanSlugForSubmit(newShopData.slug),
-          description: newShopData.description.trim() || undefined
-        })
-      });
-
-      let data;
-      const text = await res.text();
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(`Ошибка сервера (${res.status})`);
-      }
-
-      if (!res.ok) throw new Error(data.error || "Не удалось создать заведение");
-
-      if (data?.id) {
-        linkShopToDevice(data.id);
-        setShopFilterMode("my");
-      }
-
-      setNewShopData({ name: "", slug: "", description: "" });
-      setCreateShopFieldErrors({});
-      setIsCreatingShop(false);
-      await fetchShops();
-      setSelectedShop(data);
-    } catch (err: any) {
-      setCreateShopError(err.message);
-    }
+    setIsCreatingShop(false);
+    await fetchShops();
+    setSelectedShop(newShop);
+    setActiveTab("services");
+    showToast(`Заведение «${newShop.name}» успешно создано!`, "success");
   };
 
   const handleDeleteShop = (shop: Shop) => {
@@ -2787,7 +2730,7 @@ export default function AdminPage() {
   };
 
   const myShopsList = shops.filter(s => myDeviceShopIds.includes(s.id));
-  const activeShops = shopFilterMode === "my" && myShopsList.length > 0 ? myShopsList : shops;
+  const activeShops = shops.length > 3 && shopFilterMode === "my" && myShopsList.length > 0 ? myShopsList : shops;
 
   const categories = selectedShop
     ? Array.from(new Set((selectedShop.services || []).map(s => s.category).filter(Boolean))) as string[]
@@ -3232,24 +3175,24 @@ export default function AdminPage() {
         `}
       >
         {/* Inner Scrollable Navigation Container */}
-        <div className="h-full w-full overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col justify-between p-4 space-y-6 pb-12 md:pb-4">
-          <div className="space-y-6">
+        <div className="h-full w-full overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col justify-between p-3.5 space-y-3.5 pb-8 md:pb-3.5">
+          <div className="space-y-3.5">
             {/* Logo Brand Header */}
-            <div className="flex items-center justify-between px-2">
+            <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-xl bg-app-accent text-app-accent-fg flex items-center justify-center font-mono font-bold text-xs shadow-md shadow-white/10">
+                <div className="w-7 h-7 rounded-xl bg-app-accent text-app-accent-fg flex items-center justify-center font-mono font-bold text-xs shadow-sm">
                   ▲
                 </div>
-                <span className="font-bold text-sm tracking-tight text-app-primary font-mono">TMA BUILDER</span>
+                <span className="font-bold text-xs tracking-tight text-app-primary font-mono">TMA BUILDER</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 rounded-md bg-app-card border border-app-border text-[9px] font-mono text-app-muted uppercase">
+                <span className="px-1.5 py-0.5 rounded-md bg-app-card border border-app-border text-[10px] font-mono text-app-muted uppercase">
                   v2.6
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsSidebarOpen(false)}
-                  className="p-1 rounded-lg text-app-muted hover:text-app-primary bg-app-card border border-app-border md:hidden cursor-pointer"
+                  className="p-1.5 rounded-lg text-app-muted hover:text-app-primary bg-app-card border border-app-border md:hidden cursor-pointer"
                   title="Закрыть меню"
                 >
                   <X size={14} />
@@ -3257,376 +3200,376 @@ export default function AdminPage() {
               </div>
             </div>
 
-          {/* Workspace / Custom Shop Selector Dropdown */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-app-muted px-2 block">
-              Активное заведение
-            </label>
-
-            <div className="relative" ref={shopDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
-                className="w-full bg-app-card hover:bg-app-hover border border-app-border text-xs font-medium text-app-primary rounded-xl px-3 py-2.5 flex items-center justify-between gap-2 transition-all cursor-pointer shadow-sm focus:outline-none"
-              >
-                <div className="flex items-center gap-2 min-w-0 pr-1 truncate">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                  <span className="truncate font-semibold text-app-primary">
-                    {selectedShop ? selectedShop.name : "Выберите заведение"}
-                  </span>
-                  {selectedShop && (
-                    <span className="text-[10px] text-app-muted font-mono shrink-0">
-                      ({selectedShop.slug})
-                    </span>
-                  )}
-                </div>
-                <ChevronDown
-                  size={14}
-                  className={`text-app-muted shrink-0 transition-transform duration-200 ${
-                    isShopDropdownOpen ? "rotate-180 text-app-primary" : ""
-                  }`}
-                />
-              </button>
-
-              <AnimatePresence>
-                {isShopDropdownOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-app-modal border border-app-border rounded-2xl shadow-2xl p-1.5 space-y-1 backdrop-blur-xl"
-                  >
-                    <div className="px-2 py-1 flex items-center justify-between text-[10px] font-mono text-app-muted border-b border-app-border pb-1.5 mb-1">
-                      <span>Список заведений ({activeShops.length})</span>
-                      {shops.length > activeShops.length && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShopFilterMode(shopFilterMode === "my" ? "all" : "my");
-                          }}
-                          className="text-app-accent hover:underline cursor-pointer"
-                        >
-                          {shopFilterMode === "my" ? "Все заведения" : "Мои заведения"}
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="max-h-56 overflow-y-auto space-y-1 pr-0.5 custom-scrollbar">
-                      {activeShops.length === 0 ? (
-                        <div className="p-3 text-center text-xs text-app-muted font-mono">
-                          Заведений не найдено
-                        </div>
-                      ) : (
-                        activeShops.map((s) => {
-                          const isSelected = selectedShop?.id === s.id;
-                          const sRole = s.currentUserRole || (user && s.ownerId === user.id ? "OWNER" : "STAFF");
-                          return (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedShop(s);
-                                setIsShopDropdownOpen(false);
-                              }}
-                              className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-mono transition-all cursor-pointer text-left ${
-                                isSelected
-                                  ? "bg-app-accent text-app-accent-fg font-bold shadow-sm"
-                                  : "text-app-secondary hover:text-app-primary hover:bg-app-hover"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 min-w-0 pr-2">
-                                <Store size={14} className={isSelected ? "text-app-accent-fg shrink-0" : "text-app-muted shrink-0"} />
-                                <span className="truncate">{s.name}</span>
-                                <span className={`text-[10px] ${isSelected ? "text-app-accent-fg/80" : "text-app-muted"} shrink-0`}>
-                                  ({s.slug})
-                                </span>
-                                <span className={`text-[9px] px-1 py-0.2 rounded border ${
-                                  isSelected
-                                    ? "bg-white/20 text-white border-white/30"
-                                    : sRole === "OWNER"
-                                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                                    : sRole === "MANAGER"
-                                    ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
-                                    : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                } shrink-0`}>
-                                  {sRole === "OWNER" ? "Владелец" : sRole === "MANAGER" ? "Менеджер" : "Сотрудник"}
-                                </span>
-                              </div>
-                              {isSelected && <Check size={14} className="text-app-accent-fg shrink-0" />}
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    {!isStaff && !isManager && (
-                      <div className="pt-1.5 border-t border-app-border">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsShopDropdownOpen(false);
-                            handleOpenCreateShop();
-                          }}
-                          className="w-full py-2 px-2.5 rounded-xl text-xs font-mono font-bold bg-app-card hover:bg-app-hover text-app-primary border border-app-border flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                        >
-                          <Plus size={14} className="text-emerald-500" />
-                          <span>Создать новое заведение</span>
-                        </button>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Quick Actions Bar */}
-            {selectedShop && (
-              <div className="flex items-center justify-between gap-1 px-1 pt-1">
-                {!isStaff && (
-                  <button
-                    onClick={handleOpenCreateShop}
-                    className="flex-1 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-[11px] font-mono text-app-secondary hover:text-app-primary rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <Plus size={12} /> Заведение
-                  </button>
-                )}
-                {!isStaff && (
-                  <button
-                    onClick={() => handleOpenSettings(selectedShop)}
-                    className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-colors cursor-pointer"
-                    title="Настройки заведения"
-                  >
-                    <Settings size={13} />
-                  </button>
-                )}
-                <a
-                  href={`/${selectedShop.slug}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-colors"
-                  title="Открыть витрину"
-                >
-                  <ExternalLink size={13} />
-                </a>
-                {isOwner && (
-                  <button
-                    onClick={() => handleDeleteShop(selectedShop)}
-                    className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-all cursor-pointer backdrop-blur-sm"
-                    title="Удалить заведение"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                )}
+            {/* Workspace / Custom Shop Selector Dropdown */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-app-muted px-1">
+                <span>Активное заведение</span>
+                <span className="text-[10px] text-app-secondary font-mono lowercase tracking-normal">
+                  всего: <strong className="text-app-primary">{shops.length}</strong>
+                </span>
               </div>
-            )}
-          </div>
 
-          {/* Navigation Items */}
-          <nav className="space-y-1 font-mono text-xs">
-            {(isStaff
-              ? [
-                  { id: "orders", label: "Заказы", icon: ShoppingBag, badge: (orders || []).filter(o => o.status === "PENDING").length, alert: (orders || []).filter(o => o.status === "PENDING").length > 0 },
-                  { id: "botsim", label: "Симулятор бота", icon: Smartphone },
-                  ...(isDeveloperUser ? [
-                    { id: "dev-users", label: "Пользователи (Dev)", icon: ShieldAlert },
-                    { id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
-                  ] : []),
-                  { id: "profile", label: "Профиль сотрудника", icon: User }
-                ]
-              : [
-                  { id: "services", label: "Меню и услуги", icon: Layers, badge: (selectedShop?.services || []).length },
-                  { id: "orders", label: "Заказы", icon: ShoppingBag, badge: (orders || []).filter(o => o.status === "PENDING").length, alert: (orders || []).filter(o => o.status === "PENDING").length > 0 },
-                  { id: "promocodes", label: "Промокоды", icon: Tag, badge: (promocodes || []).length },
-                  { id: "reviews", label: "Отзывы", icon: Star, badge: (reviews || []).length },
-                  { id: "banners", label: "Баннеры", icon: ImageIcon, badge: (banners || []).length },
-                  { id: "broadcasts", label: "Рассылки", icon: Send, badge: (broadcasts || []).length },
-                  { id: "customers", label: "Клиенты CRM", icon: Users, badge: (customers || []).length },
-                  { id: "team", label: "Команда и доступ", icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
-                  { id: "analytics", label: "Аналитика", icon: BarChart3 },
-                  { id: "botsim", label: "Симулятор бота", icon: Smartphone },
-                  ...(isDeveloperUser ? [
-                    { id: "dev-users", label: "Пользователи (Dev)", icon: ShieldAlert },
-                    { id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
-                  ] : []),
-                  { id: "profile", label: "Профиль администратора", icon: User }
-                ]
-            ).map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <motion.button
-                  key={tab.id}
-                  whileHover={{ x: 2, scale: 1.01 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    if (tab.id === "dev-users") {
-                      navigate("/dev-users");
-                    } else if (tab.id === "reports") {
-                      navigate("/reports");
-                    } else if (tab.id === "profile") {
-                      handleOpenProfile();
-                    } else {
-                      closeSubView();
-                      setActiveTab(tab.id as any);
-                    }
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`relative w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all cursor-pointer ${
-                    isActive 
-                      ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" 
-                      : "text-app-muted hover:text-app-primary hover:bg-app-hover"
-                  }`}
+              <div className="relative" ref={shopDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
+                  className="w-full bg-app-card hover:bg-app-hover border border-app-border text-xs font-medium text-app-primary rounded-xl px-3 py-2 flex items-center justify-between gap-2 transition-all cursor-pointer shadow-sm focus:outline-none"
                 >
-                  <div className="flex items-center gap-2.5 z-10">
-                    <Icon size={15} className={isActive ? "text-app-accent-fg" : (tab.id === "reports" && unhandledReportsCount > 0 ? "text-rose-500" : "text-app-muted")} />
-                    <span>{tab.label}</span>
-                  </div>
-                  {tab.badge !== undefined && tab.badge > 0 && (
-                    <span className={`z-10 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold transition-all ${
-                      tab.alert 
-                        ? "bg-rose-500 text-white animate-pulse" 
-                        : isActive 
-                          ? "bg-app-accent-fg/20 text-app-accent-fg border border-app-accent-fg/20" 
-                          : "bg-app-card text-app-muted border border-app-border"
-                    }`}>
-                      {tab.badge}
+                  <div className="flex items-center gap-2 min-w-0 pr-1 truncate">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                    <span className="truncate font-semibold text-app-primary text-xs">
+                      {selectedShop ? selectedShop.name : "Выберите заведение"}
                     </span>
+                    {selectedShop && (
+                      <span className="text-[10px] text-app-muted font-mono shrink-0">
+                        ({selectedShop.slug})
+                      </span>
+                    )}
+                  </div>
+                  <ChevronDown
+                    size={14}
+                    className={`text-app-muted shrink-0 transition-transform duration-200 ${
+                      isShopDropdownOpen ? "rotate-180 text-app-primary" : ""
+                    }`}
+                  />
+                </button>
+
+                <AnimatePresence>
+                  {isShopDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-app-modal border border-app-border rounded-xl shadow-2xl p-1.5 space-y-1 backdrop-blur-xl"
+                    >
+                      <div className="px-2.5 py-1.5 flex items-center justify-between text-[10px] font-mono text-app-muted border-b border-app-border pb-1.5 mb-1">
+                        <span>Список заведений ({shops.length})</span>
+                        {shops.length > 3 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShopFilterMode(shopFilterMode === "my" ? "all" : "my");
+                            }}
+                            className="text-app-accent hover:underline cursor-pointer"
+                          >
+                            {shopFilterMode === "my" ? "Все заведения" : "Мои"}
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-48 overflow-y-auto space-y-1 pr-0.5 custom-scrollbar">
+                        {activeShops.length === 0 ? (
+                          <div className="p-3 text-center text-xs text-app-muted font-mono">
+                            Заведений не найдено
+                          </div>
+                        ) : (
+                          activeShops.map((s) => {
+                            const isSelected = selectedShop?.id === s.id;
+                            const sRole = s.currentUserRole || (user && s.ownerId === user.id ? "OWNER" : "STAFF");
+                            return (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedShop(s);
+                                  setIsShopDropdownOpen(false);
+                                }}
+                                className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-mono transition-all cursor-pointer text-left ${
+                                  isSelected
+                                    ? "bg-app-accent text-app-accent-fg font-bold shadow-sm"
+                                    : "text-app-secondary hover:text-app-primary hover:bg-app-hover"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0 pr-1">
+                                  <Store size={14} className={isSelected ? "text-app-accent-fg shrink-0" : "text-app-muted shrink-0"} />
+                                  <span className="truncate">{s.name}</span>
+                                  <span className={`text-[10px] ${isSelected ? "text-app-accent-fg/80" : "text-app-muted"} shrink-0`}>
+                                    ({s.slug})
+                                  </span>
+                                </div>
+                                {isSelected && <Check size={14} className="text-app-accent-fg shrink-0" />}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {!isStaff && !isManager && (
+                        <div className="pt-1.5 border-t border-app-border">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsShopDropdownOpen(false);
+                              handleOpenCreateShop();
+                            }}
+                            className="w-full py-2 px-2.5 rounded-lg text-xs font-mono font-bold bg-app-card hover:bg-app-hover text-app-primary border border-app-border flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <Plus size={14} className="text-emerald-500" />
+                            <span>Создать новое заведение</span>
+                          </button>
+                        </div>
+                      )}
+                    </motion.div>
                   )}
-                </motion.button>
-              );
-            })}
-          </nav>
-        </div>
+                </AnimatePresence>
+              </div>
 
-        {/* Bottom Sidebar Footer */}
-        <div className="space-y-3 pt-4 border-t border-app-border font-mono text-xs">
-          <div className="flex items-center justify-between px-1 gap-1">
-            <button
-              onClick={() => setIsAudioEnabled(!isAudioEnabled)}
-              className="p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-muted hover:text-app-primary transition-colors cursor-pointer"
-              title={isAudioEnabled ? "Отключить звук уведомлений" : "Включить звук уведомлений"}
-            >
-              {isAudioEnabled ? <Volume2 size={14} className="text-emerald-400" /> : <VolumeX size={14} />}
-            </button>
-            <button
-              onClick={() => {
-                setIsQrModalOpen(true);
-                setIsSidebarOpen(false);
-              }}
-              className="p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-muted hover:text-app-primary transition-colors cursor-pointer"
-              title="Генератор QR-кодов"
-            >
-              <QrCode size={14} />
-            </button>
-            <button
-              onClick={() => {
-                setIsPlanModalOpen(true);
-                setIsSidebarOpen(false);
-              }}
-              className="px-2.5 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl text-[10px] font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
-            >
-              <Crown size={12} className="text-amber-400" />
-              <span>{user?.plan || "БЕСПЛАТНЫЙ"}</span>
-            </button>
-          </div>
-
-          <div className="p-3 bg-app-surface border border-app-border rounded-2xl flex items-center justify-between shadow-sm">
-            <button 
-              onClick={handleOpenProfile}
-              className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity flex-1 mr-2 cursor-pointer group"
-              title="Настройки профиля"
-            >
-              {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt="Avatar" className="w-8 h-8 rounded-xl object-cover border border-app-border shrink-0" />
-              ) : (
-                <div className="w-8 h-8 rounded-xl bg-app-accent text-app-accent-fg border border-app-border flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
-                  {user?.name ? user.name.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : "А")}
+              {/* Quick Actions Bar */}
+              {selectedShop && (
+                <div className="flex items-center justify-between gap-1.5 px-0.5 pt-0.5">
+                  {!isStaff && (
+                    <button
+                      onClick={handleOpenCreateShop}
+                      className="flex-1 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-[11px] font-mono text-app-secondary hover:text-app-primary rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus size={12} /> Заведение
+                    </button>
+                  )}
+                  {!isStaff && (
+                    <button
+                      onClick={() => handleOpenSettings(selectedShop)}
+                      className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-colors cursor-pointer"
+                      title="Настройки заведения"
+                    >
+                      <Settings size={13} />
+                    </button>
+                  )}
+                  <a
+                    href={`/${selectedShop.slug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-colors"
+                    title="Открыть витрину"
+                  >
+                    <ExternalLink size={13} />
+                  </a>
+                  {isOwner && (
+                    <button
+                      onClick={() => handleDeleteShop(selectedShop)}
+                      className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-all cursor-pointer backdrop-blur-sm"
+                      title="Удалить заведение"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               )}
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-app-primary truncate group-hover:text-app-accent transition-colors">
-                  {user?.name || user?.email || "Администратор"}
-                </p>
-                <div className="flex items-center gap-1.5 text-[10px] text-app-muted truncate font-mono">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${token ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-                  <span className="truncate">
-                    {user?.companyName || (token ? "Авторизован (Онлайн)" : "Гость (Не авторизован)")}
-                  </span>
-                </div>
-              </div>
-            </button>
-            <div className="flex items-center gap-1 shrink-0">
-              {token ? (
-                <>
-                  <button 
-                    onClick={handleOpenProfile}
-                    className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-card rounded-lg transition-colors cursor-pointer"
-                    title="Редактировать профиль"
+            </div>
+
+            {/* Navigation Items */}
+            <nav className="space-y-1 font-mono text-xs">
+              {(isStaff
+                ? [
+                    { id: "orders", label: "Заказы", icon: ShoppingBag, badge: (orders || []).filter(o => o.status === "PENDING").length, alert: (orders || []).filter(o => o.status === "PENDING").length > 0 },
+                    { id: "botsim", label: "Симулятор бота", icon: Smartphone },
+                    ...(isDeveloperUser ? [
+                      { id: "dev-users", label: "Пользователи (Dev)", icon: ShieldAlert },
+                      { id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
+                    ] : []),
+                    { id: "profile", label: "Профиль сотрудника", icon: User }
+                  ]
+                : [
+                    { id: "services", label: "Меню и услуги", icon: Layers, badge: (selectedShop?.services || []).length },
+                    { id: "orders", label: "Заказы", icon: ShoppingBag, badge: (orders || []).filter(o => o.status === "PENDING").length, alert: (orders || []).filter(o => o.status === "PENDING").length > 0 },
+                    { id: "promocodes", label: "Промокоды", icon: Tag, badge: (promocodes || []).length },
+                    { id: "reviews", label: "Отзывы", icon: Star, badge: (reviews || []).length },
+                    { id: "banners", label: "Баннеры", icon: ImageIcon, badge: (banners || []).length },
+                    { id: "broadcasts", label: "Рассылки", icon: Send, badge: (broadcasts || []).length },
+                    { id: "customers", label: "Клиенты CRM", icon: Users, badge: (customers || []).length },
+                    { id: "team", label: "Команда и доступ", icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
+                    { id: "analytics", label: "Аналитика", icon: BarChart3 },
+                    { id: "botsim", label: "Симулятор бота", icon: Smartphone },
+                    { id: "payments", label: "История оплат", icon: CreditCard },
+                    ...(isDeveloperUser ? [
+                      { id: "dev-users", label: "Пользователи (Dev)", icon: ShieldAlert },
+                      { id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
+                    ] : []),
+                    { id: "profile", label: "Профиль администратора", icon: User }
+                  ]
+              ).map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <motion.button
+                    key={tab.id}
+                    whileHover={{ x: 2, scale: 1.005 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      if (tab.id === "dev-users") {
+                        navigate("/dev-users");
+                      } else if (tab.id === "reports") {
+                        navigate("/reports");
+                      } else if (tab.id === "profile") {
+                        handleOpenProfile();
+                      } else {
+                        closeSubView();
+                        setActiveTab(tab.id as any);
+                      }
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`relative w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all cursor-pointer text-xs ${
+                      isActive 
+                        ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" 
+                        : "text-app-muted hover:text-app-primary hover:bg-app-hover"
+                    }`}
                   >
-                    <User size={14} className="text-app-primary" />
-                  </button>
+                    <div className="flex items-center gap-2.5 z-10">
+                      <Icon size={15} className={isActive ? "text-app-accent-fg" : (tab.id === "reports" && unhandledReportsCount > 0 ? "text-rose-500" : "text-app-muted")} />
+                      <span>{tab.label}</span>
+                    </div>
+                    {tab.badge !== undefined && tab.badge > 0 && (
+                      <span className={`z-10 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold transition-all ${
+                        tab.alert 
+                          ? "bg-rose-500 text-white animate-pulse" 
+                          : isActive 
+                            ? "bg-app-accent-fg/20 text-app-accent-fg border border-app-accent-fg/20" 
+                            : "bg-app-card text-app-muted border border-app-border"
+                      }`}>
+                        {tab.badge}
+                      </span>
+                    )}
+                  </motion.button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Bottom Sidebar Footer */}
+          <div className="space-y-2.5 pt-3 border-t border-app-border font-mono text-xs">
+            <div className="flex items-center justify-between px-0.5 gap-1.5">
+              <button
+                onClick={handleToggleAdminAudio}
+                className={`relative p-2 bg-app-card hover:bg-app-hover border rounded-xl transition-all cursor-pointer flex items-center justify-center ${
+                  isAudioEnabled
+                    ? "border-emerald-500/30 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                    : "border-app-border text-app-muted hover:text-app-primary"
+                }`}
+                title={isAudioEnabled ? "Звук уведомлений включен (нажмите, чтобы выключить)" : "Звук уведомлений выключен (нажмите, чтобы включить)"}
+              >
+                {isAudioEnabled ? (
+                  <>
+                    <Volume2 size={14} className="text-emerald-400 shrink-0" />
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-app-surface" />
+                  </>
+                ) : (
+                  <VolumeX size={14} className="text-app-muted shrink-0" />
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setIsQrModalOpen(true);
+                  setIsSidebarOpen(false);
+                }}
+                className="p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-primary hover:text-app-primary transition-colors cursor-pointer flex items-center justify-center"
+                title="Генератор QR-кодов"
+              >
+                <QrCode size={14} className="text-app-primary shrink-0" />
+              </button>
+              <button
+                onClick={() => {
+                  setIsPlanModalOpen(true);
+                  setIsSidebarOpen(false);
+                }}
+                className="px-2.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Crown size={12} className="text-amber-400" />
+                <span>{user?.plan || "БЕСПЛАТНЫЙ"}</span>
+              </button>
+            </div>
+
+            <div className="p-2.5 bg-app-surface border border-app-border rounded-2xl flex items-center justify-between shadow-sm">
+              <button 
+                onClick={handleOpenProfile}
+                className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity flex-1 mr-2 cursor-pointer group"
+                title="Настройки профиля"
+              >
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="Avatar" className="w-8 h-8 rounded-xl object-cover border border-app-border shrink-0" />
+                ) : (
+                  <div className="w-8 h-8 rounded-xl bg-app-accent text-app-accent-fg border border-app-border flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : "А")}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-app-primary truncate group-hover:text-app-accent transition-colors leading-tight">
+                    {user?.name || user?.email || "Администратор"}
+                  </p>
+                  <div className="flex items-center gap-1.5 text-[10px] text-app-muted truncate font-mono mt-0.5">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${token ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+                    <span className="truncate">
+                      {user?.companyName || (token ? "Онлайн" : "Гость")}
+                    </span>
+                  </div>
+                </div>
+              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                {token ? (
+                  <>
+                    <button 
+                      onClick={handleOpenProfile}
+                      className="p-1.5 text-app-primary hover:bg-app-card rounded-lg transition-colors cursor-pointer"
+                      title="Редактировать профиль"
+                    >
+                      <User size={14} className="text-app-primary" />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        handleLogoutRequest();
+                        setIsSidebarOpen(false);
+                      }} 
+                      className="p-1.5 text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-lg transition-all cursor-pointer" 
+                      title="Выйти из аккаунта"
+                    >
+                      <LogOut size={14} className="text-app-primary" />
+                    </button>
+                  </>
+                ) : (
                   <button 
                     onClick={() => {
-                      handleLogoutRequest();
+                      setIsAuthModalOpen(true);
                       setIsSidebarOpen(false);
                     }} 
-                    className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-lg transition-all cursor-pointer backdrop-blur-sm" 
-                    title="Выйти из аккаунта"
+                    className="px-2.5 py-1.5 bg-app-accent text-app-accent-fg font-mono font-bold text-[10px] rounded-lg hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1 shrink-0" 
+                    title="Войти в аккаунт"
                   >
-                    <LogOut size={14} />
+                    <LogIn size={12} />
+                    <span>Войти</span>
                   </button>
-                </>
-              ) : (
-                <button 
-                  onClick={() => {
-                    setIsAuthModalOpen(true);
-                    setIsSidebarOpen(false);
-                  }} 
-                  className="px-2.5 py-1.5 bg-app-accent text-app-accent-fg font-mono font-bold text-[10px] rounded-lg hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1 shrink-0" 
-                  title="Войти в аккаунт"
-                >
-                  <LogIn size={12} />
-                  <span>Войти</span>
-                </button>
-              )}
+                )}
+              </div>
+            </div>
+
+            {/* Compact Privacy Policy & GitHub Footer Links */}
+            <div className="grid grid-cols-2 gap-2 pt-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPrivacyModalOpen(true);
+                  setIsSidebarOpen(false);
+                }}
+                className="p-2 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer group shadow-sm text-left"
+                title="Ознакомиться с Политикой конфиденциальности (ФЗ-152)"
+              >
+                <ShieldCheck size={13} className="text-emerald-500 shrink-0" />
+                <span className="truncate group-hover:text-app-primary font-medium">ФЗ-152</span>
+              </button>
+
+              <a
+                href="https://github.com/blesswrld/tma-builder"
+                target="_blank"
+                rel="noreferrer"
+                className="p-2 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer group shadow-sm"
+                title="Открыть исходный код приложения на GitHub"
+              >
+                <Github size={13} className="text-app-primary shrink-0" />
+                <span className="truncate group-hover:text-app-primary font-medium">GitHub</span>
+                <ExternalLink size={11} className="text-app-muted group-hover:text-app-primary shrink-0 ml-0.5" />
+              </a>
             </div>
           </div>
-
-          {/* Privacy Policy Link */}
-          <button
-            type="button"
-            onClick={() => {
-              setIsPrivacyModalOpen(true);
-              setIsSidebarOpen(false);
-            }}
-            className="w-full p-2.5 bg-app-surface hover:bg-app-hover border border-app-border rounded-2xl flex items-center justify-between text-xs font-mono transition-colors group cursor-pointer shadow-sm text-left"
-            title="Ознакомиться с Политикой конфиденциальности (ФЗ-152)"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <ShieldCheck size={15} className="text-emerald-500 shrink-0" />
-              <span className="truncate text-app-secondary group-hover:text-app-primary font-medium">Конфиденциальность</span>
-            </div>
-            <span className="text-[10px] text-app-muted font-mono uppercase shrink-0">ФЗ-152</span>
-          </button>
-
-          {/* GitHub Open Source Link (Adjusted background to match profile card exactly) */}
-          <a
-            href="https://github.com/blesswrld/tma-builder"
-            target="_blank"
-            rel="noreferrer"
-            className="p-2.5 bg-app-surface hover:bg-app-hover border border-app-border rounded-2xl flex items-center justify-between text-xs font-mono transition-colors group cursor-pointer shadow-sm"
-            title="Открыть исходный код приложения на GitHub"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <Github size={15} className="text-app-primary shrink-0" />
-              <span className="truncate text-app-secondary group-hover:text-app-primary font-medium">Исходный код (GitHub)</span>
-            </div>
-            <ExternalLink size={14} className="text-app-muted group-hover:text-app-primary transition-colors shrink-0" />
-          </a>
         </div>
-      </div>
 
       {/* Minimalist Interactive Drag Resizer Handle */}
       <div
@@ -3691,6 +3634,7 @@ export default function AdminPage() {
                 {activeTab === "team" && "Команда и доступ"}
                 {activeTab === "analytics" && "Аналитика"}
                 {activeTab === "botsim" && "Симулятор бота"}
+                {activeTab === "payments" && "История оплат"}
                 {activeTab === "settings" && "Настройки заведения"}
                 {activeTab === "profile" && "Профиль администратора"}
                 {activeTab === "createshop" && "Создать заведение"}
@@ -4073,88 +4017,12 @@ export default function AdminPage() {
 
           {/* PAGE VIEW: CREATE SHOP */}
           {activeTab === "createshop" && !loading && (
-            <div className="max-w-2xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm">
-              <div className="border-b border-app-border pb-5">
-                <h3 className="text-base font-bold font-mono text-app-primary">Создать заведение</h3>
-                <p className="text-xs text-app-muted mt-0.5 font-sans">Заполните название и системный идентификатор (slug)</p>
-              </div>
-
-              {createShopError && <p className="text-xs text-rose-400 font-mono p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">{createShopError}</p>}
-
-              <form onSubmit={handleCreateShop} className="space-y-4 font-sans">
-                <div>
-                  <label className="block text-[11px] font-mono text-app-muted mb-1.5">Название заведения *</label>
-                  <input
-                    type="text"
-                    value={newShopData.name}
-                    onChange={e => {
-                      const val = e.target.value;
-                      setNewShopData(p => ({
-                        ...p,
-                        name: val,
-                        slug: isSlugCustomized ? p.slug : transliterateToSlug(val)
-                      }));
-                    }}
-                    placeholder="Например: Кофейня на Невском"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
-                  />
-                  {createShopFieldErrors.name && <p className="text-[11px] text-rose-400 mt-1 font-mono">{createShopFieldErrors.name}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                    URL-адрес (Slug) *
-                  </label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3.5 text-xs text-app-muted font-mono select-none">/</span>
-                    <input
-                      type="text"
-                      value={newShopData.slug}
-                      onChange={e => {
-                        const val = e.target.value;
-                        const cleanVal = transliterateToSlug(val);
-                        setIsSlugCustomized(cleanVal.length > 0);
-                        setNewShopData(p => ({ ...p, slug: cleanVal }));
-                      }}
-                      placeholder="coffee-bar"
-                      className="w-full bg-app-card border border-app-border rounded-xl pl-7 pr-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                    />
-                  </div>
-                  {createShopFieldErrors.slug && <p className="text-[11px] text-rose-400 mt-1 font-mono">{createShopFieldErrors.slug}</p>}
-                  {newShopData.slug && (
-                    <p className="text-[11px] text-app-muted mt-1 font-mono">
-                      Ссылка на витрину: <span className="text-emerald-400 font-bold">/{cleanSlugForSubmit(newShopData.slug)}</span>
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                    Описание заведения
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={newShopData.description}
-                    onChange={e => setNewShopData(p => ({ ...p, description: e.target.value }))}
-                    placeholder="Описание заведения, особенности и акценты..."
-                    className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent resize-none"
-                  />
-                </div>
-
-                <div className="pt-4 border-t border-app-border flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={closeSubView}
-                    className="px-5 py-2.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer"
-                  >
-                    Отмена
-                  </button>
-                  <button type="submit" className="flex-1 py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 uppercase cursor-pointer shadow-sm">
-                    Создать заведение
-                  </button>
-                </div>
-              </form>
-            </div>
+            <AdminCreateShopTab
+              onCancel={closeSubView}
+              onSubmitSuccess={handleCreateShopSuccess}
+              token={token}
+              showToast={showToast}
+            />
           )}
 
           {/* TAB: SETTINGS */}
@@ -4171,8 +4039,19 @@ export default function AdminPage() {
               handleSaveSettings={handleSaveSettings}
               handleDeleteShop={handleDeleteShop}
               handleRegenerateSlug={() => {
-                const autoSlug = transliterateToSlug(settingsData.name);
-                setSettingsData((s: any) => ({ ...s, slug: autoSlug || s.slug }));
+                const trimmedName = settingsData.name ? settingsData.name.trim() : "";
+                if (!trimmedName) {
+                  showToast("Название заведения не указано. Генерация URL-адреса недоступна", "warning");
+                  return;
+                }
+                const currentTranslit = cleanSlugForSubmit(transliterateToSlug(trimmedName));
+                const autoSlug = generateRandomSyllableSlug(trimmedName, [settingsData.slug, currentTranslit]);
+                if (!autoSlug) {
+                  showToast("Не удалось сформировать URL из названия. Введите URL вручную", "warning");
+                  return;
+                }
+                setSettingsData((s: any) => ({ ...s, slug: autoSlug }));
+                showToast(`URL-адрес сгенерирован: /${autoSlug}`, "success");
               }}
               setIsQrModalOpen={setIsQrModalOpen}
               requestConfirm={requestConfirm}
@@ -4376,6 +4255,16 @@ export default function AdminPage() {
               handleRevokeInvite={handleRevokeInvite}
               handleRemoveMember={handleRemoveMember}
               requestConfirm={requestConfirm}
+              showToast={showToast}
+            />
+          )}
+
+          {/* TAB: PAYMENTS HISTORY */}
+          {activeTab === "payments" && (
+            <AdminPaymentsTab
+              token={token}
+              user={user}
+              onOpenPlanModal={() => setIsPlanModalOpen(true)}
               showToast={showToast}
             />
           )}
@@ -4687,6 +4576,8 @@ export default function AdminPage() {
                   ? "bg-[#0b2518]/90 text-emerald-200 border-emerald-800/40" 
                   : toast.type === "error" 
                   ? "bg-[#2d0f13]/90 text-rose-200 border-rose-800/40" 
+                  : toast.type === "info"
+                  ? "bg-[#0c2333]/90 text-sky-200 border-sky-800/40"
                   : "bg-[#2d210f]/90 text-amber-200 border-amber-800/40"
               }`}
             >
@@ -4695,6 +4586,8 @@ export default function AdminPage() {
                   <Check size={14} className="text-emerald-400" />
                 ) : toast.type === "error" ? (
                   <AlertCircle size={14} className="text-rose-400" />
+                ) : toast.type === "info" ? (
+                  <Info size={14} className="text-sky-400" />
                 ) : (
                   <AlertCircle size={14} className="text-amber-400" />
                 )}

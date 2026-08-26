@@ -418,23 +418,35 @@ export default function ShopPage() {
   const isDeliveryFree = freeDeliveryThreshVal > 0 && totalPrice >= freeDeliveryThreshVal;
   const calculatedDeliveryFee = isDeliveryFree ? 0 : standardDeliveryFee;
 
-  const finalTotalPrice = Math.max(0, totalPrice - discountValue) + tipAmount + (fulfillmentMethod === "courier" ? calculatedDeliveryFee : 0);
+  const finalTotalPrice = Math.max(0, totalPrice - discountValue) + tipAmount + (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping" ? calculatedDeliveryFee : 0);
 
-  // Fulfillment restriction helper
-  const isCourierDisabled = Object.entries(cart).some(([id, qty]) => {
+  // Fulfillment restriction helpers
+  const isShopCourierAvailable = deliveryOpts.courier !== false;
+  const isShopPickupAvailable = deliveryOpts.pickup !== false;
+  const isShopShippingAvailable = Boolean(deliveryOpts.shipping);
+
+  const isCourierDisabled = !isShopCourierAvailable || Object.entries(cart).some(([id, qty]) => {
     if (!qty) return false;
     const service = shop?.services.find(s => s.id === id);
     if (!service) return false;
     const f = service.fulfillment || "courier,pickup";
-    return !f.includes("courier");
+    return !f.includes("courier") && f !== "all";
   });
 
-  const isPickupDisabled = Object.entries(cart).some(([id, qty]) => {
+  const isPickupDisabled = !isShopPickupAvailable || Object.entries(cart).some(([id, qty]) => {
     if (!qty) return false;
     const service = shop?.services.find(s => s.id === id);
     if (!service) return false;
     const f = service.fulfillment || "courier,pickup";
-    return !f.includes("pickup");
+    return !f.includes("pickup") && f !== "all";
+  });
+
+  const isShippingDisabled = !isShopShippingAvailable || Object.entries(cart).some(([id, qty]) => {
+    if (!qty) return false;
+    const service = shop?.services.find(s => s.id === id);
+    if (!service) return false;
+    const f = service.fulfillment || "courier,pickup";
+    return f === "pickup" || f === "online";
   });
 
   const isOnlineDisabled = Object.entries(cart).some(([id, qty]) => {
@@ -446,14 +458,24 @@ export default function ShopPage() {
   });
 
   useEffect(() => {
-    if (isCourierDisabled && fulfillmentMethod === "courier") {
-      setFulfillmentMethod(isPickupDisabled ? "online" : "pickup");
-    } else if (isPickupDisabled && fulfillmentMethod === "pickup") {
-      setFulfillmentMethod(isCourierDisabled ? "online" : "courier");
-    } else if (isOnlineDisabled && fulfillmentMethod === "online") {
-      setFulfillmentMethod(isPickupDisabled ? "courier" : "pickup");
+    const isCurrentDisabled = 
+      (fulfillmentMethod === "courier" && isCourierDisabled) ||
+      (fulfillmentMethod === "pickup" && isPickupDisabled) ||
+      (fulfillmentMethod === "shipping" && isShippingDisabled) ||
+      (fulfillmentMethod === "online" && isOnlineDisabled);
+
+    if (isCurrentDisabled) {
+      if (!isCourierDisabled) {
+        setFulfillmentMethod("courier");
+      } else if (!isPickupDisabled) {
+        setFulfillmentMethod("pickup");
+      } else if (!isShippingDisabled) {
+        setFulfillmentMethod("shipping");
+      } else if (!isOnlineDisabled) {
+        setFulfillmentMethod("online");
+      }
     }
-  }, [isCourierDisabled, isPickupDisabled, isOnlineDisabled, fulfillmentMethod]);
+  }, [isCourierDisabled, isPickupDisabled, isShippingDisabled, isOnlineDisabled, fulfillmentMethod]);
 
   // Cart operations
   const handleAddToCart = (serviceId: string, note?: string) => {
@@ -522,14 +544,16 @@ export default function ShopPage() {
       errors.phone = phoneVal.error || "Некорректный номер телефона";
     }
 
-    if (fulfillmentMethod === "courier") {
+    if (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping") {
       if (!formData.deliveryAddress.trim()) {
-        errors.deliveryAddress = "Укажите адрес доставки";
+        errors.deliveryAddress = fulfillmentMethod === "shipping"
+          ? "Укажите город, индекс и адрес или пункт выдачи СДЭК / Почты"
+          : "Укажите адрес доставки";
       } else if (formData.deliveryAddress.trim().length < 5) {
         errors.deliveryAddress = "Адрес доставки слишком короткий";
       }
 
-      if (deliveryMinOrderVal > 0 && totalPrice < deliveryMinOrderVal) {
+      if (fulfillmentMethod === "courier" && deliveryMinOrderVal > 0 && totalPrice < deliveryMinOrderVal) {
         errors.general = `Минимальная сумма заказа для доставки — ${deliveryMinOrderVal} ₽`;
       }
     }
@@ -558,7 +582,7 @@ export default function ShopPage() {
         shopId: shop.id,
         customerName: formData.name.trim(),
         customerPhone: phoneVal.formatted || formData.phone.trim(),
-        deliveryAddress: fulfillmentMethod === "courier" ? formData.deliveryAddress.trim() : undefined,
+        deliveryAddress: (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping") ? formData.deliveryAddress.trim() : undefined,
         tableNumber: formData.tableNumber.trim() || undefined,
         preferredTime: formData.preferredTime.trim() || undefined,
         note: formData.note.trim() || undefined,
@@ -566,7 +590,7 @@ export default function ShopPage() {
         promocode: appliedPromo?.code || undefined,
         discountAmount: discountValue,
         tipAmount,
-        deliveryFee: fulfillmentMethod === "courier" ? calculatedDeliveryFee : 0,
+        deliveryFee: (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping") ? calculatedDeliveryFee : 0,
         items: itemsPayload,
         totalPrice: finalTotalPrice,
       };
@@ -599,12 +623,19 @@ export default function ShopPage() {
         doc.text(`Дата: ${new Date().toLocaleString("ru-RU")}`, 14, 44);
         doc.text(`Клиент: ${formData.name}`, 14, 50);
         doc.text(`Телефон: ${formData.phone}`, 14, 56);
-        doc.text(`Способ получения: ${fulfillmentMethod === "courier" ? "Доставка" : "Самовывоз"}`, 14, 62);
-        if (fulfillmentMethod === "courier" && formData.deliveryAddress) {
-          doc.text(`Адрес: ${formData.deliveryAddress}`, 14, 68);
+        const fulfillmentText = fulfillmentMethod === "courier" 
+          ? "Доставка курьером" 
+          : fulfillmentMethod === "shipping" 
+          ? "Почта / СДЭК" 
+          : fulfillmentMethod === "online" 
+          ? "Онлайн" 
+          : "Самовывоз";
+        doc.text(`Способ получения: ${fulfillmentText}`, 14, 62);
+        if ((fulfillmentMethod === "courier" || fulfillmentMethod === "shipping") && formData.deliveryAddress) {
+          doc.text(`Адрес / ПВЗ: ${formData.deliveryAddress}`, 14, 68);
         }
 
-        let yPos = fulfillmentMethod === "courier" ? 78 : 72;
+        let yPos = (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping") ? 78 : 72;
         doc.line(14, yPos, 196, yPos);
         yPos += 8;
 
@@ -636,7 +667,7 @@ export default function ShopPage() {
           doc.text(`Чаевые: +${tipAmount} RUB`, 14, yPos);
           yPos += 6;
         }
-        if (fulfillmentMethod === "courier") {
+        if (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping") {
           doc.text(`Доставка: ${calculatedDeliveryFee} RUB`, 14, yPos);
           yPos += 6;
         }
@@ -1043,6 +1074,7 @@ export default function ShopPage() {
         setFulfillmentMethod={setFulfillmentMethod}
         isCourierDisabled={isCourierDisabled}
         isPickupDisabled={isPickupDisabled}
+        isShippingDisabled={isShippingDisabled}
         isOnlineDisabled={isOnlineDisabled}
         calculatedDeliveryFee={calculatedDeliveryFee}
         isDeliveryFree={isDeliveryFree}
