@@ -129,6 +129,20 @@ export default function ShopPage() {
   // Active Order Tracking
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
 
+  // Auto open privacy policy modal on #privacy URL hash
+  useEffect(() => {
+    if (window.location.hash === "#privacy") {
+      setIsPrivacyModalOpen(true);
+    }
+    const handleHash = () => {
+      if (window.location.hash === "#privacy") {
+        setIsPrivacyModalOpen(true);
+      }
+    };
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+
   // Checkout form
   const [formData, setFormData] = useState({
     name: "",

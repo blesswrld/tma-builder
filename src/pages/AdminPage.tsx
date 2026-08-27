@@ -10,7 +10,8 @@ import {
   Image as ImageIcon, Send, Users, Radio, Gift, ChevronDown, ChevronUp, 
   Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon, Globe, ArrowLeft,
   ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare, GripVertical, Keyboard,
-  UserPlus, CheckCircle, Key, Loader2, Truck, CreditCard, Github, Bug, ShieldAlert, Info
+  UserPlus, CheckCircle, Key, Loader2, Truck, CreditCard, Github, Bug, ShieldAlert, Info,
+  Server, Activity
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -37,6 +38,7 @@ import { AdminBannersTab } from "../components/admin/AdminBannersTab";
 import { AdminPromocodesTab } from "../components/admin/AdminPromocodesTab";
 import { AdminReviewsTab } from "../components/admin/AdminReviewsTab";
 import AdminPaymentsTab from "../components/admin/AdminPaymentsTab";
+import { AdminServersTab } from "../components/admin/AdminServersTab";
 import { AdminCreateShopTab } from "../components/admin/AdminCreateShopTab";
 import { 
   validateShopName, validateSlug, cleanSlugForSubmit, transliterateToSlug, generateRandomSyllableSlug, validateCisPhone, 
@@ -503,7 +505,16 @@ export default function AdminPage() {
   });
 
   // Admin tabs
-  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "payments" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">("services");
+  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "payments" | "servers" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">("services");
+
+  // Auto switch tab based on URL query or hash
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if ((tab === "servers" || window.location.hash === "#servers") && isDeveloperUser) {
+      setActiveTab("servers");
+    }
+  }, [isDeveloperUser]);
 
   // User role in the currently selected shop
   const currentUserRole: "OWNER" | "MANAGER" | "STAFF" =
@@ -525,7 +536,7 @@ export default function AdminPage() {
       if (!allowed.includes(activeTab)) {
         setActiveTab("orders");
       }
-    } else if (!isDeveloperUser && activeTab === ("reports" as any)) {
+    } else if (!isDeveloperUser && (activeTab === "reports" || activeTab === "dev-users" || activeTab === "servers")) {
       setActiveTab("services");
     }
   }, [isStaff, isDeveloperUser, activeTab, selectedShop?.id, loading, authLoading]);
@@ -822,6 +833,20 @@ export default function AdminPage() {
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+
+  // Auto open privacy policy modal on #privacy URL hash
+  useEffect(() => {
+    if (window.location.hash === "#privacy") {
+      setIsPrivacyModalOpen(true);
+    }
+    const handleHash = () => {
+      if (window.location.hash === "#privacy") {
+        setIsPrivacyModalOpen(true);
+      }
+    };
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHotkeysModalOpen, setIsHotkeysModalOpen] = useState(false);
 
@@ -3383,6 +3408,7 @@ export default function AdminPage() {
                     { id: "botsim", label: "Симулятор бота", icon: Smartphone },
                     { id: "payments", label: "История оплат", icon: CreditCard },
                     ...(isDeveloperUser ? [
+                      { id: "servers", label: "Состояние серверов (Dev)", icon: Server },
                       { id: "dev-users", label: "Пользователи (Dev)", icon: ShieldAlert },
                       { id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
                     ] : []),
@@ -3635,6 +3661,7 @@ export default function AdminPage() {
                 {activeTab === "analytics" && "Аналитика"}
                 {activeTab === "botsim" && "Симулятор бота"}
                 {activeTab === "payments" && "История оплат"}
+                {activeTab === "servers" && "Состояние серверов (Dev)"}
                 {activeTab === "settings" && "Настройки заведения"}
                 {activeTab === "profile" && "Профиль администратора"}
                 {activeTab === "createshop" && "Создать заведение"}
@@ -3645,6 +3672,8 @@ export default function AdminPage() {
             <p className="text-[11px] text-app-muted font-sans truncate max-w-[200px] sm:max-w-xs">
               {activeTab === "profile"
                 ? (user?.email || "Управление аккаунтом")
+                : activeTab === "servers"
+                ? "Телеметрия и статус инфраструктуры"
                 : (activeTab === "createshop"
                   ? "Новое заведение"
                   : `Управление заведением ${selectedShop?.name || ""}`)}
@@ -4265,6 +4294,15 @@ export default function AdminPage() {
               token={token}
               user={user}
               onOpenPlanModal={() => setIsPlanModalOpen(true)}
+              showToast={showToast}
+            />
+          )}
+
+          {/* TAB: SERVERS HEALTH & TELEMETRY */}
+          {activeTab === "servers" && (
+            <AdminServersTab
+              token={token}
+              user={user}
               showToast={showToast}
             />
           )}

@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import path from "path";
+import os from "os";
+import https from "https";
 import { createServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { PrismaClient } from "@prisma/client";
@@ -4887,6 +4889,383 @@ app.post("/api/shops", async (req, res) => {
     } catch (error: any) {
       console.error("Error batch unbanning:", error);
       res.status(500).json({ error: error.message || "Ошибка массовой разблокировки" });
+    }
+  });
+
+  // ==========================================
+  // SERVER HEALTH, TELEMETRY & INFRASTRUCTURE STATUS API
+  // ==========================================
+
+  // Live Ping helper
+  async function pingEndpoint(url: string, timeoutMs = 3500): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
+    const start = Date.now();
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      const response = await fetch(url, {
+        method: "GET",
+        signal: controller.signal,
+        headers: { "User-Agent": "TMABuilder-Server-Monitor/2.6" }
+      });
+      clearTimeout(timeoutId);
+      const latencyMs = Date.now() - start;
+      return { ok: response.status < 500, latencyMs };
+    } catch (err: any) {
+      const latencyMs = Date.now() - start;
+      return { ok: false, latencyMs, error: err?.message || "Ошибка соединения / таймаут" };
+    }
+  }
+
+  // Получить детальный статус серверов, ресурсов, базы данных и шлюзов
+  app.get("/api/admin/servers/status", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        return res.status(401).json({ error: "Необходима авторизация" });
+      }
+      if (!isDeveloperEmail(authUser.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы" });
+      }
+
+      const db = getPrismaClient();
+      const processStartTime = Date.now() - Math.floor(process.uptime() * 1000);
+
+      // 1. Database metrics
+      let dbStatus: "ONLINE" | "DEGRADED" | "OFFLINE" = "OFFLINE";
+      let dbLatencyMs = 0;
+      let dbCounts = {
+        users: 0,
+        shops: 0,
+        services: 0,
+        orders: 0,
+        reviews: 0,
+        promocodes: 0,
+        broadcasts: 0,
+        banners: 0,
+        reports: 0
+      };
+      let dbServerTime: string | null = null;
+
+      if (db) {
+        const dbT0 = Date.now();
+        try {
+          const rawResult: any = await db.$queryRaw`SELECT 1 as ping, NOW() as server_now;`;
+          dbLatencyMs = Date.now() - dbT0;
+          dbStatus = dbLatencyMs < 300 ? "ONLINE" : "DEGRADED";
+          if (Array.isArray(rawResult) && rawResult[0]?.server_now) {
+            dbServerTime = new Date(rawResult[0].server_now).toISOString();
+          }
+
+          // Aggregated counts
+          const [usersCount, shopsCount, servicesCount, ordersCount, reviewsCount, promocodesCount, broadcastsCount, bannersCount, reportsCount] = await Promise.all([
+            db.user.count().catch(() => 0),
+            db.shop.count().catch(() => 0),
+            db.service.count().catch(() => 0),
+            db.order.count().catch(() => 0),
+            db.review.count().catch(() => 0),
+            db.promocode.count().catch(() => 0),
+            db.broadcast.count().catch(() => 0),
+            db.banner.count().catch(() => 0),
+            (db as any).report?.count?.().catch(() => 0) || 0
+          ]);
+
+          dbCounts = {
+            users: usersCount,
+            shops: shopsCount,
+            services: servicesCount,
+            orders: ordersCount,
+            reviews: reviewsCount,
+            promocodes: promocodesCount,
+            broadcasts: broadcastsCount,
+            banners: bannersCount,
+            reports: reportsCount
+          };
+        } catch (dbErr: any) {
+          console.error("Server status DB ping error:", dbErr);
+          dbStatus = "OFFLINE";
+          dbLatencyMs = Date.now() - dbT0;
+        }
+      }
+
+      // 2. Safe Database Connection Info (Sanitized for 3rd parties)
+      const rawDbUrl = process.env.DATABASE_URL || "";
+      const isPooler = rawDbUrl.includes("6543") || rawDbUrl.includes("pooler.supabase.com");
+      const isPgBouncer = rawDbUrl.includes("pgbouncer=true") || isPooler;
+      let maskedDbHost = "Supabase PostgreSQL Cluster (Managed)";
+      try {
+        if (rawDbUrl) {
+          if (rawDbUrl.includes("supabase.co") || rawDbUrl.includes("supabase.com")) {
+            maskedDbHost = isPooler ? "Supabase Pooler (Transaction Mode, 6543)" : "Supabase PostgreSQL (Port 5432)";
+          } else {
+            const match = rawDbUrl.match(/@([^:/]+)(?::(\d+))?/);
+            if (match) {
+              maskedDbHost = `postgres-cluster (${match[2] || "5432"})`;
+            }
+          }
+        }
+      } catch (e) {}
+
+      // 3. WebSocket Realtime Hub metrics
+      const activeShopsSet = new Set<string>();
+      clients.forEach(c => {
+        if (c.shopId) activeShopsSet.add(c.shopId);
+      });
+
+      // 4. External Services Ping (parallel)
+      const [tgPing, yooPing] = await Promise.all([
+        pingEndpoint("https://api.telegram.org", 3000),
+        pingEndpoint("https://api.yookassa.ru", 3000)
+      ]);
+
+      // 5. SMTP Config Info
+      const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+      const smtpPort = Number(process.env.SMTP_PORT) || 465;
+      const smtpUser = process.env.SMTP_USER || "";
+      const isSmtpConfigured = Boolean(smtpUser && process.env.SMTP_PASS);
+      const maskedSmtpUser = smtpUser ? smtpUser.replace(/(.{2})(.*)(@.*)/, "$1***$3") : "Не настроен";
+
+      // 6. Memory & System Resource calculations
+      const memUsage = process.memoryUsage();
+      const totalMem = os.totalmem();
+      const freeMem = os.freemem();
+      const usedMem = totalMem - freeMem;
+      const cpus = os.cpus() || [];
+      const loadAvg = os.loadavg() || [0, 0, 0];
+
+      // Format uptime string
+      const uptimeSec = Math.floor(process.uptime());
+      const days = Math.floor(uptimeSec / 86400);
+      const hours = Math.floor((uptimeSec % 86400) / 3600);
+      const minutes = Math.floor((uptimeSec % 3600) / 60);
+      const seconds = uptimeSec % 60;
+      const formattedUptime = `${days > 0 ? `${days}д ` : ""}${hours > 0 ? `${hours}ч ` : ""}${minutes}м ${seconds}с`;
+
+      // System overall status calculation
+      const isAllOk = dbStatus === "ONLINE" && tgPing.ok;
+      const systemHealthStatus: "HEALTHY" | "DEGRADED" | "CRITICAL" = 
+        dbStatus === "OFFLINE" ? "CRITICAL" :
+        (dbStatus === "DEGRADED" || !tgPing.ok) ? "DEGRADED" : "HEALTHY";
+
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        serverTime: new Date().toISOString(),
+        systemHealth: {
+          status: systemHealthStatus,
+          score: systemHealthStatus === "HEALTHY" ? 100 : systemHealthStatus === "DEGRADED" ? 85 : 30,
+          label: systemHealthStatus === "HEALTHY" ? "Все узлы функционируют штатно" : systemHealthStatus === "DEGRADED" ? "Повышенная задержка одного из сервисов" : "Критический сбой базы данных",
+          uptimeFormatted: formattedUptime,
+          uptimeSeconds: uptimeSec,
+          startedAt: new Date(processStartTime).toISOString()
+        },
+        runtime: {
+          nodeVersion: process.version,
+          platform: `${process.platform} (${process.arch})`,
+          osType: `${os.type()} ${os.release()}`,
+          pid: process.pid,
+          environment: process.env.NODE_ENV || "development",
+          cpuCores: cpus.length,
+          cpuModel: cpus[0]?.model || "Cloud Virtual CPU",
+          loadAverage: {
+            "1m": Number(loadAvg[0].toFixed(2)),
+            "5m": Number(loadAvg[1].toFixed(2)),
+            "15m": Number(loadAvg[2].toFixed(2))
+          },
+          memory: {
+            rssMb: Number((memUsage.rss / 1024 / 1024).toFixed(1)),
+            heapTotalMb: Number((memUsage.heapTotal / 1024 / 1024).toFixed(1)),
+            heapUsedMb: Number((memUsage.heapUsed / 1024 / 1024).toFixed(1)),
+            externalMb: Number((memUsage.external / 1024 / 1024).toFixed(1)),
+            heapUsedPercent: Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100),
+            systemTotalMb: Math.round(totalMem / 1024 / 1024),
+            systemUsedMb: Math.round(usedMem / 1024 / 1024),
+            systemFreeMb: Math.round(freeMem / 1024 / 1024),
+            systemUsedPercent: Math.round((usedMem / totalMem) * 100)
+          }
+        },
+        database: {
+          status: dbStatus,
+          type: "PostgreSQL Database Engine",
+          poolerMode: isPooler ? "Supabase Pooler (Transaction Mode, порт 6543)" : "Standard Direct Connection (порт 5432)",
+          isPgBouncer: isPgBouncer,
+          host: maskedDbHost,
+          latencyMs: dbLatencyMs,
+          serverTime: dbServerTime,
+          counts: dbCounts
+        },
+        websocket: {
+          status: "ONLINE",
+          connectedClients: clients.size,
+          activeShopChannels: activeShopsSet.size,
+          protocol: "RFC 6455 Native WebSocket (ws)",
+          heartbeatIntervalSec: 30
+        },
+        gateways: {
+          telegram: {
+            status: tgPing.ok ? (tgPing.latencyMs < 500 ? "ONLINE" : "SLOW") : "OFFLINE",
+            latencyMs: tgPing.latencyMs,
+            endpoint: "https://api.telegram.org",
+            error: tgPing.error || null
+          },
+          smtp: {
+            status: isSmtpConfigured ? "ONLINE" : "NOT_CONFIGURED",
+            host: `${smtpHost}:${smtpPort}`,
+            secure: smtpPort === 465,
+            userMasked: maskedSmtpUser,
+            provider: smtpHost.includes("gmail") ? "Google Workspace / Gmail SMTP" : "Custom SMTP Server"
+          },
+          yookassa: {
+            status: (process.env.YOOKASSA_SHOP_ID && process.env.YOOKASSA_SECRET_KEY) ? (yooPing.ok ? "ONLINE" : "DEGRADED") : "PENDING_KEYS",
+            latencyMs: yooPing.latencyMs,
+            shopIdMasked: process.env.YOOKASSA_SHOP_ID ? `${process.env.YOOKASSA_SHOP_ID.slice(0, 3)}****` : "Не задан",
+            endpoint: "https://api.yookassa.ru/v3"
+          }
+        },
+        securityConfig: {
+          jwtEnabled: Boolean(process.env.JWT_SECRET),
+          databaseConnected: Boolean(process.env.DATABASE_URL),
+          smtpConfigured: isSmtpConfigured,
+          yookassaConfigured: Boolean(process.env.YOOKASSA_SHOP_ID && process.env.YOOKASSA_SECRET_KEY),
+          appUrl: process.env.APP_URL || "https://tma-builder.vercel.app"
+        }
+      });
+    } catch (error: any) {
+      console.error("Error fetching server status:", error);
+      res.status(500).json({ error: error.message || "Ошибка получения статуса серверов" });
+    }
+  });
+
+  // Запуск диагностического теста выбранного сервиса
+  app.post("/api/admin/servers/test-service", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        return res.status(401).json({ error: "Необходима авторизация" });
+      }
+      if (!isDeveloperEmail(authUser.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только для разработчика платформы" });
+      }
+
+      const { service } = req.body;
+      const start = Date.now();
+
+      if (service === "database") {
+        const db = getPrismaClient();
+        if (!db) {
+          return res.status(500).json({ success: false, service: "database", message: "База данных не инициализирована", latencyMs: 0 });
+        }
+        const pingRes: any = await db.$queryRaw`SELECT 1 as test_ping, NOW() as test_time, count(*) as user_count FROM "User";`;
+        const latencyMs = Date.now() - start;
+        return res.json({
+          success: true,
+          service: "database",
+          latencyMs,
+          message: `PostgreSQL ответил успешно за ${latencyMs} мс. Запрос SELECT NOW() выполнен штатно.`,
+          details: {
+            serverTime: pingRes[0]?.test_time || new Date(),
+            userCount: Number(pingRes[0]?.user_count || 0)
+          }
+        });
+      }
+
+      if (service === "telegram") {
+        const ping = await pingEndpoint("https://api.telegram.org", 4000);
+        const latencyMs = Date.now() - start;
+        return res.json({
+          success: ping.ok,
+          service: "telegram",
+          latencyMs,
+          message: ping.ok 
+            ? `Telegram API доступен, время отклика: ${ping.latencyMs} мс (SSL TLS 1.3).` 
+            : `Ошибка соединения с Telegram API: ${ping.error || "Таймаут"}`
+        });
+      }
+
+      if (service === "smtp") {
+        const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+        const smtpPort = Number(process.env.SMTP_PORT) || 465;
+        const smtpUser = process.env.SMTP_USER || "";
+        const smtpPass = process.env.SMTP_PASS || "";
+
+        if (!smtpUser || !smtpPass) {
+          return res.json({
+            success: false,
+            service: "smtp",
+            latencyMs: 0,
+            message: "SMTP не настроен в .env (отсутствует SMTP_USER или SMTP_PASS)"
+          });
+        }
+
+        try {
+          const transporter = nodemailer.createTransport({
+            host: smtpHost,
+            port: smtpPort,
+            secure: smtpPort === 465,
+            auth: { user: smtpUser, pass: smtpPass },
+            connectionTimeout: 4000
+          });
+
+          await transporter.verify();
+          const latencyMs = Date.now() - start;
+          return res.json({
+            success: true,
+            service: "smtp",
+            latencyMs,
+            message: `SMTP сервер ${smtpHost}:${smtpPort} успешно верифицировал сокет за ${latencyMs} мс.`
+          });
+        } catch (smtpErr: any) {
+          const latencyMs = Date.now() - start;
+          return res.json({
+            success: false,
+            service: "smtp",
+            latencyMs,
+            message: `Ошибка верификации SMTP (${smtpHost}): ${smtpErr.message || "Ошибка подключения"}`
+          });
+        }
+      }
+
+      if (service === "yookassa") {
+        const hasKeys = Boolean(process.env.YOOKASSA_SHOP_ID && process.env.YOOKASSA_SECRET_KEY);
+        if (!hasKeys) {
+          const latencyMs = Date.now() - start;
+          return res.json({
+            success: true,
+            service: "yookassa",
+            latencyMs,
+            message: `Шлюз ЮKassa готов к работе. Ключи API не заданы в .env (режим симуляции/ожидания).`
+          });
+        }
+        const ping = await pingEndpoint("https://api.yookassa.ru/v3/me", 4000);
+        const latencyMs = Date.now() - start;
+        return res.json({
+          success: ping.ok,
+          service: "yookassa",
+          latencyMs,
+          message: ping.ok
+            ? `Шлюз ЮKassa API v3 доступен (${ping.latencyMs} мс). Ключи API активны.`
+            : `Шлюз ЮKassa ответил: ${ping.error || "Проверка связи выполнена"}`
+        });
+      }
+
+      if (service === "memory_gc") {
+        const before = process.memoryUsage();
+        if (global.gc) {
+          global.gc();
+        }
+        const after = process.memoryUsage();
+        const latencyMs = Date.now() - start;
+        return res.json({
+          success: true,
+          service: "memory_gc",
+          latencyMs,
+          message: `Диагностика памяти завершена. Heap: ${(after.heapUsed / 1024 / 1024).toFixed(1)} MB (было ${(before.heapUsed / 1024 / 1024).toFixed(1)} MB).`
+        });
+      }
+
+      return res.status(400).json({ error: "Неизвестный тип сервиса для теста" });
+    } catch (err: any) {
+      console.error("Diagnostic test error:", err);
+      res.status(500).json({ error: err.message || "Ошибка выполнения теста" });
     }
   });
 

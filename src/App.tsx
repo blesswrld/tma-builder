@@ -5,6 +5,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import AdminPage from './pages/AdminPage';
 import DeveloperReportsPage from './pages/DeveloperReportsPage';
 import DeveloperUsersPage from './pages/DeveloperUsersPage';
+import { DeveloperServersPage } from './pages/DeveloperServersPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -88,6 +89,30 @@ export default function App() {
                 element={
                   <DeveloperRoute>
                     <DeveloperReportsPage />
+                  </DeveloperRoute>
+                }
+              />
+              <Route
+                path="/servers"
+                element={
+                  <DeveloperRoute>
+                    <DeveloperServersPage />
+                  </DeveloperRoute>
+                }
+              />
+              <Route
+                path="/dev-servers"
+                element={
+                  <DeveloperRoute>
+                    <DeveloperServersPage />
+                  </DeveloperRoute>
+                }
+              />
+              <Route
+                path="/admin/servers"
+                element={
+                  <DeveloperRoute>
+                    <DeveloperServersPage />
                   </DeveloperRoute>
                 }
               />

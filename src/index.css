@@ -118,6 +118,12 @@
     --scrollbar-thumb-hover: #a1a1aa;
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   body {
     background-color: var(--background);
     color: var(--text-primary);
@@ -127,6 +133,7 @@
     -webkit-tap-highlight-color: transparent;
     letter-spacing: -0.011em;
     transition: background-color 0.25s ease, color 0.25s ease;
+    min-height: 100vh;
     min-height: 100dvh;
     min-height: -webkit-fill-available;
     overflow-x: hidden;
@@ -304,12 +311,14 @@ html.light .text-zinc-500:not(.keep-white):not(.bg-black):not(.bg-black *):not(.
   box-shadow: var(--shadow);
 }
 
-/* Scrollbars */
+/* Scrollbars - Cross-Browser (Chrome, Safari, Edge, Firefox, Yandex) */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) transparent;
+  -webkit-tap-highlight-color: transparent;
 }
 
+/* Chrome, Edge, Safari, Yandex custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -328,12 +337,105 @@ html.light .text-zinc-500:not(.keep-white):not(.bg-black):not(.bg-black *):not(.
   background: var(--scrollbar-thumb-hover);
 }
 
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Cross-Browser Backdrop Filter & Blur Support (Safari, Firefox, Chrome, Edge, Yandex) */
+.backdrop-blur-xs {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.backdrop-blur-sm {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.backdrop-blur-md {
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.backdrop-blur-lg {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.backdrop-blur-xl {
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+}
+
+/* Fallback for browsers without backdrop-filter support */
+@supports not ((-webkit-backdrop-filter: none) or (backdrop-filter: none)) {
+  .bg-black\/80, .bg-black\/60, .bg-black\/70 {
+    background-color: rgba(9, 9, 11, 0.95) !important;
+  }
+  .bg-app-surface\/90, .bg-app-surface\/80 {
+    background-color: var(--surface) !important;
+  }
+}
+
+/* Text Wrapping & Hyphenation Cross-Browser Optimization */
+.text-balance-wrap {
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  -webkit-hyphens: manual;
+  -ms-hyphens: manual;
+  hyphens: manual;
+}
+
+/* Print Optimization for Documents / Policies */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-readable {
+    color: #000000 !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
 }
 
 /* Animation utilities */
