@@ -129,21 +129,21 @@ export const DeveloperServersPage: React.FC = () => {
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
-          className={`fixed bottom-5 right-5 z-50 p-4 rounded-2xl shadow-xl border backdrop-blur-md flex items-start gap-3 max-w-md ${
+          className={`fixed bottom-5 right-5 z-50 p-4 rounded-2xl shadow-2xl border backdrop-blur-md flex items-start gap-3 max-w-md bg-app-modal ${
             toast.type === "success"
-              ? "bg-zinc-900/95 border-emerald-500/40 text-white"
+              ? "border-emerald-500/40 text-app-primary"
               : toast.type === "error"
-              ? "bg-zinc-900/95 border-rose-500/40 text-white"
-              : "bg-zinc-900/95 border-sky-500/40 text-white"
+              ? "border-rose-500/40 text-app-primary"
+              : "border-sky-500/40 text-app-primary"
           }`}
         >
-          {toast.type === "success" && <CheckCircle2 size={18} className="text-emerald-400 shrink-0 mt-0.5" />}
-          {toast.type === "error" && <XCircle size={18} className="text-rose-400 shrink-0 mt-0.5" />}
-          {toast.type === "warning" && <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />}
-          {toast.type === "info" && <Sparkles size={18} className="text-sky-400 shrink-0 mt-0.5" />}
+          {toast.type === "success" && <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />}
+          {toast.type === "error" && <XCircle size={18} className="text-rose-500 shrink-0 mt-0.5" />}
+          {toast.type === "warning" && <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />}
+          {toast.type === "info" && <Sparkles size={18} className="text-sky-500 shrink-0 mt-0.5" />}
           <div className="space-y-0.5">
-            <h4 className="text-xs font-bold font-mono">{toast.title}</h4>
-            <p className="text-xs text-zinc-300 font-sans">{toast.message}</p>
+            <h4 className="text-xs font-bold font-mono text-app-primary">{toast.title}</h4>
+            <p className="text-xs text-app-secondary font-sans">{toast.message}</p>
           </div>
         </motion.div>
       )}

@@ -552,7 +552,7 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
       )}
 
       {/* Main Grid Layout: Form Tabs + Live Preview */}
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <form onSubmit={handleSubmit} noValidate className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Form & Sections (Span 8 or 12) */}
         <div className={`space-y-6 ${showLivePreview ? "lg:col-span-8" : "lg:col-span-12"}`}>
           {/* Section Navigation Tabs Bar */}

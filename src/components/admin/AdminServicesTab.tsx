@@ -278,6 +278,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
               if (editingService) handleUpdateService(e);
               else handleCreateService(e);
             }}
+            noValidate
             className="space-y-5 font-sans text-xs"
           >
             {/* Title & Category */}

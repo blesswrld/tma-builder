@@ -592,7 +592,28 @@ export default function AdminPage() {
   const [promocodes, setPromocodes] = useState<any[]>([]);
   const [promocodesLoading, setPromocodesLoading] = useState(false);
   const [isCreatingPromo, setIsCreatingPromo] = useState(false);
-  const [newPromoData, setNewPromoData] = useState({ code: "", discountPercent: "", discountAmount: "", usageLimit: "" });
+  const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
+  const [newPromoData, setNewPromoData] = useState<{
+    code: string;
+    discountType?: "percent" | "fixed";
+    discountPercent: string;
+    discountAmount: string;
+    usageLimit: string;
+    minOrderAmount?: string;
+    expiresAt?: string;
+    description?: string;
+    isActive?: boolean;
+  }>({
+    code: "",
+    discountType: "percent",
+    discountPercent: "15",
+    discountAmount: "",
+    usageLimit: "100",
+    minOrderAmount: "",
+    expiresAt: "",
+    description: "",
+    isActive: true,
+  });
   const [promoError, setPromoError] = useState<string | null>(null);
 
   // Reviews
@@ -1259,7 +1280,7 @@ export default function AdminPage() {
 
   const exportOrdersToCsv = () => {
     if (!orders || orders.length === 0) {
-      alert("No orders to export.");
+      showToast("Нет заказов для экспорта в CSV", "error");
       return;
     }
 
@@ -1641,24 +1662,32 @@ export default function AdminPage() {
   }, [token]);
 
   const fetchOrders = async (shopId: string, silent = false) => {
+    if (!shopId || typeof shopId !== "string" || !shopId.trim() || shopId === "undefined" || shopId === "null") {
+      if (!silent) setOrdersLoading(false);
+      return;
+    }
     if (!silent) setOrdersLoading(true);
     try {
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(`/api/shops/${shopId}/orders`, { headers });
+      const res = await fetch(`/api/shops/${encodeURIComponent(shopId.trim())}/orders`, { headers });
       if (res.ok) {
-        const data: Order[] = await res.json();
-        
-        if (prevOrdersCountRef.current !== null && data.length > prevOrdersCountRef.current) {
-          const newest = data[0];
-          if (newest && newest.status === "PENDING") {
-            setNewOrderAlert(newest);
-            playOrderChime();
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const data: Order[] = await res.json();
+          if (Array.isArray(data)) {
+            if (prevOrdersCountRef.current !== null && data.length > prevOrdersCountRef.current) {
+              const newest = data[0];
+              if (newest && newest.status === "PENDING") {
+                setNewOrderAlert(newest);
+                playOrderChime();
+              }
+            }
+            prevOrdersCountRef.current = data.length;
+            setOrders(data);
           }
         }
-        prevOrdersCountRef.current = data.length;
-        setOrders(data);
       }
     } catch (err: any) {
       if (err instanceof TypeError || (err?.message && err.message.includes("Failed to fetch"))) {
@@ -2077,10 +2106,19 @@ export default function AdminPage() {
     if (!selectedShop) return;
     setPromoError(null);
 
-    const discountVal = Number(newPromoData.discountPercent) || Number(newPromoData.discountAmount) || 0;
-    const discountType = Number(newPromoData.discountPercent) > 0 ? "percent" : "fixed";
+    const isPercent = newPromoData.discountType === "percent" || Number(newPromoData.discountPercent) > 0;
+    const discountVal = isPercent
+      ? Number(newPromoData.discountPercent) || 0
+      : Number(newPromoData.discountAmount) || 0;
+    const discountType = isPercent ? "percent" : "fixed";
 
-    const promoRes = validatePromoCodeData(newPromoData.code, discountVal, discountType);
+    const promoRes = validatePromoCodeData(
+      newPromoData.code,
+      discountVal,
+      discountType,
+      newPromoData.minOrderAmount,
+      newPromoData.expiresAt
+    );
     if (!promoRes.isValid) {
       setPromoError(promoRes.error || "Проверьте данные промокода");
       return;
@@ -2089,23 +2127,70 @@ export default function AdminPage() {
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(`/api/shops/${selectedShop.id}/promocodes`, {
-        method: "POST",
+
+      const promoPayload = {
+        code: newPromoData.code.trim().toUpperCase(),
+        discountPercent: isPercent ? Number(newPromoData.discountPercent) || 0 : 0,
+        discountAmount: !isPercent ? Number(newPromoData.discountAmount) || 0 : 0,
+        maxUses: Number(newPromoData.usageLimit) || 100,
+        usageLimit: Number(newPromoData.usageLimit) || 100,
+        minOrderAmount: newPromoData.minOrderAmount ? Number(newPromoData.minOrderAmount) || 0 : 0,
+        expiresAt: newPromoData.expiresAt ? new Date(newPromoData.expiresAt).toISOString() : null,
+        description: newPromoData.description?.trim() || null,
+        isActive: newPromoData.isActive !== false
+      };
+
+      const isEditing = Boolean(editingPromoId);
+      const url = isEditing
+        ? `/api/promocodes/${editingPromoId}`
+        : `/api/shops/${selectedShop.id}/promocodes`;
+      const method = isEditing ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers,
-        body: JSON.stringify({
-          code: newPromoData.code.trim().toUpperCase(),
-          discountPercent: Number(newPromoData.discountPercent) || 0,
-          discountAmount: Number(newPromoData.discountAmount) || 0,
-          usageLimit: Number(newPromoData.usageLimit) || undefined
-        })
+        body: JSON.stringify(promoPayload)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Не удалось создать промокод");
-      setNewPromoData({ code: "", discountPercent: "", discountAmount: "", usageLimit: "" });
+      if (!res.ok) throw new Error(data.error || (isEditing ? "Не удалось обновить промокод" : "Не удалось создать промокод"));
+      
+      setNewPromoData({
+        code: "",
+        discountType: "percent",
+        discountPercent: "15",
+        discountAmount: "",
+        usageLimit: "100",
+        minOrderAmount: "",
+        expiresAt: "",
+        description: "",
+        isActive: true,
+      });
+      setEditingPromoId(null);
       setIsCreatingPromo(false);
       fetchPromocodes();
+      showToast(isEditing ? `Промокод ${data.code} успешно обновлён!` : `Промокод ${data.code} успешно создан!`, "success");
     } catch (err: any) {
       setPromoError(err.message);
+    }
+  };
+
+  const handleTogglePromocodeActive = async (id: string, currentActive: boolean) => {
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/promocodes/${id}/toggle`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ isActive: !currentActive })
+      });
+      if (res.ok) {
+        setPromocodes(prev => prev.map(p => p.id === id ? { ...p, isActive: !currentActive } : p));
+        showToast(!currentActive ? "Промокод активирован" : "Промокод деактивирован", "success");
+      } else {
+        showToast("Не удалось изменить статус промокода", "error");
+      }
+    } catch (e: any) {
+      showToast("Ошибка: " + e.message, "error");
     }
   };
 
@@ -2780,8 +2865,11 @@ export default function AdminPage() {
       const matchName = (o.customerName || "").toLowerCase().includes(q);
       const matchPhone = (o.customerPhone || "").toLowerCase().includes(q);
       const matchAddr = (o.deliveryAddress || "").toLowerCase().includes(q);
+      const matchTable = (o.tableNumber || "").toLowerCase().includes(q);
+      const matchTime = (o.preferredTime || "").toLowerCase().includes(q);
+      const matchNote = (o.note || "").toLowerCase().includes(q);
       const matchItems = (o.items || "").toLowerCase().includes(q);
-      return matchId || matchName || matchPhone || matchAddr || matchItems;
+      return matchId || matchName || matchPhone || matchAddr || matchTable || matchTime || matchNote || matchItems;
     }
     return true;
   });
@@ -2923,7 +3011,7 @@ export default function AdminPage() {
 
           {/* Form rendering */}
           {otpStep === "code" ? (
-            <form onSubmit={handleVerifyOtpCode} className="space-y-3 font-sans">
+            <form onSubmit={handleVerifyOtpCode} noValidate className="space-y-3 font-sans">
               <p className="text-xs text-app-muted">
                 {authMode === "register" && (
                   <>Код подтверждения отправлен на <strong className="text-app-primary">{authEmail}</strong> для завершения регистрации.</>
@@ -3055,7 +3143,7 @@ export default function AdminPage() {
               )}
 
               {authMode !== "otp" && (
-                <form onSubmit={handleAuthSubmit} className="space-y-3 font-sans">
+                <form onSubmit={handleAuthSubmit} noValidate className="space-y-3 font-sans">
                   {authMode === "register" && (
                     <input
                       type="text"
@@ -3736,33 +3824,6 @@ export default function AdminPage() {
                 <Plus size={14} /> <span>Добавить услугу</span>
               </button>
             )}
-
-            {activeTab === "promocodes" && !isStaff && (
-              <button
-                onClick={() => setIsCreatingPromo(true)}
-                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus size={14} /> <span>Новый промокод</span>
-              </button>
-            )}
-
-            {activeTab === "banners" && !isStaff && (
-              <button
-                onClick={() => setIsCreatingBanner(true)}
-                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus size={14} /> <span>Новый баннер</span>
-              </button>
-            )}
-
-            {activeTab === "broadcasts" && !isStaff && (
-              <button
-                onClick={() => setIsCreatingBroadcast(true)}
-                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus size={14} /> <span>Новая рассылка</span>
-              </button>
-            )}
           </div>
         </header>
 
@@ -3812,7 +3873,7 @@ export default function AdminPage() {
                 </div>
               )}
 
-              <form onSubmit={handleSaveProfile} className="space-y-6 font-sans text-xs">
+              <form onSubmit={handleSaveProfile} noValidate className="space-y-6 font-sans text-xs">
                 {/* Avatar Section */}
                 <div className="p-5 bg-app-card/60 border border-app-border rounded-2xl space-y-3">
                   <label className="block text-xs font-mono font-semibold text-app-secondary">
@@ -4155,6 +4216,7 @@ export default function AdminPage() {
           {activeTab === "orders" && (
             <AdminOrdersTab
               orders={filteredOrders}
+              allOrders={orders}
               selectedShop={selectedShop}
               orderFilter={orderStatusFilter}
               setOrderFilter={setOrderStatusFilter}
@@ -4164,6 +4226,7 @@ export default function AdminPage() {
               setOrderTypeFilter={setOrderTypeFilter}
               ordersLoading={ordersLoading}
               handleStatusChange={handleUpdateOrderStatus}
+              handleDeleteOrder={handleDeleteOrder}
               fetchOrders={() => selectedShop && fetchOrders(selectedShop.id, true)}
             />
           )}
@@ -4173,8 +4236,11 @@ export default function AdminPage() {
             <AdminPromocodesTab
               promocodes={promocodes}
               handleDeletePromocode={handleDeletePromocode}
+              handleTogglePromocodeActive={handleTogglePromocodeActive}
               isCreatingPromo={isCreatingPromo}
               setIsCreatingPromo={setIsCreatingPromo}
+              editingPromoId={editingPromoId}
+              setEditingPromoId={setEditingPromoId}
               promoError={promoError}
               newPromoData={newPromoData}
               setNewPromoData={setNewPromoData}

@@ -165,7 +165,7 @@ export function AdminAuthModal({
 
         {/* OTP Code Step */}
         {otpStep === "code" ? (
-          <form onSubmit={handleVerifyOtpCode} className="space-y-3 font-sans">
+          <form onSubmit={handleVerifyOtpCode} noValidate className="space-y-3 font-sans">
             <p className="text-xs text-app-muted">
               {authMode === "register" && (
                 <>Код подтверждения отправлен на <strong className="text-app-primary">{authEmail}</strong> для завершения регистрации.</>
@@ -292,7 +292,7 @@ export function AdminAuthModal({
               </div>
             )}
             {authMode !== "otp" && (
-              <form onSubmit={handleAuthSubmit} className="space-y-3 font-sans">
+              <form onSubmit={handleAuthSubmit} noValidate className="space-y-3 font-sans">
                 {authMode === "register" && (
                   <input
                     type="text"

@@ -126,6 +126,7 @@ export interface Banner {
   imageUrl?: string | null;
   badge?: string | null;
   bgGradient?: string | null;
+  isActive?: boolean;
   createdAt?: string;
 }
 
@@ -170,10 +171,16 @@ export interface Promocode {
   id: string;
   shopId: string;
   code: string;
+  discountType?: "percent" | "fixed" | string | null;
   discountPercent?: number | null;
   discountAmount?: number | null;
+  minOrderAmount?: number | null;
+  expiresAt?: string | null;
+  description?: string | null;
+  maxUses?: number;
   usageLimit?: number | null;
-  timesUsed: number;
+  usedCount: number;
+  timesUsed?: number;
   isActive: boolean;
   createdAt?: string;
 }
@@ -203,11 +210,17 @@ export interface TeamMember {
 
 export interface Broadcast {
   id: string;
-  shopId: string;
+  shopId?: string;
   title: string;
   message: string;
-  recipientsCount: number;
-  sentAt: string;
+  imageUrl?: string | null;
+  buttonText?: string | null;
+  targetFilter?: string | null;
+  sentCount?: number;
+  recipientsCount?: number;
+  status?: string;
+  sentAt?: string;
+  createdAt?: string;
 }
 
 export interface BugReport {

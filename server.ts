@@ -209,11 +209,20 @@ async function ensureOrderSchema(db: PrismaClient) {
           "code" TEXT NOT NULL,
           "discountPercent" INTEGER NOT NULL DEFAULT 0,
           "discountAmount" INTEGER NOT NULL DEFAULT 0,
+          "minOrderAmount" INTEGER DEFAULT 0,
+          "expiresAt" TIMESTAMP(3),
+          "description" TEXT,
           "isActive" BOOLEAN NOT NULL DEFAULT true,
           "maxUses" INTEGER NOT NULL DEFAULT 100,
           "usedCount" INTEGER NOT NULL DEFAULT 0,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         )`,
+        `ALTER TABLE "Promocode" ADD COLUMN IF NOT EXISTS "minOrderAmount" INTEGER DEFAULT 0`,
+        `ALTER TABLE "Promocode" ADD COLUMN IF NOT EXISTS "expiresAt" TIMESTAMP(3)`,
+        `ALTER TABLE "Promocode" ADD COLUMN IF NOT EXISTS "description" TEXT`,
+        `ALTER TABLE "Promocode" ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN NOT NULL DEFAULT true`,
+        `ALTER TABLE "Promocode" ADD COLUMN IF NOT EXISTS "maxUses" INTEGER NOT NULL DEFAULT 100`,
+        `ALTER TABLE "Promocode" ADD COLUMN IF NOT EXISTS "usedCount" INTEGER NOT NULL DEFAULT 0`,
 
         `CREATE TABLE IF NOT EXISTS "Review" (
           "id" TEXT NOT NULL PRIMARY KEY,
@@ -2531,7 +2540,7 @@ app.post("/api/shops", async (req, res) => {
   });
 
   // API Route: Создать заказ
-  app.post("/api/orders", async (req, res) => {
+  app.post(["/api/orders", "/api/public/orders"], async (req, res) => {
     try {
       if (!process.env.DATABASE_URL) {
         return res.status(503).json({ error: "База данных PostgreSQL не настроена." });
@@ -2651,7 +2660,7 @@ app.post("/api/shops", async (req, res) => {
 
       if (botToken && chatId) {
         const itemsList = items
-          .map((i: any) => `• ${i.title} (x${i.quantity}): ${i.price * i.quantity} ₽`)
+          .map((i: any) => `• ${i.title} (x${i.quantity}): ${i.price * i.quantity} ₽${i.note ? ` _(${i.note})_` : ''}`)
           .join("\n");
 
         let locationInfo = "";
@@ -2664,9 +2673,9 @@ app.post("/api/shops", async (req, res) => {
           : "Самовывоз";
         locationInfo += `\n🚚 *Способ:* ${methodLabel}`;
         if (cleanDeliveryAddress) locationInfo += `\n📍 *Адрес / ПВЗ:* ${cleanDeliveryAddress}`;
-        if (tableNumber) locationInfo += `\n🪑 *Столик:* ${tableNumber}`;
-        if (preferredTime) locationInfo += `\n⏰ *Время:* ${preferredTime}`;
-        if (note) locationInfo += `\n📝 *Комментарий:* ${note}`;
+        if (cleanTableNumber) locationInfo += `\n🪑 *Столик / Место:* ${cleanTableNumber}`;
+        if (cleanPreferredTime) locationInfo += `\n⏰ *Время готовности / доставки:* ${cleanPreferredTime}`;
+        if (cleanNote) locationInfo += `\n📝 *Комментарий:* ${cleanNote}`;
           
         const text = `🎉 *Новый заказ в "${shop?.name || ''}"!*\n\n👤 *Имя:* ${customerName}\n📱 *Телефон:* ${customerPhone}${locationInfo}\n\n🛒 *Заказ:*\n${itemsList}\n\n💰 *Итого:* ${totalPrice} ₽`;
 
@@ -2722,7 +2731,7 @@ app.post("/api/shops", async (req, res) => {
   });
 
   // API Route: Получить заказы клиента по номеру телефона
-  app.get("/api/shops/:shopId/orders/my", async (req, res) => {
+  app.get(["/api/shops/:shopId/orders/my", "/api/public/shops/:shopId/orders/my"], async (req, res) => {
     try {
       const { shopId } = req.params;
       const phone = req.query.phone as string;
@@ -2758,7 +2767,7 @@ app.post("/api/shops", async (req, res) => {
   });
 
   // API Route: Получить список заказов магазина
-  app.get("/api/shops/:shopId/orders", async (req, res) => {
+  app.get(["/api/shops/:shopId/orders", "/api/public/shops/:shopId/orders"], async (req, res) => {
     try {
       const { shopId } = req.params;
       const authUser = getAuthUser(req);
@@ -3005,7 +3014,17 @@ app.post("/api/shops", async (req, res) => {
   app.post("/api/shops/:shopId/promocodes", async (req, res) => {
     try {
       const { shopId } = req.params;
-      const { code, discountPercent, discountAmount, maxUses } = req.body;
+      const {
+        code,
+        discountPercent,
+        discountAmount,
+        maxUses,
+        usageLimit,
+        minOrderAmount,
+        expiresAt,
+        description,
+        isActive
+      } = req.body;
       const authUser = getAuthUser(req);
       const db = getPrismaClient() as any;
       if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
@@ -3021,13 +3040,17 @@ app.post("/api/shops", async (req, res) => {
       if (!cleanCode || cleanCode.length < 2) {
         return res.status(400).json({ error: "Промокод должен содержать минимум 2 символа." });
       }
-      if (cleanCode.length > 20) {
-        return res.status(400).json({ error: "Длина промокода не должна превышать 20 символов." });
+      if (cleanCode.length > 25) {
+        return res.status(400).json({ error: "Длина промокода не должна превышать 25 символов." });
       }
 
       const numPercent = Math.max(0, Math.min(100, Number(discountPercent) || 0));
       const numAmount = Math.max(0, Math.min(100000, Number(discountAmount) || 0));
-      const numMaxUses = Math.max(1, Math.min(100000, Number(maxUses) || 100));
+      const effectiveMaxUses = Number(maxUses) || Number(usageLimit);
+      const numMaxUses = effectiveMaxUses && effectiveMaxUses > 0 ? Math.min(100000, effectiveMaxUses) : 100;
+      const numMinOrder = minOrderAmount ? Math.max(0, Number(minOrderAmount) || 0) : 0;
+      const expDate = expiresAt ? new Date(expiresAt) : null;
+      const cleanDesc = description ? String(description).trim().slice(0, 200) : null;
 
       if (numPercent === 0 && numAmount === 0) {
         return res.status(400).json({ error: "Укажите либо процент скидки (% > 0), либо фиксированную сумму в рублях (₽ > 0)." });
@@ -3047,7 +3070,10 @@ app.post("/api/shops", async (req, res) => {
           discountPercent: numPercent,
           discountAmount: numAmount,
           maxUses: numMaxUses,
-          isActive: true
+          minOrderAmount: numMinOrder,
+          expiresAt: expDate && !isNaN(expDate.getTime()) ? expDate : null,
+          description: cleanDesc,
+          isActive: isActive !== false
         }
       });
 
@@ -3056,6 +3082,116 @@ app.post("/api/shops", async (req, res) => {
     } catch (error) {
       console.error("Ошибка при создании промокода:", error);
       res.status(500).json({ error: "Не удалось создать промокод." });
+    }
+  });
+
+  // API Route: Обновить промокод
+  app.put("/api/promocodes/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        code,
+        discountPercent,
+        discountAmount,
+        maxUses,
+        usageLimit,
+        minOrderAmount,
+        expiresAt,
+        description,
+        isActive
+      } = req.body;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const promo = await db.promocode.findUnique({ where: { id } });
+      if (!promo) return res.status(404).json({ error: "Промокод не найден." });
+
+      const hasPermission = await canManageShop(db, promo.shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на редактирование этого промокода." });
+      }
+
+      const cleanCode = (code || promo.code).trim().toUpperCase();
+      if (!cleanCode || cleanCode.length < 2) {
+        return res.status(400).json({ error: "Промокод должен содержать минимум 2 символа." });
+      }
+
+      const numPercent = Math.max(0, Math.min(100, Number(discountPercent) || 0));
+      const numAmount = Math.max(0, Math.min(100000, Number(discountAmount) || 0));
+      const effectiveMaxUses = Number(maxUses) || Number(usageLimit);
+      const numMaxUses = effectiveMaxUses && effectiveMaxUses > 0 ? Math.min(100000, effectiveMaxUses) : 100;
+      const numMinOrder = minOrderAmount !== undefined ? Math.max(0, Number(minOrderAmount) || 0) : promo.minOrderAmount;
+      const expDate = expiresAt ? new Date(expiresAt) : null;
+      const cleanDesc = description !== undefined ? (description ? String(description).trim().slice(0, 200) : null) : promo.description;
+
+      if (numPercent === 0 && numAmount === 0) {
+        return res.status(400).json({ error: "Укажите либо процент скидки (% > 0), либо фиксированную сумму в рублях (₽ > 0)." });
+      }
+
+      // Check duplicate code in same shop
+      if (cleanCode !== promo.code) {
+        const existing = await db.promocode.findFirst({
+          where: { shopId: promo.shopId, code: cleanCode, NOT: { id } }
+        });
+        if (existing) {
+          return res.status(400).json({ error: "Промокод с таким названием уже существует в этом заведении." });
+        }
+      }
+
+      const updated = await db.promocode.update({
+        where: { id },
+        data: {
+          code: cleanCode,
+          discountPercent: numPercent,
+          discountAmount: numAmount,
+          maxUses: numMaxUses,
+          minOrderAmount: numMinOrder,
+          expiresAt: expDate && !isNaN(expDate.getTime()) ? expDate : null,
+          description: cleanDesc,
+          isActive: typeof isActive === "boolean" ? isActive : promo.isActive
+        }
+      });
+
+      broadcastEvent({ type: "PROMOCODE_UPDATED", shopId: promo.shopId, payload: updated });
+      res.json(updated);
+    } catch (error) {
+      console.error("Ошибка при обновлении промокода:", error);
+      res.status(500).json({ error: "Не удалось обновить промокод." });
+    }
+  });
+
+  // API Route: Переключить активность промокода
+  app.patch("/api/promocodes/:id/toggle", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isActive } = req.body;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const promo = await db.promocode.findUnique({ where: { id } });
+      if (!promo) return res.status(404).json({ error: "Промокод не найден." });
+
+      const hasPermission = await canManageShop(db, promo.shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на редактирование промокодов." });
+      }
+
+      const updated = await db.promocode.update({
+        where: { id },
+        data: { isActive: typeof isActive === "boolean" ? isActive : !promo.isActive }
+      });
+
+      broadcastEvent({ type: "PROMOCODE_UPDATED", shopId: promo.shopId, payload: updated });
+      res.json(updated);
+    } catch (error) {
+      console.error("Ошибка при переключении статуса промокода:", error);
+      res.status(500).json({ error: "Не удалось обновить статус промокода." });
     }
   });
 
@@ -3086,10 +3222,10 @@ app.post("/api/shops", async (req, res) => {
     }
   });
 
-  // API Route: Валидация промокода для покупателя
-  app.post("/api/promocodes/validate", async (req, res) => {
+  // API Route: Валидация промокода для покупателя (поддержка обоих путей)
+  const validatePromoHandler = async (req: any, res: any) => {
     try {
-      const { shopId, code } = req.body;
+      const { shopId, code, orderTotal, cartTotal } = req.body;
       const db = getPrismaClient() as any;
       if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
 
@@ -3101,28 +3237,49 @@ app.post("/api/shops", async (req, res) => {
       }
 
       const promo = await db.promocode.findFirst({
-        where: { shopId, code: cleanCode, isActive: true }
+        where: { shopId, code: cleanCode }
       });
 
       if (!promo) {
-        return res.status(404).json({ error: "Промокод не найден или недействителен." });
+        return res.status(404).json({ error: "Промокод не найден." });
+      }
+
+      if (!promo.isActive) {
+        return res.status(400).json({ error: "Этот промокод временно деактивирован." });
       }
 
       if (promo.usedCount >= promo.maxUses) {
-        return res.status(400).json({ error: "Превышен лимит использования этого промокода." });
+        return res.status(400).json({ error: "Превышен лимит использований этого промокода." });
+      }
+
+      if (promo.expiresAt && new Date(promo.expiresAt) < new Date()) {
+        return res.status(400).json({ error: "Срок действия этого промокода истёк." });
+      }
+
+      const totalToCheck = Number(orderTotal) || Number(cartTotal) || 0;
+      if (promo.minOrderAmount && promo.minOrderAmount > 0 && totalToCheck > 0 && totalToCheck < promo.minOrderAmount) {
+        return res.status(400).json({
+          error: `Минимальная сумма заказа для этого промокода: ${promo.minOrderAmount} ₽ (в корзине: ${totalToCheck} ₽)`
+        });
       }
 
       res.json({
         valid: true,
+        promocode: promo,
         code: promo.code,
         discountPercent: promo.discountPercent,
-        discountAmount: promo.discountAmount
+        discountAmount: promo.discountAmount,
+        minOrderAmount: promo.minOrderAmount,
+        description: promo.description
       });
     } catch (error) {
       console.error("Ошибка при проверке промокода:", error);
       res.status(500).json({ error: "Не удалось проверить промокод." });
     }
-  });
+  };
+
+  app.post("/api/promocodes/validate", validatePromoHandler);
+  app.post("/api/public/promocodes/validate", validatePromoHandler);
 
   // ==================== REVIEWS API ====================
   // API Route: Получить отзывы заведения
@@ -3396,7 +3553,7 @@ app.post("/api/shops", async (req, res) => {
 
       const cleanSubtitle = subtitle ? String(subtitle).trim().slice(0, 150) : null;
       const cleanBadge = badge ? String(badge).trim().slice(0, 25) : null;
-      const cleanImageUrl = imageUrl ? String(imageUrl).trim().slice(0, 1000) : null;
+      const cleanImageUrl = imageUrl ? String(imageUrl).trim() : null;
 
       const banner = await db.banner.create({
         data: {
@@ -3713,7 +3870,7 @@ app.post("/api/shops", async (req, res) => {
       }
 
       const cleanButtonText = buttonText ? String(buttonText).trim().slice(0, 40) : null;
-      const cleanImageUrl = imageUrl ? String(imageUrl).trim().slice(0, 1000) : null;
+      const cleanImageUrl = imageUrl ? String(imageUrl).trim() : null;
 
       // Посчитаем количество получателей по гибким фильтрам
       let count = 0;
@@ -5327,6 +5484,11 @@ Sitemap: ${req.protocol}://${req.get("host")}/sitemap.xml
     } catch (e) {
       res.status(500).send("Error generating sitemap");
     }
+  });
+
+  // 404 handler for unmatched /api/* routes (prevents serving index.html for unknown APIs)
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl || req.url}` });
   });
 
 // Vite middleware / сервер для статической локальной работы (вне Vercel)

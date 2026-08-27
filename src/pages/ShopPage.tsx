@@ -7,7 +7,7 @@ import { ShopPageSkeleton } from "../components/Skeleton";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
 import { useTheme } from "../context/ThemeContext";
 import { jsPDF } from "jspdf";
-import { validateCustomerName, validateCisPhone } from "../lib/validation";
+import { validateCustomerName, validateCisPhone, validateDeliveryAddress } from "../lib/validation";
 
 import { Service, Shop, Banner, Review, Order, parseDeliveryOptions, getServiceBadges } from "../types";
 import { updatePageSeo } from "../lib/seo";
@@ -147,6 +147,7 @@ export default function ShopPage() {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
+    city: "",
     deliveryAddress: "",
     tableNumber: "",
     preferredTime: "",
@@ -249,9 +250,9 @@ export default function ShopPage() {
         const savedPhone = localStorage.getItem(`customer_phone_${data.id}`);
         if (savedPhone) {
           fetch(`/api/public/shops/${data.id}/orders/my?phone=${encodeURIComponent(savedPhone)}`)
-            .then(r => r.ok ? r.json() : [])
+            .then(r => (r.ok && r.headers.get("content-type")?.includes("application/json")) ? r.json() : [])
             .then((orders: Order[]) => {
-              if (isMounted && orders.length > 0) {
+              if (isMounted && Array.isArray(orders) && orders.length > 0) {
                 const pending = orders.find(o => o.status === "PENDING" || o.status === "CONFIRMED");
                 if (pending) setActiveOrder(pending);
               }
@@ -303,8 +304,9 @@ export default function ShopPage() {
     if (!queryPhone) return;
 
     fetch(`/api/public/shops/${shop.id}/orders/my?phone=${encodeURIComponent(queryPhone)}`)
-      .then(res => res.ok ? res.json() : [])
+      .then(res => (res.ok && res.headers.get("content-type")?.includes("application/json")) ? res.json() : [])
       .then((orders: Order[]) => {
+        if (!Array.isArray(orders)) return;
         setMyOrders(orders);
         if (orders.length > 0) {
           const active = orders.find(o => o.status === "PENDING" || o.status === "CONFIRMED");
@@ -407,10 +409,14 @@ export default function ShopPage() {
   // Promocode discount
   let discountValue = 0;
   if (appliedPromo) {
-    if (appliedPromo.discountType === "PERCENT") {
-      discountValue = Math.round((totalPrice * appliedPromo.discountValue) / 100);
-    } else if (appliedPromo.discountType === "FIXED") {
-      discountValue = Math.min(totalPrice, appliedPromo.discountValue);
+    if (appliedPromo.discountPercent && Number(appliedPromo.discountPercent) > 0) {
+      discountValue = Math.round((totalPrice * Number(appliedPromo.discountPercent)) / 100);
+    } else if (appliedPromo.discountAmount && Number(appliedPromo.discountAmount) > 0) {
+      discountValue = Math.min(totalPrice, Number(appliedPromo.discountAmount));
+    } else if (appliedPromo.discountType === "PERCENT" && appliedPromo.discountValue) {
+      discountValue = Math.round((totalPrice * Number(appliedPromo.discountValue)) / 100);
+    } else if (appliedPromo.discountType === "FIXED" && appliedPromo.discountValue) {
+      discountValue = Math.min(totalPrice, Number(appliedPromo.discountValue));
     }
   }
 
@@ -523,7 +529,12 @@ export default function ShopPage() {
       const res = await fetch(`/api/public/promocodes/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shopId: shop.id, code: promocodeInput.trim() }),
+        body: JSON.stringify({
+          shopId: shop.id,
+          code: promocodeInput.trim(),
+          orderTotal: totalPrice,
+          cartTotal: totalPrice
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -558,13 +569,22 @@ export default function ShopPage() {
       errors.phone = phoneVal.error || "Некорректный номер телефона";
     }
 
+    let finalAddress = formData.deliveryAddress.trim();
+
     if (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping") {
-      if (!formData.deliveryAddress.trim()) {
-        errors.deliveryAddress = fulfillmentMethod === "shipping"
-          ? "Укажите город, индекс и адрес или пункт выдачи СДЭК / Почты"
-          : "Укажите адрес доставки";
-      } else if (formData.deliveryAddress.trim().length < 5) {
-        errors.deliveryAddress = "Адрес доставки слишком короткий";
+      if (!formData.city || !formData.city.trim()) {
+        errors.city = "Выберите город доставки";
+      }
+
+      const addressVal = validateDeliveryAddress(formData.deliveryAddress, {
+        city: formData.city,
+        fulfillmentMethod: fulfillmentMethod as "courier" | "shipping",
+      });
+
+      if (!addressVal.isValid) {
+        errors.deliveryAddress = addressVal.error || "Укажите корректный адрес доставки";
+      } else {
+        finalAddress = addressVal.address;
       }
 
       if (fulfillmentMethod === "courier" && deliveryMinOrderVal > 0 && totalPrice < deliveryMinOrderVal) {
@@ -594,10 +614,10 @@ export default function ShopPage() {
 
       const payload = {
         shopId: shop.id,
-        customerName: formData.name.trim(),
+        customerName: nameVal.formatted || formData.name.trim(),
         customerPhone: phoneVal.formatted || formData.phone.trim(),
-        deliveryAddress: (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping") ? formData.deliveryAddress.trim() : undefined,
-        tableNumber: formData.tableNumber.trim() || undefined,
+        deliveryAddress: (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping") ? finalAddress : undefined,
+        tableNumber: fulfillmentMethod === "pickup" ? (formData.tableNumber.trim() || undefined) : undefined,
         preferredTime: formData.preferredTime.trim() || undefined,
         note: formData.note.trim() || undefined,
         fulfillmentMethod,
@@ -731,8 +751,8 @@ export default function ShopPage() {
     const queryPhone = savedPhone || formData.phone || "";
 
     fetch(`/api/public/shops/${shop?.id}/orders/my?phone=${encodeURIComponent(queryPhone)}`)
-      .then(res => res.ok ? res.json() : [])
-      .then(data => setMyOrders(data))
+      .then(res => (res.ok && res.headers.get("content-type")?.includes("application/json")) ? res.json() : [])
+      .then(data => setMyOrders(Array.isArray(data) ? data : []))
       .catch(() => setMyOrders([]))
       .finally(() => setMyOrdersLoading(false));
   };

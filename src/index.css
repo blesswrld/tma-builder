@@ -16,106 +16,108 @@
   --color-app-modal: var(--modal-bg);
   --color-app-modal-header: var(--modal-header-bg);
   --color-app-accent: var(--accent);
+  --color-app-accent-fg: var(--accent-fg);
   --color-app-primary: var(--text-primary);
+  --color-app-primary-fg: var(--accent-fg);
   --color-app-secondary: var(--text-secondary);
   --color-app-muted: var(--text-muted);
 }
 
 @layer base {
   :root, html.dark {
-    --background: #09090b;
-    --surface: #121215;
-    --card: #18181c;
-    --card-hover: #222227;
-    --hover: #222227;
-    --input-bg: #18181c;
+    --background: #050507;
+    --surface: #0a0a0d;
+    --card: #0f0f13;
+    --card-hover: #15151a;
+    --hover: #15151a;
+    --input-bg: #09090c;
     --input-border: rgba(255, 255, 255, 0.08);
-    --input-focus-border: #52525b;
+    --input-focus-border: #4a4a55;
     
-    --border: rgba(255, 255, 255, 0.06);
+    --border: rgba(255, 255, 255, 0.07);
     --border-subtle: rgba(255, 255, 255, 0.04);
     
-    --text-primary: #ffffff;
-    --text-secondary: #a1a1aa;
-    --text-muted: #71717a;
+    --text-primary: #dedee4;
+    --text-secondary: #888894;
+    --text-muted: #5e5e6a;
     
-    --accent: #ffffff;
-    --accent-fg: #000000;
-    --accent-hover: #e4e4e7;
+    --accent: #dcdce2;
+    --accent-fg: #050507;
+    --accent-hover: #c8c8d0;
     
-    --btn-secondary-bg: #18181c;
-    --btn-secondary-fg: #f4f4f5;
-    --btn-secondary-hover: #27272a;
+    --btn-secondary-bg: #0f0f13;
+    --btn-secondary-fg: #dedee4;
+    --btn-secondary-hover: #15151a;
 
-    --badge-bg: #27272a;
-    --badge-fg: #e4e4e7;
+    --badge-bg: #15151a;
+    --badge-fg: #c8c8d0;
 
-    --modal-bg: #121215;
-    --modal-header-bg: #18181c;
-    --modal-overlay: rgba(0, 0, 0, 0.8);
+    --modal-bg: #09090c;
+    --modal-header-bg: #0f0f13;
+    --modal-overlay: rgba(0, 0, 0, 0.85);
     
-    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --glow: rgba(255, 255, 255, 0.12);
+    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --glow: rgba(255, 255, 255, 0.06);
 
-    --chart-grid: #27272a;
-    --chart-line: #ffffff;
-    --chart-area-start: rgba(255, 255, 255, 0.25);
-    --chart-area-end: rgba(255, 255, 255, 0);
-    --chart-tooltip-bg: #18181c;
-    --chart-tooltip-text: #ffffff;
-    --chart-tooltip-border: #27272a;
+    --chart-grid: #15151a;
+    --chart-line: #dedee4;
+    --chart-area-start: rgba(222, 222, 228, 0.15);
+    --chart-area-end: rgba(222, 222, 228, 0);
+    --chart-tooltip-bg: #0f0f13;
+    --chart-tooltip-text: #dedee4;
+    --chart-tooltip-border: #15151a;
 
-    --scrollbar-thumb: #27272a;
-    --scrollbar-thumb-hover: #3f3f46;
+    --scrollbar-thumb: #1a1a22;
+    --scrollbar-thumb-hover: #282834;
   }
 
   html.light {
-    --background: #f4f4f6;
-    --surface: #ffffff;
-    --card: #ffffff;
-    --card-hover: #f1f3f5;
-    --hover: #f1f3f5;
-    --input-bg: #ffffff;
-    --input-border: rgba(0, 0, 0, 0.08);
-    --input-focus-border: #71717a;
+    --background: #dedee3;
+    --surface: #e7e7ec;
+    --card: #f0f0f4;
+    --card-hover: #e4e4e9;
+    --hover: #e4e4e9;
+    --input-bg: #e6e6eb;
+    --input-border: rgba(0, 0, 0, 0.11);
+    --input-focus-border: #4a4a55;
     
-    --border: rgba(0, 0, 0, 0.06);
-    --border-subtle: rgba(0, 0, 0, 0.04);
+    --border: rgba(0, 0, 0, 0.08);
+    --border-subtle: rgba(0, 0, 0, 0.05);
     
-    --text-primary: #09090b;
-    --text-secondary: #27272a;
-    --text-muted: #52525b;
+    --text-primary: #121215;
+    --text-secondary: #4a4a55;
+    --text-muted: #6a6a76;
     
-    --accent: #09090b;
-    --accent-fg: #ffffff;
-    --accent-hover: #27272a;
+    --accent: #121215;
+    --accent-fg: #f0f0f4;
+    --accent-hover: #232328;
     
-    --btn-secondary-bg: #e4e4e7;
-    --btn-secondary-fg: #09090b;
-    --btn-secondary-hover: #d4d4d8;
+    --btn-secondary-bg: #d6d6dc;
+    --btn-secondary-fg: #121215;
+    --btn-secondary-hover: #c8c8ce;
 
-    --badge-bg: #e4e4e7;
-    --badge-fg: #09090b;
+    --badge-bg: #d6d6dc;
+    --badge-fg: #121215;
 
-    --modal-bg: #ffffff;
-    --modal-header-bg: #f8f9fa;
+    --modal-bg: #ededf2;
+    --modal-header-bg: #e4e4e9;
     --modal-overlay: rgba(0, 0, 0, 0.5);
     
     --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.12);
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
-    --glow: rgba(0, 0, 0, 0.08);
+    --glow: rgba(0, 0, 0, 0.06);
 
-    --chart-grid: #e4e4e7;
-    --chart-line: #09090b;
-    --chart-area-start: rgba(9, 9, 11, 0.2);
-    --chart-area-end: rgba(9, 9, 11, 0);
-    --chart-tooltip-bg: #ffffff;
-    --chart-tooltip-text: #09090b;
-    --chart-tooltip-border: #e4e4e7;
+    --chart-grid: #d6d6dc;
+    --chart-line: #121215;
+    --chart-area-start: rgba(18, 18, 21, 0.15);
+    --chart-area-end: rgba(18, 18, 21, 0);
+    --chart-tooltip-bg: #f0f0f4;
+    --chart-tooltip-text: #121215;
+    --chart-tooltip-border: #d6d6dc;
 
-    --scrollbar-thumb: #d4d4d8;
-    --scrollbar-thumb-hover: #a1a1aa;
+    --scrollbar-thumb: #c4c4cb;
+    --scrollbar-thumb-hover: #9696a0;
   }
 
   html {

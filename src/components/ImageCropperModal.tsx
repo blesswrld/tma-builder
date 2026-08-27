@@ -245,43 +245,53 @@ export default function ImageCropperModal({
 
   const handleSaveCrop = () => {
     if (!imageRef.current) return;
-    const img = imageRef.current;
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    try {
+      const img = imageRef.current;
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        onCropComplete(imageUrl);
+        onClose();
+        return;
+      }
 
-    let canvasW = 1000;
-    let canvasH = Math.round(1000 / targetRatio);
+      let canvasW = 1000;
+      let canvasH = Math.round(1000 / targetRatio);
 
-    if (targetRatio < 1) {
-      canvasH = 1000;
-      canvasW = Math.round(1000 * targetRatio);
+      if (targetRatio < 1) {
+        canvasH = 1000;
+        canvasW = Math.round(1000 * targetRatio);
+      }
+
+      canvas.width = canvasW;
+      canvas.height = canvasH;
+
+      const scale = canvasW / frameW;
+
+      ctx.save();
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvasW, canvasH);
+
+      ctx.translate(canvasW / 2, canvasH / 2);
+      ctx.translate(position.x * scale, position.y * scale);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.scale(flipX ? -1 : 1, 1);
+
+      const drawW = imgUnrotatedW * zoom * scale;
+      const drawH = imgUnrotatedH * zoom * scale;
+
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+
+      ctx.restore();
+
+      const resultDataUrl = canvas.toDataURL("image/jpeg", 0.88);
+      onCropComplete(resultDataUrl);
+      onClose();
+    } catch (err) {
+      console.warn("Canvas crop fallback (CORS or memory):", err);
+      onCropComplete(imageUrl);
+      onClose();
     }
-
-    canvas.width = canvasW;
-    canvas.height = canvasH;
-
-    const scale = canvasW / frameW;
-
-    ctx.save();
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvasW, canvasH);
-
-    ctx.translate(canvasW / 2, canvasH / 2);
-    ctx.translate(position.x * scale, position.y * scale);
-    ctx.rotate((rotation * Math.PI) / 180);
-    ctx.scale(flipX ? -1 : 1, 1);
-
-    const drawW = imgUnrotatedW * zoom * scale;
-    const drawH = imgUnrotatedH * zoom * scale;
-
-    ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
-
-    ctx.restore();
-
-    const resultDataUrl = canvas.toDataURL("image/jpeg", 0.9);
-    onCropComplete(resultDataUrl);
-    onClose();
   };
 
   if (!isOpen) return null;

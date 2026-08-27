@@ -146,16 +146,19 @@ model Order {
 }
 
 model Promocode {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   shopId          String
-  shop            Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shop            Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
   code            String
-  discountPercent Int      @default(0)
-  discountAmount  Int      @default(0)
-  isActive        Boolean  @default(true)
-  maxUses         Int      @default(100)
-  usedCount       Int      @default(0)
-  createdAt       DateTime @default(now())
+  discountPercent Int       @default(0)
+  discountAmount  Int       @default(0)
+  minOrderAmount  Int?      @default(0)
+  expiresAt       DateTime?
+  description     String?
+  isActive        Boolean   @default(true)
+  maxUses         Int       @default(100)
+  usedCount       Int       @default(0)
+  createdAt       DateTime  @default(now())
 }
 
 model Review {
@@ -173,17 +176,19 @@ model Review {
 }
 
 model Report {
-  id          String   @id @default(cuid())
-  type        String   @default("BUG")
-  title       String?
-  description String
-  attachments String?
-  contact     String?
-  userId      String?
-  shopId      String?
-  metadata    String?
-  status      String   @default("NEW")
-  createdAt   DateTime @default(now())
+  id             String   @id @default(cuid())
+  type           String   @default("BUG")
+  title          String?
+  description    String
+  attachments    String?
+  contact        String?
+  userId         String?
+  shopId         String?
+  metadata       String?
+  status         String   @default("NEW")
+  developerEmail String?
+  developerNotes String?
+  createdAt      DateTime @default(now())
 }
 
 model ShopMember {

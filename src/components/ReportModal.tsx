@@ -164,8 +164,8 @@ export default function ReportModal({
     setError(null);
 
     const trimmedDesc = description.trim();
-    if (!trimmedDesc) {
-      setError("Пожалуйста, подробно опишите суть вашего обращения.");
+    if (!trimmedDesc || trimmedDesc.length < 10) {
+      setError("Пожалуйста, подробно опишите проблему или предложение (не менее 10 символов).");
       return;
     }
 
@@ -325,7 +325,7 @@ export default function ReportModal({
             </div>
           ) : (
             /* Report Form */
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
               {error && (
                 <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-start gap-2 animate-fade-in font-mono">
                   <AlertTriangle size={14} className="shrink-0 mt-0.5" />

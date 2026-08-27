@@ -321,7 +321,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
       )}
 
       {/* Form Container */}
-      <form onSubmit={handleSaveSettings} className="bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 space-y-5 shadow-sm">
+      <form onSubmit={handleSaveSettings} noValidate className="bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 space-y-5 shadow-sm">
         {/* SUBTAB: GENERAL */}
         {activeSubTab === "general" && (
           <div className="space-y-5 font-sans text-xs">

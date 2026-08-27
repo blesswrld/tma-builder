@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Upload, Link as LinkIcon, Image as ImageIcon, X, Check, Sparkles, Crop } from "lucide-react";
+import { Upload, Link as LinkIcon, Image as ImageIcon, X, Sparkles, Crop } from "lucide-react";
 import ImageCropperModal from "./ImageCropperModal";
 
 interface ImageUploaderProps {
@@ -37,6 +37,48 @@ const DEFAULT_BANNER_PRESETS = [
   { label: "Стиль & Мода ✂️", url: "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=1000" }
 ];
 
+// Helper to scale & compress client side
+async function compressImageFile(file: File, maxDimension = 1200, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Не удалось прочитать файл"));
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        try {
+          let { width, height } = img;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(dataUrl);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL("image/jpeg", quality);
+          resolve(compressed);
+        } catch {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function ImageUploader({
   value = "",
   onChange,
@@ -48,8 +90,10 @@ export default function ImageUploader({
 }: ImageUploaderProps) {
   const [tab, setTab] = useState<"file" | "link" | "presets">("file");
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
   const [cropperImage, setCropperImage] = useState("");
+  const [uploaderError, setUploaderError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activePresets = presets || (type === "avatar" ? DEFAULT_AVATAR_PRESETS : type === "banner" ? DEFAULT_BANNER_PRESETS : DEFAULT_PHOTO_PRESETS);
@@ -59,36 +103,52 @@ export default function ImageUploader({
   const MAX_FILE_SIZE_MB = 15;
   const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const processFile = async (file: File) => {
+    setUploaderError(null);
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      alert("Пожалуйста, выберите файл изображения.");
+      setUploaderError("Пожалуйста, выберите файл изображения (PNG, JPG, WEBP, GIF)");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      alert(`Файл слишком большой (${(file.size / (1024 * 1024)).toFixed(1)} МБ). Максимальный размер фото — ${MAX_FILE_SIZE_MB} МБ.`);
+      setUploaderError(`Файл слишком большой (${(file.size / (1024 * 1024)).toFixed(1)} МБ). Максимум — ${MAX_FILE_SIZE_MB} МБ`);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     setIsCompressing(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const rawDataUrl = event.target?.result as string;
+    try {
+      const maxDim = type === "avatar" ? 800 : type === "banner" ? 1200 : 1000;
+      const optimizedDataUrl = await compressImageFile(file, maxDim, 0.85);
       setIsCompressing(false);
-      // Immediately open cropper modal for uploaded image
-      setCropperImage(rawDataUrl);
+      onChange(optimizedDataUrl);
+      setCropperImage(optimizedDataUrl);
       setCropperOpen(true);
-    };
-    reader.onerror = () => {
+    } catch (err: any) {
       setIsCompressing(false);
-      alert("Не удалось прочитать изображение.");
-    };
-    reader.readAsDataURL(file);
+      setUploaderError(err?.message || "Ошибка при обработке изображения.");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
   };
 
   return (
@@ -105,6 +165,19 @@ export default function ImageUploader({
               <X size={12} /> Очистить
             </button>
           )}
+        </div>
+      )}
+
+      {uploaderError && (
+        <div className="p-2 bg-rose-500/10 border border-rose-500/20 rounded-xl text-[11px] text-rose-400 font-mono flex items-center justify-between gap-2">
+          <span>{uploaderError}</span>
+          <button
+            type="button"
+            onClick={() => setUploaderError(null)}
+            className="text-rose-400 hover:text-rose-300 p-0.5"
+          >
+            <X size={12} />
+          </button>
         </div>
       )}
 
@@ -143,7 +216,17 @@ export default function ImageUploader({
       {tab === "file" && (
         <div
           onClick={() => fileInputRef.current?.click()}
-          className="border border-dashed border-app-border hover:border-app-accent/50 bg-app-card/60 hover:bg-app-card rounded-xl p-3 text-center cursor-pointer transition-all space-y-1 group"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDraggingOver(true);
+          }}
+          onDragLeave={() => setIsDraggingOver(false)}
+          onDrop={handleDrop}
+          className={`border border-dashed rounded-xl p-3 text-center cursor-pointer transition-all space-y-1 group ${
+            isDraggingOver
+              ? "border-app-accent bg-app-accent/10"
+              : "border-app-border hover:border-app-accent/50 bg-app-card/60 hover:bg-app-card"
+          }`}
         >
           <input
             type="file"
@@ -156,9 +239,9 @@ export default function ImageUploader({
             {isCompressing ? <Sparkles size={14} className="animate-spin text-app-accent" /> : <Upload size={14} />}
           </div>
           <p className="text-[11px] text-app-primary font-medium">
-            {isCompressing ? "Сжатие и обработка..." : "Нажмите или перетащите фото сюда"}
+            {isCompressing ? "Оптимизация и обработка..." : "Нажмите или перетащите фото сюда"}
           </p>
-          <p className="text-[9px] text-app-muted font-mono">PNG, JPG, WEBP (до 15 МБ, с кадрированием)</p>
+          <p className="text-[9px] text-app-muted font-mono">PNG, JPG, WEBP, GIF (до 15 МБ, с кадрированием)</p>
         </div>
       )}
 
@@ -176,7 +259,15 @@ export default function ImageUploader({
               }`}
             >
               <div className="w-5 h-5 rounded-md overflow-hidden shrink-0 bg-app-surface border border-app-border/60">
-                <img src={pr.url} alt="" className="w-full h-full object-cover" />
+                <img
+                  src={pr.url}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
               </div>
               <span className="truncate">{pr.label}</span>
             </button>
@@ -203,6 +294,7 @@ export default function ImageUploader({
                 src={value}
                 alt="Логотип"
                 className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300";
                 }}
@@ -214,6 +306,7 @@ export default function ImageUploader({
                 src={value}
                 alt="Превью"
                 className="max-h-full max-w-full object-cover rounded-md"
+                referrerPolicy="no-referrer"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=500";
                 }}

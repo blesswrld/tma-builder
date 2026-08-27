@@ -193,7 +193,17 @@ export const AdminServersTab: React.FC<AdminServersTabProps> = ({
       });
 
       if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          setIsLoading(false);
+          return;
+        }
         throw new Error(`HTTP error ${res.status}`);
+      }
+
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        setIsLoading(false);
+        return;
       }
 
       const json: ServerStatusData = await res.json();
@@ -420,9 +430,9 @@ export const AdminServersTab: React.FC<AdminServersTabProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.96 }}
                   transition={{ duration: 0.15, ease: "easeOut" }}
-                  className="absolute right-0 top-full mt-1.5 w-36 bg-zinc-900/95 dark:bg-zinc-900/95 backdrop-blur-md border border-app-border rounded-xl shadow-xl py-1.5 z-50 overflow-hidden"
+                  className="absolute right-0 top-full mt-1.5 w-36 bg-app-modal backdrop-blur-md border border-app-border rounded-xl shadow-2xl py-1.5 z-50 overflow-hidden"
                 >
-                  <div className="px-2.5 py-1 text-[10px] font-mono text-zinc-500 uppercase tracking-wider border-b border-app-border/40">
+                  <div className="px-2.5 py-1 text-[10px] font-mono text-app-muted uppercase tracking-wider border-b border-app-border/40">
                     Интервал
                   </div>
                   {INTERVAL_OPTIONS.map(opt => {
@@ -438,7 +448,7 @@ export const AdminServersTab: React.FC<AdminServersTabProps> = ({
                         className={`w-full px-3 py-1.5 text-left text-xs font-mono flex items-center justify-between transition-colors cursor-pointer ${
                           isSelected
                             ? "bg-app-accent/15 text-app-accent font-bold"
-                            : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                            : "text-app-secondary hover:bg-app-surface hover:text-app-primary"
                         }`}
                       >
                         <span>{opt.label}</span>
@@ -891,29 +901,29 @@ export const AdminServersTab: React.FC<AdminServersTabProps> = ({
         </div>
 
         {/* Live Terminal Output Box */}
-        <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 font-mono text-xs text-zinc-300 min-h-[160px] max-h-[260px] overflow-y-auto custom-scrollbar space-y-1.5 shadow-inner">
-          <div className="text-zinc-500 text-[11px] pb-1 border-b border-zinc-900 flex items-center justify-between">
+        <div className="bg-app-bg border border-app-border rounded-xl p-3 font-mono text-xs text-app-secondary min-h-[160px] max-h-[260px] overflow-y-auto custom-scrollbar space-y-1.5 shadow-inner">
+          <div className="text-app-muted text-[11px] pb-1 border-b border-app-border flex items-center justify-between">
             <span>[TMA BUILDER SERVER TELEMETRY DAEMON v2.6.0]</span>
             <span>{lastUpdated ? lastUpdated.toLocaleTimeString("ru-RU") : "CONNECTING..."}</span>
           </div>
 
           {logs.length === 0 ? (
-            <div className="text-zinc-600 text-xs py-4 text-center">
+            <div className="text-app-muted text-xs py-4 text-center">
               Нажмите кнопку выше для выполнения целевого диагностического теста (SQL, Telegram, SMTP, ЮKassa)...
             </div>
           ) : (
             logs.map(log => (
               <div key={log.id} className="flex items-start gap-2 py-0.5 text-xs animate-fade-in">
-                <span className="text-zinc-500 text-[10px] shrink-0 font-mono mt-0.5">{log.time}</span>
+                <span className="text-app-muted text-[10px] shrink-0 font-mono mt-0.5">{log.time}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold shrink-0 ${
-                  log.success ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                  log.success ? "bg-emerald-500/15 text-emerald-500" : "bg-rose-500/15 text-rose-500"
                 }`}>
                   {log.success ? "OK" : "FAIL"}
                 </span>
-                <span className="text-zinc-400 shrink-0 font-semibold">{log.service}:</span>
-                <span className="text-zinc-200 flex-1">{log.message}</span>
+                <span className="text-app-primary font-semibold shrink-0">{log.service}:</span>
+                <span className="text-app-secondary flex-1">{log.message}</span>
                 {log.latencyMs > 0 && (
-                  <span className="text-zinc-500 text-[10px] shrink-0 font-mono">
+                  <span className="text-app-muted text-[10px] shrink-0 font-mono">
                     ({log.latencyMs}ms)
                   </span>
                 )}
