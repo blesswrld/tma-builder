@@ -25,99 +25,99 @@
 
 @layer base {
   :root, html.dark {
-    --background: #050507;
-    --surface: #0a0a0d;
-    --card: #0f0f13;
-    --card-hover: #15151a;
-    --hover: #15151a;
-    --input-bg: #09090c;
+    --background: #08080b;
+    --surface: #0e0e12;
+    --card: #141419;
+    --card-hover: #1a1a21;
+    --hover: #1a1a21;
+    --input-bg: #0e0e12;
     --input-border: rgba(255, 255, 255, 0.08);
-    --input-focus-border: #4a4a55;
+    --input-focus-border: #525260;
     
-    --border: rgba(255, 255, 255, 0.07);
-    --border-subtle: rgba(255, 255, 255, 0.04);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-subtle: rgba(255, 255, 255, 0.045);
     
-    --text-primary: #dedee4;
-    --text-secondary: #888894;
-    --text-muted: #5e5e6a;
+    --text-primary: #e6e6ec;
+    --text-secondary: #92929e;
+    --text-muted: #686876;
     
-    --accent: #dcdce2;
-    --accent-fg: #050507;
-    --accent-hover: #c8c8d0;
+    --accent: #e4e4ea;
+    --accent-fg: #08080b;
+    --accent-hover: #d2d2da;
     
-    --btn-secondary-bg: #0f0f13;
-    --btn-secondary-fg: #dedee4;
-    --btn-secondary-hover: #15151a;
+    --btn-secondary-bg: #141419;
+    --btn-secondary-fg: #e6e6ec;
+    --btn-secondary-hover: #1a1a21;
 
-    --badge-bg: #15151a;
-    --badge-fg: #c8c8d0;
+    --badge-bg: #1a1a21;
+    --badge-fg: #d2d2da;
 
-    --modal-bg: #09090c;
-    --modal-header-bg: #0f0f13;
-    --modal-overlay: rgba(0, 0, 0, 0.85);
+    --modal-bg: #0e0e12;
+    --modal-header-bg: #141419;
+    --modal-overlay: rgba(0, 0, 0, 0.80);
     
     --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-    --glow: rgba(255, 255, 255, 0.06);
+    --glow: rgba(255, 255, 255, 0.07);
 
-    --chart-grid: #15151a;
-    --chart-line: #dedee4;
-    --chart-area-start: rgba(222, 222, 228, 0.15);
-    --chart-area-end: rgba(222, 222, 228, 0);
-    --chart-tooltip-bg: #0f0f13;
-    --chart-tooltip-text: #dedee4;
-    --chart-tooltip-border: #15151a;
+    --chart-grid: #1a1a21;
+    --chart-line: #e6e6ec;
+    --chart-area-start: rgba(230, 230, 236, 0.15);
+    --chart-area-end: rgba(230, 230, 236, 0);
+    --chart-tooltip-bg: #141419;
+    --chart-tooltip-text: #e6e6ec;
+    --chart-tooltip-border: #1a1a21;
 
-    --scrollbar-thumb: #1a1a22;
-    --scrollbar-thumb-hover: #282834;
+    --scrollbar-thumb: #1e1e27;
+    --scrollbar-thumb-hover: #2e2e3a;
   }
 
   html.light {
-    --background: #dedee3;
-    --surface: #e7e7ec;
-    --card: #f0f0f4;
-    --card-hover: #e4e4e9;
-    --hover: #e4e4e9;
-    --input-bg: #e6e6eb;
-    --input-border: rgba(0, 0, 0, 0.11);
+    --background: #e6e6eb;
+    --surface: #efeff3;
+    --card: #f7f7fa;
+    --card-hover: #ececf1;
+    --hover: #ececf1;
+    --input-bg: #f2f2f6;
+    --input-border: rgba(0, 0, 0, 0.10);
     --input-focus-border: #4a4a55;
     
-    --border: rgba(0, 0, 0, 0.08);
-    --border-subtle: rgba(0, 0, 0, 0.05);
+    --border: rgba(0, 0, 0, 0.07);
+    --border-subtle: rgba(0, 0, 0, 0.04);
     
-    --text-primary: #121215;
-    --text-secondary: #4a4a55;
-    --text-muted: #6a6a76;
+    --text-primary: #111114;
+    --text-secondary: #484854;
+    --text-muted: #666672;
     
-    --accent: #121215;
-    --accent-fg: #f0f0f4;
-    --accent-hover: #232328;
+    --accent: #111114;
+    --accent-fg: #f7f7fa;
+    --accent-hover: #26262c;
     
-    --btn-secondary-bg: #d6d6dc;
-    --btn-secondary-fg: #121215;
-    --btn-secondary-hover: #c8c8ce;
+    --btn-secondary-bg: #e0e0e6;
+    --btn-secondary-fg: #111114;
+    --btn-secondary-hover: #d2d2d8;
 
-    --badge-bg: #d6d6dc;
-    --badge-fg: #121215;
+    --badge-bg: #e0e0e6;
+    --badge-fg: #111114;
 
-    --modal-bg: #ededf2;
-    --modal-header-bg: #e4e4e9;
-    --modal-overlay: rgba(0, 0, 0, 0.5);
+    --modal-bg: #f4f4f8;
+    --modal-header-bg: #ececf1;
+    --modal-overlay: rgba(0, 0, 0, 0.45);
     
-    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.12);
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
-    --glow: rgba(0, 0, 0, 0.06);
+    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.10);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+    --glow: rgba(0, 0, 0, 0.05);
 
-    --chart-grid: #d6d6dc;
-    --chart-line: #121215;
-    --chart-area-start: rgba(18, 18, 21, 0.15);
-    --chart-area-end: rgba(18, 18, 21, 0);
-    --chart-tooltip-bg: #f0f0f4;
-    --chart-tooltip-text: #121215;
-    --chart-tooltip-border: #d6d6dc;
+    --chart-grid: #e0e0e6;
+    --chart-line: #111114;
+    --chart-area-start: rgba(17, 17, 20, 0.15);
+    --chart-area-end: rgba(17, 17, 20, 0);
+    --chart-tooltip-bg: #f7f7fa;
+    --chart-tooltip-text: #111114;
+    --chart-tooltip-border: #e0e0e6;
 
-    --scrollbar-thumb: #c4c4cb;
-    --scrollbar-thumb-hover: #9696a0;
+    --scrollbar-thumb: #cacacf;
+    --scrollbar-thumb-hover: #9e9ea8;
   }
 
   html {
