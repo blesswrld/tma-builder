@@ -264,6 +264,8 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
 
   const displayedOrders = orders.slice(0, visibleCount);
   const hasMore = orders.length > visibleCount;
+  const remainingCount = Math.max(0, orders.length - visibleCount);
+  const nextBatch = Math.min(50, remainingCount);
 
   const renderStatusBadge = (status: string) => {
     const isPending = status === "PENDING" || status === "NEW";
@@ -711,7 +713,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                   className="flex-1 sm:flex-none px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.98]"
                 >
                   <ChevronDown size={14} className="text-app-muted" />
-                  <span>Загрузить еще (+50)</span>
+                  <span>Загрузить еще (+{nextBatch})</span>
                 </button>
                 <button
                   type="button"
@@ -745,12 +747,9 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
             const rawDigitsPhone = (order.customerPhone || "").replace(/[^0-9]/g, "");
 
             return (
-              <motion.div
+              <div
                 key={order.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, delay: Math.min(idx * 0.02, 0.2) }}
-                className="p-5 rounded-2xl bg-app-surface border border-app-border hover:border-app-border/80 transition-all shadow-xs space-y-4"
+                className="p-5 rounded-2xl bg-app-surface border border-app-border hover:border-app-border/80 transition-all shadow-xs space-y-4 animate-in fade-in duration-150"
               >
                 {/* Header Row: ID, Status, Method, Date, Price */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-app-border/70 pb-3">
@@ -1046,7 +1045,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                     )}
                   </div>
                 </div>
-              </motion.div>
+              </div>
             );
           })}
 
@@ -1072,7 +1071,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                   className="flex-1 sm:flex-none px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.98]"
                 >
                   <ChevronDown size={14} className="text-app-muted" />
-                  <span>Загрузить еще (+50)</span>
+                  <span>Загрузить еще (+{nextBatch})</span>
                 </button>
                 <button
                   type="button"

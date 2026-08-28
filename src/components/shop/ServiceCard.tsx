@@ -46,8 +46,8 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
       transition={{ duration: 0.2, ease: "easeOut" }}
       className={`rounded-2xl border overflow-hidden transition-all flex flex-col justify-between group font-sans hover:shadow-md ${
         isOutOfStock 
-          ? "bg-app-surface/50 border-app-border/40 opacity-50" 
-          : "bg-app-surface border-app-border hover:border-app-border hover:bg-app-card-hover"
+          ? "bg-app-card/50 border-app-border/40 opacity-50" 
+          : "bg-app-card border-app-border hover:border-app-border hover:bg-app-card-hover"
       }`}
     >
       {service.imageUrl ? (

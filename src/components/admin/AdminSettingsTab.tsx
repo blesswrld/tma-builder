@@ -69,7 +69,7 @@ interface AdminSettingsTabProps {
   settingsSuccess: string | null;
   isSavingSettings: boolean;
   handleSaveSettings: (e: React.FormEvent) => void;
-  handleDeleteShop: (shopId: string) => void;
+  handleDeleteShop: (shop: any) => void;
   handleRegenerateSlug: () => void;
   setIsQrModalOpen: (open: boolean) => void;
   requestConfirm: (
@@ -1067,15 +1067,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 type="button"
-                onClick={() =>
-                  requestConfirm(
-                    "Удаление заведения",
-                    `Вы уверены, что хотите безвозвратно удалить "${selectedShop.name}"? Это действие нельзя отменить!`,
-                    () => handleDeleteShop(selectedShop.id),
-                    "Удалить безвозвратно",
-                    true
-                  )
-                }
+                onClick={() => handleDeleteShop(selectedShop)}
                 className="text-xs text-app-primary hover:text-app-primary bg-app-card hover:bg-app-hover border border-app-border px-3.5 py-2 rounded-xl transition-all cursor-pointer flex-1 sm:flex-none font-mono flex items-center justify-center gap-1.5 font-medium backdrop-blur-sm"
               >
                 <Trash2 size={14} className="text-app-muted" />

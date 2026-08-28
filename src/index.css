@@ -249,11 +249,20 @@ html.light .border-zinc-900 {
   border-color: var(--border-subtle) !important;
 }
 
-.keep-white {
+.keep-white,
+.keep-white *,
+.dark-card,
+.dark-card * {
   color: #ffffff !important;
 }
 
-.keep-black {
+.keep-white-subtle,
+.keep-white-subtle * {
+  color: #e4e4e7 !important;
+}
+
+.keep-black,
+.keep-black * {
   color: #09090b !important;
 }
 
@@ -289,18 +298,18 @@ html.light .bg-app-modal {
   color: var(--text-primary);
 }
 
-html.light .text-white:not(.keep-white):not(.bg-black):not(.bg-black *):not([class*="bg-black"]):not([class*="bg-black"] *):not([class*="bg-gradient"]):not([class*="bg-gradient"] *):not([class*="bg-zinc-900"]):not([class*="bg-zinc-900"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500):not(.bg-rose-500 *):not(.bg-rose-600):not(.bg-rose-600 *):not(.bg-emerald-500):not(.bg-emerald-500 *):not(.bg-emerald-600):not(.bg-emerald-600 *):not(.bg-indigo-600):not(.bg-indigo-600 *) {
+html.light .text-white:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-black"]):not([class*="bg-black"] *):not([class*="bg-gradient"]):not([class*="bg-gradient"] *):not([class*="bg-zinc-900"]):not([class*="bg-zinc-900"] *):not([class*="bg-zinc-950"]):not([class*="bg-zinc-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500):not(.bg-rose-500 *):not(.bg-rose-600):not(.bg-rose-600 *):not(.bg-emerald-500):not(.bg-emerald-500 *):not(.bg-emerald-600):not(.bg-emerald-600 *):not(.bg-indigo-600):not(.bg-indigo-600 *) {
   color: var(--text-primary) !important;
 }
 
-html.light .text-zinc-100:not(.keep-white):not(.bg-black):not(.bg-black *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *),
-html.light .text-zinc-200:not(.keep-white):not(.bg-black):not(.bg-black *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *),
-html.light .text-zinc-300:not(.keep-white):not(.bg-black):not(.bg-black *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *) {
+html.light .text-zinc-100:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *),
+html.light .text-zinc-200:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *),
+html.light .text-zinc-300:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *) {
   color: var(--text-secondary) !important;
 }
 
-html.light .text-zinc-400:not(.keep-white):not(.bg-black):not(.bg-black *):not(.bg-app-accent):not(.bg-app-accent *),
-html.light .text-zinc-500:not(.keep-white):not(.bg-black):not(.bg-black *):not(.bg-app-accent):not(.bg-app-accent *) {
+html.light .text-zinc-400:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not(.bg-app-accent):not(.bg-app-accent *),
+html.light .text-zinc-500:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not(.bg-app-accent):not(.bg-app-accent *) {
   color: var(--text-muted) !important;
 }
 

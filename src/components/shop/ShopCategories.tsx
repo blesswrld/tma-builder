@@ -29,10 +29,10 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
             whileHover={{ scale: 1.02 }}
             type="button"
             onClick={() => onSelectCategory("ALL")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-medium font-mono transition-all shrink-0 cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all shrink-0 cursor-pointer ${
               selectedCategory === "ALL"
                 ? "bg-app-accent text-app-accent-fg font-bold shadow-xs"
-                : "bg-app-surface text-app-muted hover:bg-app-hover hover:text-app-primary border border-app-border"
+                : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
             }`}
           >
             Все
@@ -44,10 +44,10 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
             whileHover={{ scale: 1.02 }}
             type="button"
             onClick={() => onSelectCategory("FAVORITES")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
               selectedCategory === "FAVORITES"
                 ? "bg-app-accent text-app-accent-fg font-bold shadow-xs"
-                : "bg-app-surface text-app-muted hover:bg-app-hover hover:text-app-primary border border-app-border"
+                : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
             }`}
           >
             <Heart size={13} className={favoritesCount > 0 ? "fill-current text-rose-500" : "text-app-muted"} />
@@ -61,10 +61,10 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
               whileHover={{ scale: 1.02 }}
               type="button"
               onClick={() => onSelectCategory(cat)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs transition-all shrink-0 cursor-pointer ${
                 selectedCategory === cat
-                  ? "bg-app-accent text-app-accent-fg shadow-xs font-semibold"
-                  : "bg-app-surface text-app-muted hover:bg-app-hover hover:text-app-primary border border-app-border"
+                  ? "bg-app-accent text-app-accent-fg shadow-xs font-bold"
+                  : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
               }`}
             >
               {cat}

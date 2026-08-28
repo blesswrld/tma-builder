@@ -988,50 +988,83 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                   <div className="space-y-4">
                     {/* Method Checkboxes */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <label className="p-3 bg-app-card border border-app-border rounded-xl flex items-center gap-2.5 cursor-pointer hover:bg-app-hover transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={formData.deliveryOptions.pickup}
-                          onChange={(e) =>
-                            setFormData((p) => ({
-                              ...p,
-                              deliveryOptions: { ...p.deliveryOptions, pickup: e.target.checked },
-                            }))
-                          }
-                          className="rounded border-app-border text-app-accent focus:ring-0 w-4 h-4 cursor-pointer"
-                        />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((p) => ({
+                            ...p,
+                            deliveryOptions: { ...p.deliveryOptions, pickup: !p.deliveryOptions.pickup },
+                          }))
+                        }
+                        className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                          formData.deliveryOptions.pickup
+                            ? "bg-app-card border-app-border"
+                            : "bg-app-card/50 border-app-border opacity-70 hover:opacity-100"
+                        }`}
+                      >
                         <span className="text-xs font-mono font-bold text-app-primary">Самовывоз</span>
-                      </label>
+                        <div
+                          className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all ${
+                            formData.deliveryOptions.pickup
+                              ? "bg-app-accent text-app-accent-fg shadow-2xs"
+                              : "border border-app-border bg-app-surface text-transparent"
+                          }`}
+                        >
+                          <Check size={12} strokeWidth={3} className={formData.deliveryOptions.pickup ? "opacity-100" : "opacity-0"} />
+                        </div>
+                      </button>
 
-                      <label className="p-3 bg-app-card border border-app-border rounded-xl flex items-center gap-2.5 cursor-pointer hover:bg-app-hover transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={formData.deliveryOptions.courier}
-                          onChange={(e) =>
-                            setFormData((p) => ({
-                              ...p,
-                              deliveryOptions: { ...p.deliveryOptions, courier: e.target.checked },
-                            }))
-                          }
-                          className="rounded border-app-border text-app-accent focus:ring-0 w-4 h-4 cursor-pointer"
-                        />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((p) => ({
+                            ...p,
+                            deliveryOptions: { ...p.deliveryOptions, courier: !p.deliveryOptions.courier },
+                          }))
+                        }
+                        className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                          formData.deliveryOptions.courier
+                            ? "bg-app-card border-app-border"
+                            : "bg-app-card/50 border-app-border opacity-70 hover:opacity-100"
+                        }`}
+                      >
                         <span className="text-xs font-mono font-bold text-app-primary">Курьер</span>
-                      </label>
+                        <div
+                          className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all ${
+                            formData.deliveryOptions.courier
+                              ? "bg-app-accent text-app-accent-fg shadow-2xs"
+                              : "border border-app-border bg-app-surface text-transparent"
+                          }`}
+                        >
+                          <Check size={12} strokeWidth={3} className={formData.deliveryOptions.courier ? "opacity-100" : "opacity-0"} />
+                        </div>
+                      </button>
 
-                      <label className="p-3 bg-app-card border border-app-border rounded-xl flex items-center gap-2.5 cursor-pointer hover:bg-app-hover transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={formData.deliveryOptions.shipping}
-                          onChange={(e) =>
-                            setFormData((p) => ({
-                              ...p,
-                              deliveryOptions: { ...p.deliveryOptions, shipping: e.target.checked },
-                            }))
-                          }
-                          className="rounded border-app-border text-app-accent focus:ring-0 w-4 h-4 cursor-pointer"
-                        />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((p) => ({
+                            ...p,
+                            deliveryOptions: { ...p.deliveryOptions, shipping: !p.deliveryOptions.shipping },
+                          }))
+                        }
+                        className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                          formData.deliveryOptions.shipping
+                            ? "bg-app-card border-app-border"
+                            : "bg-app-card/50 border-app-border opacity-70 hover:opacity-100"
+                        }`}
+                      >
                         <span className="text-xs font-mono font-bold text-app-primary">Почта / СДЭК</span>
-                      </label>
+                        <div
+                          className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all ${
+                            formData.deliveryOptions.shipping
+                              ? "bg-app-accent text-app-accent-fg shadow-2xs"
+                              : "border border-app-border bg-app-surface text-transparent"
+                          }`}
+                        >
+                          <Check size={12} strokeWidth={3} className={formData.deliveryOptions.shipping ? "opacity-100" : "opacity-0"} />
+                        </div>
+                      </button>
                     </div>
 
                     {/* Numeric thresholds */}

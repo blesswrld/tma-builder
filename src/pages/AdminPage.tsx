@@ -1685,7 +1685,14 @@ export default function AdminPage() {
               }
             }
             prevOrdersCountRef.current = data.length;
-            setOrders(data);
+            // Only update orders if data actually changed to avoid freezing UI
+            setOrders(prev => {
+              if (prev.length === data.length) {
+                const isIdentical = prev.every((o, i) => o.id === data[i]?.id && o.status === data[i]?.status && o.totalPrice === data[i]?.totalPrice && o.createdAt === data[i]?.createdAt);
+                if (isIdentical) return prev;
+              }
+              return data;
+            });
           }
         }
       }
@@ -1814,29 +1821,38 @@ export default function AdminPage() {
     showToast(`Заведение «${newShop.name}» успешно создано!`, "success");
   };
 
-  const handleDeleteShop = (shop: Shop) => {
+  const handleDeleteShop = (shopOrId: Shop | string) => {
+    const shopObj = typeof shopOrId === "string"
+      ? shops.find(s => s.id === shopOrId) || (selectedShop?.id === shopOrId ? selectedShop : { id: shopOrId, name: selectedShop?.name || "заведение" } as Shop)
+      : shopOrId;
+    if (!shopObj || !shopObj.id) return;
+
+    const shopId = shopObj.id;
+    const shopName = shopObj.name || "заведение";
+
     requestConfirm(
       "Удалить заведение?",
-      `Вы действительно хотите навсегда удалить заведение «${shop.name}»? Все позиции меню, история заказов, отзывы и настройки этого заведения будут безвозвратно удалены.`,
+      `Вы действительно хотите навсегда удалить заведение «${shopName}»? Все позиции меню, история заказов, отзывы и настройки этого заведения будут безвозвратно удалены.`,
       async () => {
         try {
           const headers: Record<string, string> = {};
           if (token) headers["Authorization"] = `Bearer ${token}`;
 
-          const res = await fetch(`/api/shops/${shop.id}`, { method: "DELETE", headers });
+          const res = await fetch(`/api/shops/${encodeURIComponent(shopId)}`, { method: "DELETE", headers });
           const data = await res.json().catch(() => ({}));
 
           if (!res.ok) {
             throw new Error(data.error || "Не удалось удалить заведение");
           }
 
-          unlinkShopFromDevice(shop.id);
+          unlinkShopFromDevice(shopId);
           setIsSettingsOpen(false);
-          showToast(`Заведение «${shop.name}» успешно удалено`, "success");
+          closeSubView();
+          showToast(`Заведение «${shopName}» успешно удалено`, "success");
 
-          const updatedShops = shops.filter(s => s.id !== shop.id);
+          const updatedShops = shops.filter(s => s.id !== shopId);
           setShops(updatedShops);
-          if (selectedShop?.id === shop.id) {
+          if (selectedShop?.id === shopId) {
             setSelectedShop(updatedShops.length > 0 ? updatedShops[0] : null);
           }
           await fetchShops();
