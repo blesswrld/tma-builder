@@ -53,6 +53,7 @@ model Shop {
   socialLinks         String?
   deliveryOptions     String?
   paymentInstructions String?
+  musicSettings       String?
   isOpen              Boolean     @default(true)
   ownerId             String?
   maxServices         Int         @default(15)

@@ -3,7 +3,7 @@ import express from "express";
 import path from "path";
 import os from "os";
 import https from "https";
-import { createServer } from "http";
+import http, { createServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -307,6 +307,7 @@ async function ensureOrderSchema(db: PrismaClient) {
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "socialLinks" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "deliveryOptions" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "paymentInstructions" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "musicSettings" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "botToken" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "adminChatId" TEXT`,
 
@@ -934,6 +935,125 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.get("/favicon.ico", (_req, res) => {
   res.status(204).end();
+});
+
+// Radio stream proxy for reliable background audio without CORS / tracking blocks
+const RADIO_POOLS: Record<string, string[]> = {
+  lounge: [
+    "https://ice1.somafm.com/groovesalad-128-mp3",
+    "https://ice6.somafm.com/groovesalad-128-mp3",
+    "https://ice1.somafm.com/lush-128-mp3"
+  ],
+  lofi: [
+    "https://ice1.somafm.com/illstreet-128-mp3",
+    "https://ice1.somafm.com/fluid-128-mp3",
+    "https://stream.nightride.fm/chillsynth.mp3"
+  ],
+  deephouse: [
+    "https://ice1.somafm.com/beatblender-128-mp3",
+    "https://ice1.somafm.com/defcon-128-mp3",
+    "https://ice1.somafm.com/cliqhop-128-mp3"
+  ],
+  jazz: [
+    "https://ice1.somafm.com/secretagent-128-mp3",
+    "https://ice1.somafm.com/illstreet-128-mp3",
+    "https://ice1.somafm.com/bootliquor-128-mp3"
+  ],
+  spa: [
+    "https://ice1.somafm.com/deepspaceone-128-mp3",
+    "https://ice1.somafm.com/dronezone-128-mp3",
+    "https://ice1.somafm.com/spacestation-128-mp3"
+  ]
+};
+
+function pipeAudioStream(urls: string[], res: express.Response, req: express.Request, index = 0) {
+  if (index >= urls.length) {
+    if (!res.headersSent) {
+      res.status(502).json({ error: "Stream unavailable" });
+    }
+    return;
+  }
+
+  const targetUrl = urls[index];
+  const urlObj = new URL(targetUrl);
+  const client = urlObj.protocol === "http:" ? http : https;
+
+  const streamReq = client.get(
+    targetUrl,
+    {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "*/*",
+        "Icy-MetaData": "0"
+      },
+      timeout: 10000
+    },
+    (streamRes) => {
+      // Handle redirects
+      if (
+        streamRes.statusCode &&
+        (streamRes.statusCode === 301 || streamRes.statusCode === 302 || streamRes.statusCode === 307) &&
+        streamRes.headers.location
+      ) {
+        streamRes.destroy();
+        return pipeAudioStream([streamRes.headers.location, ...urls.slice(index + 1)], res, req, 0);
+      }
+
+      if (!streamRes.statusCode || streamRes.statusCode >= 400) {
+        streamRes.destroy();
+        return pipeAudioStream(urls, res, req, index + 1);
+      }
+
+      res.writeHead(200, {
+        "Content-Type": streamRes.headers["content-type"] || "audio/mpeg",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive"
+      });
+
+      streamRes.pipe(res);
+
+      req.on("close", () => {
+        streamRes.destroy();
+      });
+
+      streamRes.on("error", () => {
+        streamRes.destroy();
+        if (!res.writableEnded) {
+          res.end();
+        }
+      });
+    }
+  );
+
+  streamReq.on("error", () => {
+    pipeAudioStream(urls, res, req, index + 1);
+  });
+
+  streamReq.on("timeout", () => {
+    streamReq.destroy();
+    pipeAudioStream(urls, res, req, index + 1);
+  });
+
+  req.on("close", () => {
+    streamReq.destroy();
+  });
+}
+
+app.get("/api/radio-stream/:genre", (req, res) => {
+  const genre = req.params.genre?.toLowerCase();
+  const pool = RADIO_POOLS[genre] || RADIO_POOLS["lounge"];
+  pipeAudioStream(pool, res, req, 0);
+});
+
+app.get("/api/audio-proxy", (req, res) => {
+  const streamUrl = req.query.url as string;
+  if (!streamUrl || typeof streamUrl !== "string" || !streamUrl.startsWith("http")) {
+    return res.status(400).json({ error: "Invalid stream URL" });
+  }
+  pipeAudioStream([streamUrl], res, req, 0);
 });
 
 // Auth Route: Профиль текущего пользователя
@@ -2039,6 +2159,7 @@ app.post("/api/shops", async (req, res) => {
       socialLinks,
       deliveryOptions,
       paymentInstructions,
+      musicSettings,
       botToken,
       adminChatId,
       isOpen
@@ -2122,6 +2243,7 @@ app.post("/api/shops", async (req, res) => {
         socialLinks: typeof socialLinks === "object" ? JSON.stringify(socialLinks) : (socialLinks || null),
         deliveryOptions: typeof deliveryOptions === "object" ? JSON.stringify(deliveryOptions) : (deliveryOptions || null),
         paymentInstructions: paymentInstructions?.trim() || null,
+        musicSettings: typeof musicSettings === "object" ? JSON.stringify(musicSettings) : (musicSettings || null),
         botToken: botToken?.trim() || null,
         adminChatId: adminChatId?.trim() || null,
         isOpen: typeof isOpen === "boolean" ? isOpen : true,
@@ -2468,7 +2590,8 @@ app.post("/api/shops", async (req, res) => {
         currencySymbol,
         socialLinks,
         deliveryOptions,
-        paymentInstructions
+        paymentInstructions,
+        musicSettings
       } = req.body;
       const authUser = getAuthUser(req);
       
@@ -2514,7 +2637,7 @@ app.post("/api/shops", async (req, res) => {
           workingHours: workingHours !== undefined ? (workingHours ? String(workingHours).trim() : null) : shop.workingHours,
           address: address !== undefined ? (address ? String(address).trim() : null) : shop.address,
           phone: phone !== undefined ? (phone ? String(phone).trim() : null) : shop.phone,
-          cashbackPercent: req.body.cashbackPercent !== undefined ? Number(req.body.cashbackPercent) : (shop.cashbackPercent || 5),
+          cashbackPercent: req.body.cashbackPercent !== undefined ? Math.max(0, Math.min(100, Number(req.body.cashbackPercent) || 0)) : (shop.cashbackPercent !== undefined ? shop.cashbackPercent : 5),
           isOpen: isOpen !== undefined ? Boolean(isOpen) : (shop.isOpen !== undefined ? shop.isOpen : true),
           logoUrl: logoUrl !== undefined ? (logoUrl ? String(logoUrl).trim() : null) : shop.logoUrl,
           bannerUrl: bannerUrl !== undefined ? (bannerUrl ? String(bannerUrl).trim() : null) : shop.bannerUrl,
@@ -2522,7 +2645,8 @@ app.post("/api/shops", async (req, res) => {
           currencySymbol: currencySymbol !== undefined ? String(currencySymbol).trim() : (shop.currencySymbol || "₽"),
           socialLinks: socialLinks !== undefined ? (typeof socialLinks === "string" ? socialLinks : JSON.stringify(socialLinks)) : shop.socialLinks,
           deliveryOptions: deliveryOptions !== undefined ? (typeof deliveryOptions === "string" ? deliveryOptions : JSON.stringify(deliveryOptions)) : shop.deliveryOptions,
-          paymentInstructions: paymentInstructions !== undefined ? (paymentInstructions ? String(paymentInstructions).trim() : null) : shop.paymentInstructions
+          paymentInstructions: paymentInstructions !== undefined ? (paymentInstructions ? String(paymentInstructions).trim() : null) : shop.paymentInstructions,
+          musicSettings: musicSettings !== undefined ? (typeof musicSettings === "string" ? musicSettings : JSON.stringify(musicSettings)) : (shop as any).musicSettings
         },
         include: {
           services: true,

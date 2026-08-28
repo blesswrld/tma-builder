@@ -111,9 +111,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       : shop.deliveryOptions
     : {};
 
-  const hasCourierConfigured = deliveryOpts?.courier !== false;
-  const hasPickupConfigured = deliveryOpts?.pickup !== false;
-  const hasShippingConfigured = Boolean(deliveryOpts?.shipping);
+  const hasCourierConfigured = deliveryOpts?.enabled !== false && deliveryOpts?.courier !== false;
+  const hasPickupConfigured = deliveryOpts?.enabled !== false && deliveryOpts?.pickup !== false;
+  const hasShippingConfigured = deliveryOpts?.enabled !== false && Boolean(deliveryOpts?.shipping);
 
   const availableOptionsCount = (hasCourierConfigured ? 1 : 0) + (hasPickupConfigured ? 1 : 0) + (hasShippingConfigured ? 1 : 0);
   const gridColsClass = availableOptionsCount >= 3 ? "grid-cols-3" : availableOptionsCount === 2 ? "grid-cols-2" : "grid-cols-1";
@@ -272,13 +272,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <span>{finalTotalPrice} ₽</span>
                   </div>
 
-                  {Boolean(shop.cashbackPercent) && (
+                  {Boolean(shop.cashbackPercent && Number(shop.cashbackPercent) > 0) && (
                     <div className="pt-2 flex items-center justify-between text-[11px] font-mono text-app-primary font-semibold bg-app-card p-2.5 rounded-xl border border-app-border">
                       <div className="flex items-center gap-1.5">
                         <Gift size={13} className="shrink-0 text-app-muted" />
                         <span>Бонусы за заказ ({shop.cashbackPercent}%)</span>
                       </div>
-                      <span>+{Math.round((finalTotalPrice * (shop.cashbackPercent || 5)) / 100)} ₽</span>
+                      <span>+{Math.round((finalTotalPrice * Number(shop.cashbackPercent)) / 100)} ₽</span>
                     </div>
                   )}
                 </div>
@@ -453,9 +453,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </div>
 
                       {deliveryMinOrderVal > 0 && totalPrice < deliveryMinOrderVal && (
-                        <p className="text-[11px] text-amber-500 mt-1 font-mono bg-amber-500/10 p-2 rounded-xl border border-amber-500/20">
-                          ⚠️ Минимальный заказ для доставки: {deliveryMinOrderVal} ₽ (не хватает {deliveryMinOrderVal - totalPrice} ₽)
-                        </p>
+                        <div className="mt-2 p-2.5 bg-app-card border border-app-border rounded-xl text-app-primary text-[11px] font-mono flex items-center gap-1.5">
+                          <AlertCircle size={13} className="text-app-muted shrink-0" />
+                          <span>Минимальный заказ для доставки: {deliveryMinOrderVal} ₽ (не хватает {deliveryMinOrderVal - totalPrice} ₽)</span>
+                        </div>
                       )}
                       {isDeliveryFree ? (
                         <p className="text-[11px] text-emerald-500 font-semibold mt-1 font-mono">

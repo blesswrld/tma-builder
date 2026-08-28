@@ -11,7 +11,7 @@ import {
   Bug,
   Activity,
   CheckCircle2,
-  AlertTriangle,
+  AlertCircle,
   XCircle,
   Sparkles
 } from "lucide-react";
@@ -139,7 +139,7 @@ export const DeveloperServersPage: React.FC = () => {
         >
           {toast.type === "success" && <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />}
           {toast.type === "error" && <XCircle size={18} className="text-rose-500 shrink-0 mt-0.5" />}
-          {toast.type === "warning" && <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />}
+          {toast.type === "warning" && <AlertCircle size={18} className="text-app-muted shrink-0 mt-0.5" />}
           {toast.type === "info" && <Sparkles size={18} className="text-sky-500 shrink-0 mt-0.5" />}
           <div className="space-y-0.5">
             <h4 className="text-xs font-bold font-mono text-app-primary">{toast.title}</h4>

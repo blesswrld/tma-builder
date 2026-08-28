@@ -8,9 +8,12 @@ interface ShopHeaderProps {
   theme: string;
   toggleTheme?: () => void;
   onToggleTheme?: () => void;
+  favoritesCount?: number;
+  onOpenInfoModal?: () => void;
   onOpenReviews: () => void;
   onOpenMyOrders: () => void;
   onOpenReport?: () => void;
+  onOpenMusic?: () => void;
 }
 
 export const ShopHeader: React.FC<ShopHeaderProps> = ({

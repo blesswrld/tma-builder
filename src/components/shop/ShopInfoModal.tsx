@@ -1,7 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Clock, MapPin, Navigation, Phone as PhoneIcon, Gift, Store, Truck, Receipt, Sparkles, CreditCard, Send, ExternalLink, MessageCircle, Globe, Github, ShieldCheck } from "lucide-react";
-import { Shop, parseSocialLinks, parseDeliveryOptions } from "../../types";
+import { X, Clock, MapPin, Navigation, Phone as PhoneIcon, Gift, Store, Truck, Receipt, Sparkles, CreditCard, Send, ExternalLink, MessageCircle, Globe, Github, ShieldCheck, Music } from "lucide-react";
+import { Shop, parseSocialLinks, parseDeliveryOptions, parseMusicSettings } from "../../types";
 import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface ShopInfoModalProps {
@@ -9,15 +9,31 @@ interface ShopInfoModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenPrivacy?: () => void;
+  onOpenMusic?: () => void;
 }
 
-export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onClose, onOpenPrivacy }) => {
+export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onClose, onOpenPrivacy, onOpenMusic }) => {
   useScrollLock(isOpen);
 
   const socials = parseSocialLinks(shop.socialLinks);
   const del = parseDeliveryOptions(shop.deliveryOptions);
+  const musicSettings = parseMusicSettings(shop.musicSettings);
   const hasSoc = Boolean(socials.telegram || socials.instagram || socials.whatsapp || socials.vk || socials.website);
-  const hasDel = Boolean(del.pickup || del.courier || del.shipping || del.pickupAddress || del.deliveryMinOrder || del.deliveryFee);
+  const isDeliveryEnabled = del.enabled !== false;
+  const hasDel = isDeliveryEnabled && Boolean(del.pickup !== false || del.courier !== false || del.shipping || del.pickupAddress);
+  const hasCashback = Boolean(shop.cashbackPercent && Number(shop.cashbackPercent) > 0);
+  const hasMusic = musicSettings.enabled !== false && Boolean(
+    musicSettings.playlistUrl ||
+    musicSettings.yandexMusicUrl ||
+    musicSettings.spotifyUrl ||
+    musicSettings.vkMusicUrl ||
+    musicSettings.appleMusicUrl ||
+    musicSettings.soundcloudUrl ||
+    musicSettings.customStreamUrl ||
+    (musicSettings.tracks && musicSettings.tracks.length > 0) ||
+    musicSettings.sourceType === "radio" ||
+    musicSettings.title
+  );
 
   return (
     <AnimatePresence>
@@ -168,8 +184,40 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
               </div>
             </div>
 
+            {/* Music / Atmosphere */}
+            {hasMusic && (
+              <div className="p-3.5 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent border border-emerald-500/30 rounded-2xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                    <Music size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold text-app-primary font-mono truncate">
+                      {musicSettings.title || "Музыка заведения"}
+                    </h4>
+                    <p className="text-[11px] text-app-secondary leading-snug truncate">
+                      {musicSettings.description || "Фоновый плейлист и саундтрек салона"}
+                    </p>
+                  </div>
+                </div>
+
+                {onOpenMusic && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      setTimeout(() => onOpenMusic(), 150);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-mono text-xs font-bold transition-all cursor-pointer shrink-0"
+                  >
+                    Слушать
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Cashback Bonus System */}
-            {Boolean(shop.cashbackPercent) && (
+            {hasCashback && (
               <div className="p-3.5 bg-app-card border border-app-border rounded-2xl flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center justify-center shrink-0">
                   <Gift size={20} className="text-app-muted" />
@@ -188,25 +236,25 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
               <div className="space-y-2">
                 <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider block">Условия доставки и самовывоза</span>
                 <div className="p-3.5 bg-app-card border border-app-border rounded-2xl space-y-2 text-xs font-mono text-app-secondary">
-                  {del.pickupAddress && (
+                  {del.pickup !== false && del.pickupAddress && (
                     <div className="flex items-center gap-2">
                       <Store size={14} className="text-app-muted shrink-0" />
                       <span>Пункт самовывоза: {del.pickupAddress}</span>
                     </div>
                   )}
-                  {(del.deliveryMinOrder || del.minOrder) && (
+                  {del.courier !== false && (del.deliveryMinOrder || del.minOrder) && Number(del.deliveryMinOrder || del.minOrder) > 0 ? (
                     <div className="flex items-center gap-2">
                       <Truck size={14} className="text-app-muted shrink-0" />
                       <span>Минимальная сумма заказа: {del.deliveryMinOrder || del.minOrder} ₽</span>
                     </div>
-                  )}
-                  {(del.deliveryFee || del.deliveryFeeVal) && (
+                  ) : null}
+                  {del.courier !== false && (del.deliveryFee || del.deliveryFeeVal) && Number(del.deliveryFee || del.deliveryFeeVal) > 0 ? (
                     <div className="flex items-center gap-2">
                       <Receipt size={14} className="text-app-muted shrink-0" />
-                      <span>Стоимость доставки: {del.deliveryFee || del.deliveryFeeVal} ₽</span>
+                      <span>Стоимость курьерской доставки: {del.deliveryFee || del.deliveryFeeVal} ₽</span>
                     </div>
-                  )}
-                  {del.freeDeliveryThreshold ? (
+                  ) : null}
+                  {del.courier !== false && del.freeDeliveryThreshold && Number(del.freeDeliveryThreshold) > 0 ? (
                     <div className="flex items-center gap-2 text-app-primary font-semibold">
                       <Sparkles size={14} className="text-app-muted shrink-0" />
                       <span>Бесплатная доставка от {del.freeDeliveryThreshold} ₽</span>

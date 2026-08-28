@@ -10,6 +10,7 @@ import { jsPDF } from "jspdf";
 import { validateCustomerName, validateCisPhone, validateDeliveryAddress } from "../lib/validation";
 
 import { Service, Shop, Banner, Review, Order, parseDeliveryOptions, getServiceBadges } from "../types";
+import { playNotificationSound } from "../lib/sound";
 import { updatePageSeo } from "../lib/seo";
 import { ShopHeader } from "../components/shop/ShopHeader";
 import { ShopHero } from "../components/shop/ShopHero";
@@ -18,6 +19,7 @@ import { ShopBanners } from "../components/shop/ShopBanners";
 import { ShopCategories } from "../components/shop/ShopCategories";
 import { ServiceCard } from "../components/shop/ServiceCard";
 import { ShopInfoModal } from "../components/shop/ShopInfoModal";
+import { ShopMusicPlayer } from "../components/shop/ShopMusicPlayer";
 import { ServiceDetailModal } from "../components/shop/ServiceDetailModal";
 import { CheckoutModal } from "../components/shop/CheckoutModal";
 import { MyOrdersModal } from "../components/shop/MyOrdersModal";
@@ -59,6 +61,7 @@ export default function ShopPage() {
 
   // Modals & Drawers state
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [isMusicModalOpen, setIsMusicModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedServiceDetail, setSelectedServiceDetail] = useState<Service | null>(null);
@@ -366,6 +369,9 @@ export default function ShopPage() {
 
   useRealtimeEvent(["REVIEW_CREATED", "REVIEW_UPDATED", "REVIEW_DELETED"], (event) => {
     if (!event.shopId || event.shopId === shop?.id) {
+      if (event.type === "REVIEW_CREATED") {
+        playNotificationSound();
+      }
       refreshShopData();
       refreshReviews();
     }
@@ -393,6 +399,7 @@ export default function ShopPage() {
       setActiveOrder(prev => (prev && prev.id === orderId) ? { ...prev, status } : prev);
       setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
       const statusLabel = status === "COMPLETED" ? "Завершён" : status === "CONFIRMED" ? "Подтверждён" : status === "IN_PROGRESS" ? "В работе" : status === "CANCELLED" ? "Отменён" : "В ожидании";
+      playNotificationSound();
       showToast(`Заказ #${orderId.slice(-6).toUpperCase()}: статус изменён на "${statusLabel}"`, status === "COMPLETED" ? "success" : status === "CANCELLED" ? "error" : "warning");
       refreshMyOrders();
     }
@@ -441,9 +448,10 @@ export default function ShopPage() {
   const finalTotalPrice = Math.max(0, totalPrice - discountValue) + tipAmount + (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping" ? calculatedDeliveryFee : 0);
 
   // Fulfillment restriction helpers
-  const isShopCourierAvailable = deliveryOpts.courier !== false;
-  const isShopPickupAvailable = deliveryOpts.pickup !== false;
-  const isShopShippingAvailable = Boolean(deliveryOpts.shipping);
+  const isDeliverySectionEnabled = deliveryOpts.enabled !== false && (deliveryOpts.pickup !== false || deliveryOpts.courier !== false || Boolean(deliveryOpts.shipping));
+  const isShopCourierAvailable = isDeliverySectionEnabled && deliveryOpts.courier !== false;
+  const isShopPickupAvailable = isDeliverySectionEnabled && deliveryOpts.pickup !== false;
+  const isShopShippingAvailable = isDeliverySectionEnabled && Boolean(deliveryOpts.shipping);
 
   const isCourierDisabled = !isShopCourierAvailable || Object.entries(cart).some(([id, qty]) => {
     if (!qty) return false;
@@ -958,6 +966,7 @@ export default function ShopPage() {
         onOpenMyOrders={handleOpenMyOrders}
         onOpenReviews={handleOpenReviews}
         onOpenReport={() => setIsReportOpen(true)}
+        onOpenMusic={() => setIsMusicModalOpen(true)}
       />
 
       {/* Main Container */}
@@ -969,6 +978,7 @@ export default function ShopPage() {
           reviewsStats={reviewsStats}
           onOpenInfoModal={() => setShowInfoModal(true)}
           onOpenReviews={handleOpenReviews}
+          onOpenMusic={() => setIsMusicModalOpen(true)}
         />
 
         {/* Active Order Tracker Banner */}
@@ -995,9 +1005,36 @@ export default function ShopPage() {
 
           {/* Product Items List */}
           {filteredServices.length === 0 ? (
-            <div className="py-20 text-center bg-app-surface border border-dashed border-app-border rounded-2xl space-y-2">
-              <ShoppingCart size={28} className="mx-auto text-app-muted" />
-              <p className="text-app-muted text-xs font-mono">По вашему запросу ничего не найдено.</p>
+            <div className="py-20 text-center bg-app-surface border border-dashed border-app-border rounded-3xl p-8 space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-app-card border border-app-border flex items-center justify-center mx-auto text-app-muted shadow-xs">
+                <ShoppingCart size={22} className="text-app-muted" />
+              </div>
+              <div className="space-y-1 max-w-sm mx-auto">
+                <h4 className="text-xs font-bold text-app-primary font-mono">
+                  {(shop.services || []).length === 0
+                    ? "В заведении пока нет доступных позиций"
+                    : "По вашему запросу ничего не найдено"}
+                </h4>
+                <p className="text-[11px] text-app-muted font-sans leading-relaxed">
+                  {(shop.services || []).length === 0
+                    ? "Меню и услуги заведения обновляются. Загляните чуть позже!"
+                    : "Попробуйте изменить поисковый запрос или сбросить выбранную категорию."}
+                </p>
+              </div>
+              {(searchQuery || selectedCategory !== "ALL") && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedCategory("ALL");
+                    }}
+                    className="px-3.5 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer"
+                  >
+                    Сбросить фильтры
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1128,7 +1165,18 @@ export default function ShopPage() {
         isOpen={showInfoModal}
         onClose={() => setShowInfoModal(false)}
         onOpenPrivacy={() => setIsPrivacyModalOpen(true)}
+        onOpenMusic={() => setIsMusicModalOpen(true)}
       />
+
+      {/* Store Music Player & Playlist Dialog */}
+      {shop && (
+        <ShopMusicPlayer
+          shop={shop}
+          isModalOpen={isMusicModalOpen}
+          onCloseModal={() => setIsMusicModalOpen(false)}
+          onOpenModal={() => setIsMusicModalOpen(true)}
+        />
+      )}
 
       {/* Product Detail Customizer Modal */}
       <ServiceDetailModal

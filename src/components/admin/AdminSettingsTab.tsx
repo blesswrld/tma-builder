@@ -21,12 +21,16 @@ import {
   Github,
   ShieldCheck,
   Bug,
-  HelpCircle
+  HelpCircle,
+  Music,
+  X
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ImageUploader from "../ImageUploader";
 import { SpinnerLoader } from "../Skeleton";
 import { cleanSlugForSubmit, transliterateToSlug } from "../../lib/validation";
+import { AdminMusicSettingsSection } from "./AdminMusicSettingsSection";
+import { parseMusicSettings } from "../../types";
 
 interface AdminSettingsTabProps {
   selectedShop: any;
@@ -63,6 +67,7 @@ interface AdminSettingsTabProps {
     adminChatId: string;
     telegramBotToken?: string;
     telegramChatId?: string;
+    musicSettings?: any;
   };
   setSettingsData: React.Dispatch<React.SetStateAction<any>>;
   settingsError: string | null;
@@ -81,8 +86,8 @@ interface AdminSettingsTabProps {
   ) => void;
   showToast: (msg: string, type?: "success" | "error" | "info" | "warning") => void;
   // Bot & Sub-tabs handlers
-  settingsActiveTab?: "general" | "branding" | "currency" | "delivery" | "social" | "telegram";
-  setSettingsActiveTab?: (tab: "general" | "branding" | "currency" | "delivery" | "social" | "telegram") => void;
+  settingsActiveTab?: "general" | "branding" | "currency" | "delivery" | "social" | "telegram" | "music";
+  setSettingsActiveTab?: (tab: "general" | "branding" | "currency" | "delivery" | "social" | "telegram" | "music") => void;
   handleClearSettingsFields?: () => void;
   handleTestBotToken?: () => void;
   handleSetupWebhook?: () => void;
@@ -218,7 +223,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
     }
   };
 
-  const changeSubTab = (tab: "general" | "branding" | "currency" | "delivery" | "social" | "telegram") => {
+  const changeSubTab = (tab: "general" | "branding" | "currency" | "delivery" | "social" | "telegram" | "music") => {
     setActiveSubTab(tab);
     if (setSettingsActiveTab) setSettingsActiveTab(tab);
   };
@@ -237,7 +242,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
               Настройки заведения: {selectedShop.name}
             </h3>
             <p className="text-xs text-app-muted mt-0.5 font-sans">
-              Управление брендингом, правилами доставки, реквизитами и Telegram ботом
+              Управление брендингом, правилами доставки, музыкой, реквизитами и Telegram ботом
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -279,6 +284,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
           {[
             { id: "general", label: "Основное", icon: Store },
             { id: "branding", label: "Брендинг", icon: ImageIcon },
+            { id: "music", label: "Музыка и Плейлист", icon: Music },
             { id: "currency", label: "Оплата и Валюта", icon: CreditCard },
             { id: "delivery", label: "Доставка", icon: Truck },
             { id: "social", label: "Контакты и Соцсети", icon: Share2 },
@@ -307,16 +313,20 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
 
       {/* Notifications */}
       {settingsError && (
-        <div className="p-3.5 bg-app-card border border-app-border text-app-primary rounded-xl text-xs flex items-center gap-2.5 font-mono font-medium">
-          <AlertCircle size={15} className="shrink-0 text-app-muted" />
-          <span>{settingsError}</span>
+        <div className="p-3.5 bg-app-card border border-app-border text-app-primary rounded-xl text-xs flex items-center justify-between gap-2.5 font-mono font-medium shadow-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AlertCircle size={15} className="shrink-0 text-app-muted" />
+            <span className="truncate">{settingsError}</span>
+          </div>
         </div>
       )}
 
       {settingsSuccess && (
-        <div className="p-3.5 bg-app-card border border-app-border text-app-primary rounded-xl text-xs flex items-center gap-2.5 font-mono font-medium">
-          <Check size={15} className="shrink-0 text-app-primary" />
-          <span>{settingsSuccess}</span>
+        <div className="p-3.5 bg-app-card border border-app-border text-app-primary rounded-xl text-xs flex items-center justify-between gap-2.5 font-mono font-medium shadow-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Check size={15} className="shrink-0 text-app-primary" />
+            <span className="truncate">{settingsSuccess}</span>
+          </div>
         </div>
       )}
 
@@ -530,6 +540,20 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
           </div>
         )}
 
+        {/* SUBTAB: MUSIC & ATMOSPHERE */}
+        {activeSubTab === "music" && (
+          <AdminMusicSettingsSection
+            musicSettings={parseMusicSettings(settingsData.musicSettings)}
+            onChange={(newMusicSettings) =>
+              setSettingsData((s: any) => ({
+                ...s,
+                musicSettings: newMusicSettings,
+              }))
+            }
+            showToast={showToast}
+          />
+        )}
+
         {/* SUBTAB: CURRENCY & PAYMENT */}
         {activeSubTab === "currency" && (
           <div className="space-y-5 font-sans text-xs">
@@ -636,26 +660,63 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                   className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
-                  Кэшбэк бонусами (%)
+            {/* Cashback / Bonus Program Switch */}
+            <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-mono font-bold text-xs text-app-primary">Бонусная программа (Кэшбэк)</p>
+                  <p className="text-[11px] text-app-muted mt-0.5 font-sans">
+                    Начисление кэшбэка баллами с покупок для клиентов
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Number(settingsData.cashbackPercent) > 0}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setSettingsData((s: any) => ({
+                        ...s,
+                        cashbackPercent: enabled ? (Number(s.cashbackPercent) > 0 ? s.cashbackPercent : 5) : 0,
+                      }));
+                    }}
+                    className="w-4 h-4 accent-app-primary cursor-pointer"
+                  />
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={settingsData.cashbackPercent}
-                  onChange={(e) =>
-                    setSettingsData((s: any) => ({
-                      ...s,
-                      cashbackPercent: Number(e.target.value) || 0,
-                    }))
-                  }
-                  placeholder="5"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                />
               </div>
+
+              {Number(settingsData.cashbackPercent) > 0 ? (
+                <div className="pt-3 border-t border-app-border grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                  <div>
+                    <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
+                      Размер кэшбэка (%)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={settingsData.cashbackPercent}
+                      onChange={(e) =>
+                        setSettingsData((s: any) => ({
+                          ...s,
+                          cashbackPercent: Math.max(0, Math.min(100, Number(e.target.value) || 0)),
+                        }))
+                      }
+                      placeholder="5"
+                      className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                    />
+                  </div>
+                  <div className="text-[11px] text-app-muted font-sans">
+                    Плашка «Кэшбэк {settingsData.cashbackPercent}%» отображается на витрине и в корзине клиента.
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[11px] text-app-muted font-sans">
+                  Кэшбэк выключен. Плашки и начисление бонусов скрыты в интерфейсе покупателя.
+                </p>
+              )}
             </div>
 
             <div>
@@ -678,104 +739,228 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
         {/* SUBTAB: DELIVERY */}
         {activeSubTab === "delivery" && (
           <div className="space-y-5 font-sans text-xs">
-            <h4 className="text-xs font-bold font-mono text-app-primary uppercase tracking-wider flex items-center gap-2 border-b border-app-border pb-3">
-              <Truck size={16} className="text-app-muted" />
-              Способы доставки и минимальный заказ
-            </h4>
+            <div className="flex items-center justify-between border-b border-app-border pb-3">
+              <h4 className="text-xs font-bold font-mono text-app-primary uppercase tracking-wider flex items-center gap-2">
+                <Truck size={16} className="text-app-muted" />
+                Способы доставки и самовывоз
+              </h4>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <label className="p-4 bg-app-card border border-app-border rounded-2xl flex items-center justify-between cursor-pointer">
-                <div>
-                  <p className="font-mono font-bold text-xs text-app-primary">Самовывоз</p>
-                  <p className="text-[10px] text-app-muted mt-0.5">Клиент забирает сам</p>
-                </div>
+            {/* Master Toggle for Delivery */}
+            <div className="p-4 bg-app-card border border-app-border rounded-2xl flex items-center justify-between">
+              <div>
+                <p className="font-mono font-bold text-xs text-app-primary">Доставка и самовывоз</p>
+                <p className="text-[11px] text-app-muted mt-0.5 font-sans">
+                  Возможность клиентам выбирать доставку курьером или самовывоз
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={settingsData.deliveryOptions?.pickup !== false}
-                  onChange={(e) =>
-                    setSettingsData((s: any) => ({
-                      ...s,
-                      deliveryOptions: { ...s.deliveryOptions, pickup: e.target.checked },
-                    }))
-                  }
-                  className="w-4 h-4 accent-app-primary cursor-pointer"
-                />
-              </label>
-
-              <label className="p-4 bg-app-card border border-app-border rounded-2xl flex items-center justify-between cursor-pointer">
-                <div>
-                  <p className="font-mono font-bold text-xs text-app-primary">Курьер</p>
-                  <p className="text-[10px] text-app-muted mt-0.5">Доставка курьером</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={settingsData.deliveryOptions?.courier !== false}
-                  onChange={(e) =>
-                    setSettingsData((s: any) => ({
-                      ...s,
-                      deliveryOptions: { ...s.deliveryOptions, courier: e.target.checked },
-                    }))
-                  }
-                  className="w-4 h-4 accent-app-primary cursor-pointer"
-                />
-              </label>
-
-              <label className="p-4 bg-app-card border border-app-border rounded-2xl flex items-center justify-between cursor-pointer">
-                <div>
-                  <p className="font-mono font-bold text-xs text-app-primary">Почта / СДЭК</p>
-                  <p className="text-[10px] text-app-muted mt-0.5">Доставка службами</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={!!settingsData.deliveryOptions?.shipping}
-                  onChange={(e) =>
-                    setSettingsData((s: any) => ({
-                      ...s,
-                      deliveryOptions: { ...s.deliveryOptions, shipping: e.target.checked },
-                    }))
-                  }
+                  checked={settingsData.deliveryOptions?.enabled !== false && (settingsData.deliveryOptions?.pickup !== false || settingsData.deliveryOptions?.courier !== false || Boolean(settingsData.deliveryOptions?.shipping))}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setSettingsData((s: any) => {
+                      const prev = s.deliveryOptions || {};
+                      if (enabled) {
+                        return {
+                          ...s,
+                          deliveryOptions: {
+                            ...prev,
+                            enabled: true,
+                            pickup: true,
+                            courier: true,
+                          },
+                        };
+                      } else {
+                        return {
+                          ...s,
+                          deliveryOptions: {
+                            ...prev,
+                            enabled: false,
+                            pickup: false,
+                            courier: false,
+                            shipping: false,
+                          },
+                        };
+                      }
+                    });
+                  }}
                   className="w-4 h-4 accent-app-primary cursor-pointer"
                 />
               </label>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
-                  Минимальная сумма заказа (₽)
-                </label>
-                <input
-                  type="number"
-                  value={settingsData.deliveryOptions?.minOrder || "0"}
-                  onChange={(e) =>
-                    setSettingsData((s: any) => ({
-                      ...s,
-                      deliveryOptions: { ...s.deliveryOptions, minOrder: e.target.value },
-                    }))
-                  }
-                  placeholder="0"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                />
-              </div>
+            {settingsData.deliveryOptions?.enabled !== false && (settingsData.deliveryOptions?.pickup !== false || settingsData.deliveryOptions?.courier !== false || Boolean(settingsData.deliveryOptions?.shipping)) ? (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <label className={`p-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all ${
+                    settingsData.deliveryOptions?.pickup !== false ? "bg-app-card border-app-border" : "bg-app-card/40 border-app-border opacity-70"
+                  }`}>
+                    <div>
+                      <p className="font-mono font-bold text-xs text-app-primary">Самовывоз</p>
+                      <p className="text-[10px] text-app-muted mt-0.5">Клиент забирает сам</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settingsData.deliveryOptions?.pickup !== false}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        setSettingsData((s: any) => {
+                          const prev = s.deliveryOptions || {};
+                          const anyActive = val || prev.courier !== false || Boolean(prev.shipping);
+                          return {
+                            ...s,
+                            deliveryOptions: {
+                              ...prev,
+                              pickup: val,
+                              enabled: anyActive,
+                            },
+                          };
+                        });
+                      }}
+                      className="w-4 h-4 accent-app-primary cursor-pointer"
+                    />
+                  </label>
 
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
-                  Стоимость курьерской доставки (₽)
-                </label>
-                <input
-                  type="number"
-                  value={settingsData.deliveryOptions?.deliveryFee || "0"}
-                  onChange={(e) =>
-                    setSettingsData((s: any) => ({
-                      ...s,
-                      deliveryOptions: { ...s.deliveryOptions, deliveryFee: e.target.value },
-                    }))
-                  }
-                  placeholder="0"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                />
+                  <label className={`p-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all ${
+                    settingsData.deliveryOptions?.courier !== false ? "bg-app-card border-app-border" : "bg-app-card/40 border-app-border opacity-70"
+                  }`}>
+                    <div>
+                      <p className="font-mono font-bold text-xs text-app-primary">Курьер</p>
+                      <p className="text-[10px] text-app-muted mt-0.5">Доставка курьером</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settingsData.deliveryOptions?.courier !== false}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        setSettingsData((s: any) => {
+                          const prev = s.deliveryOptions || {};
+                          const anyActive = (prev.pickup !== false) || val || Boolean(prev.shipping);
+                          return {
+                            ...s,
+                            deliveryOptions: {
+                              ...prev,
+                              courier: val,
+                              enabled: anyActive,
+                            },
+                          };
+                        });
+                      }}
+                      className="w-4 h-4 accent-app-primary cursor-pointer"
+                    />
+                  </label>
+
+                  <label className={`p-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all ${
+                    Boolean(settingsData.deliveryOptions?.shipping) ? "bg-app-card border-app-border" : "bg-app-card/40 border-app-border opacity-70"
+                  }`}>
+                    <div>
+                      <p className="font-mono font-bold text-xs text-app-primary">Почта / СДЭК</p>
+                      <p className="text-[10px] text-app-muted mt-0.5">Доставка службами</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(settingsData.deliveryOptions?.shipping)}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        setSettingsData((s: any) => {
+                          const prev = s.deliveryOptions || {};
+                          const anyActive = (prev.pickup !== false) || (prev.courier !== false) || val;
+                          return {
+                            ...s,
+                            deliveryOptions: {
+                              ...prev,
+                              shipping: val,
+                              enabled: anyActive,
+                            },
+                          };
+                        });
+                      }}
+                      className="w-4 h-4 accent-app-primary cursor-pointer"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
+                      Минимальная сумма заказа для доставки (₽)
+                    </label>
+                    <input
+                      type="number"
+                      value={settingsData.deliveryOptions?.minOrder ?? settingsData.deliveryOptions?.deliveryMinOrder ?? "0"}
+                      onChange={(e) =>
+                        setSettingsData((s: any) => ({
+                          ...s,
+                          deliveryOptions: { ...s.deliveryOptions, minOrder: e.target.value, deliveryMinOrder: e.target.value },
+                        }))
+                      }
+                      placeholder="0"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
+                      Стоимость курьерской доставки (₽)
+                    </label>
+                    <input
+                      type="number"
+                      value={settingsData.deliveryOptions?.deliveryFee || "0"}
+                      onChange={(e) =>
+                        setSettingsData((s: any) => ({
+                          ...s,
+                          deliveryOptions: { ...s.deliveryOptions, deliveryFee: e.target.value },
+                        }))
+                      }
+                      placeholder="0"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
+                      Бесплатная доставка от (₽)
+                    </label>
+                    <input
+                      type="number"
+                      value={settingsData.deliveryOptions?.freeDeliveryThreshold || "0"}
+                      onChange={(e) =>
+                        setSettingsData((s: any) => ({
+                          ...s,
+                          deliveryOptions: { ...s.deliveryOptions, freeDeliveryThreshold: e.target.value },
+                        }))
+                      }
+                      placeholder="0 (если нет)"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
+                      Адрес пункта самовывоза
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsData.deliveryOptions?.pickupAddress || ""}
+                      onChange={(e) =>
+                        setSettingsData((s: any) => ({
+                          ...s,
+                          deliveryOptions: { ...s.deliveryOptions, pickupAddress: e.target.value },
+                        }))
+                      }
+                      placeholder="Например: ул. Ленина, 10, оф. 4"
+                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-sans"
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="p-4 bg-app-card border border-app-border rounded-2xl text-[11px] text-app-muted font-sans">
+                Доставка и самовывоз полностью отключены. Плашки «Доставка» и «Самовывоз» не будут показываться на витрине заведения.
               </div>
-            </div>
+            )}
           </div>
         )}
 

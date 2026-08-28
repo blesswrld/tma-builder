@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users,
@@ -34,6 +34,7 @@ import {
   ShoppingBag,
   Eye,
   AlertTriangle,
+  AlertCircle,
   Info,
   Sun,
   Moon
@@ -274,9 +275,12 @@ export default function DeveloperUsersPage() {
     }
   }, [authLoading, isDeveloperUser]);
 
+  const lastHandledEventRef = useRef<any>(lastEvent);
+
   // Realtime events listener
   useEffect(() => {
-    if (!lastEvent) return;
+    if (!lastEvent || lastEvent === lastHandledEventRef.current) return;
+    lastHandledEventRef.current = lastEvent;
 
     if (
       lastEvent.type === "USER_BANNED" ||
@@ -295,12 +299,15 @@ export default function DeveloperUsersPage() {
           setUsers(prev => prev.map(u => u.id === uId ? { ...u, ...lastEvent.payload, id: u.id } : u));
         }
       }
-      if (soundEnabled) {
+
+      // Sound ONLY on ban / unban events
+      if ((lastEvent.type === "USER_BANNED" || lastEvent.type === "USER_UNBANNED") && soundEnabled) {
         playNotificationSound();
       }
+
       fetchUsers(false);
     }
-  }, [lastEvent]);
+  }, [lastEvent, soundEnabled]);
 
   // Ban action
   const handleBanUser = async () => {
@@ -879,7 +886,7 @@ export default function DeveloperUsersPage() {
         {error && (
           <div className="p-3.5 bg-app-card border border-app-border rounded-2xl flex items-center justify-between text-app-text-primary text-xs font-mono">
             <div className="flex items-center gap-2">
-              <AlertTriangle size={16} className="text-amber-400 shrink-0" />
+              <AlertCircle size={16} className="text-app-muted shrink-0" />
               <span>{error}</span>
             </div>
             <button

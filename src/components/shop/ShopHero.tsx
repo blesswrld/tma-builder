@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Clock, Info, Phone as PhoneIcon, MapPin, Gift, Truck, Store, Send, ExternalLink, MessageCircle, Globe } from "lucide-react";
-import { Shop, parseSocialLinks, parseDeliveryOptions } from "../../types";
+import { Clock, Info, Phone as PhoneIcon, MapPin, Gift, Truck, Store, Send, ExternalLink, MessageCircle, Globe, Music } from "lucide-react";
+import { Shop, parseSocialLinks, parseDeliveryOptions, parseMusicSettings } from "../../types";
 
 interface ShopHeroProps {
   shop: Shop;
@@ -9,6 +9,7 @@ interface ShopHeroProps {
   onOpenInfoModal?: () => void;
   reviewsStats?: { totalReviews: number; avgRating: number };
   onOpenReviews?: () => void;
+  onOpenMusic?: () => void;
 }
 
 export const ShopHero: React.FC<ShopHeroProps> = ({
@@ -17,11 +18,25 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
   onOpenInfoModal,
   reviewsStats,
   onOpenReviews,
+  onOpenMusic,
 }) => {
   const handleOpenInfo = onOpenInfoModal || onOpenInfo || (() => {});
   const socials = parseSocialLinks(shop.socialLinks);
   const delivery = parseDeliveryOptions(shop.deliveryOptions);
+  const musicSettings = parseMusicSettings(shop.musicSettings);
   const hasSocials = Boolean(socials.telegram || socials.instagram || socials.whatsapp || socials.vk || socials.website);
+  const hasMusic = musicSettings.enabled !== false && Boolean(
+    musicSettings.playlistUrl ||
+    musicSettings.yandexMusicUrl ||
+    musicSettings.spotifyUrl ||
+    musicSettings.vkMusicUrl ||
+    musicSettings.appleMusicUrl ||
+    musicSettings.soundcloudUrl ||
+    musicSettings.customStreamUrl ||
+    (musicSettings.tracks && musicSettings.tracks.length > 0) ||
+    musicSettings.sourceType === "radio" ||
+    musicSettings.title
+  );
 
   return (
     <motion.div
@@ -116,25 +131,36 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
             </div>
           )}
 
-          {shop.cashbackPercent ? (
+          {Boolean(shop.cashbackPercent && Number(shop.cashbackPercent) > 0) && (
             <div className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center gap-2 font-medium">
               <Gift size={13} className="shrink-0 text-app-muted" />
               <span>Кэшбэк {shop.cashbackPercent}%</span>
             </div>
-          ) : null}
+          )}
 
-          {(delivery.courier || delivery.deliveryMinOrder || delivery.deliveryFee) && (
+          {delivery.enabled !== false && (delivery.courier !== false || Boolean(delivery.shipping)) && (
             <div className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center gap-2 font-medium">
               <Truck size={13} className="shrink-0 text-app-muted" />
               <span>Доставка</span>
             </div>
           )}
 
-          {(delivery.pickup || delivery.pickupAddress) && (
+          {delivery.enabled !== false && delivery.pickup !== false && (
             <div className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border text-app-secondary flex items-center gap-2">
               <Store size={13} className="text-app-muted shrink-0" />
               <span>Самовывоз</span>
             </div>
+          )}
+
+          {hasMusic && onOpenMusic && (
+            <button
+              type="button"
+              onClick={onOpenMusic}
+              className="px-3 py-1.5 rounded-xl bg-app-surface hover:bg-app-hover border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 flex items-center gap-2 transition-all cursor-pointer"
+            >
+              <Music size={13} className="text-emerald-400 shrink-0" />
+              <span>{musicSettings.title || "Музыка салона"}</span>
+            </button>
           )}
         </div>
 

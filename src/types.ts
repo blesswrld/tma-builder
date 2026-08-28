@@ -75,6 +75,7 @@ export interface SocialLinks {
 }
 
 export interface DeliveryOptions {
+  enabled?: boolean;
   pickup?: boolean;
   courier?: boolean;
   shipping?: boolean;
@@ -84,6 +85,34 @@ export interface DeliveryOptions {
   deliveryMinOrder?: number | string;
   deliveryFeeVal?: number | string;
   freeDeliveryThreshold?: number | string;
+}
+
+export interface MusicTrack {
+  id: string;
+  title: string;
+  artist?: string;
+  url: string;
+  duration?: string;
+  genre?: string;
+  genreName?: string;
+}
+
+export interface MusicSettings {
+  enabled?: boolean;
+  title?: string;
+  description?: string;
+  sourceType?: "playlist" | "radio" | "tracks" | "custom";
+  playlistUrl?: string;
+  yandexMusicUrl?: string;
+  spotifyUrl?: string;
+  vkMusicUrl?: string;
+  appleMusicUrl?: string;
+  soundcloudUrl?: string;
+  youtubeMusicUrl?: string;
+  selectedRadioGenre?: string;
+  customStreamUrl?: string;
+  tracks?: MusicTrack[];
+  autoplay?: boolean;
 }
 
 export interface Shop {
@@ -106,6 +135,7 @@ export interface Shop {
   cashbackPercent?: number;
   isOpen?: boolean;
   ownerId?: string | null;
+  musicSettings?: string | MusicSettings | null;
   owner?: {
     id: string;
     email: string;
@@ -268,6 +298,17 @@ export function parseDeliveryOptions(data: any): DeliveryOptions {
     return JSON.parse(data);
   } catch (e) {
     return {};
+  }
+}
+
+export function parseMusicSettings(data: any): MusicSettings {
+  if (!data) return { enabled: false, sourceType: "playlist" };
+  if (typeof data === "object") return data;
+  try {
+    const parsed = JSON.parse(data);
+    return typeof parsed === "object" && parsed !== null ? parsed : { enabled: false, sourceType: "playlist" };
+  } catch (e) {
+    return { enabled: false, sourceType: "playlist" };
   }
 }
 

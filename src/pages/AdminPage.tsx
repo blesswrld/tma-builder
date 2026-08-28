@@ -104,6 +104,7 @@ interface Shop {
   isOpen?: boolean;
   cashbackPercent?: number;
   ownerId?: string | null;
+  musicSettings?: string | null;
   owner?: {
     id: string;
     email: string;
@@ -317,10 +318,11 @@ export default function AdminPage() {
     }
   });
 
-  useRealtimeEvent("ORDER_STATUS_UPDATED", (event) => {
-    if (event.payload && event.shopId === selectedShop?.id) {
+  useRealtimeEvent(["ORDER_STATUS_UPDATED", "ORDER_STATUS_CHANGED"], (event) => {
+    if (event.payload && (event.shopId === selectedShop?.id || !event.shopId)) {
       setOrders(prev => prev.map(o => o.id === event.payload.id ? { ...o, status: event.payload.status } : o));
-      fetchOrders(selectedShop.id, true);
+      playOrderChime();
+      if (selectedShop?.id) fetchOrders(selectedShop.id, true);
     }
   });
 
@@ -376,6 +378,7 @@ export default function AdminPage() {
   useRealtimeEvent("REVIEW_CREATED", (event) => {
     if (event.payload && (event.shopId === selectedShop?.id || !event.shopId)) {
       setReviews(prev => [event.payload, ...prev.filter(r => r.id !== event.payload.id)]);
+      playOrderChime();
       fetchReviews(true);
     }
   });
@@ -495,6 +498,10 @@ export default function AdminPage() {
     if (selectedShop?.id && (event.shopId === selectedShop.id || !event.shopId)) {
       fetchTeam(selectedShop.id, true);
     }
+  });
+
+  useRealtimeEvent(["USER_BANNED", "USER_UNBANNED"], () => {
+    playOrderChime();
   });
 
   useRealtimeEvent("CUSTOMER_DELETED", (event) => {
@@ -724,7 +731,7 @@ export default function AdminPage() {
 
   // Settings
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsActiveTab, setSettingsActiveTab] = useState<"general" | "branding" | "currency" | "delivery" | "social" | "telegram" | "team">("general");
+  const [settingsActiveTab, setSettingsActiveTab] = useState<"general" | "branding" | "currency" | "delivery" | "social" | "telegram" | "team" | "music">("general");
   const [settingsData, setSettingsData] = useState({
     name: "",
     slug: "",
@@ -742,7 +749,16 @@ export default function AdminPage() {
     deliveryOptions: { pickup: true, courier: true, shipping: false, minOrder: "0", deliveryFee: "0" },
     paymentInstructions: "",
     cashbackPercent: 5,
-    isOpen: true
+    isOpen: true,
+    musicSettings: {
+      enabled: false,
+      sourceType: "radio",
+      title: "",
+      description: "",
+      selectedRadioGenre: "lounge",
+      customStreamUrl: "",
+      tracks: []
+    }
   });
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
@@ -885,17 +901,8 @@ export default function AdminPage() {
   const [inviteInfo, setInviteInfo] = useState<{ code: string; role: string; shop: { id: string; name: string; description?: string; logoUrl?: string } } | null>(null);
   const [isAcceptingInvite, setIsAcceptingInvite] = useState(false);
 
-  // Lock body scrolling when mobile sidebar drawer is open
-  useEffect(() => {
-    if (isSidebarOpen) {
-      document.body.classList.add("overflow-hidden");
-    } else {
-      document.body.classList.remove("overflow-hidden");
-    }
-    return () => {
-      document.body.classList.remove("overflow-hidden");
-    };
-  }, [isSidebarOpen]);
+  // Lock body scrolling when modals or mobile sidebar drawer are open
+  useScrollLock(isSidebarOpen || isHotkeysModalOpen || confirmModal.isOpen);
 
   // Sidebar Drag & Resize Width State (Persistent)
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
@@ -1748,6 +1755,7 @@ export default function AdminPage() {
 
       if (res.ok) {
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+        playOrderChime();
         showToast("Статус заказа обновлен", "success");
       } else {
         showToast(data.error || text || "Не удалось обновить статус", "error");
@@ -2636,6 +2644,21 @@ export default function AdminPage() {
       } catch {}
     }
 
+    let parsedMusic = {
+      enabled: false,
+      sourceType: "radio",
+      title: "",
+      description: "",
+      selectedRadioGenre: "lounge",
+      customStreamUrl: "",
+      tracks: []
+    };
+    if (shop.musicSettings) {
+      try {
+        parsedMusic = typeof shop.musicSettings === "string" ? JSON.parse(shop.musicSettings) : shop.musicSettings;
+      } catch {}
+    }
+
     setSettingsData({
       name: shop.name,
       slug: shop.slug || "",
@@ -2652,8 +2675,9 @@ export default function AdminPage() {
       socialLinks: parsedSocials,
       deliveryOptions: parsedDelivery,
       paymentInstructions: shop.paymentInstructions || "",
-      cashbackPercent: shop.cashbackPercent || 5,
-      isOpen: shop.isOpen !== false
+      cashbackPercent: shop.cashbackPercent !== undefined && shop.cashbackPercent !== null ? Number(shop.cashbackPercent) : 5,
+      isOpen: shop.isOpen !== false,
+      musicSettings: parsedMusic
     });
     setSettingsActiveTab("general");
     setSettingsError(null);
@@ -2684,6 +2708,21 @@ export default function AdminPage() {
           bannerUrl: ""
         }));
         showToast("Доп. поля на вкладке «Брендинг» очищены", "warning");
+        break;
+      case "music":
+        setSettingsData(p => ({
+          ...p,
+          musicSettings: {
+            enabled: false,
+            sourceType: "radio",
+            title: "",
+            description: "",
+            selectedRadioGenre: "lounge",
+            customStreamUrl: "",
+            tracks: []
+          }
+        }));
+        showToast("Настройки музыки очищены", "warning");
         break;
       case "integrations":
       case "telegram" as any:
@@ -2790,8 +2829,9 @@ export default function AdminPage() {
           socialLinks: JSON.stringify(settingsData.socialLinks),
           deliveryOptions: JSON.stringify(settingsData.deliveryOptions),
           paymentInstructions: settingsData.paymentInstructions.trim(),
-          cashbackPercent: Number(settingsData.cashbackPercent) || 5,
-          isOpen: settingsData.isOpen
+          cashbackPercent: settingsData.cashbackPercent !== undefined && settingsData.cashbackPercent !== "" ? Math.max(0, Math.min(100, Number(settingsData.cashbackPercent) || 0)) : 0,
+          isOpen: settingsData.isOpen,
+          musicSettings: settingsData.musicSettings ? JSON.stringify(settingsData.musicSettings) : null
         })
       });
 
@@ -2800,9 +2840,15 @@ export default function AdminPage() {
 
       setSettingsSuccess("Настройки заведения успешно сохранены!");
       showToast("Настройки заведения успешно сохранены", "success");
+      setTimeout(() => {
+        setSettingsSuccess(null);
+      }, 4000);
       await fetchShops();
     } catch (err: any) {
       setSettingsError(err.message);
+      setTimeout(() => {
+        setSettingsError(null);
+      }, 5000);
     } finally {
       setIsSavingSettings(false);
     }

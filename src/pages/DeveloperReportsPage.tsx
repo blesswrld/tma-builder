@@ -23,6 +23,7 @@ import {
   ChevronUp,
   Download,
   AlertTriangle,
+  AlertCircle,
   Monitor,
   Calendar,
   Eye,
@@ -215,11 +216,14 @@ export default function DeveloperReportsPage() {
     }
   }, [authLoading, isDeveloperUser]);
 
+  const lastHandledEventRef = useRef<any>(lastEvent);
+
   // Listen for realtime events
   useEffect(() => {
-    if (!lastEvent) return;
+    if (!lastEvent || lastEvent === lastHandledEventRef.current) return;
+    lastHandledEventRef.current = lastEvent;
 
-    if (lastEvent.type === "NEW_REPORT" && lastEvent.payload) {
+    if ((lastEvent.type === "NEW_REPORT" || lastEvent.type === "REPORT_CREATED") && lastEvent.payload) {
       const newRep = lastEvent.payload;
       if (soundEnabled) {
         playNotificationSound();
@@ -241,8 +245,11 @@ export default function DeveloperReportsPage() {
           });
         }, 5000);
       }
-    } else if (lastEvent.type === "REPORT_UPDATED" && lastEvent.payload) {
+    } else if ((lastEvent.type === "REPORT_UPDATED" || lastEvent.type === "REPORT_STATUS_CHANGED") && lastEvent.payload) {
       const { id, status, developerNotes } = lastEvent.payload;
+      if (status && soundEnabled) {
+        playNotificationSound();
+      }
       setReports((prev) =>
         prev.map((r) => {
           if (r.id === id) {
@@ -266,6 +273,9 @@ export default function DeveloperReportsPage() {
   }, [lastEvent, soundEnabled]);
 
   const handleUpdateStatus = async (reportId: string, newStatus: ReportStatusType) => {
+    if (soundEnabled) {
+      playNotificationSound();
+    }
     setReports((prev) =>
       prev.map((r) => (r.id === reportId ? { ...r, status: newStatus as any } : r))
     );
@@ -355,6 +365,10 @@ export default function DeveloperReportsPage() {
       });
 
       if (!res.ok) throw new Error("Ошибка при массовом обновлении");
+
+      if (soundEnabled) {
+        playNotificationSound();
+      }
 
       setReports((prev) =>
         prev.map((r) => (r.id && selectedIds.includes(r.id) ? { ...r, status: newStatus as any } : r))
@@ -1008,7 +1022,7 @@ export default function DeveloperReportsPage() {
         {error && (
           <div className="p-3 bg-app-card border border-app-border rounded-xl text-xs font-mono text-rose-700 dark:text-rose-300 font-medium flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <AlertTriangle size={15} className="text-amber-400" />
+              <AlertCircle size={15} className="text-app-muted shrink-0" />
               <span>{error}</span>
             </div>
             <button

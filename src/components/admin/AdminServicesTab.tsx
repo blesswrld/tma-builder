@@ -18,6 +18,7 @@ import {
   Globe,
   ChevronDown,
   Check,
+  Layers,
 } from "lucide-react";
 import ImageUploader from "../ImageUploader";
 
@@ -538,6 +539,51 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
               </button>
             </div>
           </form>
+        </div>
+      ) : services.length === 0 ? (
+        <div className="py-16 text-center bg-app-surface border border-dashed border-app-border rounded-3xl p-8 space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-app-card border border-app-border flex items-center justify-center mx-auto text-app-muted shadow-xs">
+            <Layers size={26} className="text-app-muted" />
+          </div>
+          <div className="space-y-1 max-w-sm mx-auto">
+            <h4 className="text-sm font-bold text-app-primary font-mono">
+              {searchQuery || selectedCategory !== "ALL"
+                ? "Ничего не найдено"
+                : "Меню и услуги пока не добавлены"}
+            </h4>
+            <p className="text-xs text-app-muted font-sans leading-relaxed">
+              {searchQuery || selectedCategory !== "ALL"
+                ? "Попробуйте изменить поисковый запрос или сбросить фильтр по категории"
+                : "Добавьте ваши первые позиции меню, блюда или услуги, чтобы клиенты могли делать заказы онлайн"}
+            </p>
+          </div>
+          {searchQuery || selectedCategory !== "ALL" ? (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedCategory("ALL");
+                }}
+                className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                Сбросить фильтры
+              </button>
+            </div>
+          ) : (
+            !isStaff && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingService(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all shadow-xs cursor-pointer uppercase tracking-wider"
+                >
+                  <Plus size={14} />
+                  <span>Добавить первую услугу</span>
+                </button>
+              </div>
+            )
+          )}
         </div>
       ) : (
         /* Services Grid Display */
