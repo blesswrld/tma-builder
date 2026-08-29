@@ -619,8 +619,30 @@ export const prisma = getPrismaClient();
 
 export const app = express();
 
+// CORS middleware allowing cross-origin requests from Vercel frontend / local / custom domains
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// Health check endpoint for Render / monitoring
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ status: "ok", uptime: process.uptime(), timestamp: Date.now() });
+});
 
 // Middleware: Rewrite /api/public/* to /api/*
 app.use((req, res, next) => {
@@ -5849,10 +5871,10 @@ Sitemap: ${req.protocol}://${req.get("host")}/sitemap.xml
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl || req.url}` });
   });
 
-// Vite middleware / сервер для статической локальной работы (вне Vercel)
+// Vite middleware / сервер для работы (на Render, локально, или в контейнере)
 if (!process.env.VERCEL) {
   async function startServer() {
-    const PORT = 3000;
+    const PORT = Number(process.env.PORT) || 3000;
     if (process.env.NODE_ENV !== "production") {
       const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({

@@ -1638,11 +1638,27 @@ export default function AdminPage() {
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      
+      let res: Response | null = null;
+      let lastErr: any = null;
 
-      const res = await fetch("/api/shops", { headers, signal: controller.signal });
-      clearTimeout(timeoutId);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        try {
+          res = await fetch("/api/shops", { headers, signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (res.ok) break;
+        } catch (e: any) {
+          clearTimeout(timeoutId);
+          lastErr = e;
+          if (attempt === 0) await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+
+      if (!res) {
+        throw lastErr || new Error("Failed to fetch shops");
+      }
 
       if (!res.ok) {
         let errMsg = `Server error (${res.status})`;

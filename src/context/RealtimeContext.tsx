@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo, ReactNode } from "react";
+import { getWsUrl } from "../lib/api";
 
 export interface RealtimeEvent {
   type: string;
@@ -79,8 +80,7 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
         return;
       }
 
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const wsUrl = getWsUrl();
 
       try {
         const ws = new WebSocket(wsUrl);
