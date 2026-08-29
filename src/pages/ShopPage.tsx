@@ -350,16 +350,11 @@ export default function ShopPage() {
       .catch(() => {});
   }, [shop?.id]);
 
-  useEffect(() => {
-    if (slug) {
-      const interval = setInterval(() => {
-        refreshShopData();
-        refreshMyOrders();
-        refreshReviews();
-      }, 4000);
-      return () => clearInterval(interval);
-    }
-  }, [slug, refreshShopData, refreshMyOrders, refreshReviews]);
+  useRealtimeEvent("REALTIME_RECONNECTED", () => {
+    refreshShopData();
+    refreshMyOrders();
+    refreshReviews();
+  });
 
   useRealtimeEvent(["SHOP_UPDATED", "SERVICE_UPDATED", "SERVICE_CREATED", "SERVICE_DELETED", "BANNER_CREATED", "BANNER_DELETED", "PROMOCODE_CREATED", "PROMOCODE_DELETED"], (event) => {
     if (!event.shopId || event.shopId === shop?.id) {

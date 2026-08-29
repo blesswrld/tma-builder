@@ -30,6 +30,8 @@ import ImageUploader from "../ImageUploader";
 import { SpinnerLoader } from "../Skeleton";
 import { cleanSlugForSubmit, transliterateToSlug } from "../../lib/validation";
 import { AdminMusicSettingsSection } from "./AdminMusicSettingsSection";
+import { AdminTelegramIntegrationTab } from "./AdminTelegramIntegrationTab";
+import { CustomCheckbox } from "../CustomCheckbox";
 import { parseMusicSettings } from "../../types";
 
 interface AdminSettingsTabProps {
@@ -671,20 +673,16 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                     Начисление кэшбэка баллами с покупок для клиентов
                   </p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={Number(settingsData.cashbackPercent) > 0}
-                    onChange={(e) => {
-                      const enabled = e.target.checked;
-                      setSettingsData((s: any) => ({
-                        ...s,
-                        cashbackPercent: enabled ? (Number(s.cashbackPercent) > 0 ? s.cashbackPercent : 5) : 0,
-                      }));
-                    }}
-                    className="w-4 h-4 accent-app-primary cursor-pointer"
-                  />
-                </label>
+                <CustomCheckbox
+                  checked={Number(settingsData.cashbackPercent) > 0}
+                  onChange={(checked) => {
+                    setSettingsData((s: any) => ({
+                      ...s,
+                      cashbackPercent: checked ? (Number(s.cashbackPercent) > 0 ? s.cashbackPercent : 5) : 0,
+                    }));
+                  }}
+                  size="md"
+                />
               </div>
 
               {Number(settingsData.cashbackPercent) > 0 ? (
@@ -794,18 +792,35 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
             {settingsData.deliveryOptions?.enabled !== false && (settingsData.deliveryOptions?.pickup !== false || settingsData.deliveryOptions?.courier !== false || Boolean(settingsData.deliveryOptions?.shipping)) ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <label className={`p-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all ${
-                    settingsData.deliveryOptions?.pickup !== false ? "bg-app-card border-app-border" : "bg-app-card/40 border-app-border opacity-70"
-                  }`}>
+                  <div
+                    onClick={() => {
+                      const val = !(settingsData.deliveryOptions?.pickup !== false);
+                      setSettingsData((s: any) => {
+                        const prev = s.deliveryOptions || {};
+                        const anyActive = val || prev.courier !== false || Boolean(prev.shipping);
+                        return {
+                          ...s,
+                          deliveryOptions: {
+                            ...prev,
+                            pickup: val,
+                            enabled: anyActive,
+                          },
+                        };
+                      });
+                    }}
+                    className={`p-4 border rounded-2xl flex items-center justify-between cursor-pointer select-none transition-all duration-150 ${
+                      settingsData.deliveryOptions?.pickup !== false
+                        ? "bg-app-card border-app-border hover:border-app-primary/40"
+                        : "bg-app-card/40 border-app-border opacity-70 hover:opacity-100"
+                    }`}
+                  >
                     <div>
                       <p className="font-mono font-bold text-xs text-app-primary">Самовывоз</p>
                       <p className="text-[10px] text-app-muted mt-0.5">Клиент забирает сам</p>
                     </div>
-                    <input
-                      type="checkbox"
+                    <CustomCheckbox
                       checked={settingsData.deliveryOptions?.pickup !== false}
-                      onChange={(e) => {
-                        const val = e.target.checked;
+                      onChange={(val) => {
                         setSettingsData((s: any) => {
                           const prev = s.deliveryOptions || {};
                           const anyActive = val || prev.courier !== false || Boolean(prev.shipping);
@@ -819,22 +834,39 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                           };
                         });
                       }}
-                      className="w-4 h-4 accent-app-primary cursor-pointer"
+                      size="md"
                     />
-                  </label>
+                  </div>
 
-                  <label className={`p-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all ${
-                    settingsData.deliveryOptions?.courier !== false ? "bg-app-card border-app-border" : "bg-app-card/40 border-app-border opacity-70"
-                  }`}>
+                  <div
+                    onClick={() => {
+                      const val = !(settingsData.deliveryOptions?.courier !== false);
+                      setSettingsData((s: any) => {
+                        const prev = s.deliveryOptions || {};
+                        const anyActive = (prev.pickup !== false) || val || Boolean(prev.shipping);
+                        return {
+                          ...s,
+                          deliveryOptions: {
+                            ...prev,
+                            courier: val,
+                            enabled: anyActive,
+                          },
+                        };
+                      });
+                    }}
+                    className={`p-4 border rounded-2xl flex items-center justify-between cursor-pointer select-none transition-all duration-150 ${
+                      settingsData.deliveryOptions?.courier !== false
+                        ? "bg-app-card border-app-border hover:border-app-primary/40"
+                        : "bg-app-card/40 border-app-border opacity-70 hover:opacity-100"
+                    }`}
+                  >
                     <div>
                       <p className="font-mono font-bold text-xs text-app-primary">Курьер</p>
                       <p className="text-[10px] text-app-muted mt-0.5">Доставка курьером</p>
                     </div>
-                    <input
-                      type="checkbox"
+                    <CustomCheckbox
                       checked={settingsData.deliveryOptions?.courier !== false}
-                      onChange={(e) => {
-                        const val = e.target.checked;
+                      onChange={(val) => {
                         setSettingsData((s: any) => {
                           const prev = s.deliveryOptions || {};
                           const anyActive = (prev.pickup !== false) || val || Boolean(prev.shipping);
@@ -848,22 +880,39 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                           };
                         });
                       }}
-                      className="w-4 h-4 accent-app-primary cursor-pointer"
+                      size="md"
                     />
-                  </label>
+                  </div>
 
-                  <label className={`p-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all ${
-                    Boolean(settingsData.deliveryOptions?.shipping) ? "bg-app-card border-app-border" : "bg-app-card/40 border-app-border opacity-70"
-                  }`}>
+                  <div
+                    onClick={() => {
+                      const val = !Boolean(settingsData.deliveryOptions?.shipping);
+                      setSettingsData((s: any) => {
+                        const prev = s.deliveryOptions || {};
+                        const anyActive = (prev.pickup !== false) || (prev.courier !== false) || val;
+                        return {
+                          ...s,
+                          deliveryOptions: {
+                            ...prev,
+                            shipping: val,
+                            enabled: anyActive,
+                          },
+                        };
+                      });
+                    }}
+                    className={`p-4 border rounded-2xl flex items-center justify-between cursor-pointer select-none transition-all duration-150 ${
+                      Boolean(settingsData.deliveryOptions?.shipping)
+                        ? "bg-app-card border-app-border hover:border-app-primary/40"
+                        : "bg-app-card/40 border-app-border opacity-70 hover:opacity-100"
+                    }`}
+                  >
                     <div>
                       <p className="font-mono font-bold text-xs text-app-primary">Почта / СДЭК</p>
                       <p className="text-[10px] text-app-muted mt-0.5">Доставка службами</p>
                     </div>
-                    <input
-                      type="checkbox"
+                    <CustomCheckbox
                       checked={Boolean(settingsData.deliveryOptions?.shipping)}
-                      onChange={(e) => {
-                        const val = e.target.checked;
+                      onChange={(val) => {
                         setSettingsData((s: any) => {
                           const prev = s.deliveryOptions || {};
                           const anyActive = (prev.pickup !== false) || (prev.courier !== false) || val;
@@ -877,9 +926,9 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                           };
                         });
                       }}
-                      className="w-4 h-4 accent-app-primary cursor-pointer"
+                      size="md"
                     />
-                  </label>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1067,179 +1116,12 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
         )}
 
         {/* SUBTAB: TELEGRAM BOT */}
-        {activeSubTab === "telegram" && (
-          <div className="space-y-5 font-sans text-xs">
-            <div className="flex items-center justify-between border-b border-app-border pb-3">
-              <h4 className="text-xs font-bold font-mono text-app-primary uppercase tracking-wider flex items-center gap-2">
-                <Smartphone size={16} className="text-app-muted" />
-                Интеграция с Telegram Ботом
-              </h4>
-              <button
-                type="button"
-                onClick={() => setIsTgGuideOpen(!isTgGuideOpen)}
-                className="text-[11px] font-mono text-app-primary hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <span>Инструкция</span>
-                <ChevronDown
-                  size={13}
-                  className={`transition-transform ${isTgGuideOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-            </div>
-
-            {/* Instruction Guide */}
-            <AnimatePresence>
-              {isTgGuideOpen && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="p-4 bg-app-card border border-app-border rounded-2xl text-xs space-y-2.5 font-sans overflow-hidden"
-                >
-                  <p className="font-bold font-mono text-app-primary">
-                    Как привязать своего Telegram бота:
-                  </p>
-                  <ol className="list-decimal list-inside space-y-1.5 text-app-secondary text-[11px] font-mono leading-relaxed">
-                    <li>
-                      Откройте Telegram и откройте официального бота{" "}
-                      <a
-                        href="https://t.me/BotFather"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-app-primary underline inline-flex items-center gap-1 font-semibold"
-                      >
-                        @BotFather <ExternalLink size={10} />
-                      </a>
-                    </li>
-                    <li>
-                      Отправьте команду{" "}
-                      <code className="bg-app-surface border border-app-border px-1.5 py-0.5 rounded text-app-primary">
-                        /newbot
-                      </code>{" "}
-                      и введите название и юзернейм бота
-                    </li>
-                    <li>Скопируйте полученный **HTTP API Bot Token** и вставьте в поле ниже</li>
-                    <li>
-                      Для получения своего Chat ID откройте бота{" "}
-                      <a
-                        href="https://t.me/userinfobot"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-app-primary underline inline-flex items-center gap-1 font-semibold"
-                      >
-                        @userinfobot <ExternalLink size={10} />
-                      </a>{" "}
-                      и скопируйте свой ID
-                    </li>
-                    <li>
-                      Нажмите кнопку **Проверить бота** и **Настроить Webhook**, чтобы получать мгновенные уведомления о новых заказах прямо в Telegram!
-                    </li>
-                  </ol>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                  Telegram Bot Token *
-                </label>
-                <input
-                  type="password"
-                  value={botToken}
-                  onChange={(e) =>
-                    setSettingsData((s: any) => ({
-                      ...s,
-                      botToken: e.target.value,
-                      telegramBotToken: e.target.value,
-                    }))
-                  }
-                  placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyZ"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                  Telegram Chat ID администратора *
-                </label>
-                <input
-                  type="text"
-                  value={adminChatId}
-                  onChange={(e) =>
-                    setSettingsData((s: any) => ({
-                      ...s,
-                      adminChatId: e.target.value,
-                      telegramChatId: e.target.value,
-                    }))
-                  }
-                  placeholder="987654321 или -10012345678"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Test & Webhook Actions */}
-            <div className="pt-2 flex flex-wrap gap-2.5">
-              {handleTestBotToken && (
-                <button
-                  type="button"
-                  onClick={handleTestBotToken}
-                  disabled={isTestingBot || !botToken}
-                  className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {isTestingBot ? <SpinnerLoader size={12} /> : <Bot size={14} className="text-app-muted" />}
-                  <span>Проверить бота</span>
-                </button>
-              )}
-
-              {handleSetupWebhook && (
-                <button
-                  type="button"
-                  onClick={handleSetupWebhook}
-                  disabled={isSettingWebhook || !botToken}
-                  className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {isSettingWebhook ? <SpinnerLoader size={12} /> : <Send size={14} className="text-app-muted" />}
-                  <span>Настроить Webhook</span>
-                </button>
-              )}
-
-              {handleSendTestNotification && (
-                <button
-                  type="button"
-                  onClick={handleSendTestNotification}
-                  disabled={isSendingTestNotification || !botToken || !adminChatId}
-                  className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {isSendingTestNotification ? <SpinnerLoader size={12} /> : <Send size={14} className="text-app-muted" />}
-                  <span>Тестовое уведомление</span>
-                </button>
-              )}
-            </div>
-
-            {/* Bot Test Output Status */}
-            {botTestResult && (
-              <div
-                className="p-3.5 rounded-xl border border-app-border bg-app-card text-xs font-mono font-medium text-app-primary flex items-center gap-2"
-              >
-                {botTestResult.error ? (
-                  <p>Ошибка: {botTestResult.error}</p>
-                ) : (
-                  <p>
-                    Бот успешно авторизован: {botTestResult.botInfo?.first_name} (@
-                    {botTestResult.botInfo?.username})
-                  </p>
-                )}
-              </div>
-            )}
-
-            {webhookStatus && (
-              <div className="p-3.5 bg-app-card border border-app-border text-app-primary rounded-xl text-xs font-mono font-medium">
-                {webhookStatus}
-              </div>
-            )}
-          </div>
+        {activeSubTab === "telegram" && selectedShop && (
+          <AdminTelegramIntegrationTab
+            shop={selectedShop}
+            showToast={showToast}
+            isOwner={isOwner}
+          />
         )}
 
         {/* Action Controls Footer */}

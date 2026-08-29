@@ -115,6 +115,41 @@ export interface MusicSettings {
   autoplay?: boolean;
 }
 
+export interface TelegramSubscriber {
+  chatId: string;
+  userId?: string;
+  name?: string;
+  username?: string;
+  role: "OWNER" | "ADMIN" | "STAFF";
+  addedAt: string;
+  notifyOrders?: boolean;
+  notifyReviews?: boolean;
+}
+
+export interface TelegramInviteCode {
+  code: string;
+  role: "ADMIN" | "STAFF";
+  createdAt: string;
+  expiresAt: string;
+  createdBy?: string;
+}
+
+export interface TelegramSettings {
+  botId?: number;
+  botName?: string;
+  botUsername?: string;
+  connectedAt?: string;
+  notifyOnNewOrder?: boolean;
+  notifyOnOrderStatus?: boolean;
+  notifyOnNewReview?: boolean;
+  notifyOnLowRating?: boolean;
+  subscribers?: TelegramSubscriber[];
+  inviteCodes?: TelegramInviteCode[];
+  webhookUrl?: string;
+  webhookActive?: boolean;
+  lastWebhookError?: string | null;
+}
+
 export interface Shop {
   id: string;
   name: string;
@@ -123,7 +158,11 @@ export interface Shop {
   logoUrl?: string | null;
   bannerUrl?: string | null;
   botToken?: string | null;
+  botTokenMasked?: string | null;
+  hasBotToken?: boolean;
+  isTelegramConnected?: boolean;
   adminChatId?: string | null;
+  telegramSettings?: string | TelegramSettings | null;
   workingHours?: string | null;
   address?: string | null;
   phone?: string | null;
@@ -327,3 +366,67 @@ export function getServiceBadges(service: Service): string[] {
   if (!service.badge) return [];
   return service.badge.split(",").map(b => b.trim()).filter(Boolean);
 }
+
+export function parseTelegramSettings(data: any): TelegramSettings {
+  if (!data) {
+    return {
+      notifyOnNewOrder: true,
+      notifyOnOrderStatus: true,
+      notifyOnNewReview: true,
+      notifyOnLowRating: true,
+      subscribers: [],
+      inviteCodes: []
+    };
+  }
+  if (typeof data === "object") {
+    return {
+      notifyOnNewOrder: true,
+      notifyOnOrderStatus: true,
+      notifyOnNewReview: true,
+      notifyOnLowRating: true,
+      subscribers: [],
+      inviteCodes: [],
+      ...data
+    };
+  }
+  try {
+    const parsed = JSON.parse(data);
+    return typeof parsed === "object" && parsed !== null
+      ? {
+          notifyOnNewOrder: true,
+          notifyOnOrderStatus: true,
+          notifyOnNewReview: true,
+          notifyOnLowRating: true,
+          subscribers: [],
+          inviteCodes: [],
+          ...parsed
+        }
+      : {
+          notifyOnNewOrder: true,
+          notifyOnOrderStatus: true,
+          notifyOnNewReview: true,
+          notifyOnLowRating: true,
+          subscribers: [],
+          inviteCodes: []
+        };
+  } catch (e) {
+    return {
+      notifyOnNewOrder: true,
+      notifyOnOrderStatus: true,
+      notifyOnNewReview: true,
+      notifyOnLowRating: true,
+      subscribers: [],
+      inviteCodes: []
+    };
+  }
+}
+
+export function maskTelegramToken(token?: string | null): string {
+  if (!token || !token.includes(":")) return "";
+  const [botId, secret] = token.split(":");
+  if (!secret) return `${botId}:••••••••`;
+  const visiblePrefix = secret.slice(0, 3);
+  const visibleSuffix = secret.slice(-3);
+  return `${botId}:${visiblePrefix}••••••••${visibleSuffix}`;
+}
+

@@ -1,8 +1,9 @@
 import React, { FormEvent, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Trash2, X, Plus, Send, Users, Sparkles, MessageSquare, Search, Check, Copy } from "lucide-react";
+import { Trash2, X, Plus, Send, Users, Sparkles, MessageSquare, Search, Check, Copy, Target } from "lucide-react";
 import { Shop, Broadcast } from "../../types";
 import ImageUploader from "../ImageUploader";
+import { CustomDropdown } from "../CustomDropdown";
 
 interface AdminBroadcastsTabProps {
   selectedShop: Shop;
@@ -412,19 +413,21 @@ export function AdminBroadcastsTab({
                         <label className="block text-[10px] text-app-muted font-mono uppercase tracking-wider">
                           Таргетинг (Сегмент)
                         </label>
-                        <select
+                        <CustomDropdown
                           value={newBroadcastData.targetFilter}
-                          onChange={(e) =>
-                            setNewBroadcastData((p) => ({ ...p, targetFilter: e.target.value }))
+                          onChange={(val) =>
+                            setNewBroadcastData((p) => ({ ...p, targetFilter: val }))
                           }
-                          className="w-full bg-app-card border border-app-border rounded-xl px-2.5 py-1.5 text-xs text-app-primary font-mono focus:outline-none focus:border-app-primary transition-colors cursor-pointer"
-                        >
-                          {Object.entries(targetLabels).map(([id, target]) => (
-                            <option key={id} value={id}>
-                              {target.label} ({target.desc})
-                            </option>
-                          ))}
-                        </select>
+                          options={Object.entries(targetLabels).map(([id, target]) => ({
+                            value: id,
+                            label: target.label,
+                            description: target.desc,
+                            icon: <Target size={13} />,
+                          }))}
+                          className="w-full"
+                          buttonClassName="w-full bg-app-card"
+                          minMenuWidth="min-w-[280px]"
+                        />
                       </div>
                     </div>
 

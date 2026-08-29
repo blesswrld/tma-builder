@@ -64,7 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Realtime updates for user changes, plan changes, and bans
   useRealtimeEvent(["USER_UPDATED", "PLAN_UPDATED"], (event) => {
-    const targetId = event.payload?.id || event.payload?.userId;
+    const targetId = event.payload?.id || event.payload?.userId || event.userId;
     if (targetId) {
       setUser(prev => {
         if (!prev || prev.id !== targetId) return prev;

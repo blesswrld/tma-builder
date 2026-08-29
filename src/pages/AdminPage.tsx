@@ -21,6 +21,8 @@ import QrGeneratorModal from "../components/QrGeneratorModal";
 import PlanModal from "../components/PlanModal";
 import ReportModal from "../components/ReportModal";
 import { PrivacyPolicyModal } from "../components/PrivacyPolicyModal";
+import { HelpCenterModal } from "../components/docs/HelpCenterModal";
+import { ChangelogModal } from "../components/docs/ChangelogModal";
 import AnalyticsTab from "../components/AnalyticsTab";
 import { AdminPageSkeleton, AdminContentSkeleton, ReviewSkeletonList, SpinnerLoader, Skeleton } from "../components/Skeleton";
 import ImageUploader from "../components/ImageUploader";
@@ -301,13 +303,26 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(!shops || shops.length === 0);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
-  const { subscribeShop, isConnected } = useRealtime();
+  const { subscribeShop, subscribeShops, isConnected } = useRealtime();
+
+  useEffect(() => {
+    if (shops && shops.length > 0) {
+      subscribeShops(shops.map(s => s.id));
+    }
+  }, [shops, subscribeShops]);
 
   useEffect(() => {
     if (selectedShop?.id) {
       subscribeShop(selectedShop.id);
     }
   }, [selectedShop?.id, subscribeShop]);
+
+  useRealtimeEvent("REALTIME_RECONNECTED", () => {
+    fetchShops(true);
+    if (selectedShop?.id) {
+      fetchOrders(selectedShop.id, true);
+    }
+  });
 
   useRealtimeEvent("ORDER_CREATED", (event) => {
     if (event.payload && event.shopId === selectedShop?.id) {
@@ -886,6 +901,9 @@ export default function AdminPage() {
   }, []);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHotkeysModalOpen, setIsHotkeysModalOpen] = useState(false);
+  const [isHelpCenterOpen, setIsHelpCenterOpen] = useState(false);
+  const [helpCenterArticleId, setHelpCenterArticleId] = useState<string | null>(null);
+  const [isChangelogOpen, setIsChangelogOpen] = useState(false);
 
   // Team & Invitation Management
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -902,7 +920,7 @@ export default function AdminPage() {
   const [isAcceptingInvite, setIsAcceptingInvite] = useState(false);
 
   // Lock body scrolling when modals or mobile sidebar drawer are open
-  useScrollLock(isSidebarOpen || isHotkeysModalOpen || confirmModal.isOpen);
+  useScrollLock(isSidebarOpen || isHotkeysModalOpen || isHelpCenterOpen || isChangelogOpen || confirmModal.isOpen);
 
   // Sidebar Drag & Resize Width State (Persistent)
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
@@ -1056,6 +1074,8 @@ export default function AdminPage() {
     isPlanModalOpen,
     isReportModalOpen,
     isHotkeysModalOpen,
+    isHelpCenterOpen,
+    isChangelogOpen,
     confirmModal?.isOpen,
     newOrderAlert
   ]);
@@ -1082,6 +1102,14 @@ export default function AdminPage() {
         }
         if (newOrderAlert) {
           setNewOrderAlert(null);
+          return;
+        }
+        if (isHelpCenterOpen) {
+          setIsHelpCenterOpen(false);
+          return;
+        }
+        if (isChangelogOpen) {
+          setIsChangelogOpen(false);
           return;
         }
         if (isHotkeysModalOpen) {
@@ -1141,13 +1169,7 @@ export default function AdminPage() {
       // 3. SEARCH FOCUS: Cmd/Ctrl + K or "/" (when not typing)
       if (((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") || (!isInput && e.key === "/")) {
         e.preventDefault();
-        const searchInput = document.querySelector<HTMLInputElement>(
-          'input[type="search"], input[placeholder*="Поиск"], input[placeholder*="поиск"], input[placeholder*="Search"]'
-        );
-        if (searchInput) {
-          searchInput.focus();
-          searchInput.select?.();
-        }
+        setIsHelpCenterOpen(true);
         return;
       }
 
@@ -1158,10 +1180,10 @@ export default function AdminPage() {
         return;
       }
 
-      // 5. SHOW HOTKEYS HELP MODAL: "?" or "Shift + /"
+      // 5. SHOW HELP CENTER / GITBOOK AI MODAL: "?" or "Shift + /"
       if (!isInput && (e.key === "?" || (e.shiftKey && e.key === "/"))) {
         e.preventDefault();
-        setIsHotkeysModalOpen(prev => !prev);
+        setIsHelpCenterOpen(prev => !prev);
         return;
       }
 
@@ -1718,12 +1740,6 @@ export default function AdminPage() {
     if (selectedShop) {
       prevOrdersCountRef.current = null;
       fetchOrders(selectedShop.id);
-
-      const interval = setInterval(() => {
-        fetchOrders(selectedShop.id, true);
-      }, 10000);
-
-      return () => clearInterval(interval);
     } else {
       setOrders([]);
       prevOrdersCountRef.current = null;
@@ -2468,19 +2484,6 @@ export default function AdminPage() {
         fetchCustomers();
       }
       fetchReviews();
-
-      const interval = setInterval(() => {
-        if (!isStaff) {
-          fetchPromocodes(true);
-          fetchBanners(true);
-          fetchBroadcasts(true);
-          fetchCustomers(true);
-        }
-        fetchReviews(true);
-        fetchShops(true);
-      }, 4000);
-
-      return () => clearInterval(interval);
     }
   }, [selectedShop?.id, isStaff]);
 
@@ -3717,31 +3720,43 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Compact Privacy Policy & GitHub Footer Links */}
-            <div className="grid grid-cols-2 gap-2 pt-0.5">
+            {/* Compact Privacy Policy, Changelog & GitHub Footer Links */}
+            <div className="grid grid-cols-3 gap-1.5 pt-0.5">
               <button
                 type="button"
                 onClick={() => {
                   setIsPrivacyModalOpen(true);
                   setIsSidebarOpen(false);
                 }}
-                className="p-2 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer group shadow-sm text-left"
+                className="p-2 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl flex items-center justify-center gap-1 text-[10px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer group shadow-sm text-center"
                 title="Ознакомиться с Политикой конфиденциальности (ФЗ-152)"
               >
-                <ShieldCheck size={13} className="text-emerald-500 shrink-0" />
+                <ShieldCheck size={12} className="text-emerald-500 shrink-0" />
                 <span className="truncate group-hover:text-app-primary font-medium">ФЗ-152</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsChangelogOpen(true);
+                  setIsSidebarOpen(false);
+                }}
+                className="p-2 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl flex items-center justify-center gap-1 text-[10px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer group shadow-sm text-center"
+                title="История обновлений и новые функции платформы"
+              >
+                <Sparkles size={12} className="text-indigo-500 shrink-0" />
+                <span className="truncate group-hover:text-app-primary font-medium">v2.6</span>
               </button>
 
               <a
                 href="https://github.com/blesswrld/tma-builder"
                 target="_blank"
                 rel="noreferrer"
-                className="p-2 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer group shadow-sm"
+                className="p-2 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl flex items-center justify-center gap-1 text-[10px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer group shadow-sm text-center"
                 title="Открыть исходный код приложения на GitHub"
               >
-                <Github size={13} className="text-app-primary shrink-0" />
-                <span className="truncate group-hover:text-app-primary font-medium">GitHub</span>
-                <ExternalLink size={11} className="text-app-muted group-hover:text-app-primary shrink-0 ml-0.5" />
+                <Github size={12} className="text-app-primary shrink-0" />
+                <span className="truncate group-hover:text-app-primary font-medium">Git</span>
               </a>
             </div>
           </div>
@@ -3840,15 +3855,19 @@ export default function AdminPage() {
               {theme === "dark" ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-400" />}
             </button>
 
-            {/* Hotkeys Helper Button */}
+            {/* Help Center & AI Search Button */}
             <button
               type="button"
-              onClick={() => setIsHotkeysModalOpen(true)}
-              className="px-2.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer hidden md:flex items-center gap-1.5 shrink-0 text-xs font-mono"
-              title="Горячие клавиши (?)"
+              onClick={() => {
+                setHelpCenterArticleId(null);
+                setIsHelpCenterOpen(true);
+              }}
+              className="px-2.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 text-xs font-mono group"
+              title="Центр помощи & GitBook AI (?)"
             >
-              <Keyboard size={14} className="text-app-muted" />
-              <span className="hidden lg:inline text-[9px] font-bold text-app-muted border border-app-border/80 px-1 py-0.5 rounded bg-app-surface/50">?</span>
+              <Sparkles size={14} className="text-indigo-500 group-hover:rotate-12 transition-transform" />
+              <span className="hidden sm:inline text-[11px] font-semibold">Справка</span>
+              <kbd className="hidden lg:inline text-[9px] font-bold text-app-muted border border-app-border/80 px-1 py-0.5 rounded bg-app-surface/50">?</kbd>
             </button>
 
             {/* Report Bug / Feedback Button */}
@@ -4644,6 +4663,20 @@ export default function AdminPage() {
       </AnimatePresence>
 
       {/* QR Modal & Plan Modal */}
+      <HelpCenterModal
+        isOpen={isHelpCenterOpen}
+        onClose={() => {
+          setIsHelpCenterOpen(false);
+          setHelpCenterArticleId(null);
+        }}
+        initialArticleId={helpCenterArticleId}
+      />
+
+      <ChangelogModal
+        isOpen={isChangelogOpen}
+        onClose={() => setIsChangelogOpen(false)}
+      />
+
       <QrGeneratorModal
         isOpen={isQrModalOpen}
         onClose={() => setIsQrModalOpen(false)}

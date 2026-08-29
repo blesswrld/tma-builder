@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useRef, useState, useCallb
 export interface RealtimeEvent {
   type: string;
   shopId?: string;
+  userId?: string;
   payload?: any;
 }
 
@@ -12,14 +13,20 @@ interface RealtimeContextType {
   isConnected: boolean;
   lastEvent: RealtimeEvent | null;
   subscribeShop: (shopId: string) => void;
+  subscribeShops: (shopIds: string[]) => void;
+  unsubscribeShop: (shopId: string) => void;
   addListener: (listener: RealtimeListener) => () => void;
+  sendEvent: (data: any) => void;
 }
 
 const RealtimeContext = createContext<RealtimeContextType>({
   isConnected: false,
   lastEvent: null,
   subscribeShop: () => {},
+  subscribeShops: () => {},
+  unsubscribeShop: () => {},
   addListener: () => () => {},
+  sendEvent: () => {},
 });
 
 export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -27,16 +34,51 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const listenersRef = useRef<Set<RealtimeListener>>(new Set());
-  const subscribedShopIdRef = useRef<string | null>(null);
+  const subscribedShopsRef = useRef<Set<string>>(new Set());
+  const reconnectTimeoutRef = useRef<any>(null);
+  const isManuallyClosedRef = useRef(false);
+
+  const sendEvent = useCallback((data: any) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(typeof data === "string" ? data : JSON.stringify(data));
+      } catch (e) {
+        console.error("Failed to send WS message:", e);
+      }
+    }
+  }, []);
+
+  const authenticateWS = useCallback(() => {
+    try {
+      const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+      if (token && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: "auth", token }));
+      }
+    } catch {}
+  }, []);
+
+  const resubscribeAll = useCallback(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      authenticateWS();
+      const shopIds = Array.from(subscribedShopsRef.current);
+      if (shopIds.length > 0) {
+        try {
+          wsRef.current.send(JSON.stringify({ type: "subscribe", shopIds }));
+        } catch {}
+      }
+    }
+  }, [authenticateWS]);
 
   useEffect(() => {
-    let reconnectTimeout: any = null;
     let retryCount = 0;
+    isManuallyClosedRef.current = false;
 
     const connect = () => {
+      if (isManuallyClosedRef.current) return;
       if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
         return;
       }
+
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const wsUrl = `${protocol}//${window.location.host}/ws`;
 
@@ -47,17 +89,23 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
         ws.onopen = () => {
           setIsConnected(true);
           retryCount = 0;
-          if (subscribedShopIdRef.current) {
+          resubscribeAll();
+
+          // Dispatch reconnect event for state reconciliation
+          const reconnectedEvent: RealtimeEvent = { type: "REALTIME_RECONNECTED", payload: { timestamp: Date.now() } };
+          listenersRef.current.forEach((listener) => {
             try {
-              ws.send(JSON.stringify({ type: "subscribe", shopId: subscribedShopIdRef.current }));
-            } catch {}
-          }
+              listener(reconnectedEvent);
+            } catch (e) {
+              console.error("Realtime listener error:", e);
+            }
+          });
         };
 
         ws.onmessage = (event) => {
           try {
             const data: RealtimeEvent = JSON.parse(event.data);
-            if (data.type !== "pong" && data.type !== "connected") {
+            if (data.type !== "pong" && data.type !== "connected" && data.type !== "AUTH_SUCCESS") {
               setLastEvent(data);
             }
             listenersRef.current.forEach((listener) => {
@@ -75,9 +123,11 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
         ws.onclose = () => {
           setIsConnected(false);
           wsRef.current = null;
-          retryCount++;
-          const delay = Math.min(2000 * Math.pow(1.3, Math.min(retryCount, 6)), 15000);
-          reconnectTimeout = setTimeout(connect, delay);
+          if (!isManuallyClosedRef.current) {
+            retryCount++;
+            const delay = Math.min(1000 * Math.pow(1.3, Math.min(retryCount, 7)), 12000);
+            reconnectTimeoutRef.current = setTimeout(connect, delay);
+          }
         };
 
         ws.onerror = () => {
@@ -89,24 +139,35 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
         };
       } catch (err) {
         retryCount++;
-        const delay = Math.min(2000 * Math.pow(1.3, Math.min(retryCount, 6)), 15000);
-        reconnectTimeout = setTimeout(connect, delay);
+        const delay = Math.min(1000 * Math.pow(1.3, Math.min(retryCount, 7)), 12000);
+        reconnectTimeoutRef.current = setTimeout(connect, delay);
       }
     };
 
     connect();
 
+    // Heartbeat ping
     const pingInterval = setInterval(() => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         try {
           wsRef.current.send(JSON.stringify({ type: "ping" }));
         } catch {}
       }
-    }, 20000);
+    }, 25000);
+
+    // Also listen to storage events if token changes (e.g. login in another tab)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "auth_token" || e.key === "token") {
+        authenticateWS();
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
 
     return () => {
+      isManuallyClosedRef.current = true;
       clearInterval(pingInterval);
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      window.removeEventListener("storage", handleStorageChange);
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (wsRef.current) {
         const ws = wsRef.current;
         wsRef.current = null;
@@ -114,25 +175,42 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
         ws.onclose = null;
         ws.onerror = null;
         ws.onmessage = null;
-        if (ws.readyState === WebSocket.OPEN) {
-          try {
+        try {
+          if (ws.readyState === WebSocket.OPEN) {
             ws.close();
-          } catch {}
-        } else if (ws.readyState === WebSocket.CONNECTING) {
-          ws.onopen = () => {
-            try {
-              ws.close();
-            } catch {}
-          };
-        }
+          }
+        } catch {}
       }
     };
-  }, []);
+  }, [resubscribeAll, authenticateWS]);
 
   const subscribeShop = useCallback((shopId: string) => {
-    subscribedShopIdRef.current = shopId;
+    if (!shopId) return;
+    subscribedShopsRef.current.add(shopId);
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "subscribe", shopId }));
+      try {
+        wsRef.current.send(JSON.stringify({ type: "subscribe", shopId }));
+      } catch {}
+    }
+  }, []);
+
+  const subscribeShops = useCallback((shopIds: string[]) => {
+    if (!Array.isArray(shopIds) || shopIds.length === 0) return;
+    shopIds.forEach(id => { if (id) subscribedShopsRef.current.add(id); });
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({ type: "subscribe", shopIds }));
+      } catch {}
+    }
+  }, []);
+
+  const unsubscribeShop = useCallback((shopId: string) => {
+    if (!shopId) return;
+    subscribedShopsRef.current.delete(shopId);
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({ type: "unsubscribe", shopId }));
+      } catch {}
     }
   }, []);
 
@@ -144,8 +222,16 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, []);
 
   const value = useMemo(
-    () => ({ isConnected, lastEvent, subscribeShop, addListener }),
-    [isConnected, lastEvent, subscribeShop, addListener]
+    () => ({
+      isConnected,
+      lastEvent,
+      subscribeShop,
+      subscribeShops,
+      unsubscribeShop,
+      addListener,
+      sendEvent
+    }),
+    [isConnected, lastEvent, subscribeShop, subscribeShops, unsubscribeShop, addListener, sendEvent]
   );
 
   return (
@@ -175,4 +261,5 @@ export const useRealtimeEvent = (
     return remove;
   }, [addListener, JSON.stringify(eventTypes)]);
 };
+
 

@@ -45,6 +45,7 @@ model Shop {
   bannerUrl           String?
   botToken            String?
   adminChatId         String?
+  telegramSettings    String?
   workingHours        String?
   address             String?
   phone               String?

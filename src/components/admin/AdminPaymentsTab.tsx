@@ -70,14 +70,9 @@ export default function AdminPaymentsTab({
 
   useEffect(() => {
     fetchPayments();
-    // Realtime polling backup every 10 seconds
-    const interval = setInterval(() => {
-      fetchPayments(true);
-    }, 10000);
-    return () => clearInterval(interval);
   }, [token]);
 
-  useRealtimeEvent(["PAYMENT_UPDATED", "PAYMENT_CREATED", "USER_UPDATED", "PLAN_UPDATED"], (event) => {
+  useRealtimeEvent(["PAYMENT_UPDATED", "PAYMENT_CREATED", "USER_UPDATED", "PLAN_UPDATED", "REALTIME_RECONNECTED"], (event) => {
     if (event.type === "PAYMENT_UPDATED" && event.payload?.paymentId) {
       setPayments(prev => prev.map(p => p.id === event.payload.paymentId || p.yooPaymentId === event.payload.paymentId ? { ...p, ...event.payload, status: event.payload.status || p.status } : p));
     }

@@ -14,21 +14,79 @@ import {
   validateCustomerName, validateTelegramBotToken, validateTelegramChatId,
   validateEmail, validatePassword, validateItemTitle, validatePrice
 } from "./src/lib/validation.js";
+import {
+  getTelegramMe,
+  getTelegramWebhookInfo,
+  setTelegramWebhook,
+  deleteTelegramWebhook,
+  sendTelegramMessage,
+  getOrderCardText,
+  getOrderInlineButtons,
+  broadcastTelegramNotification,
+  handleTelegramWebhookUpdate
+} from "./src/server/telegramBot.js";
+import { parseTelegramSettings, maskTelegramToken } from "./src/types.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "smart-menu-secret-key-2026";
 
-const clients = new Set<{ ws: WebSocket; shopId?: string }>();
+export function isDeveloperEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.toLowerCase().trim();
+  return normalized === "gelgaev.dev@mail.ru" || normalized === "roninfortnite71@gmail.com";
+}
 
-export function broadcastEvent(event: { type: string; shopId?: string; payload?: any }) {
+export interface RealtimeClient {
+  ws: WebSocket;
+  userId?: string;
+  isDeveloper?: boolean;
+  subscribedShopIds: Set<string>;
+}
+
+export const clients = new Set<RealtimeClient>();
+
+export function broadcastEvent(event: { type: string; shopId?: string; userId?: string; payload?: any }) {
   const message = JSON.stringify(event);
   clients.forEach((client) => {
     if (client.ws.readyState === WebSocket.OPEN) {
-      if (!event.shopId || !client.shopId || client.shopId === event.shopId) {
+      // 1. Developers receive all events
+      if (client.isDeveloper) {
         try {
           client.ws.send(message);
         } catch (e) {
-          console.error("Error broadcasting to WS client:", e);
+          console.error("Error broadcasting to WS dev client:", e);
         }
+        return;
+      }
+
+      // 2. User-specific event (e.g. USER_UPDATED, PLAN_UPDATED, PAYMENT_UPDATED, USER_BANNED)
+      if (event.userId) {
+        if (client.userId && client.userId === event.userId) {
+          try {
+            client.ws.send(message);
+          } catch (e) {
+            console.error("Error broadcasting to WS user client:", e);
+          }
+        }
+        return;
+      }
+
+      // 3. Shop-specific event (e.g. ORDER_CREATED, SERVICE_UPDATED, REVIEW_CREATED, etc.)
+      if (event.shopId) {
+        if (client.subscribedShopIds.size === 0 || client.subscribedShopIds.has(event.shopId)) {
+          try {
+            client.ws.send(message);
+          } catch (e) {
+            console.error("Error broadcasting to WS shop client:", e);
+          }
+        }
+        return;
+      }
+
+      // 4. Global broadcast (e.g. system notifications, new report, shop list changes)
+      try {
+        client.ws.send(message);
+      } catch (e) {
+        console.error("Error broadcasting to WS client:", e);
       }
     }
   });
@@ -45,12 +103,6 @@ function getAuthUser(req: express.Request) {
   } catch (e) {
     return null;
   }
-}
-
-function isDeveloperEmail(email?: string | null): boolean {
-  if (!email) return false;
-  const normalized = email.toLowerCase().trim();
-  return normalized === "gelgaev.dev@mail.ru" || normalized === "roninfortnite71@gmail.com";
 }
 
 function formatUserResponse(user: any) {
@@ -310,6 +362,7 @@ async function ensureOrderSchema(db: PrismaClient) {
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "musicSettings" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "botToken" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "adminChatId" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "telegramSettings" TEXT`,
 
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "plan" TEXT DEFAULT 'FREE'`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "subscriptionExpiresAt" TIMESTAMP(3)`,
@@ -501,10 +554,20 @@ async function getUserShops(db: PrismaClient, userId: string) {
     orderBy: { createdAt: "desc" }
   });
 
-  const ownedWithRole = ownedShops.map(s => ({
-    ...s,
-    currentUserRole: "OWNER" as const
-  }));
+  const sanitizeShop = (s: any, role: string) => {
+    const hasBot = Boolean(s.botToken);
+    return {
+      ...s,
+      hasBotToken: hasBot,
+      isTelegramConnected: hasBot,
+      botTokenMasked: maskTelegramToken(s.botToken),
+      // Hide raw botToken for non-owner members
+      botToken: role === "OWNER" ? s.botToken : maskTelegramToken(s.botToken),
+      currentUserRole: role
+    };
+  };
+
+  const ownedWithRole = ownedShops.map(s => sanitizeShop(s, "OWNER"));
 
   // Shops where user is a team member (staff or manager)
   let memberRecords: any[] = [];
@@ -542,10 +605,10 @@ async function getUserShops(db: PrismaClient, userId: string) {
         orderBy: { createdAt: "desc" }
       });
 
-      extraShops = rawExtra.map(s => ({
-        ...s,
-        currentUserRole: memberRoleMap.get(s.id) || ("STAFF" as const)
-      }));
+      extraShops = rawExtra.map(s => {
+        const role = memberRoleMap.get(s.id) || "STAFF";
+        return sanitizeShop(s, role);
+      });
     }
   }
 
@@ -1774,6 +1837,7 @@ app.post("/api/shops/:id/claim", async (req, res) => {
       }
     });
 
+    broadcastEvent({ type: "SHOP_UPDATED", shopId: id, payload: updatedShop });
     res.json(updatedShop);
   } catch (error: any) {
     console.error("Ошибка при привязке заведения:", error);
@@ -2626,14 +2690,32 @@ app.post("/api/shops", async (req, res) => {
         }
       }
 
+      let nextBotToken = shop.botToken;
+      if (botToken !== undefined) {
+        const trimmed = botToken ? String(botToken).trim() : null;
+        if (trimmed && (trimmed.includes("•") || trimmed.includes("***") || trimmed.includes("••••"))) {
+          nextBotToken = shop.botToken;
+        } else {
+          nextBotToken = trimmed;
+        }
+      }
+
+      let nextTelegramSettings = shop.telegramSettings;
+      if (req.body.telegramSettings !== undefined) {
+        nextTelegramSettings = typeof req.body.telegramSettings === "string" 
+          ? req.body.telegramSettings 
+          : JSON.stringify(req.body.telegramSettings);
+      }
+
       const updatedShop = await db.shop.update({
         where: { id },
         data: {
           name: name !== undefined ? String(name).trim() : shop.name,
           slug: updatedSlug,
           description: description !== undefined ? (description ? String(description).trim() : null) : shop.description,
-          botToken: botToken !== undefined ? (botToken ? String(botToken).trim() : null) : shop.botToken,
+          botToken: nextBotToken,
           adminChatId: adminChatId !== undefined ? (adminChatId ? String(adminChatId).trim() : null) : shop.adminChatId,
+          telegramSettings: nextTelegramSettings,
           workingHours: workingHours !== undefined ? (workingHours ? String(workingHours).trim() : null) : shop.workingHours,
           address: address !== undefined ? (address ? String(address).trim() : null) : shop.address,
           phone: phone !== undefined ? (phone ? String(phone).trim() : null) : shop.phone,
@@ -2779,39 +2861,10 @@ app.post("/api/shops", async (req, res) => {
       }
 
       // 2. Отправляем уведомление в Telegram (если настроено)
-      const botToken = shop?.botToken || process.env.TELEGRAM_BOT_TOKEN;
-      const chatId = shop?.adminChatId || process.env.ADMIN_CHAT_ID;
-
-      if (botToken && chatId) {
-        const itemsList = items
-          .map((i: any) => `• ${i.title} (x${i.quantity}): ${i.price * i.quantity} ₽${i.note ? ` _(${i.note})_` : ''}`)
-          .join("\n");
-
-        let locationInfo = "";
-        const methodLabel = cleanFulfillmentMethod === "courier" 
-          ? "Курьер" 
-          : cleanFulfillmentMethod === "shipping" 
-          ? "Почта / СДЭК" 
-          : cleanFulfillmentMethod === "online" 
-          ? "Онлайн" 
-          : "Самовывоз";
-        locationInfo += `\n🚚 *Способ:* ${methodLabel}`;
-        if (cleanDeliveryAddress) locationInfo += `\n📍 *Адрес / ПВЗ:* ${cleanDeliveryAddress}`;
-        if (cleanTableNumber) locationInfo += `\n🪑 *Столик / Место:* ${cleanTableNumber}`;
-        if (cleanPreferredTime) locationInfo += `\n⏰ *Время готовности / доставки:* ${cleanPreferredTime}`;
-        if (cleanNote) locationInfo += `\n📝 *Комментарий:* ${cleanNote}`;
-          
-        const text = `🎉 *Новый заказ в "${shop?.name || ''}"!*\n\n👤 *Имя:* ${customerName}\n📱 *Телефон:* ${customerPhone}${locationInfo}\n\n🛒 *Заказ:*\n${itemsList}\n\n💰 *Итого:* ${totalPrice} ₽`;
-
-        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: text,
-            parse_mode: "Markdown",
-          }),
-        }).catch((e) => console.error("Ошибка при отправке в Telegram:", e));
+      if (shop) {
+        broadcastTelegramNotification(db, shop, "NEW_ORDER", order).catch((e) =>
+          console.error("Ошибка при отправке в Telegram:", e)
+        );
       }
 
       broadcastEvent({ type: "ORDER_CREATED", shopId, payload: order });
@@ -2983,6 +3036,13 @@ app.post("/api/shops", async (req, res) => {
         where: { id },
         data: { status }
       });
+
+      const shop = await db.shop.findUnique({ where: { id: updatedOrder.shopId } });
+      if (shop) {
+        broadcastTelegramNotification(db, shop, "ORDER_STATUS", updatedOrder).catch((e) =>
+          console.error("Ошибка отправки смены статуса заказа в Telegram:", e)
+        );
+      }
 
       broadcastEvent({ type: "ORDER_STATUS_UPDATED", shopId: updatedOrder.shopId, payload: updatedOrder });
       res.json(updatedOrder);
@@ -3482,26 +3542,11 @@ app.post("/api/shops", async (req, res) => {
       // Отправляем уведомление в Telegram бот администратора при наличии токена
       try {
         const shop = await db.shop.findUnique({ where: { id: shopId } });
-        const botToken = shop?.botToken || process.env.TELEGRAM_BOT_TOKEN;
-        const chatId = shop?.adminChatId || process.env.ADMIN_CHAT_ID;
-
-        if (botToken && chatId) {
-          const stars = "⭐".repeat(numRating);
-          const reviewText = `⭐ *Новый отзыв в заведении "${shop?.name || ''}"!*\n\n` +
-            `👤 *Автор:* ${cleanName}\n` +
-            `⭐ *Оценка:* ${stars} (${numRating}/5)\n` +
-            (cleanComment ? `💬 *Отзыв:* ${cleanComment}\n` : "") +
-            (cleanImageUrl ? `🖼️ *Фото в отзыве:* [Ссылка на фото](${cleanImageUrl})\n` : "");
-
-          fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: chatId,
-              text: reviewText,
-              parse_mode: "Markdown"
-            })
-          }).catch((e) => console.error("Ошибка отправки отзыва в Telegram:", e));
+        if (shop) {
+          const notifType = numRating <= 2 ? "LOW_RATING" : "NEW_REVIEW";
+          broadcastTelegramNotification(db, shop, notifType, review).catch((e) =>
+            console.error("Ошибка отправки отзыва в Telegram:", e)
+          );
         }
       } catch (tgErr) {
         console.warn("Ошибка проверки параметров Telegram для отзыва:", tgErr);
@@ -4033,22 +4078,10 @@ app.post("/api/shops", async (req, res) => {
         }
       });
 
-      // Если настроен Telegram Bot, отправляем уведомление в чат администратора
+      // Если настроен Telegram Bot, отправляем уведомление всем подписчикам заведения
       const shop = await db.shop.findUnique({ where: { id: shopId } });
-      const botToken = shop?.botToken || process.env.TELEGRAM_BOT_TOKEN;
-      const chatId = shop?.adminChatId || process.env.ADMIN_CHAT_ID;
-
-      if (botToken && chatId) {
-        const text = `📣 *[РАССЫЛКА КЛИЕНТАМ]*\n\n📌 *${title}*\n${message}\n\n📊 *Получателей:* ${count}`;
-        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text,
-            parse_mode: "Markdown"
-          })
-        }).catch(() => {});
+      if (shop) {
+        await broadcastTelegramNotification(db, shop, "BROADCAST", { title, message, count }).catch(() => {});
       }
 
       broadcastEvent({ type: "BROADCAST_CREATED", shopId, payload: broadcast });
@@ -4090,8 +4123,8 @@ app.post("/api/shops", async (req, res) => {
   // TELEGRAM BOT INTEGRATION API ENDPOINTS
   // ==========================================
 
-  // API Route: Проверить валидность токена бота
-  app.post("/api/shops/:shopId/telegram/test-bot", async (req, res) => {
+  // API Route: Получить текущий статус интеграции с Telegram
+  app.get("/api/shops/:shopId/telegram/status", async (req, res) => {
     try {
       const { shopId } = req.params;
       const authUser = getAuthUser(req);
@@ -4101,30 +4134,199 @@ app.post("/api/shops", async (req, res) => {
       await ensureOrderSchema(db);
 
       const hasPermission = await canManageShop(db, shopId, authUser);
-      if (!hasPermission) return res.status(403).json({ error: "У вас нет прав для работы с настройками заведения." });
+      if (!hasPermission) return res.status(403).json({ error: "У вас нет прав для просмотра настроек заведения." });
 
-      let botToken = req.body.botToken;
-      if (!botToken) {
-        const shop = await db.shop.findUnique({ where: { id: shopId } });
-        botToken = shop?.botToken;
+      const shop = await db.shop.findUnique({ where: { id: shopId } });
+      if (!shop) return res.status(404).json({ error: "Заведение не найдено." });
+
+      const settings = parseTelegramSettings(shop.telegramSettings);
+      const isConnected = Boolean(shop.botToken);
+
+      let botInfo: any = null;
+      let webhookInfo: any = null;
+
+      if (shop.botToken) {
+        const [meRes, whRes] = await Promise.all([
+          getTelegramMe(shop.botToken),
+          getTelegramWebhookInfo(shop.botToken)
+        ]);
+
+        if (meRes.ok && meRes.result) {
+          botInfo = meRes.result;
+          if (settings.botUsername !== meRes.result.username || settings.botName !== meRes.result.first_name) {
+            settings.botId = meRes.result.id;
+            settings.botUsername = meRes.result.username;
+            settings.botName = meRes.result.first_name;
+            await db.shop.update({
+              where: { id: shopId },
+              data: { telegramSettings: JSON.stringify(settings) }
+            }).catch(() => {});
+          }
+        }
+        if (whRes.ok && whRes.result) {
+          webhookInfo = whRes.result;
+        }
       }
+
+      const host = req.get("host") || "";
+      const protocol = host.includes("localhost") ? "http" : "https";
+      const origin = req.get("origin") || `${protocol}://${host}`;
+      const shopUrl = `${origin}/${shop.slug}`;
+
+      res.json({
+        isConnected,
+        hasBotToken: isConnected,
+        botTokenMasked: maskTelegramToken(shop.botToken),
+        adminChatId: shop.adminChatId || null,
+        bot: botInfo,
+        webhook: webhookInfo,
+        settings,
+        shopUrl,
+        subscribers: settings.subscribers || [],
+        inviteCodes: settings.inviteCodes || []
+      });
+    } catch (error: any) {
+      console.error("Ошибка получения статуса Telegram:", error);
+      res.status(500).json({ error: error.message || "Ошибка получения статуса Telegram." });
+    }
+  });
+
+  // API Route: Подключить Telegram-бота к заведению
+  app.post("/api/shops/:shopId/telegram/connect", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const { botToken } = req.body;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) return res.status(403).json({ error: "У вас нет прав для управления заведением." });
 
       if (!botToken || !String(botToken).trim()) {
         return res.status(400).json({ error: "Укажите API Token вашего Telegram-бота." });
       }
 
       const cleanToken = String(botToken).trim();
-      const tgRes = await fetch(`https://api.telegram.org/bot${cleanToken}/getMe`);
-      const tgData = await tgRes.json();
-
-      if (!tgData.ok) {
-        return res.status(400).json({ error: tgData.description || "Неверный токен Telegram-бота." });
+      const val = validateTelegramBotToken(cleanToken);
+      if (!val.isValid) {
+        return res.status(400).json({ error: val.error || "Неверный формат токена бота." });
       }
 
-      res.json({ success: true, bot: tgData.result });
+      // 1. Проверяем токен через Telegram getMe
+      const meRes = await getTelegramMe(cleanToken);
+      if (!meRes.ok || !meRes.result) {
+        return res.status(400).json({ error: meRes.description || "Не удалось связаться с Telegram. Проверьте правильность токена." });
+      }
+
+      const bot = meRes.result;
+
+      // 2. Исключаем привязку одного бота к разным заведениям
+      const otherShop = await db.shop.findFirst({
+        where: {
+          id: { not: shopId },
+          botToken: cleanToken
+        }
+      });
+      if (otherShop) {
+        return res.status(400).json({
+          error: `Этот Telegram-бот (@${bot.username}) уже привязан к заведению «${otherShop.name}». Один бот может обслуживать только одно заведение. Создайте отдельного бота в @BotFather.`
+        });
+      }
+
+      // 3. Формируем URL вебхука
+      let clientBaseUrl = req.body.baseUrl || req.get("origin") || (req.get("referer") ? new URL(req.get("referer")).origin : "");
+      if (!clientBaseUrl) {
+        const host = req.get("host") || "";
+        clientBaseUrl = `https://${host}`;
+      }
+      clientBaseUrl = clientBaseUrl.replace(/^http:/, "https:");
+      const webhookUrl = `${clientBaseUrl}/api/telegram/webhook/${shopId}`;
+
+      let webhookSetupResult = null;
+      if (!clientBaseUrl.includes("localhost") && !clientBaseUrl.includes("127.0.0.1")) {
+        webhookSetupResult = await setTelegramWebhook(cleanToken, webhookUrl);
+      }
+
+      // 4. Обновляем заведение
+      const currentShop = await db.shop.findUnique({ where: { id: shopId } });
+      const settings = parseTelegramSettings(currentShop?.telegramSettings);
+      settings.botId = bot.id;
+      settings.botName = bot.first_name;
+      settings.botUsername = bot.username;
+      settings.connectedAt = new Date().toISOString();
+      settings.webhookUrl = webhookUrl;
+      settings.webhookActive = webhookSetupResult?.ok ?? true;
+
+      const updatedShop = await db.shop.update({
+        where: { id: shopId },
+        data: {
+          botToken: cleanToken,
+          telegramSettings: JSON.stringify(settings)
+        }
+      });
+
+      broadcastEvent({ type: "SHOP_UPDATED", shopId, payload: updatedShop });
+
+      res.json({
+        success: true,
+        bot,
+        webhookUrl,
+        botTokenMasked: maskTelegramToken(cleanToken),
+        settings
+      });
     } catch (error: any) {
-      console.error("Ошибка проверки Telegram бота:", error);
-      res.status(500).json({ error: error.message || "Ошибка при проверке токена бота." });
+      console.error("Ошибка подключения Telegram бота:", error);
+      res.status(500).json({ error: error.message || "Ошибка подключения Telegram бота." });
+    }
+  });
+
+  // API Route: Отключить Telegram-бота
+  app.post("/api/shops/:shopId/telegram/disconnect", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) return res.status(403).json({ error: "У вас нет прав для управления заведением." });
+
+      const shop = await db.shop.findUnique({ where: { id: shopId } });
+      if (!shop) return res.status(404).json({ error: "Заведение не найдено." });
+
+      if (shop.botToken) {
+        await deleteTelegramWebhook(shop.botToken).catch(() => {});
+      }
+
+      const settings = parseTelegramSettings(shop.telegramSettings);
+      delete settings.botId;
+      delete settings.botName;
+      delete settings.botUsername;
+      delete settings.connectedAt;
+      delete settings.webhookUrl;
+      settings.webhookActive = false;
+      settings.subscribers = [];
+      settings.inviteCodes = [];
+
+      const updatedShop = await db.shop.update({
+        where: { id: shopId },
+        data: {
+          botToken: null,
+          adminChatId: null,
+          telegramSettings: JSON.stringify(settings)
+        }
+      });
+
+      broadcastEvent({ type: "SHOP_UPDATED", shopId, payload: updatedShop });
+      res.json({ success: true, message: "Telegram-бот успешно отключён." });
+    } catch (error: any) {
+      console.error("Ошибка отключения Telegram бота:", error);
+      res.status(500).json({ error: error.message || "Ошибка отключения бота." });
     }
   });
 
@@ -4142,44 +4344,70 @@ app.post("/api/shops", async (req, res) => {
       if (!hasPermission) return res.status(403).json({ error: "У вас нет прав для работы с заведением." });
 
       const shop = await db.shop.findUnique({ where: { id: shopId } });
-      const botToken = (req.body.botToken || shop?.botToken || "").trim();
-      const adminChatId = (req.body.adminChatId || shop?.adminChatId || "").trim();
+      if (!shop) return res.status(404).json({ error: "Заведение не найдено." });
+
+      const botToken = (req.body.botToken || shop.botToken || "").trim();
+      const adminChatId = (req.body.adminChatId || shop.adminChatId || "").trim();
 
       if (!botToken) return res.status(400).json({ error: "Токен бота не указан." });
-      if (!adminChatId) return res.status(400).json({ error: "Chat ID администратора не указан." });
+      if (!adminChatId) return res.status(400).json({ error: "Chat ID администратора не указан. Отправьте /start боту или укажите Chat ID." });
 
-      const text =
-        `🎉 *Тестовое уведомление заведения «${shop?.name || 'Мини-магазин'}»!*\n\n` +
-        `✅ Связь с вашим Telegram-ботом работает отлично.\n` +
-        `📱 Теперь сюда в реальном времени будут приходить ваши заказы и отзывы клиентами.\n\n` +
-        `⏰ _Отправлено: ${new Date().toLocaleString("ru-RU")}_`;
+      const host = req.get("host") || "";
+      const protocol = host.includes("localhost") ? "http" : "https";
+      const shopUrl = `${protocol}://${host}/${shop.slug}`;
 
-      const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: adminChatId,
-          text,
-          parse_mode: "Markdown"
-        })
+      const testOrder = {
+        id: "TEST-" + Math.random().toString(36).substring(2, 6).toUpperCase(),
+        customerName: "Иван Тестовый",
+        customerPhone: "+7 (999) 000-00-00",
+        fulfillmentMethod: "courier",
+        deliveryAddress: "ул. Примерная, д. 1, кв. 10",
+        items: JSON.stringify([
+          { title: "Фирменное блюдо", price: 650, quantity: 2, note: "Побольше соуса" },
+          { title: "Напиток ягодный", price: 150, quantity: 1 }
+        ]),
+        totalPrice: 1450,
+        status: "PENDING",
+        createdAt: new Date().toISOString()
+      };
+
+      const testText =
+        `🎉 *ТЕСТОВОЕ УВЕДОМЛЕНИЕ: Заведение «${shop.name}»*\n\n` +
+        `✅ Связь с вашим Telegram-ботом полностью настроена и функционирует!\n` +
+        `📱 Ниже представлен пример карточки нового заказа с интерактивными кнопками управления:\n\n` +
+        getOrderCardText(testOrder, shop);
+
+      const sendRes = await sendTelegramMessage(botToken, adminChatId, testText, {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "✅ Принять (Тест)", callback_data: "order:status:TEST:CONFIRMED" },
+              { text: "👨‍🍳 В работу (Тест)", callback_data: "order:status:TEST:IN_PROGRESS" }
+            ],
+            [
+              { text: "🛍️ Открыть витрину (Mini App)", web_app: { url: shopUrl } }
+            ]
+          ]
+        }
       });
 
-      const tgData = await tgRes.json();
-      if (!tgData.ok) {
-        return res.status(400).json({ error: tgData.description || "Не удалось отправить тестовое сообщение в Telegram." });
+      if (!sendRes.ok) {
+        return res.status(400).json({ error: sendRes.description || "Не удалось отправить тестовое сообщение в Telegram." });
       }
 
-      res.json({ success: true, result: tgData.result });
+      res.json({ success: true, result: sendRes.result });
     } catch (error: any) {
       console.error("Ошибка тестового уведомления Telegram:", error);
       res.status(500).json({ error: error.message || "Ошибка отправки тестового сообщения." });
     }
   });
 
-  // API Route: Активировать/настроить Telegram Webhook
-  app.post("/api/shops/:shopId/telegram/setup-webhook", async (req, res) => {
+  // API Route: Обновить настройки уведомлений Telegram
+  app.post("/api/shops/:shopId/telegram/update-settings", async (req, res) => {
     try {
       const { shopId } = req.params;
+      const { notifyOnNewOrder, notifyOnOrderStatus, notifyOnNewReview, notifyOnLowRating, adminChatId } = req.body;
       const authUser = getAuthUser(req);
       const db = getPrismaClient() as any;
       if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
@@ -4187,56 +4415,123 @@ app.post("/api/shops", async (req, res) => {
       await ensureOrderSchema(db);
 
       const hasPermission = await canManageShop(db, shopId, authUser);
-      if (!hasPermission) return res.status(403).json({ error: "У вас нет прав доступа." });
+      if (!hasPermission) return res.status(403).json({ error: "У вас нет прав для управления заведением." });
 
       const shop = await db.shop.findUnique({ where: { id: shopId } });
-      const botToken = (req.body.botToken || shop?.botToken || "").trim();
+      if (!shop) return res.status(404).json({ error: "Заведение не найдено." });
 
-      if (!botToken) return res.status(400).json({ error: "Укажите токен бота." });
+      const settings = parseTelegramSettings(shop.telegramSettings);
+      if (notifyOnNewOrder !== undefined) settings.notifyOnNewOrder = Boolean(notifyOnNewOrder);
+      if (notifyOnOrderStatus !== undefined) settings.notifyOnOrderStatus = Boolean(notifyOnOrderStatus);
+      if (notifyOnNewReview !== undefined) settings.notifyOnNewReview = Boolean(notifyOnNewReview);
+      if (notifyOnLowRating !== undefined) settings.notifyOnLowRating = Boolean(notifyOnLowRating);
 
-      let clientBaseUrl = req.body.baseUrl || req.get("origin") || (req.get("referer") ? new URL(req.get("referer")).origin : "");
-      if (!clientBaseUrl) {
-        const host = req.get("host") || "";
-        clientBaseUrl = `https://${host}`;
-      }
+      const nextAdminChatId = adminChatId !== undefined ? (adminChatId ? String(adminChatId).trim() : null) : shop.adminChatId;
 
-      if (clientBaseUrl.includes("localhost") || clientBaseUrl.includes("127.0.0.1")) {
-        return res.status(400).json({
-          error: "Telegram Webhook требует публичный HTTPS-домен. В локальной среде (localhost) Telegram Webhook установить нельзя, однако отправка уведомлений о заказах будет работать штатно по Chat ID!"
-        });
-      }
-
-      // Гарантируем протокол https:// для Telegram Webhook
-      clientBaseUrl = clientBaseUrl.replace(/^http:/, "https:");
-      const webhookUrl = `${clientBaseUrl}/api/telegram/webhook/${shopId}`;
-
-      const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: webhookUrl })
+      const updatedShop = await db.shop.update({
+        where: { id: shopId },
+        data: {
+          adminChatId: nextAdminChatId,
+          telegramSettings: JSON.stringify(settings)
+        }
       });
 
-      const tgData = await tgRes.json();
-      if (!tgData.ok) {
-        return res.status(400).json({ error: tgData.description || "Telegram отклонил установку Webhook." });
-      }
-
-      // Если в запросе передали новый botToken, сразу сохраняем в базу
-      if (req.body.botToken) {
-        await db.shop.update({
-          where: { id: shopId },
-          data: { botToken }
-        });
-      }
-
-      res.json({ success: true, webhookUrl, description: tgData.description });
+      broadcastEvent({ type: "SHOP_UPDATED", shopId, payload: updatedShop });
+      res.json({ success: true, settings, adminChatId: nextAdminChatId });
     } catch (error: any) {
-      console.error("Ошибка установки Webhook:", error);
-      res.status(500).json({ error: error.message || "Ошибка при установке Webhook." });
+      console.error("Ошибка сохранения настроек Telegram:", error);
+      res.status(500).json({ error: error.message || "Ошибка сохранения настроек." });
     }
   });
 
-  // Telegram Webhook Handler (Получает входящие апдейты от Telegram)
+  // API Route: Создать код приглашения сотрудника в Telegram
+  app.post("/api/shops/:shopId/telegram/create-invite", async (req, res) => {
+    try {
+      const { shopId } = req.params;
+      const { role = "STAFF" } = req.body;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) return res.status(403).json({ error: "У вас нет прав для управления заведением." });
+
+      const shop = await db.shop.findUnique({ where: { id: shopId } });
+      if (!shop || !shop.botToken) return res.status(400).json({ error: "Сначала подключите Telegram-бота к заведению." });
+
+      const settings = parseTelegramSettings(shop.telegramSettings);
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const expiresAt = new Date(Date.now() + 48 * 3600 * 1000).toISOString(); // 48 hours
+
+      const newInvite = {
+        code,
+        role: (role === "ADMIN" || role === "MANAGER" ? "ADMIN" : "STAFF") as "ADMIN" | "STAFF",
+        createdById: authUser.id,
+        createdAt: new Date().toISOString(),
+        expiresAt
+      };
+
+      settings.inviteCodes = (settings.inviteCodes || []).filter(c => new Date(c.expiresAt).getTime() > Date.now());
+      settings.inviteCodes.push(newInvite);
+
+      await db.shop.update({
+        where: { id: shopId },
+        data: { telegramSettings: JSON.stringify(settings) }
+      });
+
+      const botUsername = settings.botUsername || "bot";
+      const inviteLink = `https://t.me/${botUsername}?start=bind_${newInvite.role}_${code}`;
+
+      res.json({ success: true, invite: newInvite, inviteLink });
+    } catch (error: any) {
+      console.error("Ошибка создания инвайта Telegram:", error);
+      res.status(500).json({ error: error.message || "Ошибка создания инвайта." });
+    }
+  });
+
+  // API Route: Удалить подписчика бота (сотрудника)
+  app.delete("/api/shops/:shopId/telegram/subscribers/:chatId", async (req, res) => {
+    try {
+      const { shopId, chatId } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) return res.status(403).json({ error: "У вас нет прав для управления заведением." });
+
+      const shop = await db.shop.findUnique({ where: { id: shopId } });
+      if (!shop) return res.status(404).json({ error: "Заведение не найдено." });
+
+      const settings = parseTelegramSettings(shop.telegramSettings);
+      settings.subscribers = (settings.subscribers || []).filter(s => s.chatId !== chatId);
+
+      // Если удалили чат, который был adminChatId, сбрасываем его
+      let nextAdminChatId = shop.adminChatId;
+      if (shop.adminChatId === chatId) {
+        nextAdminChatId = settings.subscribers[0]?.chatId || null;
+      }
+
+      await db.shop.update({
+        where: { id: shopId },
+        data: {
+          adminChatId: nextAdminChatId,
+          telegramSettings: JSON.stringify(settings)
+        }
+      });
+
+      res.json({ success: true, subscribers: settings.subscribers });
+    } catch (error: any) {
+      console.error("Ошибка удаления подписчика Telegram:", error);
+      res.status(500).json({ error: error.message || "Ошибка удаления подписчика." });
+    }
+  });
+
+  // Telegram Webhook Handler (Обработка входящих обновлений от Telegram)
   app.all("/api/telegram/webhook/:shopId", async (req, res) => {
     try {
       const { shopId } = req.params;
@@ -4245,75 +4540,11 @@ app.post("/api/shops", async (req, res) => {
 
       if (!db || !update) return res.sendStatus(200);
 
-      const shop = await db.shop.findUnique({ where: { id: shopId } });
-      if (!shop || !shop.botToken) return res.sendStatus(200);
+      const host = req.get("host") || "";
+      const protocol = host.includes("localhost") ? "http" : "https";
+      const origin = req.get("origin") || `${protocol}://${host}`;
 
-      const message = update.message || update.edited_message;
-      if (message && message.chat && message.chat.id) {
-        const chatId = String(message.chat.id);
-        const text = (message.text || "").trim();
-        const senderName = message.from?.first_name || message.from?.username || "Администратор";
-
-        const host = req.get("host") || "";
-        const protocol = host.includes("localhost") ? "http" : "https";
-        const shopUrl = `${protocol}://${host}/${shop.slug}`;
-
-        if (text.startsWith("/start")) {
-          // Автоматически привязываем Chat ID
-          await db.shop.update({
-            where: { id: shopId },
-            data: { adminChatId: chatId }
-          });
-
-          const replyText =
-            `🎉 *Бот заведения «${shop.name}» успешно активирован!*\n\n` +
-            `👤 *Владелец / Администратор:* ${senderName}\n` +
-            `🆔 *Ваш Telegram Chat ID:* \`${chatId}\` (автоматически привязан!)\n\n` +
-            `📱 Теперь в этот чат будут мгновенно поступать:\n` +
-            `• Новые заказы покупателей с составом и суммой 🛒\n` +
-            `• Новые отзывы и оценки клиентов ⭐\n\n` +
-            `🌐 *Ваша витрина:* [Открыть магазин](${shopUrl})\n\n` +
-            `💡 _Чтобы настроить кнопку Mini App внизу чата, перейдите в @BotFather -> /mybots -> Выберите этого бота -> Bot Settings -> Menu Button -> Configure menu button -> укажите URL:_\n\`${shopUrl}\``;
-
-          await fetch(`https://api.telegram.org/bot${shop.botToken}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: chatId,
-              text: replyText,
-              parse_mode: "Markdown",
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: "🛍️ Открыть витрину магазина", web_app: { url: shopUrl } }]
-                ]
-              }
-            })
-          }).catch(() => {});
-        } else if (text === "/orders" || text === "/status") {
-          const pendingOrders = await db.order.count({
-            where: { shopId, status: "PENDING" }
-          });
-          const totalOrders = await db.order.count({
-            where: { shopId }
-          });
-
-          const replyText =
-            `📊 *Статистика заведения «${shop.name}»*\n\n` +
-            `⏳ *Заказов ожидает обработки:* ${pendingOrders}\n` +
-            `📦 *Всего заказов за время:* ${totalOrders}\n\n` +
-            `🌐 [Перейти в веб-панель управления](${protocol}://${host}/admin)`;
-
-          await fetch(`https://api.telegram.org/bot${shop.botToken}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: chatId,
-              text: replyText,
-              parse_mode: "Markdown"
-            })
-          }).catch(() => {});
-        }
-      }
+      await handleTelegramWebhookUpdate(db, shopId, update, origin, broadcastEvent);
 
       res.sendStatus(200);
     } catch (err) {
@@ -4963,7 +5194,10 @@ app.post("/api/shops", async (req, res) => {
         data: dataToUpdate
       });
 
-      res.json({ success: true, user: formatUserResponse(updated) });
+      const formatted = formatUserResponse(updated);
+      broadcastEvent({ type: "USER_UPDATED", userId, payload: formatted });
+
+      res.json({ success: true, user: formatted });
     } catch (error: any) {
       console.error("Error editing user:", error);
       res.status(500).json({ error: error.message || "Ошибка редактирования пользователя" });
@@ -5289,7 +5523,7 @@ app.post("/api/shops", async (req, res) => {
       // 3. WebSocket Realtime Hub metrics
       const activeShopsSet = new Set<string>();
       clients.forEach(c => {
-        if (c.shopId) activeShopsSet.add(c.shopId);
+        c.subscribedShopIds.forEach(id => activeShopsSet.add(id));
       });
 
       // 4. External Services Ping (parallel)
@@ -5638,17 +5872,62 @@ if (!process.env.VERCEL) {
     const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
     wss.on("connection", (ws) => {
-      const clientObj = { ws, shopId: undefined as string | undefined };
+      const clientObj: RealtimeClient = {
+        ws,
+        userId: undefined,
+        isDeveloper: false,
+        subscribedShopIds: new Set<string>()
+      };
       clients.add(clientObj);
 
       ws.on("message", (raw) => {
         try {
           const data = JSON.parse(raw.toString());
-          if (data.type === "subscribe" && data.shopId) {
-            clientObj.shopId = data.shopId;
+
+          // Handle auth token
+          if (data.type === "auth" && data.token) {
+            try {
+              const decoded = jwt.verify(data.token, JWT_SECRET) as { id: string; email: string };
+              if (decoded && decoded.id) {
+                clientObj.userId = decoded.id;
+                clientObj.isDeveloper = isDeveloperEmail(decoded.email);
+                ws.send(JSON.stringify({ 
+                  type: "AUTH_SUCCESS", 
+                  userId: clientObj.userId, 
+                  isDeveloper: clientObj.isDeveloper 
+                }));
+              }
+            } catch (e) {}
           }
+
+          // Handle subscription
+          if (data.type === "subscribe") {
+            if (data.shopId) {
+              clientObj.subscribedShopIds.add(data.shopId);
+            }
+            if (Array.isArray(data.shopIds)) {
+              data.shopIds.forEach((id: string) => {
+                if (id) clientObj.subscribedShopIds.add(id);
+              });
+            }
+            if (data.userId && !clientObj.userId) {
+              clientObj.userId = data.userId;
+            }
+          }
+
+          // Handle unsubscription
+          if (data.type === "unsubscribe") {
+            if (data.shopId) {
+              clientObj.subscribedShopIds.delete(data.shopId);
+            }
+            if (Array.isArray(data.shopIds)) {
+              data.shopIds.forEach((id: string) => clientObj.subscribedShopIds.delete(id));
+            }
+          }
+
+          // Heartbeat ping
           if (data.type === "ping") {
-            ws.send(JSON.stringify({ type: "pong" }));
+            ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
           }
         } catch {}
       });

@@ -60,7 +60,7 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
     }
   };
 
-  useRealtimeEvent(["ORDER_CREATED", "ORDER_STATUS_UPDATED", "ORDER_DELETED", "CUSTOMER_UPDATED"], (event) => {
+  useRealtimeEvent(["ORDER_CREATED", "ORDER_STATUS_UPDATED", "ORDER_DELETED", "CUSTOMER_UPDATED", "REALTIME_RECONNECTED"], (event) => {
     if (!event.shopId || event.shopId === shopId) {
       fetchAnalytics(true);
     }
@@ -69,10 +69,6 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
   useEffect(() => {
     if (shopId) {
       fetchAnalytics();
-      const interval = setInterval(() => {
-        fetchAnalytics(true);
-      }, 5000);
-      return () => clearInterval(interval);
     }
   }, [shopId]);
 
