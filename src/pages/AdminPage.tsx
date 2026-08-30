@@ -3758,7 +3758,7 @@ export default function AdminPage() {
                 title="История обновлений и новые функции платформы"
               >
                 <Sparkles size={12} className="text-indigo-500 shrink-0" />
-                <span className="truncate group-hover:text-app-primary font-medium">v2.6</span>
+                <span className="truncate group-hover:text-app-primary font-medium">v2.7</span>
               </button>
 
               <a
