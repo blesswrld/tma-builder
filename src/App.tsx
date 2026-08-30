@@ -1,14 +1,34 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import ShopPage from './pages/ShopPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AdminPage from './pages/AdminPage';
+import ReferralPage from './pages/ReferralPage';
 import DeveloperReportsPage from './pages/DeveloperReportsPage';
 import DeveloperUsersPage from './pages/DeveloperUsersPage';
 import { DeveloperServersPage } from './pages/DeveloperServersPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import { ThemeProvider } from './context/ThemeContext';
+
+function ReferralCapture() {
+  const location = useLocation();
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const ref = params.get('ref') || params.get('r') || params.get('referral');
+      if (ref && typeof ref === 'string' && ref.trim()) {
+        const cleanRef = ref.trim();
+        localStorage.setItem('pending_referral_code', cleanRef);
+      }
+    } catch {
+      // ignore
+    }
+  }, [location.search]);
+
+  return null;
+}
 
 function DeveloperRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -41,9 +61,13 @@ export default function App() {
       <RealtimeProvider>
         <AuthProvider>
           <BrowserRouter>
+            <ReferralCapture />
             <Routes>
               <Route path="/" element={<AdminPage />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/referrals" element={<ReferralPage />} />
+              <Route path="/referral" element={<ReferralPage />} />
+              <Route path="/admin/referrals" element={<ReferralPage />} />
               <Route
                 path="/users"
                 element={

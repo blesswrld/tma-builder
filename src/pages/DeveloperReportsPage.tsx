@@ -652,18 +652,11 @@ export default function DeveloperReportsPage() {
           {/* Sound toggle */}
           <button
             onClick={handleToggleSound}
-            className={`relative p-1.5 sm:p-2 bg-app-card hover:bg-app-hover border rounded-xl text-xs font-mono transition-all cursor-pointer shrink-0 flex-none flex items-center justify-center ${
-              soundEnabled
-                ? "border-emerald-500/30 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
-                : "border-app-border text-app-muted hover:text-app-primary"
-            }`}
+            className="p-1.5 sm:p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono transition-all cursor-pointer shrink-0 flex-none flex items-center justify-center text-app-primary"
             title={soundEnabled ? "Звуковые уведомления включены (нажмите, чтобы выключить)" : "Звуковые уведомления отключены (нажмите, чтобы включить)"}
           >
             {soundEnabled ? (
-              <>
-                <Volume2 size={15} className="text-emerald-400 shrink-0" />
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-app-surface" />
-              </>
+              <Volume2 size={15} className="text-app-primary shrink-0" />
             ) : (
               <VolumeX size={15} className="text-app-muted shrink-0" />
             )}
@@ -673,15 +666,15 @@ export default function DeveloperReportsPage() {
           <div
             className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 bg-app-card border border-app-border rounded-xl text-[11px] font-mono transition-all duration-150 select-none shrink-0 flex-none ${
               isConnected
-                ? "text-emerald-400 border-app-border hover:border-emerald-500/30"
-                : "text-amber-400 border-app-border animate-pulse"
+                ? "text-app-primary"
+                : "text-amber-400 animate-pulse"
             }`}
             title={isConnected ? "WebSocket соединение активно (Realtime)" : "Переподключение WebSocket..."}
           >
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${
                 isConnected
-                  ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
+                  ? "bg-emerald-500"
                   : "bg-amber-500"
               }`}
             />

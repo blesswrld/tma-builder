@@ -23,8 +23,24 @@ model User {
   banReason             String?
   bannedAt              DateTime?
   role                  String    @default("USER") // USER, DEVELOPER
+  referralCode          String?   @unique
+  referredById          String?
+  referredBy            User?     @relation("UserReferrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals             User[]    @relation("UserReferrals")
+  referralRewards       ReferralReward[]
   shops                 Shop[]
   createdAt             DateTime  @default(now())
+}
+
+model ReferralReward {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier        String   // PRO_50, ENTERPRISE_100
+  planAwarded String   // PRO, ENTERPRISE
+  months      Int      @default(1)
+  claimedAt   DateTime @default(now())
+  expiresAt   DateTime?
 }
 
 model VerificationCode {

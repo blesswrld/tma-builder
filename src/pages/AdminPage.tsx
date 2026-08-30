@@ -41,6 +41,7 @@ import { AdminPromocodesTab } from "../components/admin/AdminPromocodesTab";
 import { AdminReviewsTab } from "../components/admin/AdminReviewsTab";
 import AdminPaymentsTab from "../components/admin/AdminPaymentsTab";
 import { AdminServersTab } from "../components/admin/AdminServersTab";
+import { AdminReferralTab } from "../components/admin/AdminReferralTab";
 import { AdminCreateShopTab } from "../components/admin/AdminCreateShopTab";
 import { 
   validateShopName, validateSlug, cleanSlugForSubmit, transliterateToSlug, generateRandomSyllableSlug, validateCisPhone, 
@@ -527,7 +528,7 @@ export default function AdminPage() {
   });
 
   // Admin tabs
-  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "payments" | "servers" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">("services");
+  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "payments" | "referrals" | "servers" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">("services");
 
   // Auto switch tab based on URL query or hash
   useEffect(() => {
@@ -535,6 +536,8 @@ export default function AdminPage() {
     const tab = params.get("tab");
     if ((tab === "servers" || window.location.hash === "#servers") && isDeveloperUser) {
       setActiveTab("servers");
+    } else if (tab === "referrals" || tab === "referral" || window.location.hash === "#referrals") {
+      setActiveTab("referrals");
     }
   }, [isDeveloperUser]);
 
@@ -3574,6 +3577,7 @@ export default function AdminPage() {
                     { id: "customers", label: "Клиенты CRM", icon: Users, badge: (customers || []).length },
                     { id: "team", label: "Команда и доступ", icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
                     { id: "analytics", label: "Аналитика", icon: BarChart3 },
+                    { id: "referrals", label: "Рефералы", icon: Gift },
                     { id: "botsim", label: "Симулятор бота", icon: Smartphone },
                     { id: "payments", label: "История оплат", icon: CreditCard },
                     ...(isDeveloperUser ? [
@@ -3636,18 +3640,11 @@ export default function AdminPage() {
             <div className="flex items-center justify-between px-0.5 gap-1.5">
               <button
                 onClick={handleToggleAdminAudio}
-                className={`relative p-2 bg-app-card hover:bg-app-hover border rounded-xl transition-all cursor-pointer flex items-center justify-center ${
-                  isAudioEnabled
-                    ? "border-emerald-500/30 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
-                    : "border-app-border text-app-muted hover:text-app-primary"
-                }`}
+                className="p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-primary transition-colors cursor-pointer flex items-center justify-center"
                 title={isAudioEnabled ? "Звук уведомлений включен (нажмите, чтобы выключить)" : "Звук уведомлений выключен (нажмите, чтобы включить)"}
               >
                 {isAudioEnabled ? (
-                  <>
-                    <Volume2 size={14} className="text-emerald-400 shrink-0" />
-                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-app-surface" />
-                  </>
+                  <Volume2 size={14} className="text-app-primary shrink-0" />
                 ) : (
                   <VolumeX size={14} className="text-app-muted shrink-0" />
                 )}
@@ -4449,6 +4446,11 @@ export default function AdminPage() {
               requestConfirm={requestConfirm}
               showToast={showToast}
             />
+          )}
+
+          {/* TAB: REFERRALS */}
+          {activeTab === "referrals" && (
+            <AdminReferralTab />
           )}
 
           {/* TAB: PAYMENTS HISTORY */}

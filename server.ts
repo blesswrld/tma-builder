@@ -116,6 +116,8 @@ function formatUserResponse(user: any) {
     companyName: (user as any).companyName || null,
     plan: user.plan || "FREE",
     subscriptionExpiresAt: user.subscriptionExpiresAt || null,
+    referralCode: (user as any).referralCode || null,
+    referredById: (user as any).referredById || null,
     isBanned: Boolean((user as any).isBanned),
     banReason: (user as any).banReason || null,
     bannedAt: (user as any).bannedAt || null,
@@ -146,6 +148,55 @@ function transliterateToSlug(str: string): string {
     .replace(/[\s_]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function generateReferralCode(): string {
+  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  let code = "REF-";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+function maskEmail(email: string): string {
+  if (!email || !email.includes("@")) return "Пользователь";
+  const [localPart, domain] = email.split("@");
+  if (localPart.length <= 2) {
+    return localPart[0] + "***@" + domain;
+  }
+  return localPart.slice(0, 2) + "***@" + domain;
+}
+
+async function ensureUserReferralCode(db: PrismaClient, user: any): Promise<string> {
+  if (user.referralCode) return user.referralCode;
+
+  let newCode = "";
+  let exists = true;
+  let attempts = 0;
+  while (exists && attempts < 10) {
+    attempts++;
+    newCode = generateReferralCode();
+    try {
+      const existing = await db.user.findFirst({ where: { referralCode: newCode } });
+      if (!existing) exists = false;
+    } catch {
+      exists = false;
+    }
+  }
+
+  if (!newCode) newCode = "REF-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+
+  try {
+    await db.user.update({
+      where: { id: user.id },
+      data: { referralCode: newCode }
+    });
+  } catch (e) {
+    // ignore
+  }
+
+  return newCode;
 }
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
@@ -374,6 +425,18 @@ async function ensureOrderSchema(db: PrismaClient) {
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "banReason" TEXT`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannedAt" TIMESTAMP(3)`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "role" TEXT DEFAULT 'USER'`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "referralCode" TEXT`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "referredById" TEXT`,
+
+        `CREATE TABLE IF NOT EXISTS "ReferralReward" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "userId" TEXT NOT NULL,
+          "tier" TEXT NOT NULL,
+          "planAwarded" TEXT NOT NULL,
+          "months" INTEGER NOT NULL DEFAULT 1,
+          "claimedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "expiresAt" TIMESTAMP(3)
+        )`,
 
         `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "oldPrice" INTEGER`,
         `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "gallery" TEXT`,
@@ -789,7 +852,7 @@ app.post("/api/auth/verify-code", async (req, res) => {
     if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
     await ensureOrderSchema(db);
 
-    const { email, code, name, password } = req.body;
+    const { email, code, name, password, referralCode } = req.body;
 
     if (!email || !code) {
       return res.status(400).json({ error: "Заполните E-mail и 6-значный код." });
@@ -828,14 +891,51 @@ app.post("/api/auth/verify-code", async (req, res) => {
       if (!password || String(password).length < 6) {
         return res.status(400).json({ error: "Пароль должен содержать не менее 6 символов." });
       }
+
+      let referredById: string | null = null;
+      if (referralCode && typeof referralCode === "string") {
+        const cleanRef = referralCode.trim();
+        try {
+          const referrer = await db.user.findFirst({
+            where: {
+              OR: [
+                { referralCode: cleanRef },
+                { id: cleanRef }
+              ]
+            }
+          });
+          if (referrer && referrer.email.toLowerCase() !== cleanEmail) {
+            referredById = referrer.id;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      const newRefCode = generateReferralCode();
       const hashedPassword = await bcrypt.hash(String(password), 10);
       user = await db.user.create({
         data: {
           email: cleanEmail,
           password: hashedPassword,
-          name: name ? String(name).trim() : cleanEmail.split("@")[0]
+          name: name ? String(name).trim() : cleanEmail.split("@")[0],
+          referralCode: newRefCode,
+          referredById: referredById || undefined
         }
       });
+
+      if (referredById) {
+        broadcastEvent({
+          type: "REFERRAL_ACTIVATED",
+          userId: referredById,
+          payload: {
+            referrerId: referredById,
+            newUserId: user.id,
+            userName: user.name || "Пользователь",
+            email: maskEmail(user.email)
+          }
+        });
+      }
     } else {
       if (!user) {
         return res.status(404).json({ error: "Пользователь не найден." });
@@ -928,7 +1028,7 @@ app.post("/api/auth/register", async (req, res) => {
     if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
     await ensureOrderSchema(db);
 
-    const { email, password, name } = req.body;
+    const { email, password, name, referralCode } = req.body;
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return res.status(400).json({ error: "Введите корректный E-mail адрес." });
@@ -945,15 +1045,51 @@ app.post("/api/auth/register", async (req, res) => {
       return res.status(400).json({ error: "Пользователь с таким E-mail уже зарегистрирован." });
     }
 
+    let referredById: string | null = null;
+    if (referralCode && typeof referralCode === "string") {
+      const cleanRef = referralCode.trim();
+      try {
+        const referrer = await db.user.findFirst({
+          where: {
+            OR: [
+              { referralCode: cleanRef },
+              { id: cleanRef }
+            ]
+          }
+        });
+        if (referrer && referrer.email.toLowerCase() !== cleanEmail) {
+          referredById = referrer.id;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const newRefCode = generateReferralCode();
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await db.user.create({
       data: {
         email: cleanEmail,
         password: hashedPassword,
-        name: name ? String(name).trim() : null
+        name: name ? String(name).trim() : null,
+        referralCode: newRefCode,
+        referredById: referredById || undefined
       }
     });
+
+    if (referredById) {
+      broadcastEvent({
+        type: "REFERRAL_ACTIVATED",
+        userId: referredById,
+        payload: {
+          referrerId: referredById,
+          newUserId: user.id,
+          userName: user.name || "Пользователь",
+          email: maskEmail(user.email)
+        }
+      });
+    }
 
     const token = jwt.sign(
       { id: user.id, email: user.email, name: user.name },
@@ -1825,6 +1961,246 @@ app.post("/api/user/upgrade-plan", async (req, res) => {
   } catch (error: any) {
     console.error("Upgrade plan error:", error);
     res.status(500).json({ error: "Не удалось обновить тарифный план." });
+  }
+});
+
+// Referral Route: Получить данные реферальной программы текущего пользователя
+app.get("/api/referrals/my", async (req, res) => {
+  try {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: "Сначала войдите в систему." });
+    }
+
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const user = await db.user.findUnique({ where: { id: authUser.id } });
+    if (!user) {
+      return res.status(404).json({ error: "Пользователь не найден." });
+    }
+
+    const userReferralCode = await ensureUserReferralCode(db, user);
+
+    // Получаем список всех зарегистрированных рефералов (активированные пользователи)
+    const referrals = await db.user.findMany({
+      where: {
+        referredById: user.id,
+        isBanned: false
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        plan: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    const activatedCount = referrals.length;
+
+    // Получаем историю полученных наград
+    let rewards: any[] = [];
+    try {
+      rewards = await db.referralReward.findMany({
+        where: { userId: user.id },
+        orderBy: { claimedAt: "desc" }
+      });
+    } catch {
+      // ignore
+    }
+
+    const claimedTiers = rewards.map((r: any) => r.tier);
+    const isProClaimed = claimedTiers.includes("PRO_50");
+    const isEnterpriseClaimed = claimedTiers.includes("ENTERPRISE_100");
+
+    const host = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || `${req.protocol}://${req.get("host")}`;
+    const referralLink = `${host.replace(/\/$/, "")}/?ref=${userReferralCode}`;
+
+    const formattedReferrals = referrals.map((r) => ({
+      id: r.id,
+      name: r.name || "Пользователь",
+      maskedEmail: maskEmail(r.email),
+      plan: r.plan || "FREE",
+      isVerified: true,
+      createdAt: r.createdAt
+    }));
+
+    res.json({
+      success: true,
+      referralCode: userReferralCode,
+      referralLink,
+      activatedCount,
+      currentPlan: user.plan || "FREE",
+      subscriptionExpiresAt: user.subscriptionExpiresAt,
+      tiers: {
+        pro: {
+          tier: "PRO_50",
+          target: 50,
+          rewardPlan: "PRO",
+          months: 1,
+          currentCount: activatedCount,
+          isUnlocked: activatedCount >= 50,
+          isClaimed: isProClaimed,
+          progressPercent: Math.min(100, Math.round((activatedCount / 50) * 100)),
+          remaining: Math.max(0, 50 - activatedCount)
+        },
+        enterprise: {
+          tier: "ENTERPRISE_100",
+          target: 100,
+          rewardPlan: "ENTERPRISE",
+          months: 1,
+          currentCount: activatedCount,
+          isUnlocked: activatedCount >= 100,
+          isClaimed: isEnterpriseClaimed,
+          progressPercent: Math.min(100, Math.round((activatedCount / 100) * 100)),
+          remaining: Math.max(0, 100 - activatedCount)
+        }
+      },
+      rewards,
+      referrals: formattedReferrals
+    });
+  } catch (error: any) {
+    console.error("Get referrals error:", error);
+    res.status(500).json({ error: "Не удалось загрузить данные реферальной программы." });
+  }
+});
+
+// Referral Route: Забрать награду за достижение реферального рубежа
+app.post("/api/referrals/claim", async (req, res) => {
+  try {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: "Сначала войдите в систему." });
+    }
+
+    const { tier } = req.body;
+    if (!tier || (tier !== "PRO_50" && tier !== "ENTERPRISE_100")) {
+      return res.status(400).json({ error: "Неверный уровень награды. Доступны: PRO_50, ENTERPRISE_100." });
+    }
+
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const user = await db.user.findUnique({ where: { id: authUser.id } });
+    if (!user) {
+      return res.status(404).json({ error: "Пользователь не найден." });
+    }
+
+    // Проверяем количество активированных рефералов
+    const activatedCount = await db.user.count({
+      where: {
+        referredById: user.id,
+        isBanned: false
+      }
+    });
+
+    const targetRequired = tier === "PRO_50" ? 50 : 100;
+    const targetPlan = tier === "PRO_50" ? "PRO" : "ENTERPRISE";
+
+    if (activatedCount < targetRequired) {
+      return res.status(400).json({
+        error: `Недостаточно активированных пользователей. Необходимо: ${targetRequired}, сейчас у вас: ${activatedCount}.`
+      });
+    }
+
+    // Проверяем, была ли уже получена награда за этот уровень
+    let existingClaim = null;
+    try {
+      existingClaim = await db.referralReward.findFirst({
+        where: {
+          userId: user.id,
+          tier
+        }
+      });
+    } catch {
+      // ignore
+    }
+
+    if (existingClaim) {
+      return res.status(400).json({
+        error: `Вы уже забрали награду за ${targetRequired} рефералов (${targetPlan} на 1 месяц)!`
+      });
+    }
+
+    // Рассчитываем срок действия подписки (добавляем 30 дней)
+    const now = Date.now();
+    const currentExpires = user.subscriptionExpiresAt ? new Date(user.subscriptionExpiresAt).getTime() : 0;
+    const baseTime = currentExpires > now ? currentExpires : now;
+    const newExpiresAt = new Date(baseTime + 30 * 24 * 60 * 60 * 1000);
+
+    const updatedUser = await db.user.update({
+      where: { id: user.id },
+      data: {
+        plan: targetPlan,
+        subscriptionExpiresAt: newExpiresAt
+      }
+    });
+
+    const rewardId = "rw_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+    let newReward: any = null;
+    try {
+      newReward = await db.referralReward.create({
+        data: {
+          id: rewardId,
+          userId: user.id,
+          tier,
+          planAwarded: targetPlan,
+          months: 1,
+          claimedAt: new Date(),
+          expiresAt: newExpiresAt
+        }
+      });
+    } catch {
+      // fallback via raw SQL if needed
+      await db.$executeRawUnsafe(
+        `INSERT INTO "ReferralReward" ("id", "userId", "tier", "planAwarded", "months", "claimedAt", "expiresAt") VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6);`,
+        rewardId,
+        user.id,
+        tier,
+        targetPlan,
+        1,
+        newExpiresAt
+      ).catch(() => {});
+      newReward = {
+        id: rewardId,
+        userId: user.id,
+        tier,
+        planAwarded: targetPlan,
+        months: 1,
+        claimedAt: new Date(),
+        expiresAt: newExpiresAt
+      };
+    }
+
+    broadcastEvent({
+      type: "PLAN_UPDATED",
+      userId: user.id,
+      payload: {
+        userId: user.id,
+        plan: targetPlan,
+        subscriptionExpiresAt: newExpiresAt
+      }
+    });
+
+    broadcastEvent({
+      type: "USER_UPDATED",
+      userId: user.id,
+      payload: formatUserResponse(updatedUser)
+    });
+
+    res.json({
+      success: true,
+      message: `Поздравляем! Вам успешно активирован тариф ${targetPlan} на 1 месяц (30 дней)!`,
+      reward: newReward,
+      user: formatUserResponse(updatedUser)
+    });
+  } catch (error: any) {
+    console.error("Claim referral reward error:", error);
+    res.status(500).json({ error: "Не удалось активировать реферальную награду." });
   }
 });
 

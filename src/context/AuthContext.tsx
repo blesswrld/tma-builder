@@ -12,6 +12,8 @@ export interface User {
   companyName?: string | null;
   plan?: string;
   subscriptionExpiresAt?: string | null;
+  referralCode?: string | null;
+  referredById?: string | null;
 }
 
 interface AuthContextType {
@@ -182,15 +184,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const passRes = validatePassword(password);
     if (!passRes.isValid) throw new Error(passRes.error);
 
+    let pendingRef: string | null = null;
+    try {
+      pendingRef = localStorage.getItem("pending_referral_code");
+    } catch {
+      // ignore
+    }
+
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: emailRes.email, password, name: name ? name.trim() : undefined })
+      body: JSON.stringify({
+        email: emailRes.email,
+        password,
+        name: name ? name.trim() : undefined,
+        referralCode: pendingRef || undefined
+      })
     });
 
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error || "Не удалось зарегистрироваться");
+    }
+
+    try {
+      localStorage.removeItem("pending_referral_code");
+    } catch {
+      // ignore
     }
 
     localStorage.setItem("auth_token", data.token);
@@ -216,16 +236,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { devCode: data.devCode, message: data.message };
   };
 
-  const verifyCode = async (params: { email: string; code: string; name?: string; password?: string }) => {
+  const verifyCode = async (params: { email: string; code: string; name?: string; password?: string; referralCode?: string }) => {
+    let pendingRef: string | null = params.referralCode || null;
+    if (!pendingRef) {
+      try {
+        pendingRef = localStorage.getItem("pending_referral_code");
+      } catch {
+        // ignore
+      }
+    }
+
     const res = await fetch("/api/auth/verify-code", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params)
+      body: JSON.stringify({
+        ...params,
+        referralCode: pendingRef || undefined
+      })
     });
 
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error || "Неверный код из письма");
+    }
+
+    try {
+      localStorage.removeItem("pending_referral_code");
+    } catch {
+      // ignore
     }
 
     localStorage.setItem("auth_token", data.token);
