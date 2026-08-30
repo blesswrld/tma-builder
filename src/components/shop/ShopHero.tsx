@@ -196,10 +196,11 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.whatsapp.startsWith("http") ? socials.whatsapp : `https://wa.me/${socials.whatsapp.replace(/\D/g, "")}`}
                 target="_blank"
                 rel="noreferrer"
+                title="* WhatsApp принадлежит компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ"
                 className="px-2.5 py-1 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-[11px] font-mono font-medium flex items-center gap-1.5 transition-all backdrop-blur-sm"
               >
                 <MessageCircle size={12} className="text-app-muted" />
-                <span>WhatsApp</span>
+                <span>WhatsApp*</span>
               </a>
             )}
             {socials.vk && (

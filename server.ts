@@ -199,6 +199,45 @@ async function ensureUserReferralCode(db: PrismaClient, user: any): Promise<stri
   return newCode;
 }
 
+function getRequestBaseUrl(req: express.Request): string {
+  // 1. Origin header (sent by browsers in API requests)
+  const origin = req.headers.origin;
+  if (typeof origin === "string" && origin.startsWith("http")) {
+    return origin.replace(/\/$/, "");
+  }
+
+  // 2. Referer header (sent in page requests)
+  const referer = req.headers.referer;
+  if (typeof referer === "string") {
+    try {
+      const parsed = new URL(referer);
+      if (parsed.origin && parsed.origin.startsWith("http")) {
+        return parsed.origin.replace(/\/$/, "");
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 3. Forwarded headers (Render, Cloud Run, reverse proxies)
+  const forwardedProto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
+  const forwardedHost = (req.headers["x-forwarded-host"] as string) || req.get("host");
+  if (forwardedHost) {
+    const proto = forwardedProto.split(",")[0].trim();
+    return `${proto}://${forwardedHost}`.replace(/\/$/, "");
+  }
+
+  // 4. Fallback to process.env if explicitly set and not default placeholder
+  if (process.env.APP_URL && !process.env.APP_URL.includes("vercel.app")) {
+    return process.env.APP_URL.replace(/\/$/, "");
+  }
+  if (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes("vercel.app")) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  }
+
+  return "https://tma-builder.onrender.com";
+}
+
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function getPrismaClient(): PrismaClient | null {
@@ -1571,7 +1610,7 @@ app.post("/api/billing/create-payment", async (req, res) => {
 
     if (hasYooKassa) {
       const authHeader = "Basic " + Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString("base64");
-      const appBaseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || (req.headers.origin || "https://tma-builder.vercel.app");
+      const appBaseUrl = getRequestBaseUrl(req);
       const redirectUrl = returnUrl || `${appBaseUrl}/?payment_status=check&payment_id=${internalPaymentId}`;
 
       const idempotenceKey = `tma_${internalPaymentId}`;
@@ -2016,8 +2055,8 @@ app.get("/api/referrals/my", async (req, res) => {
     const isProClaimed = claimedTiers.includes("PRO_50");
     const isEnterpriseClaimed = claimedTiers.includes("ENTERPRISE_100");
 
-    const host = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || `${req.protocol}://${req.get("host")}`;
-    const referralLink = `${host.replace(/\/$/, "")}/?ref=${userReferralCode}`;
+    const host = getRequestBaseUrl(req);
+    const referralLink = `${host}/?ref=${userReferralCode}`;
 
     const formattedReferrals = referrals.map((r) => ({
       id: r.id,
@@ -6039,7 +6078,7 @@ app.post("/api/shops", async (req, res) => {
           databaseConnected: Boolean(process.env.DATABASE_URL),
           smtpConfigured: isSmtpConfigured,
           yookassaConfigured: Boolean(process.env.YOOKASSA_SHOP_ID && process.env.YOOKASSA_SECRET_KEY),
-          appUrl: process.env.APP_URL || "https://tma-builder.vercel.app"
+          appUrl: getRequestBaseUrl(req)
         }
       });
     } catch (error: any) {

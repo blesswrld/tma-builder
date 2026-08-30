@@ -1150,7 +1150,12 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-mono text-app-muted mb-1">WhatsApp (номер или ссылка)</label>
+                      <label className="block text-[11px] font-mono text-app-muted mb-1">
+                        <span>WhatsApp (номер или ссылка)</span>
+                        <span className="text-[10px] font-mono ml-1.5 font-normal" style={{ color: "oklch(0.78 0.18 87.53)" }}>
+                          (*принадлежит Meta, запрещенной в РФ)
+                        </span>
+                      </label>
                       <div className="relative flex items-center">
                         <Phone size={14} className="absolute left-3.5 text-app-muted" />
                         <input
@@ -1170,7 +1175,10 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
 
                     <div>
                       <label className="block text-[11px] font-mono text-app-muted mb-1">
-                        Instagram <span className="text-[10px] text-app-muted/70">(*принадлежит Meta, запрещенной в РФ)</span>
+                        <span>Instagram</span>
+                        <span className="text-[10px] font-mono ml-1.5 font-normal" style={{ color: "oklch(0.78 0.18 87.53)" }}>
+                          (*принадлежит Meta, запрещенной в РФ)
+                        </span>
                       </label>
                       <div className="relative flex items-center">
                         <Share2 size={14} className="absolute left-3.5 text-app-muted" />
@@ -1226,6 +1234,17 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                         />
                       </div>
                     </div>
+                  </div>
+
+                  {/* Meta Platforms Disclaimer Box */}
+                  <div
+                    className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[11px] font-mono space-y-0.5 leading-relaxed"
+                    style={{ color: "oklch(0.78 0.18 87.53)" }}
+                  >
+                    <strong className="block font-bold">* Примечание о маркировке:</strong>
+                    <p>
+                      Instagram, WhatsApp и Facebook принадлежат компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории Российской Федерации.
+                    </p>
                   </div>
                 </motion.div>
               )}

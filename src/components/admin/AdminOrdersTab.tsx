@@ -554,7 +554,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                                 target="_blank"
                                 rel="noreferrer"
                                 className="p-0.5 text-app-muted hover:text-emerald-500"
-                                title="Написать в WhatsApp"
+                                title="* WhatsApp принадлежит компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ"
                               >
                                 <MessageCircle size={12} />
                               </a>
@@ -840,10 +840,11 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                           href={`https://wa.me/${rawDigitsPhone.startsWith("8") ? "7" + rawDigitsPhone.slice(1) : rawDigitsPhone}`}
                           target="_blank"
                           rel="noreferrer"
+                          title="* WhatsApp принадлежит компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ"
                           className="px-2.5 py-1 bg-app-surface hover:bg-app-hover border border-app-border text-app-secondary hover:text-app-primary text-[10px] font-semibold rounded-lg transition-colors flex items-center gap-1.5"
                         >
                           <MessageCircle size={11} className="text-app-muted" />
-                          <span>Написать в WhatsApp</span>
+                          <span>Написать в WhatsApp*</span>
                         </a>
                       </div>
                     )}

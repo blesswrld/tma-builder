@@ -313,10 +313,11 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                       href={socials.whatsapp.startsWith("http") ? socials.whatsapp : `https://wa.me/${socials.whatsapp.replace(/\D/g, "")}`}
                       target="_blank"
                       rel="noreferrer"
+                      title="* WhatsApp принадлежит компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ"
                       className="py-2.5 px-3 bg-app-card text-app-primary border border-app-border hover:bg-app-hover font-mono text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
                     >
                       <MessageCircle size={14} className="text-app-muted" />
-                      <span>WhatsApp</span>
+                      <span>WhatsApp*</span>
                     </a>
                   )}
                   {socials.vk && (
@@ -395,10 +396,16 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
               </a>
 
               {/* Meta Disclaimer */}
-              {socials.instagram && (
-                <p className="text-[10px] font-mono text-app-muted/70 leading-tight pt-1">
-                  * Instagram принадлежит компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ.
-                </p>
+              {(socials.instagram || socials.whatsapp) && (
+                <div
+                  className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] font-mono space-y-0.5 leading-tight"
+                  style={{ color: "oklch(0.78 0.18 87.53)" }}
+                >
+                  <strong className="block font-bold">* Примечание о маркировке:</strong>
+                  <p>
+                    Instagram, WhatsApp и Facebook принадлежат компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ.
+                  </p>
+                </div>
               )}
             </div>
 

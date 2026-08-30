@@ -665,10 +665,13 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
                     </div>
 
                     {/* Disclaimer on foreign extremist platforms */}
-                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] font-mono text-amber-300 space-y-1">
-                      <strong>* Примечание о маркировке:</strong>
-                      <p>
-                        Instagram и Facebook принадлежат компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории Российской Федерации.
+                    <div
+                      className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] font-mono space-y-1"
+                      style={{ color: "oklch(0.78 0.18 87.53)" }}
+                    >
+                      <strong className="block font-bold">* Примечание о маркировке:</strong>
+                      <p className="leading-relaxed">
+                        Instagram, WhatsApp и Facebook принадлежат компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории Российской Федерации.
                       </p>
                     </div>
                   </div>

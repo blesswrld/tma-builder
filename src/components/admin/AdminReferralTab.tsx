@@ -109,10 +109,16 @@ export const AdminReferralTab: React.FC = () => {
     }
   });
 
+  const browserOrigin = typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
+  const referralCode = data?.referralCode || "";
+  const activeReferralLink = referralCode
+    ? `${browserOrigin}/?ref=${referralCode}`
+    : (data?.referralLink || (browserOrigin ? `${browserOrigin}/?ref=` : ""));
+
   const handleCopyLink = async () => {
-    if (!data?.referralLink) return;
+    if (!activeReferralLink) return;
     try {
-      await navigator.clipboard.writeText(data.referralLink);
+      await navigator.clipboard.writeText(activeReferralLink);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
     } catch {
@@ -121,9 +127,9 @@ export const AdminReferralTab: React.FC = () => {
   };
 
   const handleCopyCode = async () => {
-    if (!data?.referralCode) return;
+    if (!referralCode) return;
     try {
-      await navigator.clipboard.writeText(data.referralCode);
+      await navigator.clipboard.writeText(referralCode);
       setCopiedCode(true);
       setTimeout(() => setCopiedCode(false), 2000);
     } catch {
@@ -132,9 +138,9 @@ export const AdminReferralTab: React.FC = () => {
   };
 
   const handleShareTelegram = () => {
-    if (!data?.referralLink) return;
+    if (!activeReferralLink) return;
     const shareText = `🚀 Создай свой интернет-магазин или Telegram Mini App за 5 минут в конструкторе TMA-Builder:`;
-    const url = `https://t.me/share/url?url=${encodeURIComponent(data.referralLink)}&text=${encodeURIComponent(shareText)}`;
+    const url = `https://t.me/share/url?url=${encodeURIComponent(activeReferralLink)}&text=${encodeURIComponent(shareText)}`;
     window.open(url, "_blank");
   };
 
@@ -271,7 +277,7 @@ export const AdminReferralTab: React.FC = () => {
             <input
               type="text"
               readOnly
-              value={data?.referralLink || ""}
+              value={activeReferralLink}
               className="w-full bg-transparent font-mono text-xs text-app-primary focus:outline-none select-all"
             />
           </div>
@@ -316,7 +322,7 @@ export const AdminReferralTab: React.FC = () => {
         <div className="flex items-center gap-2 font-mono text-xs text-app-muted">
           <span>Ваш реферальный код:</span>
           <span className="font-bold text-app-primary bg-app-bg px-2 py-0.5 rounded border border-app-border">
-            {data?.referralCode || "..."}
+            {referralCode || "..."}
           </span>
           <button
             onClick={handleCopyCode}
@@ -684,14 +690,14 @@ export const AdminReferralTab: React.FC = () => {
       <ReferralQrModal
         isOpen={qrModalOpen}
         onClose={() => setQrModalOpen(false)}
-        referralLink={data?.referralLink || ""}
-        referralCode={data?.referralCode || ""}
+        referralLink={activeReferralLink}
+        referralCode={referralCode}
       />
 
       <ReferralPostShareModal
         isOpen={postsModalOpen}
         onClose={() => setPostsModalOpen(false)}
-        referralLink={data?.referralLink || ""}
+        referralLink={activeReferralLink}
       />
     </div>
   );

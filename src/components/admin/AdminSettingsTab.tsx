@@ -1042,7 +1042,10 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
 
               <div>
                 <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                  Instagram <span className="text-[10px] text-app-muted/70">(*принадлежит Meta, запрещенной в РФ)</span>
+                  <span>Instagram</span>
+                  <span className="text-[10px] font-mono ml-1.5 font-normal" style={{ color: "oklch(0.78 0.18 87.53)" }}>
+                    (*принадлежит Meta, запрещенной в РФ)
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -1060,7 +1063,10 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
 
               <div>
                 <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                  WhatsApp (телефон)
+                  <span>WhatsApp (телефон)</span>
+                  <span className="text-[10px] font-mono ml-1.5 font-normal" style={{ color: "oklch(0.78 0.18 87.53)" }}>
+                    (*принадлежит Meta, запрещенной в РФ)
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -1111,6 +1117,17 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                   className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
                 />
               </div>
+            </div>
+
+            {/* Meta Platforms Disclaimer Box */}
+            <div
+              className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[11px] font-mono space-y-0.5 leading-relaxed"
+              style={{ color: "oklch(0.78 0.18 87.53)" }}
+            >
+              <strong className="block font-bold">* Примечание о маркировке:</strong>
+              <p>
+                Instagram, WhatsApp и Facebook принадлежат компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории Российской Федерации.
+              </p>
             </div>
           </div>
         )}
