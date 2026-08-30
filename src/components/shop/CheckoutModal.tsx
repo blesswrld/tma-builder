@@ -97,6 +97,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onOpenPrivacy,
 }) => {
   useScrollLock(isOpen);
+  const [consentPd, setConsentPd] = React.useState<boolean>(false);
+  const [consentAds, setConsentAds] = React.useState<boolean>(false);
+  const [consentError, setConsentError] = React.useState<string | null>(null);
 
   // Parse delivery options from shop
   const deliveryOpts: any = shop.deliveryOptions
@@ -650,6 +653,75 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </span>
                     </div>
                   </div>
+
+                  {/* Legal Compliance Block: 152-FZ, 54-FZ, 38-FZ */}
+                  <div className="space-y-3 p-3.5 bg-app-surface/60 border border-app-border rounded-2xl text-xs font-sans">
+                    {/* Mandatory 152-FZ Consent */}
+                    <div className="flex items-start gap-2.5">
+                      <input
+                        id="consent-pd"
+                        type="checkbox"
+                        checked={consentPd}
+                        onChange={(e) => {
+                          setConsentPd(e.target.checked);
+                          if (e.target.checked) setConsentError(null);
+                        }}
+                        className="w-4 h-4 mt-0.5 rounded border-app-border accent-emerald-500 cursor-pointer shrink-0"
+                      />
+                      <label htmlFor="consent-pd" className="text-[11px] text-app-secondary cursor-pointer leading-tight select-none">
+                        <span>Я даю согласие на </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            onOpenPrivacy?.();
+                          }}
+                          className="underline text-app-primary font-medium hover:text-emerald-400 cursor-pointer"
+                        >
+                          обработку персональных данных
+                        </button>
+                        <span> (152-ФЗ) и принимаю условия </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            onOpenPrivacy?.();
+                          }}
+                          className="underline text-app-primary font-medium hover:text-emerald-400 cursor-pointer"
+                        >
+                          Публичной оферты
+                        </button>
+                        <span className="text-rose-500 font-bold ml-0.5">*</span>
+                      </label>
+                    </div>
+
+                    {consentError && (
+                      <p className="text-[11px] text-rose-400 font-mono flex items-center gap-1 pl-6">
+                        <AlertCircle size={12} />
+                        <span>{consentError}</span>
+                      </p>
+                    )}
+
+                    {/* Optional 38-FZ Marketing Consent */}
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-app-border/40">
+                      <input
+                        id="consent-ads"
+                        type="checkbox"
+                        checked={consentAds}
+                        onChange={(e) => setConsentAds(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 rounded border-app-border accent-emerald-500 cursor-pointer shrink-0"
+                      />
+                      <label htmlFor="consent-ads" className="text-[11px] text-app-muted cursor-pointer leading-tight select-none">
+                        Получать персональные скидки, промокоды и уведомления об акциях (38-ФЗ «О рекламе»)
+                      </label>
+                    </div>
+
+                    {/* 54-FZ Fiscal Receipt Notice */}
+                    <div className="pt-1.5 flex items-center gap-1.5 text-[10px] font-mono text-app-muted border-t border-app-border/40">
+                      <CreditCard size={12} className="text-emerald-400 shrink-0" />
+                      <span>Электронный чек (54-ФЗ) будет отправлен по номеру телефона</span>
+                    </div>
+                  </div>
                 </form>
               </div>
             </div>
@@ -658,6 +730,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <button
                 form="checkout-form"
                 type="submit"
+                onClick={(e) => {
+                  if (!consentPd) {
+                    e.preventDefault();
+                    setConsentError("Необходимо подтвердить согласие на обработку персональных данных (152-ФЗ)");
+                    return;
+                  }
+                  setConsentError(null);
+                }}
                 disabled={isSubmitting}
                 className="w-full h-12 bg-app-accent text-app-accent-fg font-bold text-xs rounded-2xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2.5 font-mono uppercase tracking-wider cursor-pointer shadow-lg"
               >
@@ -675,16 +755,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </button>
 
               {onOpenPrivacy && (
-                <p className="text-[10px] text-app-muted text-center font-mono leading-tight">
-                  Оформляя заказ, вы соглашаетесь с{" "}
+                <div className="flex items-center justify-center gap-2 text-[10px] text-app-muted text-center font-mono leading-tight">
                   <button
                     type="button"
                     onClick={onOpenPrivacy}
                     className="underline hover:text-app-primary text-app-secondary cursor-pointer transition-colors"
                   >
-                    Политикой конфиденциальности
+                    Политика конфиденциальности (152-ФЗ)
                   </button>
-                </p>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={onOpenPrivacy}
+                    className="underline hover:text-app-primary text-app-secondary cursor-pointer transition-colors"
+                  >
+                    Публичная оферта (437 ГК РФ)
+                  </button>
+                </div>
               )}
             </div>
           </motion.div>

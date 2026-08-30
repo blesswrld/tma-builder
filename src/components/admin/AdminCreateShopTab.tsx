@@ -1169,7 +1169,9 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-mono text-app-muted mb-1">Instagram</label>
+                      <label className="block text-[11px] font-mono text-app-muted mb-1">
+                        Instagram <span className="text-[10px] text-app-muted/70">(*принадлежит Meta, запрещенной в РФ)</span>
+                      </label>
                       <div className="relative flex items-center">
                         <Share2 size={14} className="absolute left-3.5 text-app-muted" />
                         <input

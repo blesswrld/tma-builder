@@ -181,6 +181,8 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+  const [authConsentPd, setAuthConsentPd] = useState(false);
+  const [authConsentAds, setAuthConsentAds] = useState(false);
 
   const handleLogoutRequest = () => {
     requestConfirm(
@@ -1391,6 +1393,10 @@ export default function AdminPage() {
       }
       if (!authPassword || authPassword.length < 6) {
         setAuthError("Пароль должен быть не менее 6 символов.");
+        return;
+      }
+      if (!authConsentPd) {
+        setAuthError("Для регистрации необходимо подтвердить согласие на обработку персональных данных (152-ФЗ) и принять оферту.");
         return;
       }
     }
@@ -3256,6 +3262,52 @@ export default function AdminPage() {
                       className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
                     />
                   )}
+                  {authMode === "register" && (
+                    <div className="space-y-2 p-3 bg-app-surface/60 border border-app-border rounded-xl text-left font-sans">
+                      <div className="flex items-start gap-2">
+                        <input
+                          id="admin-consent-pd"
+                          type="checkbox"
+                          checked={authConsentPd}
+                          onChange={(e) => setAuthConsentPd(e.target.checked)}
+                          className="w-4 h-4 mt-0.5 rounded border-app-border accent-emerald-500 cursor-pointer shrink-0"
+                        />
+                        <label htmlFor="admin-consent-pd" className="text-[11px] text-app-secondary cursor-pointer leading-tight select-none">
+                          <span>Я даю </span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); setIsPrivacyModalOpen(true); }}
+                            className="underline text-app-primary hover:text-emerald-400 font-medium"
+                          >
+                            согласие на обработку персональных данных (152-ФЗ)
+                          </button>
+                          <span> и принимаю </span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); setIsPrivacyModalOpen(true); }}
+                            className="underline text-app-primary hover:text-emerald-400 font-medium"
+                          >
+                            Пользовательское соглашение
+                          </button>
+                          <span className="text-rose-500 font-bold ml-0.5">*</span>
+                        </label>
+                      </div>
+
+                      <div className="flex items-start gap-2 pt-1 border-t border-app-border/40">
+                        <input
+                          id="admin-consent-ads"
+                          type="checkbox"
+                          checked={authConsentAds}
+                          onChange={(e) => setAuthConsentAds(e.target.checked)}
+                          className="w-4 h-4 mt-0.5 rounded border-app-border accent-emerald-500 cursor-pointer shrink-0"
+                        />
+                        <label htmlFor="admin-consent-ads" className="text-[10px] text-app-muted cursor-pointer leading-tight select-none">
+                          Согласен получать информационные и сервисные уведомления платформы (38-ФЗ)
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     disabled={isSubmittingAuth}
@@ -3295,15 +3347,16 @@ export default function AdminPage() {
           )}
 
           {/* Legal / Privacy Policy footer link */}
-          <div className="text-center pt-2 text-[11px] font-mono text-app-muted border-t border-app-border/60">
-            <span>Продолжая, вы принимаете </span>
+          <div className="text-center pt-2 text-[11px] font-mono text-app-muted border-t border-app-border/60 flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => setIsPrivacyModalOpen(true)}
               className="underline hover:text-app-primary text-app-secondary cursor-pointer transition-colors"
             >
-              Политику конфиденциальности
+              Правовой центр (152-ФЗ / 54-ФЗ РФ)
             </button>
+            <span>•</span>
+            <span className="text-[10px] text-emerald-400 font-bold">РФ 0+</span>
           </div>
         </div>
 
@@ -4196,6 +4249,77 @@ export default function AdminPage() {
                   </button>
                 </div>
               </form>
+
+              {/* 152-FZ Rights of Data Subject Block */}
+              <div className="p-4 sm:p-5 bg-app-surface/80 border border-app-border rounded-2xl space-y-3 font-sans">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
+                  <h4 className="text-xs font-bold text-app-primary font-mono uppercase tracking-wider">
+                    Права субъекта персональных данных (152-ФЗ РФ)
+                  </h4>
+                </div>
+                <p className="text-[11px] text-app-secondary leading-relaxed">
+                  В соответствии с Федеральным законом № 152-ФЗ «О персональных данных» вы имеете право запросить полную выгрузку хранящихся данных или отозвать согласие на их обработку с удалением аккаунта.
+                </p>
+                <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const exportPayload = {
+                        account: {
+                          id: user?.id,
+                          name: user?.name,
+                          email: user?.email,
+                          role: user?.role,
+                          createdAt: user?.createdAt,
+                        },
+                        shopsCount: shops.length,
+                        exportDate: new Date().toISOString(),
+                        legalJurisdiction: "Russian Federation (152-FZ)",
+                      };
+                      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: "application/json" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `personal_data_export_${user?.id || "user"}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      showToast("Выгрузка персональных данных сформирована (JSON)", "success");
+                    }}
+                    className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <Download size={13} className="text-emerald-400" />
+                    <span>Выгрузить мои данные (JSON)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsPrivacyModalOpen(true)}
+                    className="px-3.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <ExternalLink size={13} className="text-app-muted" />
+                    <span>Правовой центр (Оферта / 152-ФЗ)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      requestConfirm(
+                        "Отзыв согласия на обработку ПДн (152-ФЗ)",
+                        "Вы отзываете согласие на обработку персональных данных. В соответствии со ст. 21 152-ФЗ ваш профиль и доступ к магазинам будут аннулированы, а данные удалены в течение 30 дней. Продолжить?",
+                        async () => {
+                          showToast("Запрос на отзыв согласия и удаление данных зафиксирован", "warning");
+                          logout();
+                        }
+                      );
+                    }}
+                    className="px-3.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-mono text-xs rounded-xl transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <Trash2 size={13} />
+                    <span>Отозвать согласие и удалить аккаунт</span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

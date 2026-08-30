@@ -1042,7 +1042,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
 
               <div>
                 <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                  Instagram
+                  Instagram <span className="text-[10px] text-app-muted/70">(*принадлежит Meta, запрещенной в РФ)</span>
                 </label>
                 <input
                   type="text"

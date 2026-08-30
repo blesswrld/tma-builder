@@ -272,6 +272,16 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                   />
                 </div>
 
+                {/* 152-FZ and 149-FZ Disclaimer */}
+                <div className="p-2.5 bg-app-card/60 border border-app-border rounded-xl text-[10px] font-mono text-app-muted leading-tight space-y-1">
+                  <p>
+                    Отправляя отзыв, вы соглашаетесь на публикацию указанного имени и текста в соответствии с <strong>152-ФЗ</strong>.
+                  </p>
+                  <p className="text-app-muted/80">
+                    Запрещены ненормативная лексика, спам и оскорбления (149-ФЗ РФ).
+                  </p>
+                </div>
+
                 <div className="flex gap-2 pt-1">
                   {editingReviewId && onCancelEditReview && (
                     <button

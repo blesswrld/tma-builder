@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import ShopPage from './pages/ShopPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -10,6 +10,8 @@ import { DeveloperServersPage } from './pages/DeveloperServersPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ComplianceNotice } from './components/ComplianceNotice';
+import { LegalCenterModal } from './components/LegalCenterModal';
 
 function ReferralCapture() {
   const location = useLocation();
@@ -56,6 +58,8 @@ function DeveloperRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
+
   return (
     <ThemeProvider>
       <RealtimeProvider>
@@ -143,6 +147,17 @@ export default function App() {
               <Route path="/:slug" element={<ShopPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
+
+            {/* Russian Law Compliance: Consent Notice */}
+            <ComplianceNotice onOpenPrivacyPolicy={() => setIsLegalModalOpen(true)} />
+
+            {/* Global Legal Center Modal */}
+            <LegalCenterModal
+              isOpen={isLegalModalOpen}
+              onClose={() => setIsLegalModalOpen(false)}
+              shopName="TMA Builder"
+              source="admin"
+            />
           </BrowserRouter>
         </AuthProvider>
       </RealtimeProvider>

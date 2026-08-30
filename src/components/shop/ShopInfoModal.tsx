@@ -301,10 +301,11 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                       href={socials.instagram.startsWith("http") ? socials.instagram : `https://instagram.com/${socials.instagram}`}
                       target="_blank"
                       rel="noreferrer"
+                      title="* Instagram принадлежит Meta Platforms Inc., признанной экстремистской организацией и запрещенной в РФ"
                       className="py-2.5 px-3 bg-app-card text-app-primary border border-app-border hover:bg-app-hover font-mono text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
                     >
                       <ExternalLink size={14} className="text-app-muted" />
-                      <span>Instagram</span>
+                      <span>Instagram*</span>
                     </a>
                   )}
                   {socials.whatsapp && (
@@ -344,31 +345,32 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
               </div>
             )}
 
-            {/* Open Source / Security */}
-            {/* Security & Open Source & Privacy */}
+            {/* Security & Open Source & Legal Hub */}
             <div className="space-y-2">
-              <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider block">Безопасность и правовая информация</span>
+              <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider block">Правовая информация и защита данных (РФ)</span>
               
               {onOpenPrivacy && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onOpenPrivacy();
-                  }}
-                  className="w-full p-3 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-2xl transition-all flex items-center justify-between group cursor-pointer"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                      <ShieldCheck size={15} />
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenPrivacy();
+                    }}
+                    className="w-full p-3 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-2xl transition-all flex items-center justify-between group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                        <ShieldCheck size={15} />
+                      </div>
+                      <div className="text-left">
+                        <span className="font-bold block text-xs">Правовой центр и 152-ФЗ</span>
+                        <span className="text-[10px] text-app-muted font-normal block">Политика конфиденциальности, Оферта и Чеки (54-ФЗ)</span>
+                      </div>
                     </div>
-                    <div className="text-left">
-                      <span className="font-bold block text-xs">Политика конфиденциальности</span>
-                      <span className="text-[10px] text-app-muted font-normal block">Защита персональных данных (ФЗ-152)</span>
-                    </div>
-                  </div>
-                  <ExternalLink size={13} className="text-app-muted group-hover:text-app-primary group-hover:translate-x-0.5 transition-transform shrink-0" />
-                </button>
+                    <ExternalLink size={13} className="text-app-muted group-hover:text-app-primary group-hover:translate-x-0.5 transition-transform shrink-0" />
+                  </button>
+                </div>
               )}
 
               <a
@@ -391,6 +393,13 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                   <ExternalLink size={13} className="group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </a>
+
+              {/* Meta Disclaimer */}
+              {socials.instagram && (
+                <p className="text-[10px] font-mono text-app-muted/70 leading-tight pt-1">
+                  * Instagram принадлежит компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ.
+                </p>
+              )}
             </div>
 
             <button 
