@@ -43,6 +43,7 @@ import AdminPaymentsTab from "../components/admin/AdminPaymentsTab";
 import { AdminServersTab } from "../components/admin/AdminServersTab";
 import { AdminReferralTab } from "../components/admin/AdminReferralTab";
 import { AdminCreateShopTab } from "../components/admin/AdminCreateShopTab";
+import AdminDevChatTab from "../components/admin/AdminDevChatTab";
 import { 
   validateShopName, validateSlug, cleanSlugForSubmit, transliterateToSlug, generateRandomSyllableSlug, validateCisPhone, 
   validateTelegramBotToken, validateTelegramChatId, validateItemTitle, 
@@ -530,7 +531,38 @@ export default function AdminPage() {
   });
 
   // Admin tabs
-  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "payments" | "referrals" | "servers" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">("services");
+  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "payments" | "referrals" | "servers" | "devchat" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">("services");
+
+  // Unread chat messages counter
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+  const fetchChatUnreadCount = useCallback(async () => {
+    if (!token) {
+      setUnreadChatCount(0);
+      return;
+    }
+    try {
+      const res = await fetch("/api/chat/unread-count", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUnreadChatCount(data.unreadCount || 0);
+      }
+    } catch {
+      // silent
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchChatUnreadCount();
+    const interval = setInterval(fetchChatUnreadCount, 25000);
+    return () => clearInterval(interval);
+  }, [fetchChatUnreadCount]);
+
+  useRealtimeEvent(["CHAT_MESSAGE_CREATED", "CHAT_MESSAGES_READ"], () => {
+    fetchChatUnreadCount();
+  });
 
   // Auto switch tab based on URL query or hash
   useEffect(() => {
@@ -540,6 +572,8 @@ export default function AdminPage() {
       setActiveTab("servers");
     } else if (tab === "referrals" || tab === "referral" || window.location.hash === "#referrals") {
       setActiveTab("referrals");
+    } else if (tab === "devchat" || tab === "chat" || window.location.hash === "#chat" || window.location.hash === "#devchat") {
+      setActiveTab("devchat");
     }
   }, [isDeveloperUser]);
 
@@ -558,7 +592,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (loading || authLoading || !selectedShop) return;
     if (isStaff) {
-      const allowed = ["orders", "botsim", "profile"];
+      const allowed = ["orders", "botsim", "profile", "devchat"];
       if (isDeveloperUser) allowed.push("reports");
       if (!allowed.includes(activeTab)) {
         setActiveTab("orders");
@@ -3614,6 +3648,7 @@ export default function AdminPage() {
                 ? [
                     { id: "orders", label: "Заказы", icon: ShoppingBag, badge: (orders || []).filter(o => o.status === "PENDING").length, alert: (orders || []).filter(o => o.status === "PENDING").length > 0 },
                     { id: "botsim", label: "Симулятор бота", icon: Smartphone },
+                    { id: "devchat", label: isDeveloperUser ? "Чат поддержки (Dev)" : "Чат с разработчиком", icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
                     ...(isDeveloperUser ? [
                       { id: "dev-users", label: "Пользователи (Dev)", icon: ShieldAlert },
                       { id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
@@ -3633,6 +3668,7 @@ export default function AdminPage() {
                     { id: "referrals", label: "Рефералы", icon: Gift },
                     { id: "botsim", label: "Симулятор бота", icon: Smartphone },
                     { id: "payments", label: "История оплат", icon: CreditCard },
+                    { id: "devchat", label: isDeveloperUser ? "Чат поддержки (Dev)" : "Чат с разработчиком", icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
                     ...(isDeveloperUser ? [
                       { id: "servers", label: "Состояние серверов (Dev)", icon: Server },
                       { id: "dev-users", label: "Пользователи (Dev)", icon: ShieldAlert },
@@ -3893,6 +3929,7 @@ export default function AdminPage() {
                 {activeTab === "botsim" && "Симулятор бота"}
                 {activeTab === "payments" && "История оплат"}
                 {activeTab === "servers" && "Состояние серверов (Dev)"}
+                {activeTab === "devchat" && (isDeveloperUser ? "Чат поддержки платформы (Dev)" : "Чат с разработчиком")}
                 {activeTab === "settings" && "Настройки заведения"}
                 {activeTab === "profile" && "Профиль администратора"}
                 {activeTab === "createshop" && "Создать заведение"}
@@ -3905,6 +3942,8 @@ export default function AdminPage() {
                 ? (user?.email || "Управление аккаунтом")
                 : activeTab === "servers"
                 ? "Телеметрия и статус инфраструктуры"
+                : activeTab === "devchat"
+                ? "Прямая связь с разработчиком, поддержка и вопросы"
                 : (activeTab === "createshop"
                   ? "Новое заведение"
                   : `Управление заведением ${selectedShop?.name || ""}`)}
@@ -4594,6 +4633,11 @@ export default function AdminPage() {
               user={user}
               showToast={showToast}
             />
+          )}
+
+          {/* TAB: DEVELOPER CHAT («ЧАТ С РАЗРАБОТЧИКОМ») */}
+          {activeTab === "devchat" && (
+            <AdminDevChatTab />
           )}
             </motion.div>
           </AnimatePresence>

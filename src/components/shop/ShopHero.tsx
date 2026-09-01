@@ -227,6 +227,19 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
             )}
           </div>
         )}
+
+        {/* Meta Disclaimer Note */}
+        {hasSocials && (socials.instagram || socials.whatsapp) && (
+          <div
+            className="mt-3 p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] font-mono space-y-0.5 leading-tight"
+            style={{ color: "oklch(0.78 0.18 87.53)" }}
+          >
+            <strong className="block font-bold">* Примечание о маркировке:</strong>
+            <p>
+              Instagram, WhatsApp и Facebook принадлежат компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ.
+            </p>
+          </div>
+        )}
       </div>
     </motion.div>
   );

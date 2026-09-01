@@ -430,3 +430,63 @@ export function maskTelegramToken(token?: string | null): string {
   return `${botId}:${visiblePrefix}••••••••${visibleSuffix}`;
 }
 
+export interface ChatMessage {
+  id: string;
+  clientMessageId?: string | null;
+  userId: string;
+  senderRole: "USER" | "DEVELOPER";
+  senderId: string;
+  senderName?: string | null;
+  text?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: "image" | "video" | "file" | null;
+  mediaName?: string | null;
+  mediaSize?: number | null;
+  mediaThumbnail?: string | null;
+  isRead: boolean;
+  readAt?: string | null;
+  createdAt: string;
+  status?: "sending" | "sent" | "error"; // For optimistic UI
+}
+
+export interface ChatPartner {
+  id: string;
+  email: string;
+  name: string;
+  companyName?: string | null;
+  role: "USER" | "DEVELOPER";
+  avatarUrl?: string | null;
+  plan?: string;
+  isOnline?: boolean;
+  supportHours?: string;
+  shops?: Array<{ id: string; name: string; slug: string }>;
+}
+
+export interface ChatConversation {
+  userId: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    companyName?: string | null;
+    plan: string;
+    avatarUrl?: string | null;
+    isBanned: boolean;
+    shops: Array<{ id: string; name: string; slug: string }>;
+    createdAt: string;
+  };
+  lastMessage: {
+    id: string;
+    senderRole: "USER" | "DEVELOPER";
+    text?: string | null;
+    mediaUrl?: string | null;
+    mediaType?: "image" | "video" | "file" | null;
+    isRead: boolean;
+    createdAt: string;
+  } | null;
+  unreadCount: number;
+  totalMessages: number;
+  lastActivityAt: string;
+}
+
+

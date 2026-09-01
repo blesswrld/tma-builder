@@ -555,7 +555,31 @@ async function ensureOrderSchema(db: PrismaClient) {
          ON CONFLICT ("code") DO NOTHING`,
         `INSERT INTO "SystemPromocode" ("id", "code", "discountPercent", "applicablePlan", "maxUses", "usedCount", "isActive")
          VALUES ('promo-demo100', 'DEMO100', 100, 'ALL', 999999, 0, true)
-         ON CONFLICT ("code") DO NOTHING`
+         ON CONFLICT ("code") DO NOTHING`,
+
+        `CREATE TABLE IF NOT EXISTS "ChatMessage" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "userId" TEXT NOT NULL,
+          "senderRole" TEXT NOT NULL DEFAULT 'USER',
+          "senderId" TEXT NOT NULL,
+          "senderName" TEXT,
+          "text" TEXT,
+          "mediaUrl" TEXT,
+          "mediaType" TEXT,
+          "mediaName" TEXT,
+          "mediaSize" INTEGER,
+          "mediaThumbnail" TEXT,
+          "isRead" BOOLEAN NOT NULL DEFAULT false,
+          "readAt" TIMESTAMP(3),
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE INDEX IF NOT EXISTS "ChatMessage_userId_idx" ON "ChatMessage"("userId")`,
+        `CREATE INDEX IF NOT EXISTS "ChatMessage_createdAt_idx" ON "ChatMessage"("createdAt")`,
+        `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaUrl" TEXT`,
+        `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaType" TEXT`,
+        `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaName" TEXT`,
+        `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaSize" INTEGER`,
+        `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaThumbnail" TEXT`
       ];
 
       for (const stmt of statements) {
@@ -5841,6 +5865,510 @@ app.post("/api/shops", async (req, res) => {
     } catch (error: any) {
       console.error("Error batch unbanning:", error);
       res.status(500).json({ error: error.message || "Ошибка массовой разблокировки" });
+    }
+  });
+
+  // ==========================================
+  // DEVELOPER CHAT API («ЧАТ С РАЗРАБОТЧИКОМ»)
+  // ==========================================
+
+  // 1. Получение истории сообщений чата
+  app.get("/api/chat/messages", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        return res.status(401).json({ error: "Необходима авторизация" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const isDev = isDeveloperEmail(authUser.email);
+      const requestedUserId = req.query.userId ? String(req.query.userId) : null;
+      
+      // Если разработчик — может запросить чат конкретного пользователя, иначе всегда свой userId
+      const targetUserId = isDev && requestedUserId ? requestedUserId : authUser.id;
+
+      // Получаем информацию о партнере по диалогу
+      let partnerInfo: any = null;
+      if (isDev) {
+        const targetUser = await db.user.findUnique({
+          where: { id: targetUserId },
+          include: { shops: { select: { id: true, name: true, slug: true } } }
+        });
+        if (targetUser) {
+          partnerInfo = {
+            id: targetUser.id,
+            email: targetUser.email,
+            name: targetUser.name || "Пользователь",
+            companyName: targetUser.companyName || null,
+            plan: targetUser.plan || "FREE",
+            avatarUrl: targetUser.avatarUrl || null,
+            shops: targetUser.shops || [],
+            role: isDeveloperEmail(targetUser.email) ? "DEVELOPER" : "USER"
+          };
+        }
+      } else {
+        // Проверяем онлайн статус хотя бы одного разработчика
+        let devOnline = false;
+        clients.forEach((c) => {
+          if (c.isDeveloper && c.ws.readyState === WebSocket.OPEN) {
+            devOnline = true;
+          }
+        });
+
+        partnerInfo = {
+          id: "developer-team",
+          email: "gelgaev.dev@mail.ru",
+          name: "Разработчик TMA-Builder",
+          companyName: "TMA-Builder Core Team",
+          role: "DEVELOPER",
+          isOnline: devOnline,
+          supportHours: "24/7 (обычное время ответа: ~5-15 мин)"
+        };
+      }
+
+      const limit = Math.min(Math.max(parseInt(String(req.query.limit || "250"), 10), 10), 500);
+
+      const messages = await db.chatMessage.findMany({
+        where: { userId: targetUserId },
+        orderBy: { createdAt: "asc" },
+        take: limit
+      });
+
+      // Считаем количество непрочитанных для текущего пользователя
+      let unreadCount = 0;
+      if (isDev) {
+        unreadCount = await db.chatMessage.count({
+          where: {
+            userId: targetUserId,
+            senderRole: "USER",
+            isRead: false
+          }
+        });
+      } else {
+        unreadCount = await db.chatMessage.count({
+          where: {
+            userId: authUser.id,
+            senderRole: "DEVELOPER",
+            isRead: false
+          }
+        });
+      }
+
+      res.json({
+        messages: messages.map((m: any) => ({
+          id: m.id,
+          userId: m.userId,
+          senderRole: m.senderRole,
+          senderId: m.senderId,
+          senderName: m.senderName,
+          text: m.text,
+          mediaUrl: m.mediaUrl,
+          mediaType: m.mediaType,
+          mediaName: m.mediaName,
+          mediaSize: m.mediaSize,
+          mediaThumbnail: m.mediaThumbnail,
+          isRead: Boolean(m.isRead),
+          readAt: m.readAt,
+          createdAt: m.createdAt
+        })),
+        unreadCount,
+        partner: partnerInfo,
+        isDeveloper: isDev
+      });
+    } catch (error: any) {
+      console.error("Error fetching chat messages:", error);
+      res.status(500).json({ error: error.message || "Ошибка загрузки сообщений чата" });
+    }
+  });
+
+  // 2. Список диалогов со всеми пользователями (ТОЛЬКО ДЛЯ РАЗРАБОТЧИКА)
+  app.get("/api/chat/conversations", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser || !isDeveloperEmail(authUser.email)) {
+        return res.status(403).json({ error: "Доступ запрещен. Доступно только разработчику платформы" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const search = req.query.search ? String(req.query.search).toLowerCase().trim() : null;
+
+      // Находим всех пользователей
+      const users = await db.user.findMany({
+        include: {
+          shops: { select: { id: true, name: true, slug: true } }
+        },
+        orderBy: { createdAt: "desc" }
+      });
+
+      // Находим все сообщения для агрегации
+      const allMessages = await db.chatMessage.findMany({
+        orderBy: { createdAt: "desc" }
+      });
+
+      // Группируем сообщения по userId
+      const messagesByUser = new Map<string, any[]>();
+      for (const msg of allMessages) {
+        if (!messagesByUser.has(msg.userId)) {
+          messagesByUser.set(msg.userId, []);
+        }
+        messagesByUser.get(msg.userId)!.push(msg);
+      }
+
+      // Собираем сводку по каждому диалогу
+      const conversations = users
+        .filter((u) => !isDeveloperEmail(u.email)) // исключаем самого разработчика из списка клиентов
+        .map((u) => {
+          const userMsgs = messagesByUser.get(u.id) || [];
+          const lastMsg = userMsgs.length > 0 ? userMsgs[0] : null; // т.к. allMessages отсортированы DESC
+          const unreadCount = userMsgs.filter((m) => m.senderRole === "USER" && !m.isRead).length;
+          const totalMessages = userMsgs.length;
+
+          return {
+            userId: u.id,
+            user: {
+              id: u.id,
+              email: u.email,
+              name: u.name || "Без имени",
+              companyName: u.companyName || null,
+              plan: u.plan || "FREE",
+              avatarUrl: u.avatarUrl || null,
+              isBanned: Boolean(u.isBanned),
+              shops: u.shops || [],
+              createdAt: u.createdAt
+            },
+            lastMessage: lastMsg ? {
+              id: lastMsg.id,
+              senderRole: lastMsg.senderRole,
+              text: lastMsg.text,
+              mediaUrl: lastMsg.mediaUrl,
+              mediaType: lastMsg.mediaType,
+              isRead: Boolean(lastMsg.isRead),
+              createdAt: lastMsg.createdAt
+            } : null,
+            unreadCount,
+            totalMessages,
+            lastActivityAt: lastMsg ? lastMsg.createdAt : u.createdAt
+          };
+        });
+
+      // Сортируем: сначала диалоги с новыми сообщениями / более активные, затем остальные
+      conversations.sort((a, b) => {
+        if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
+        if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
+        return new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime();
+      });
+
+      // Фильтрация поиска
+      let filtered = conversations;
+      if (search) {
+        filtered = conversations.filter((c) => {
+          const emailMatch = c.user.email.toLowerCase().includes(search);
+          const nameMatch = c.user.name.toLowerCase().includes(search);
+          const compMatch = c.user.companyName?.toLowerCase().includes(search);
+          const shopMatch = c.user.shops.some((s: any) => s.name?.toLowerCase().includes(search) || s.slug?.toLowerCase().includes(search));
+          const msgMatch = c.lastMessage?.text?.toLowerCase().includes(search);
+          return emailMatch || nameMatch || compMatch || shopMatch || msgMatch;
+        });
+      }
+
+      const totalUnreadAll = conversations.reduce((acc, c) => acc + c.unreadCount, 0);
+
+      res.json({
+        conversations: filtered,
+        totalUnread: totalUnreadAll,
+        totalConversations: conversations.length
+      });
+    } catch (error: any) {
+      console.error("Error fetching conversations for developer:", error);
+      res.status(500).json({ error: error.message || "Ошибка загрузки списка диалогов" });
+    }
+  });
+
+  // In-memory idempotency cache for chat message sending (prevents duplicate creations)
+  const recentChatMessagesCache = new Map<string, { message: any; timestamp: number }>();
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, val] of recentChatMessagesCache.entries()) {
+      if (now - val.timestamp > 120000) {
+        recentChatMessagesCache.delete(key);
+      }
+    }
+  }, 60000);
+
+  // 3. Отправка сообщения в чат
+  app.post("/api/chat/send", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        return res.status(401).json({ error: "Необходима авторизация" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const isDev = isDeveloperEmail(authUser.email);
+      const { 
+        text, 
+        mediaUrl, 
+        mediaType, 
+        mediaName, 
+        mediaSize, 
+        mediaThumbnail,
+        targetUserId,
+        clientMessageId 
+      } = req.body;
+
+      const trimmedClientMsgId = typeof clientMessageId === "string" && clientMessageId.trim()
+        ? clientMessageId.trim().slice(0, 100)
+        : null;
+
+      // Idempotency check: if client retried or double-clicked with the same clientMessageId within 2 minutes
+      if (trimmedClientMsgId) {
+        const cacheKey = `${authUser.id}_${trimmedClientMsgId}`;
+        const cached = recentChatMessagesCache.get(cacheKey);
+        if (cached) {
+          return res.status(200).json({ message: cached.message, cached: true });
+        }
+      }
+
+      const trimmedText = typeof text === "string" ? text.trim() : "";
+      const validMediaUrl = typeof mediaUrl === "string" && mediaUrl.length > 0 ? mediaUrl : null;
+
+      if (!trimmedText && !validMediaUrl) {
+        return res.status(400).json({ error: "Сообщение не может быть пустым (введите текст или прикрепите медиафайл)" });
+      }
+
+      // Валидация медиа типа
+      if (validMediaUrl && mediaType && !["image", "video", "file"].includes(mediaType)) {
+        return res.status(400).json({ error: "Недопустимый тип медиафайла. Разрешены только изображения и видео." });
+      }
+
+      let chatTargetUserId = authUser.id;
+      let senderRole = "USER";
+      let senderName = authUser.name || authUser.email;
+
+      if (isDev) {
+        if (!targetUserId) {
+          return res.status(400).json({ error: "Для разработчика обязательно указание targetUserId" });
+        }
+        chatTargetUserId = String(targetUserId);
+        senderRole = "DEVELOPER";
+        senderName = "Разработчик TMA-Builder";
+      } else {
+        chatTargetUserId = authUser.id;
+        senderRole = "USER";
+        senderName = authUser.name || authUser.email;
+      }
+
+      const created = await db.chatMessage.create({
+        data: {
+          userId: chatTargetUserId,
+          senderRole,
+          senderId: authUser.id,
+          senderName,
+          text: trimmedText || null,
+          mediaUrl: validMediaUrl,
+          mediaType: validMediaUrl ? (mediaType || "image") : null,
+          mediaName: mediaName ? String(mediaName).slice(0, 255) : null,
+          mediaSize: mediaSize ? Math.round(Number(mediaSize)) : null,
+          mediaThumbnail: mediaThumbnail || null,
+          isRead: false
+        }
+      });
+
+      const formattedMessage = {
+        id: created.id,
+        clientMessageId: trimmedClientMsgId || null,
+        userId: created.userId,
+        senderRole: created.senderRole,
+        senderId: created.senderId,
+        senderName: created.senderName,
+        text: created.text,
+        mediaUrl: created.mediaUrl,
+        mediaType: created.mediaType,
+        mediaName: created.mediaName,
+        mediaSize: created.mediaSize,
+        mediaThumbnail: created.mediaThumbnail,
+        isRead: Boolean(created.isRead),
+        readAt: created.readAt,
+        createdAt: created.createdAt
+      };
+
+      if (trimmedClientMsgId) {
+        const cacheKey = `${authUser.id}_${trimmedClientMsgId}`;
+        recentChatMessagesCache.set(cacheKey, { message: formattedMessage, timestamp: Date.now() });
+      }
+
+      // Realtime уведомление через WebSocket
+      broadcastEvent({
+        type: "CHAT_MESSAGE_CREATED",
+        userId: chatTargetUserId,
+        payload: {
+          message: formattedMessage,
+          targetUserId: chatTargetUserId,
+          senderRole,
+          senderId: authUser.id,
+          clientMessageId: trimmedClientMsgId || null
+        }
+      });
+
+      res.status(201).json({ message: formattedMessage });
+    } catch (error: any) {
+      console.error("Error sending chat message:", error);
+      res.status(500).json({ error: error.message || "Ошибка отправки сообщения" });
+    }
+  });
+
+  // 4. Отметка сообщений как прочитанных
+  app.post("/api/chat/read", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        return res.status(401).json({ error: "Необходима авторизация" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const isDev = isDeveloperEmail(authUser.email);
+      const { targetUserId } = req.body;
+
+      let chatUserId = authUser.id;
+      let targetSenderRoleToMark = "DEVELOPER";
+
+      if (isDev) {
+        if (!targetUserId) {
+          return res.status(400).json({ error: "targetUserId обязателен для разработчика" });
+        }
+        chatUserId = String(targetUserId);
+        targetSenderRoleToMark = "USER"; // Разработчик читает сообщения пользователя
+      } else {
+        chatUserId = authUser.id;
+        targetSenderRoleToMark = "DEVELOPER"; // Пользователь читает сообщения разработчика
+      }
+
+      const updateResult = await db.chatMessage.updateMany({
+        where: {
+          userId: chatUserId,
+          senderRole: targetSenderRoleToMark,
+          isRead: false
+        },
+        data: {
+          isRead: true,
+          readAt: new Date()
+        }
+      });
+
+      // WebSocket оповещение о прочтении
+      broadcastEvent({
+        type: "CHAT_MESSAGES_READ",
+        userId: chatUserId,
+        payload: {
+          targetUserId: chatUserId,
+          readByUserId: authUser.id,
+          readByRole: isDev ? "DEVELOPER" : "USER",
+          count: updateResult.count
+        }
+      });
+
+      res.json({ success: true, count: updateResult.count });
+    } catch (error: any) {
+      console.error("Error marking chat messages as read:", error);
+      res.status(500).json({ error: error.message || "Ошибка отметки прочтения" });
+    }
+  });
+
+  // 5. Количество непрочитанных сообщений (для бейджей в боковом меню)
+  app.get("/api/chat/unread-count", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        return res.json({ unreadCount: 0 });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.json({ unreadCount: 0 });
+      await ensureOrderSchema(db);
+
+      const isDev = isDeveloperEmail(authUser.email);
+      let unreadCount = 0;
+
+      if (isDev) {
+        // Разработчик видит сумму всех непрочитанных сообщений от пользователей
+        unreadCount = await db.chatMessage.count({
+          where: {
+            senderRole: "USER",
+            isRead: false
+          }
+        });
+      } else {
+        // Пользователь видит непрочитанные сообщения от разработчика для своего аккаунта
+        unreadCount = await db.chatMessage.count({
+          where: {
+            userId: authUser.id,
+            senderRole: "DEVELOPER",
+            isRead: false
+          }
+        });
+      }
+
+      res.json({ unreadCount });
+    } catch (error: any) {
+      console.error("Error getting chat unread count:", error);
+      res.json({ unreadCount: 0 });
+    }
+  });
+
+  // 6. Удаление сообщения
+  app.delete("/api/chat/messages/:id", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        return res.status(401).json({ error: "Необходима авторизация" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const messageId = req.params.id;
+      const isDev = isDeveloperEmail(authUser.email);
+
+      const msg = await db.chatMessage.findUnique({
+        where: { id: messageId }
+      });
+
+      if (!msg) {
+        return res.status(404).json({ error: "Сообщение не найдено" });
+      }
+
+      // Удалить может разработчик или отправитель
+      if (!isDev && msg.senderId !== authUser.id) {
+        return res.status(403).json({ error: "Вы можете удалять только свои сообщения" });
+      }
+
+      await db.chatMessage.delete({
+        where: { id: messageId }
+      });
+
+      broadcastEvent({
+        type: "CHAT_MESSAGE_DELETED",
+        userId: msg.userId,
+        payload: { messageId, targetUserId: msg.userId }
+      });
+
+      res.json({ success: true, id: messageId });
+    } catch (error: any) {
+      console.error("Error deleting chat message:", error);
+      res.status(500).json({ error: error.message || "Ошибка удаления сообщения" });
     }
   });
 

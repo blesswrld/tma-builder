@@ -109,11 +109,33 @@ export const AdminReferralTab: React.FC = () => {
     }
   });
 
-  const browserOrigin = typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
+  // Compute the dynamic and actual current web app URL for the referral link
+  const getActualReferralLink = useCallback(() => {
+    let base = "";
+    if (typeof window !== "undefined" && window.location?.origin) {
+      base = window.location.origin;
+    }
+    if (!base && data?.referralLink) {
+      try {
+        const u = new URL(data.referralLink);
+        base = u.origin;
+      } catch {}
+    }
+    if (!base) {
+      base = "http://localhost:3000";
+    }
+
+    const cleanBase = base.replace(/\/$/, "");
+    const referralCode = data?.referralCode || "";
+
+    if (referralCode) {
+      return `${cleanBase}/?ref=${encodeURIComponent(referralCode)}`;
+    }
+    return data?.referralLink || `${cleanBase}/?ref=`;
+  }, [data?.referralCode, data?.referralLink]);
+
+  const activeReferralLink = getActualReferralLink();
   const referralCode = data?.referralCode || "";
-  const activeReferralLink = referralCode
-    ? `${browserOrigin}/?ref=${referralCode}`
-    : (data?.referralLink || (browserOrigin ? `${browserOrigin}/?ref=` : ""));
 
   const handleCopyLink = async () => {
     if (!activeReferralLink) return;

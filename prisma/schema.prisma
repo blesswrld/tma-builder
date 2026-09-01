@@ -28,6 +28,7 @@ model User {
   referredBy            User?     @relation("UserReferrals", fields: [referredById], references: [id], onDelete: SetNull)
   referrals             User[]    @relation("UserReferrals")
   referralRewards       ReferralReward[]
+  chatMessages          ChatMessage[]
   shops                 Shop[]
   createdAt             DateTime  @default(now())
 }
@@ -256,5 +257,23 @@ model SystemPromocode {
   isActive        Boolean   @default(true)
   expiresAt       DateTime?
   createdAt       DateTime  @default(now())
+}
+
+model ChatMessage {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  senderRole     String    @default("USER") // USER, DEVELOPER
+  senderId       String
+  senderName     String?
+  text           String?
+  mediaUrl       String?
+  mediaType      String?   // image, video, file
+  mediaName      String?
+  mediaSize      Int?
+  mediaThumbnail String?
+  isRead         Boolean   @default(false)
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
 }
 
