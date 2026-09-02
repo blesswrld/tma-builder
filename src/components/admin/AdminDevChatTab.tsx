@@ -28,7 +28,7 @@ import {
   Trash2
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { useRealtimeEvent } from "../../context/RealtimeContext";
+import { useRealtime, useRealtimeEvent } from "../../context/RealtimeContext";
 import { resilientFetch } from "../../lib/api";
 import { ChatMessage, ChatPartner, ChatConversation } from "../../types";
 import ChatMessageItem from "../chat/ChatMessageItem";
@@ -75,7 +75,12 @@ function formatDateGroup(dateString: string): string {
   }
 }
 
-export default function AdminDevChatTab() {
+interface AdminDevChatTabProps {
+  isFloatingMode?: boolean;
+  onClose?: () => void;
+}
+
+export default function AdminDevChatTab({ isFloatingMode = false, onClose }: AdminDevChatTabProps) {
   const { user, token } = useAuth();
   const isDev = Boolean(
     user?.email &&
@@ -83,12 +88,18 @@ export default function AdminDevChatTab() {
         user.email.toLowerCase().trim() === "roninfortnite71@gmail.com")
   );
 
+  const { authenticate, sendEvent } = useRealtime();
+
   // States for Active Chat
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [partner, setPartner] = useState<ChatPartner | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Presence State (Online / Offline in Real Time)
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [devOnline, setDevOnline] = useState<boolean>(false);
 
   // Input & Media
   const [inputText, setInputText] = useState("");
@@ -109,6 +120,15 @@ export default function AdminDevChatTab() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "unread" | "paid">("all");
   const [mobileShowChat, setMobileShowChat] = useState(false);
+
+  // Sync WS authentication and presence
+  useEffect(() => {
+    if (token) {
+      authenticate(token);
+      sendEvent({ type: "subscribe_chat", userId: user?.id });
+      sendEvent({ type: "get_presence" });
+    }
+  }, [token, user?.id, authenticate, sendEvent]);
 
   // Lightbox Modal
   const [lightboxData, setLightboxData] = useState<{
@@ -248,14 +268,44 @@ export default function AdminDevChatTab() {
     }
   }, [isDev, activeConversationUserId, fetchMessages]);
 
-  // Realtime listeners
+  // Realtime presence listeners (Live Online/Offline updates)
+  useRealtimeEvent(["PRESENCE_STATE", "PRESENCE_CHANGED"], (event) => {
+    if (event.payload?.onlineUserIds && Array.isArray(event.payload.onlineUserIds)) {
+      setOnlineUserIds(new Set(event.payload.onlineUserIds));
+    }
+    if (typeof event.payload?.devOnline === "boolean") {
+      setDevOnline(event.payload.devOnline);
+      if (!isDev) {
+        setPartner((prev) => (prev ? { ...prev, isOnline: event.payload.devOnline } : prev));
+      }
+    }
+    if (event.payload?.userId) {
+      const uid = event.payload.userId;
+      const isUserOnline = Boolean(event.payload.isOnline);
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        if (isUserOnline) next.add(uid);
+        else next.delete(uid);
+        return next;
+      });
+      if (isDev && uid === activeConversationUserId) {
+        setPartner((prev) => (prev ? { ...prev, isOnline: isUserOnline } : prev));
+      }
+    }
+  });
+
+  // Realtime chat message listener
   useRealtimeEvent("CHAT_MESSAGE_CREATED", (event) => {
     const newMsg: ChatMessage = event.payload?.message;
     if (!newMsg) return;
 
     // Check if relevant to currently open chat
     const currentTargetId = currentTargetIdRef.current || (isDev ? activeConversationUserId : user?.id);
-    if (newMsg.userId === currentTargetId) {
+    const isTargetChat = isDev
+      ? newMsg.userId === currentTargetId
+      : (!newMsg.userId || newMsg.userId === currentTargetId || newMsg.userId === user?.id || true);
+
+    if (isTargetChat) {
       setMessages((prev) => {
         // 1. If message with exact server ID is already present, update status/data
         const idxById = prev.findIndex((m) => m.id === newMsg.id);
@@ -307,8 +357,33 @@ export default function AdminDevChatTab() {
       }
     }
 
-    // If developer, refresh conversation summaries
+    // If developer, immediately update sidebar state in-memory and trigger background sync
     if (isDev) {
+      setConversations((prev) => {
+        const next = [...prev];
+        const idx = next.findIndex((c) => c.userId === newMsg.userId);
+        if (idx !== -1) {
+          const conv = next[idx];
+          const isCurrentActive = activeConversationUserId === newMsg.userId;
+          next[idx] = {
+            ...conv,
+            lastMessage: {
+              id: newMsg.id,
+              senderRole: newMsg.senderRole,
+              text: newMsg.text,
+              mediaUrl: newMsg.mediaUrl,
+              mediaType: newMsg.mediaType,
+              isRead: isCurrentActive || Boolean(newMsg.isRead),
+              createdAt: newMsg.createdAt
+            },
+            unreadCount: isCurrentActive ? 0 : (newMsg.senderRole === "USER" ? conv.unreadCount + 1 : conv.unreadCount),
+            lastActivityAt: newMsg.createdAt
+          };
+          const [moved] = next.splice(idx, 1);
+          next.unshift(moved);
+        }
+        return next;
+      });
       fetchConversations();
     }
   });
@@ -570,7 +645,13 @@ export default function AdminDevChatTab() {
   }, [conversations, activeConversationUserId]);
 
   return (
-    <div className="w-full flex flex-col h-[calc(100vh-140px)] min-h-[580px] max-h-[920px] bg-app-card border border-app-border rounded-2xl shadow-xl overflow-hidden backdrop-blur-md">
+    <div
+      className={`w-full flex flex-col ${
+        isFloatingMode
+          ? "h-full bg-app-card overflow-hidden"
+          : "h-[calc(100vh-140px)] min-h-[580px] max-h-[920px] bg-app-card border border-app-border rounded-2xl shadow-xl overflow-hidden backdrop-blur-md"
+      }`}
+    >
       {/* DEVELOPER SPLIT VIEW (List on Left, Chat on Right) OR REGULAR DIRECT VIEW */}
       <div className="flex-1 flex overflow-hidden">
         {/* ========================================================= */}
@@ -578,19 +659,19 @@ export default function AdminDevChatTab() {
         {/* ========================================================= */}
         {isDev && (
           <div
-            className={`w-full md:w-80 lg:w-96 border-r border-app-border flex flex-col bg-app-bg/40 ${
+            className={`w-full md:w-80 lg:w-96 border-r border-app-border flex flex-col bg-app-card/60 ${
               mobileShowChat ? "hidden md:flex" : "flex"
             }`}
           >
             {/* Header / Search */}
-            <div className="p-3 border-b border-app-border space-y-2 bg-app-card/70">
+            <div className="p-3 border-b border-app-border space-y-2.5 bg-app-card">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                     <ShieldCheck size={16} />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-app-primary">Диалоги поддержки</h3>
+                    <h3 className="text-xs font-semibold text-app-primary">Диалоги поддержки</h3>
                     <p className="text-[10px] text-app-muted">Все пользователи платформы</p>
                   </div>
                 </div>
@@ -612,7 +693,7 @@ export default function AdminDevChatTab() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Поиск по email, имени, заведению..."
-                  className="w-full pl-8 pr-7 py-1.5 text-xs bg-app-card border border-app-border rounded-xl text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-accent transition"
+                  className="w-full pl-8 pr-7 py-1.5 text-xs bg-app-input border border-app-border rounded-xl text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-secondary transition"
                 />
                 {searchQuery && (
                   <button
@@ -630,7 +711,7 @@ export default function AdminDevChatTab() {
                   onClick={() => setActiveFilter("all")}
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
                     activeFilter === "all"
-                      ? "bg-app-accent text-app-accent-fg"
+                      ? "bg-app-accent text-app-accent-fg shadow-xs"
                       : "text-app-muted hover:text-app-primary hover:bg-app-hover"
                   }`}
                 >
@@ -655,7 +736,7 @@ export default function AdminDevChatTab() {
                   onClick={() => setActiveFilter("paid")}
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
                     activeFilter === "paid"
-                      ? "bg-amber-500 text-white"
+                      ? "bg-amber-500 text-slate-950 font-bold"
                       : "text-app-muted hover:text-app-primary hover:bg-app-hover"
                   }`}
                 >
@@ -679,6 +760,7 @@ export default function AdminDevChatTab() {
                 filteredConversations.map((conv) => {
                   const isSelected = conv.userId === activeConversationUserId;
                   const isPaid = conv.user.plan === "PRO" || conv.user.plan === "ENTERPRISE";
+                  const isUserOnline = onlineUserIds.has(conv.userId) || Boolean(conv.isOnline);
 
                   return (
                     <button
@@ -689,7 +771,7 @@ export default function AdminDevChatTab() {
                       }}
                       className={`w-full text-left p-3 transition flex items-start gap-2.5 cursor-pointer relative ${
                         isSelected
-                          ? "bg-app-accent/10 border-l-2 border-app-accent"
+                          ? "bg-app-surface border-l-2 border-app-primary"
                           : "hover:bg-app-hover"
                       }`}
                     >
@@ -702,10 +784,17 @@ export default function AdminDevChatTab() {
                             className="w-9 h-9 rounded-xl object-cover border border-app-border"
                           />
                         ) : (
-                          <div className="w-9 h-9 rounded-xl bg-app-card border border-app-border flex items-center justify-center text-app-primary font-bold text-xs">
+                          <div className="w-9 h-9 rounded-xl bg-app-surface border border-app-border flex items-center justify-center text-app-primary font-bold text-xs">
                             {conv.user.name?.[0] || conv.user.email[0].toUpperCase()}
                           </div>
                         )}
+                        {/* Live presence indicator badge */}
+                        <div
+                          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-app-card ${
+                            isUserOnline ? "bg-emerald-500 shadow-xs" : "bg-app-muted"
+                          }`}
+                          title={isUserOnline ? "В сети (Online)" : "Не в сети (Офлайн)"}
+                        />
                         {isPaid && (
                           <div className="absolute -top-1 -right-1 p-0.5 rounded-full bg-amber-500 text-slate-950 shadow-xs">
                             <Crown size={9} />
@@ -731,7 +820,7 @@ export default function AdminDevChatTab() {
                           {conv.user.shops?.length > 0 && (
                             <>
                               <span>•</span>
-                              <span className="text-app-accent font-medium truncate">
+                              <span className="text-emerald-500 font-medium truncate">
                                 🏬 {conv.user.shops[0].name}
                               </span>
                             </>
@@ -768,12 +857,12 @@ export default function AdminDevChatTab() {
         {/* RIGHT COLUMN / MAIN CHAT WINDOW */}
         {/* ========================================================= */}
         <div
-          className={`flex-1 flex flex-col bg-app-card/30 ${
+          className={`flex-1 flex flex-col bg-app-card ${
             isDev && !mobileShowChat ? "hidden md:flex" : "flex"
           }`}
         >
           {/* Top Header Bar */}
-          <div className="p-3 sm:px-4 border-b border-app-border flex items-center justify-between bg-app-card/80 backdrop-blur-md">
+          <div className="p-3 sm:px-4 border-b border-app-border flex items-center justify-between bg-app-card/95 backdrop-blur-md">
             <div className="flex items-center gap-3 min-w-0">
               {/* Back button for mobile view in Dev Mode */}
               {isDev && (
@@ -786,94 +875,109 @@ export default function AdminDevChatTab() {
               )}
 
               {/* Partner Avatar / Status */}
-              <div className="relative shrink-0">
-                {isDev ? (
-                  activeConv?.user?.avatarUrl ? (
-                    <img
-                      src={activeConv.user.avatarUrl}
-                      alt=""
-                      className="w-10 h-10 rounded-xl object-cover border border-app-border"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-xl bg-app-card border border-app-border flex items-center justify-center text-app-primary font-bold text-sm">
-                      {activeConv?.user?.name?.[0] || activeConv?.user?.email?.[0]?.toUpperCase() || "U"}
+              {(() => {
+                const isPartnerOnline = isDev
+                  ? Boolean(activeConversationUserId && onlineUserIds.has(activeConversationUserId)) || activeConv?.isOnline === true || partner?.isOnline === true
+                  : devOnline || partner?.isOnline === true;
+
+                return (
+                  <>
+                    <div className="relative shrink-0">
+                      {isDev ? (
+                        activeConv?.user?.avatarUrl ? (
+                          <img
+                            src={activeConv.user.avatarUrl}
+                            alt=""
+                            className="w-10 h-10 rounded-xl object-cover border border-app-border"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl bg-app-surface border border-app-border flex items-center justify-center text-app-primary font-bold text-sm">
+                            {activeConv?.user?.name?.[0] || activeConv?.user?.email?.[0]?.toUpperCase() || "U"}
+                          </div>
+                        )
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center justify-center shadow-2xs">
+                          <ShieldCheck size={20} className="text-emerald-500" />
+                        </div>
+                      )}
+
+                      {/* Online pulse indicator */}
+                      <div
+                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-app-card ${
+                          isPartnerOnline ? "bg-emerald-500 shadow-xs" : "bg-app-muted"
+                        }`}
+                        title={isPartnerOnline ? "В сети (Online)" : "Не в сети (Офлайн)"}
+                      />
                     </div>
-                  )
-                ) : (
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-md">
-                    <ShieldCheck size={20} />
-                  </div>
-                )}
 
-                {/* Online pulse indicator */}
-                <div
-                  className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-app-card ${
-                    partner?.isOnline !== false ? "bg-emerald-500" : "bg-slate-500"
-                  }`}
-                  title={partner?.isOnline !== false ? "В сети" : "Офлайн"}
-                />
-              </div>
-
-              {/* Partner details */}
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xs sm:text-sm font-bold text-app-primary truncate">
-                    {isDev
-                      ? activeConv?.user?.name || activeConv?.user?.email || "Пользователь"
-                      : "Разработчик TMA-Builder"}
-                  </h2>
-                  {isDev && activeConv?.user?.plan && (
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
-                        activeConv.user.plan === "ENTERPRISE"
-                          ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
-                          : activeConv.user.plan === "PRO"
-                          ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                          : "bg-slate-700/40 text-slate-400"
-                      }`}
-                    >
-                      {activeConv.user.plan}
-                    </span>
-                  )}
-                  {!isDev && (
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] font-bold">
-                      PRO DEV
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-[10px] sm:text-xs text-app-muted flex items-center gap-1.5 truncate">
-                  {isDev ? (
-                    <>
-                      <span>{activeConv?.user?.email}</span>
-                      {activeConv?.user?.shops?.length ? (
-                        <>
-                          <span>•</span>
-                          <span className="text-app-accent">
-                            🏬 {activeConv.user.shops.map((s) => s.name).join(", ")}
+                    {/* Partner details */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-xs sm:text-sm font-semibold text-app-primary truncate">
+                          {isDev
+                            ? activeConv?.user?.name || activeConv?.user?.email || "Пользователь"
+                            : "Разработчик TMA-Builder"}
+                        </h2>
+                        {isDev && activeConv?.user?.plan && (
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                              activeConv.user.plan === "ENTERPRISE"
+                                ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                                : activeConv.user.plan === "PRO"
+                                ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                                : "bg-app-surface text-app-muted"
+                            }`}
+                          >
+                            {activeConv.user.plan}
                           </span>
-                        </>
-                      ) : null}
-                    </>
-                  ) : (
-                    <>
-                      <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                        <Radio size={10} className="animate-pulse" />
-                        {partner?.isOnline !== false ? "В сети (Online)" : "Поддержка 24/7"}
-                      </span>
-                      <span>•</span>
-                      <span>Прямая связь и консультации</span>
-                    </>
-                  )}
-                </p>
-              </div>
+                        )}
+                        {!isDev && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-semibold">
+                            PRO DEV
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-[10px] sm:text-xs text-app-muted flex items-center gap-1.5 truncate">
+                        {isDev ? (
+                          <>
+                            <span className={`inline-flex items-center gap-1 font-medium ${isPartnerOnline ? "text-emerald-500" : "text-app-muted"}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${isPartnerOnline ? "bg-emerald-500 animate-pulse" : "bg-app-muted"}`} />
+                              {isPartnerOnline ? "В сети" : "Офлайн"}
+                            </span>
+                            <span>•</span>
+                            <span className="truncate">{activeConv?.user?.email}</span>
+                            {activeConv?.user?.shops?.length ? (
+                              <>
+                                <span>•</span>
+                                <span className="text-emerald-500 truncate font-medium">
+                                  🏬 {activeConv.user.shops.map((s) => s.name).join(", ")}
+                                </span>
+                              </>
+                            ) : null}
+                          </>
+                        ) : (
+                          <>
+                            <span className={`flex items-center gap-1 font-medium ${isPartnerOnline ? "text-emerald-500" : "text-app-muted"}`}>
+                              <Radio size={11} className={isPartnerOnline ? "animate-pulse" : ""} />
+                              {isPartnerOnline ? "В сети (Online)" : "Офлайн (Ответит скоро)"}
+                            </span>
+                            <span>•</span>
+                            <span>Прямая поддержка</span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             {/* Header Right Actions */}
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => fetchMessages(isDev ? activeConversationUserId : null, false)}
-                className="p-2 rounded-xl bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary transition cursor-pointer"
+                className="p-2 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary transition cursor-pointer"
                 title="Обновить переписку"
               >
                 <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -884,11 +988,21 @@ export default function AdminDevChatTab() {
                   href={`/${activeConv.user.shops[0].slug}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 rounded-xl bg-app-card hover:bg-app-hover border border-app-border text-app-accent transition cursor-pointer"
+                  className="p-2 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary transition cursor-pointer"
                   title="Открыть витрину заведения"
                 >
                   <ExternalLink size={14} />
                 </a>
+              )}
+
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className="p-2 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary transition cursor-pointer"
+                  title="Свернуть окно чата"
+                >
+                  <X size={15} />
+                </button>
               )}
             </div>
           </div>
@@ -897,7 +1011,7 @@ export default function AdminDevChatTab() {
           {/* MESSAGES STREAM VIEWPORT */}
           {/* ========================================================= */}
           <div
-            className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 custom-scrollbar relative"
+            className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 custom-scrollbar relative bg-app-bg"
             onScroll={(e) => {
               const el = e.currentTarget;
               const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
@@ -907,11 +1021,11 @@ export default function AdminDevChatTab() {
             {/* Loading Skeleton */}
             {loading && messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full space-y-3 text-app-muted">
-                <RefreshCw size={24} className="animate-spin text-app-accent" />
+                <RefreshCw size={24} className="animate-spin text-app-primary" />
                 <p className="text-xs">Загрузка переписки...</p>
               </div>
             ) : error ? (
-              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <AlertCircle size={16} />
                   <span>{error}</span>
@@ -926,11 +1040,11 @@ export default function AdminDevChatTab() {
             ) : messages.length === 0 ? (
               /* Empty Chat Prompt */
               <div className="flex flex-col items-center justify-center min-h-[320px] text-center p-6 space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-app-accent/10 border border-app-accent/20 flex items-center justify-center text-app-accent shadow-lg">
+                <div className="w-14 h-14 rounded-2xl bg-app-surface border border-app-border flex items-center justify-center text-app-primary shadow-xs">
                   <MessageSquare size={28} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-app-primary">
+                  <h3 className="text-sm font-semibold text-app-primary">
                     {isDev
                       ? "С этим пользователем ещё нет сообщений"
                       : "Добро пожаловать в чат с разработчиком!"}
@@ -952,9 +1066,9 @@ export default function AdminDevChatTab() {
                         <button
                           key={idx}
                           onClick={() => handleSendMessage(sug)}
-                          className="p-2.5 rounded-xl bg-app-card hover:bg-app-hover border border-app-border text-left text-xs text-app-primary transition cursor-pointer hover:border-app-accent group"
+                          className="p-2.5 rounded-xl bg-app-card hover:bg-app-surface border border-app-border text-left text-xs text-app-primary transition cursor-pointer hover:border-app-secondary group"
                         >
-                          <span className="group-hover:text-app-accent transition">{sug}</span>
+                          <span className="group-hover:text-app-primary transition">{sug}</span>
                         </button>
                       ))}
                     </div>
@@ -968,17 +1082,21 @@ export default function AdminDevChatTab() {
                   {/* Date Divider */}
                   {group.date && (
                     <div className="flex items-center justify-center my-3">
-                      <span className="px-3 py-1 rounded-full bg-app-card/90 border border-app-border text-[10px] font-semibold text-app-muted shadow-xs">
+                      <span className="px-3 py-0.5 rounded-full bg-app-surface border border-app-border text-[10px] font-semibold text-app-muted shadow-2xs">
                         {group.date}
                       </span>
                     </div>
                   )}
 
                   {/* Messages */}
-                  {group.items.map((msg) => {
+                  {group.items.map((msg, msgIdx) => {
                     const isMine =
                       (isDev && msg.senderRole === "DEVELOPER") ||
                       (!isDev && msg.senderRole === "USER");
+
+                    // Show sender name only on the first message of a consecutive series from the partner
+                    const isFirstFromSender =
+                      msgIdx === 0 || group.items[msgIdx - 1].senderRole !== msg.senderRole;
 
                     return (
                       <ChatMessageItem
@@ -995,7 +1113,7 @@ export default function AdminDevChatTab() {
                           })
                         }
                         onDeleteMessage={handleDeleteMessage}
-                        showSenderName={!isMine}
+                        showSenderName={!isMine && isFirstFromSender}
                       />
                     );
                   })}
@@ -1008,10 +1126,10 @@ export default function AdminDevChatTab() {
 
           {/* Floating Scroll to Bottom Button */}
           {showScrollBottomBtn && (
-            <div className="absolute bottom-28 right-6 z-20">
+            <div className="absolute bottom-20 right-6 z-20">
               <button
                 onClick={() => scrollToBottom(true)}
-                className="p-2 rounded-full bg-app-accent text-app-accent-fg shadow-lg hover:scale-105 transition cursor-pointer flex items-center gap-1.5 text-xs font-semibold px-3"
+                className="p-2 rounded-full bg-app-card border border-app-border text-app-primary shadow-lg hover:scale-105 transition cursor-pointer flex items-center gap-1.5 text-xs font-semibold px-3"
               >
                 <span>Вниз</span>
                 <ChevronDown size={14} />
@@ -1022,32 +1140,17 @@ export default function AdminDevChatTab() {
           {/* ========================================================= */}
           {/* BOTTOM INPUT & MEDIA TOOLBAR */}
           {/* ========================================================= */}
-          <div className="p-3 border-t border-app-border bg-app-card/90 backdrop-blur-md relative">
-            {/* Quick Emojis Bar */}
-            <div className="flex items-center gap-1.5 mb-2 overflow-x-auto no-scrollbar pb-1">
-              <span className="text-[10px] font-medium text-app-muted mr-1 shrink-0">Реакции:</span>
-              {QUICK_EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => setInputText((prev) => prev + emoji)}
-                  className="w-7 h-7 flex items-center justify-center text-sm hover:scale-125 active:scale-95 hover:bg-app-hover rounded-lg transition-transform cursor-pointer shrink-0 select-none"
-                  title={emoji}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-
+          <div className="p-2.5 sm:p-3 border-t border-app-border bg-app-card/95 backdrop-blur-md relative">
             {/* Error alerts if any */}
             {mediaError && (
-              <div className="mb-2 p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center justify-between">
+              <div className="mb-2 p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <AlertCircle size={14} />
                   <span>{mediaError}</span>
                 </div>
                 <button
                   onClick={() => setMediaError(null)}
-                  className="text-rose-400 hover:text-white"
+                  className="text-rose-500 hover:text-rose-700"
                 >
                   <X size={12} />
                 </button>
@@ -1056,17 +1159,17 @@ export default function AdminDevChatTab() {
 
             {/* Pre-send Media Attachment Card */}
             {selectedMedia && (
-              <div className="mb-2.5 p-2 rounded-xl bg-app-card border border-app-accent/40 flex items-center justify-between gap-3 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-150">
+              <div className="mb-2.5 p-2 rounded-xl bg-app-surface border border-app-border flex items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-bottom-2 duration-150">
                 <div className="flex items-center gap-2.5 min-w-0">
                   {selectedMedia.type === "image" ? (
                     <img
                       src={selectedMedia.url}
                       alt="Превью"
-                      className="w-12 h-12 rounded-lg object-cover border border-app-border shrink-0"
+                      className="w-11 h-11 rounded-lg object-cover border border-app-border shrink-0"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-lg bg-black/40 border border-app-border flex items-center justify-center text-indigo-400 shrink-0">
-                      <Video size={20} />
+                    <div className="w-11 h-11 rounded-lg bg-black/40 border border-app-border flex items-center justify-center text-indigo-400 shrink-0">
+                      <Video size={18} />
                     </div>
                   )}
 
@@ -1082,7 +1185,7 @@ export default function AdminDevChatTab() {
 
                 <button
                   onClick={() => setSelectedMedia(null)}
-                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-app-muted hover:text-rose-400 transition cursor-pointer"
+                  className="p-1.5 rounded-lg hover:bg-rose-500/10 text-app-muted hover:text-rose-500 transition cursor-pointer"
                   title="Отменить прикрепление"
                 >
                   <X size={16} />
@@ -1091,7 +1194,7 @@ export default function AdminDevChatTab() {
             )}
 
             {/* Input Bar Form */}
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-1.5 sm:gap-2">
               {/* Media File Picker Trigger */}
               <input
                 ref={fileInputRef}
@@ -1104,10 +1207,10 @@ export default function AdminDevChatTab() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2.5 rounded-xl bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary transition cursor-pointer shrink-0"
+                className="p-2.5 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary transition cursor-pointer shrink-0 shadow-2xs"
                 title="Прикрепить изображение или видео (до 50 МБ)"
               >
-                <Paperclip size={18} />
+                <Paperclip size={17} />
               </button>
 
               {/* Emoji Picker Trigger */}
@@ -1115,14 +1218,14 @@ export default function AdminDevChatTab() {
                 <button
                   type="button"
                   onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
-                  className={`p-2.5 rounded-xl border transition cursor-pointer ${
+                  className={`p-2.5 rounded-xl border transition cursor-pointer shadow-2xs ${
                     isEmojiPickerOpen
                       ? "bg-app-accent text-app-accent-fg border-app-accent"
-                      : "bg-app-card hover:bg-app-hover border-app-border text-app-muted hover:text-app-primary"
+                      : "bg-app-surface hover:bg-app-hover border-app-border text-app-muted hover:text-app-primary"
                   }`}
                   title="Выбрать эмодзи"
                 >
-                  <Smile size={18} />
+                  <Smile size={17} />
                 </button>
 
                 {/* Emoji Popover */}
@@ -1152,8 +1255,8 @@ export default function AdminDevChatTab() {
                     }
                   }}
                   rows={1}
-                  placeholder="Напишите сообщение разработчику... (Enter для отправки)"
-                  className="w-full px-3.5 py-2.5 text-xs bg-app-bg/80 border border-app-border rounded-xl text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-accent transition resize-none max-h-32 min-h-[40px]"
+                  placeholder={isDev ? "Напишите ответ клиенту... (Enter для отправки)" : "Напишите сообщение разработчику... (Enter)"}
+                  className="w-full px-3.5 py-2.5 text-xs bg-app-input border border-app-border rounded-xl text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-secondary transition resize-none max-h-32 min-h-[38px] shadow-2xs"
                 />
               </div>
 
@@ -1169,15 +1272,15 @@ export default function AdminDevChatTab() {
                 }}
                 className={`p-2.5 rounded-xl font-bold flex items-center justify-center transition cursor-pointer shrink-0 ${
                   inputText.trim() || selectedMedia
-                    ? "bg-app-accent text-app-accent-fg shadow-md hover:scale-105 active:scale-95"
-                    : "bg-app-card border border-app-border text-app-muted cursor-not-allowed opacity-50"
+                    ? "bg-app-accent text-app-accent-fg shadow-xs hover:opacity-90 active:scale-95"
+                    : "bg-app-surface border border-app-border text-app-muted cursor-not-allowed opacity-50"
                 }`}
                 title="Отправить сообщение (Enter)"
               >
                 {sending ? (
-                  <RefreshCw size={18} className="animate-spin" />
+                  <RefreshCw size={17} className="animate-spin" />
                 ) : (
-                  <Send size={18} />
+                  <Send size={17} />
                 )}
               </button>
             </div>

@@ -18,6 +18,7 @@ interface RealtimeContextType {
   unsubscribeShop: (shopId: string) => void;
   addListener: (listener: RealtimeListener) => () => void;
   sendEvent: (data: any) => void;
+  authenticate: (token?: string) => void;
 }
 
 const RealtimeContext = createContext<RealtimeContextType>({
@@ -28,6 +29,7 @@ const RealtimeContext = createContext<RealtimeContextType>({
   unsubscribeShop: () => {},
   addListener: () => () => {},
   sendEvent: () => {},
+  authenticate: () => {},
 });
 
 export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -49,11 +51,12 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, []);
 
-  const authenticateWS = useCallback(() => {
+  const authenticateWS = useCallback((explicitToken?: string) => {
     try {
-      const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+      const token = explicitToken || localStorage.getItem("auth_token") || localStorage.getItem("token");
       if (token && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: "auth", token }));
+        wsRef.current.send(JSON.stringify({ type: "get_presence" }));
       }
     } catch {}
   }, []);
@@ -80,7 +83,12 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
         return;
       }
 
-      const wsUrl = getWsUrl();
+      let wsUrl = getWsUrl();
+      const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+      if (token) {
+        const separator = wsUrl.includes("?") ? "&" : "?";
+        wsUrl = `${wsUrl}${separator}token=${encodeURIComponent(token)}`;
+      }
 
       try {
         const ws = new WebSocket(wsUrl);
@@ -155,6 +163,13 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
     }, 25000);
 
+    // Listen to internal app auth token change events
+    const handleAuthTokenChanged = (e: any) => {
+      const newToken = e?.detail?.token;
+      authenticateWS(newToken);
+    };
+    window.addEventListener("app:auth_token_changed", handleAuthTokenChanged);
+
     // Also listen to storage events if token changes (e.g. login in another tab)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "auth_token" || e.key === "token") {
@@ -166,6 +181,7 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
     return () => {
       isManuallyClosedRef.current = true;
       clearInterval(pingInterval);
+      window.removeEventListener("app:auth_token_changed", handleAuthTokenChanged);
       window.removeEventListener("storage", handleStorageChange);
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (wsRef.current) {
@@ -221,6 +237,10 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
   }, []);
 
+  const authenticate = useCallback((token?: string) => {
+    authenticateWS(token);
+  }, [authenticateWS]);
+
   const value = useMemo(
     () => ({
       isConnected,
@@ -229,9 +249,10 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
       subscribeShops,
       unsubscribeShop,
       addListener,
-      sendEvent
+      sendEvent,
+      authenticate
     }),
-    [isConnected, lastEvent, subscribeShop, subscribeShops, unsubscribeShop, addListener, sendEvent]
+    [isConnected, lastEvent, subscribeShop, subscribeShops, unsubscribeShop, addListener, sendEvent, authenticate]
   );
 
   return (

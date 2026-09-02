@@ -44,6 +44,7 @@ import { AdminServersTab } from "../components/admin/AdminServersTab";
 import { AdminReferralTab } from "../components/admin/AdminReferralTab";
 import { AdminCreateShopTab } from "../components/admin/AdminCreateShopTab";
 import AdminDevChatTab from "../components/admin/AdminDevChatTab";
+import SupportChatWidget from "../components/chat/SupportChatWidget";
 import { 
   validateShopName, validateSlug, cleanSlugForSubmit, transliterateToSlug, generateRandomSyllableSlug, validateCisPhone, 
   validateTelegramBotToken, validateTelegramChatId, validateItemTitle, 
@@ -533,6 +534,9 @@ export default function AdminPage() {
   // Admin tabs
   const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "payments" | "referrals" | "servers" | "devchat" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">("services");
 
+  // Floating Support Chat Widget state (for regular users)
+  const [isFloatingSupportOpen, setIsFloatingSupportOpen] = useState(false);
+
   // Unread chat messages counter
   const [unreadChatCount, setUnreadChatCount] = useState(0);
 
@@ -573,7 +577,11 @@ export default function AdminPage() {
     } else if (tab === "referrals" || tab === "referral" || window.location.hash === "#referrals") {
       setActiveTab("referrals");
     } else if (tab === "devchat" || tab === "chat" || window.location.hash === "#chat" || window.location.hash === "#devchat") {
-      setActiveTab("devchat");
+      if (isDeveloperUser) {
+        setActiveTab("devchat");
+      } else {
+        setIsFloatingSupportOpen(true);
+      }
     }
   }, [isDeveloperUser]);
 
@@ -592,12 +600,12 @@ export default function AdminPage() {
   useEffect(() => {
     if (loading || authLoading || !selectedShop) return;
     if (isStaff) {
-      const allowed = ["orders", "botsim", "profile", "devchat"];
-      if (isDeveloperUser) allowed.push("reports");
+      const allowed = ["orders", "botsim", "profile"];
+      if (isDeveloperUser) allowed.push("reports", "devchat");
       if (!allowed.includes(activeTab)) {
         setActiveTab("orders");
       }
-    } else if (!isDeveloperUser && (activeTab === "reports" || activeTab === "dev-users" || activeTab === "servers")) {
+    } else if (!isDeveloperUser && (activeTab === "reports" || activeTab === "dev-users" || activeTab === "servers" || activeTab === "devchat")) {
       setActiveTab("services");
     }
   }, [isStaff, isDeveloperUser, activeTab, selectedShop?.id, loading, authLoading]);
@@ -3648,8 +3656,8 @@ export default function AdminPage() {
                 ? [
                     { id: "orders", label: "Заказы", icon: ShoppingBag, badge: (orders || []).filter(o => o.status === "PENDING").length, alert: (orders || []).filter(o => o.status === "PENDING").length > 0 },
                     { id: "botsim", label: "Симулятор бота", icon: Smartphone },
-                    { id: "devchat", label: isDeveloperUser ? "Чат поддержки (Dev)" : "Чат с разработчиком", icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
                     ...(isDeveloperUser ? [
+                      { id: "devchat", label: "Чат поддержки (Dev)", icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
                       { id: "dev-users", label: "Пользователи (Dev)", icon: ShieldAlert },
                       { id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
                     ] : []),
@@ -3668,8 +3676,8 @@ export default function AdminPage() {
                     { id: "referrals", label: "Рефералы", icon: Gift },
                     { id: "botsim", label: "Симулятор бота", icon: Smartphone },
                     { id: "payments", label: "История оплат", icon: CreditCard },
-                    { id: "devchat", label: isDeveloperUser ? "Чат поддержки (Dev)" : "Чат с разработчиком", icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
                     ...(isDeveloperUser ? [
+                      { id: "devchat", label: "Чат поддержки (Dev)", icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
                       { id: "servers", label: "Состояние серверов (Dev)", icon: Server },
                       { id: "dev-users", label: "Пользователи (Dev)", icon: ShieldAlert },
                       { id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
@@ -4982,6 +4990,14 @@ export default function AdminPage() {
           ))}
         </AnimatePresence>
       </div>
+
+      {/* Floating 24/7 Support Chat Widget for Regular Users */}
+      {!isDeveloperUser && (
+        <SupportChatWidget
+          forceOpen={isFloatingSupportOpen}
+          onOpenChange={setIsFloatingSupportOpen}
+        />
+      )}
     </div>
   );
 }

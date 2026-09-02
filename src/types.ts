@@ -487,6 +487,7 @@ export interface ChatConversation {
   unreadCount: number;
   totalMessages: number;
   lastActivityAt: string;
+  isOnline?: boolean;
 }
 
 

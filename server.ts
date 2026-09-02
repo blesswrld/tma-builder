@@ -44,11 +44,43 @@ export interface RealtimeClient {
 
 export const clients = new Set<RealtimeClient>();
 
+export function getOnlineUserIds(): string[] {
+  const ids = new Set<string>();
+  clients.forEach((c) => {
+    if (c.userId && c.ws.readyState === WebSocket.OPEN) {
+      ids.add(c.userId);
+    }
+  });
+  return Array.from(ids);
+}
+
+export function isDeveloperOnline(): boolean {
+  for (const c of clients) {
+    if (c.isDeveloper && c.ws.readyState === WebSocket.OPEN) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function broadcastPresenceUpdate(specificUserId?: string) {
+  const payload = {
+    userId: specificUserId,
+    onlineUserIds: getOnlineUserIds(),
+    devOnline: isDeveloperOnline(),
+    timestamp: Date.now()
+  };
+  broadcastEvent({
+    type: "PRESENCE_STATE",
+    payload
+  });
+}
+
 export function broadcastEvent(event: { type: string; shopId?: string; userId?: string; payload?: any }) {
   const message = JSON.stringify(event);
   clients.forEach((client) => {
     if (client.ws.readyState === WebSocket.OPEN) {
-      // 1. Developers receive all events
+      // 1. Developers receive all events (including all chat messages and presence)
       if (client.isDeveloper) {
         try {
           client.ws.send(message);
@@ -58,7 +90,28 @@ export function broadcastEvent(event: { type: string; shopId?: string; userId?: 
         return;
       }
 
-      // 2. User-specific event (e.g. USER_UPDATED, PLAN_UPDATED, PAYMENT_UPDATED, USER_BANNED)
+      // 2. Chat messages & chat read/delete events
+      if (event.type.startsWith("CHAT_")) {
+        const chatTargetUserId = event.userId || event.payload?.targetUserId || event.payload?.message?.userId;
+        if (client.userId && chatTargetUserId && client.userId === chatTargetUserId) {
+          try {
+            client.ws.send(message);
+          } catch (e) {
+            console.error("Error broadcasting chat to user client:", e);
+          }
+        }
+        return;
+      }
+
+      // 3. Presence events are broadcast to all connected clients
+      if (event.type.startsWith("PRESENCE_")) {
+        try {
+          client.ws.send(message);
+        } catch (e) {}
+        return;
+      }
+
+      // 4. User-specific event (e.g. USER_UPDATED, PLAN_UPDATED, PAYMENT_UPDATED, USER_BANNED)
       if (event.userId) {
         if (client.userId && client.userId === event.userId) {
           try {
@@ -70,7 +123,7 @@ export function broadcastEvent(event: { type: string; shopId?: string; userId?: 
         return;
       }
 
-      // 3. Shop-specific event (e.g. ORDER_CREATED, SERVICE_UPDATED, REVIEW_CREATED, etc.)
+      // 5. Shop-specific event (e.g. ORDER_CREATED, SERVICE_UPDATED, REVIEW_CREATED, etc.)
       if (event.shopId) {
         if (client.subscribedShopIds.size === 0 || client.subscribedShopIds.has(event.shopId)) {
           try {
@@ -82,7 +135,7 @@ export function broadcastEvent(event: { type: string; shopId?: string; userId?: 
         return;
       }
 
-      // 4. Global broadcast (e.g. system notifications, new report, shop list changes)
+      // 6. Global broadcast (e.g. system notifications, new report, shop list changes)
       try {
         client.ws.send(message);
       } catch (e) {
@@ -5898,6 +5951,7 @@ app.post("/api/shops", async (req, res) => {
           include: { shops: { select: { id: true, name: true, slug: true } } }
         });
         if (targetUser) {
+          const userIsOnline = Array.from(clients).some((c) => c.userId === targetUser.id && c.ws.readyState === WebSocket.OPEN);
           partnerInfo = {
             id: targetUser.id,
             email: targetUser.email,
@@ -5906,17 +5960,12 @@ app.post("/api/shops", async (req, res) => {
             plan: targetUser.plan || "FREE",
             avatarUrl: targetUser.avatarUrl || null,
             shops: targetUser.shops || [],
-            role: isDeveloperEmail(targetUser.email) ? "DEVELOPER" : "USER"
+            role: isDeveloperEmail(targetUser.email) ? "DEVELOPER" : "USER",
+            isOnline: userIsOnline
           };
         }
       } else {
-        // Проверяем онлайн статус хотя бы одного разработчика
-        let devOnline = false;
-        clients.forEach((c) => {
-          if (c.isDeveloper && c.ws.readyState === WebSocket.OPEN) {
-            devOnline = true;
-          }
-        });
+        const devOnline = isDeveloperOnline();
 
         partnerInfo = {
           id: "developer-team",
@@ -6029,8 +6078,11 @@ app.post("/api/shops", async (req, res) => {
           const unreadCount = userMsgs.filter((m) => m.senderRole === "USER" && !m.isRead).length;
           const totalMessages = userMsgs.length;
 
+          const isOnline = Array.from(clients).some((c) => c.userId === u.id && c.ws.readyState === WebSocket.OPEN);
+
           return {
             userId: u.id,
+            isOnline,
             user: {
               id: u.id,
               email: u.email,
@@ -6836,14 +6888,39 @@ if (!process.env.VERCEL) {
     const httpServer = createServer(app);
     const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
-    wss.on("connection", (ws) => {
+    wss.on("connection", (ws, req) => {
+      let initialUserId: string | undefined;
+      let initialIsDev = false;
+
+      // Extract token or userId from URL query params (e.g., /ws?token=... or /ws?userId=...)
+      if (req && req.url) {
+        try {
+          const urlObj = new URL(req.url, "http://localhost:3000");
+          const urlToken = urlObj.searchParams.get("token");
+          const urlUserId = urlObj.searchParams.get("userId");
+          if (urlToken) {
+            const decoded = jwt.verify(urlToken, JWT_SECRET) as { id: string; email: string };
+            if (decoded && decoded.id) {
+              initialUserId = decoded.id;
+              initialIsDev = isDeveloperEmail(decoded.email);
+            }
+          } else if (urlUserId) {
+            initialUserId = urlUserId;
+          }
+        } catch {}
+      }
+
       const clientObj: RealtimeClient = {
         ws,
-        userId: undefined,
-        isDeveloper: false,
+        userId: initialUserId,
+        isDeveloper: initialIsDev,
         subscribedShopIds: new Set<string>()
       };
       clients.add(clientObj);
+
+      if (clientObj.userId || clientObj.isDeveloper) {
+        broadcastPresenceUpdate(clientObj.userId);
+      }
 
       ws.on("message", (raw) => {
         try {
@@ -6854,19 +6931,35 @@ if (!process.env.VERCEL) {
             try {
               const decoded = jwt.verify(data.token, JWT_SECRET) as { id: string; email: string };
               if (decoded && decoded.id) {
+                const prevUserId = clientObj.userId;
                 clientObj.userId = decoded.id;
                 clientObj.isDeveloper = isDeveloperEmail(decoded.email);
                 ws.send(JSON.stringify({ 
                   type: "AUTH_SUCCESS", 
                   userId: clientObj.userId, 
-                  isDeveloper: clientObj.isDeveloper 
+                  isDeveloper: clientObj.isDeveloper,
+                  onlineUserIds: getOnlineUserIds(),
+                  devOnline: isDeveloperOnline()
                 }));
+                broadcastPresenceUpdate(clientObj.userId);
               }
             } catch (e) {}
           }
 
+          // Handle get presence
+          if (data.type === "get_presence") {
+            ws.send(JSON.stringify({
+              type: "PRESENCE_STATE",
+              payload: {
+                onlineUserIds: getOnlineUserIds(),
+                devOnline: isDeveloperOnline(),
+                timestamp: Date.now()
+              }
+            }));
+          }
+
           // Handle subscription
-          if (data.type === "subscribe") {
+          if (data.type === "subscribe" || data.type === "subscribe_chat") {
             if (data.shopId) {
               clientObj.subscribedShopIds.add(data.shopId);
             }
@@ -6877,6 +6970,7 @@ if (!process.env.VERCEL) {
             }
             if (data.userId && !clientObj.userId) {
               clientObj.userId = data.userId;
+              broadcastPresenceUpdate(clientObj.userId);
             }
           }
 
@@ -6897,15 +6991,24 @@ if (!process.env.VERCEL) {
         } catch {}
       });
 
-      ws.on("close", () => {
+      const handleClose = () => {
+        const uid = clientObj.userId;
+        const wasDev = clientObj.isDeveloper;
         clients.delete(clientObj);
-      });
+        if (uid || wasDev) {
+          broadcastPresenceUpdate(uid);
+        }
+      };
 
-      ws.on("error", () => {
-        clients.delete(clientObj);
-      });
+      ws.on("close", handleClose);
+      ws.on("error", handleClose);
 
-      ws.send(JSON.stringify({ type: "connected", message: "Realtime WebSocket active" }));
+      ws.send(JSON.stringify({ 
+        type: "connected", 
+        message: "Realtime WebSocket active",
+        onlineUserIds: getOnlineUserIds(),
+        devOnline: isDeveloperOnline()
+      }));
     });
 
     httpServer.listen(PORT, "0.0.0.0", () => {

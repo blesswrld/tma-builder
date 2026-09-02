@@ -175,6 +175,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem("auth_token", data.token);
     setToken(data.token);
     setUser(data.user);
+    try {
+      window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
+    } catch {}
   };
 
   const register = async (email: string, password: string, name?: string) => {
@@ -216,6 +219,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem("auth_token", data.token);
     setToken(data.token);
     setUser(data.user);
+    try {
+      window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
+    } catch {}
   };
 
   const sendCode = async (email: string, type: "LOGIN" | "REGISTER" | "RESET_PASSWORD" = "LOGIN") => {
@@ -269,6 +275,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem("auth_token", data.token);
     setToken(data.token);
     setUser(data.user);
+    try {
+      window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
+    } catch {}
   };
 
   const resetPassword = async (params: { email: string; code: string; newPassword: string }) => {
@@ -322,6 +331,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem("auth_user");
     setToken(null);
     setUser(null);
+    try {
+      window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: null } }));
+    } catch {}
   };
 
   return (
