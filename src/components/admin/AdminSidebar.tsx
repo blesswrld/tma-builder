@@ -42,6 +42,7 @@ import {
   PanelLeftOpen,
   GripVertical
 } from "lucide-react";
+import { CHANGELOG_DATA } from "../../data/changelogData";
 
 interface Service {
   id: string;
@@ -322,7 +323,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     TMA BUILDER
                   </span>
                   <span className="px-1.5 py-0.2 rounded bg-app-card border border-app-border text-[9px] font-mono text-app-muted shrink-0">
-                    v2.7
+                    {CHANGELOG_DATA[0]?.version || "v2.8.0"}
                   </span>
                 </div>
 
@@ -797,7 +798,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 title="История обновлений"
               >
                 <Sparkles size={11} className="text-indigo-500 shrink-0" />
-                <span className="truncate">v2.7</span>
+                <span className="truncate">{CHANGELOG_DATA[0]?.version || "v2.8.0"}</span>
               </button>
 
               <a

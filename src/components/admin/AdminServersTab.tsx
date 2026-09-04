@@ -903,7 +903,7 @@ export const AdminServersTab: React.FC<AdminServersTabProps> = ({
         {/* Live Terminal Output Box */}
         <div className="bg-app-bg border border-app-border rounded-xl p-3 font-mono text-xs text-app-secondary min-h-[160px] max-h-[260px] overflow-y-auto custom-scrollbar space-y-1.5 shadow-inner">
           <div className="text-app-muted text-[11px] pb-1 border-b border-app-border flex items-center justify-between">
-            <span>[TMA BUILDER SERVER TELEMETRY DAEMON v2.6.0]</span>
+            <span>[TMA BUILDER SERVER TELEMETRY DAEMON v2.8.0]</span>
             <span>{lastUpdated ? lastUpdated.toLocaleTimeString("ru-RU") : "CONNECTING..."}</span>
           </div>
 
