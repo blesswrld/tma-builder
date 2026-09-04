@@ -8,9 +8,16 @@ import AdminDevChatTab from "../admin/AdminDevChatTab";
 interface SupportChatWidgetProps {
   forceOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  dockedToHeader?: boolean;
+  onDockChange?: (docked: boolean) => void;
 }
 
-export default function SupportChatWidget({ forceOpen, onOpenChange }: SupportChatWidgetProps) {
+export default function SupportChatWidget({
+  forceOpen,
+  onOpenChange,
+  dockedToHeader,
+  onDockChange
+}: SupportChatWidgetProps) {
   const { user, token } = useAuth();
   const { sendEvent } = useRealtime();
 
@@ -19,6 +26,38 @@ export default function SupportChatWidget({ forceOpen, onOpenChange }: SupportCh
   const [unreadCount, setUnreadCount] = useState(0);
   const [devOnline, setDevOnline] = useState<boolean>(true);
   const [showTeaser, setShowTeaser] = useState(false);
+
+  // Is the floating badge dismissed and docked to header
+  const [isDismissed, setIsDismissed] = useState<boolean>(() => {
+    return localStorage.getItem("tma_support_badge_dismissed") === "1";
+  });
+
+  const [isClosingFlyAnim, setIsClosingFlyAnim] = useState(false);
+
+  // Sync external docked state if provided
+  useEffect(() => {
+    if (typeof dockedToHeader === "boolean") {
+      setIsDismissed(dockedToHeader);
+    }
+  }, [dockedToHeader]);
+
+  const handleDismissFloating = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowTeaser(false);
+    setIsClosingFlyAnim(true);
+    setTimeout(() => {
+      setIsDismissed(true);
+      setIsClosingFlyAnim(false);
+      localStorage.setItem("tma_support_badge_dismissed", "1");
+      onDockChange?.(true);
+    }, 600);
+  };
+
+  const handleRestoreFloating = () => {
+    setIsDismissed(false);
+    localStorage.removeItem("tma_support_badge_dismissed");
+    onDockChange?.(false);
+  };
 
   // Sync with forceOpen if controlled
   useEffect(() => {
@@ -114,96 +153,149 @@ export default function SupportChatWidget({ forceOpen, onOpenChange }: SupportCh
       {/* ========================================================= */}
       {/* FLOATING TRIGGER BUTTON & TEASER (BOTTOM RIGHT) */}
       {/* ========================================================= */}
-      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-col items-end gap-2.5 pointer-events-auto">
-        {/* Floating Teaser Balloon */}
-        <AnimatePresence>
-          {showTeaser && !isOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.95 }}
-              transition={{ duration: 0.15 }}
-              className="relative max-w-xs bg-app-card border border-app-border text-app-primary p-3 rounded-2xl shadow-xl backdrop-blur-md text-xs space-y-1.5 cursor-pointer"
-              onClick={() => handleSetOpen(true)}
-            >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowTeaser(false);
-                  sessionStorage.setItem("support_chat_teaser_dismissed", "1");
-                }}
-                className="absolute top-2 right-2 text-app-muted hover:text-app-primary p-0.5 rounded-full hover:bg-app-hover transition"
-              >
-                <X size={12} />
-              </button>
+      <AnimatePresence>
+        {(!isDismissed || isClosingFlyAnim) && (
+          <motion.div
+            key="floating-support-badge-container"
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={
+              isClosingFlyAnim
+                ? {
+                    opacity: [1, 0.8, 0],
+                    y: [0, -180, -window.innerHeight + 80],
+                    x: [0, -40, -120],
+                    scale: [1, 0.65, 0.2],
+                    rotate: [0, -4, 6],
+                    filter: ["blur(0px)", "blur(1px)", "blur(6px)"]
+                  }
+                : {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    scale: 1,
+                    rotate: 0,
+                    filter: "blur(0px)"
+                  }
+            }
+            exit={{
+              opacity: 0,
+              y: -window.innerHeight + 80,
+              scale: 0.2,
+              filter: "blur(4px)"
+            }}
+            transition={
+              isClosingFlyAnim
+                ? { duration: 0.58, ease: [0.22, 1, 0.36, 1] }
+                : { duration: 0.22, ease: "easeOut" }
+            }
+            className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-col items-end gap-2.5 pointer-events-auto origin-bottom-right"
+          >
+            {/* Floating Teaser Balloon */}
+            <AnimatePresence>
+              {showTeaser && !isOpen && !isClosingFlyAnim && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -24, scale: 0.9 }}
+                  transition={{ duration: 0.2 }}
+                  className="relative max-w-xs bg-app-card border border-app-border text-app-primary p-3 rounded-2xl shadow-xl backdrop-blur-md text-xs space-y-1.5 cursor-pointer"
+                  onClick={() => handleSetOpen(true)}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowTeaser(false);
+                      sessionStorage.setItem("support_chat_teaser_dismissed", "1");
+                    }}
+                    className="absolute top-2 right-2 text-app-muted hover:text-app-primary p-0.5 rounded-full hover:bg-app-hover transition cursor-pointer"
+                    title="Закрыть подсказку"
+                  >
+                    <X size={12} />
+                  </button>
 
-              <div className="flex items-center gap-1.5 text-emerald-500 font-semibold text-[11px]">
-                <Sparkles size={13} />
-                <span>Поддержка 24/7</span>
-              </div>
-              <p className="text-app-muted text-[11px] leading-relaxed pr-3">
-                Есть вопрос или предложение? Напишите напрямую разработчику платформы!
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                  <div className="flex items-center gap-1.5 text-emerald-500 font-semibold text-[11px]">
+                    <Sparkles size={13} />
+                    <span>Поддержка 24/7</span>
+                  </div>
+                  <p className="text-app-muted text-[11px] leading-relaxed pr-3">
+                    Есть вопрос или предложение? Напишите напрямую разработчику платформы!
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-        {/* Floating Action Button */}
-        <motion.button
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.96 }}
-          onClick={() => handleSetOpen(!isOpen)}
-          className={`relative flex items-center gap-2.5 px-3.5 py-3 sm:px-4 sm:py-3.5 rounded-full shadow-xl transition-all cursor-pointer select-none border ${
-            isOpen
-              ? "bg-app-card text-app-primary border-app-border hover:bg-app-hover shadow-lg"
-              : "bg-app-accent text-app-accent-fg border-app-border/20 shadow-lg hover:opacity-95"
-          }`}
-          title="Онлайн-чат поддержка 24/7"
-        >
-          {/* Main Icon */}
-          <div className="relative flex items-center justify-center">
-            {isOpen ? (
-              <X size={20} className="stroke-[2.2]" />
-            ) : (
-              <MessageSquare size={20} className="stroke-[2.2]" />
-            )}
-
-            {/* Live Online Dot */}
-            {!isOpen && (
-              <span
-                className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-app-card ${
-                  devOnline ? "bg-emerald-400 animate-pulse" : "bg-app-muted"
+            {/* Floating Action Button with Close Trigger */}
+            <div className="relative flex items-center group/badge">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => handleSetOpen(!isOpen)}
+                className={`relative flex items-center gap-2.5 px-3.5 py-3 sm:px-4 sm:py-3.5 rounded-full shadow-xl transition-all cursor-pointer select-none border ${
+                  isOpen
+                    ? "bg-app-card text-app-primary border-app-border hover:bg-app-hover shadow-lg"
+                    : "bg-app-accent text-app-accent-fg border-app-border/20 shadow-lg hover:opacity-95"
                 }`}
-                title={devOnline ? "Разработчик онлайн" : "Поддержка 24/7"}
-              />
-            )}
-          </div>
+                title="Онлайн-чат поддержка 24/7"
+              >
+                {/* Main Icon */}
+                <div className="relative flex items-center justify-center">
+                  {isOpen ? (
+                    <X size={20} className="stroke-[2.2]" />
+                  ) : (
+                    <MessageSquare size={20} className="stroke-[2.2]" />
+                  )}
 
-          {/* Label (Desktop / Tablet) */}
-          <div className="hidden sm:flex flex-col text-left leading-tight">
-            <span className="text-xs font-bold tracking-wide">
-              {isOpen ? "Свернуть" : "Поддержка 24/7"}
-            </span>
-            {!isOpen && (
-              <span className="text-[10px] opacity-90 flex items-center gap-1 font-medium">
-                <span className={`w-1.5 h-1.5 rounded-full ${devOnline ? "bg-emerald-400 animate-pulse" : "bg-app-muted"}`} />
-                {devOnline ? "В сети онлайн" : "На связи 24/7"}
-              </span>
-            )}
-          </div>
+                  {/* Live Online Dot */}
+                  {!isOpen && (
+                    <span
+                      className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-app-card ${
+                        devOnline ? "bg-emerald-400 animate-pulse" : "bg-app-muted"
+                      }`}
+                      title={devOnline ? "Разработчик онлайн" : "Поддержка 24/7"}
+                    />
+                  )}
+                </div>
 
-          {/* Unread Messages Badge */}
-          {unreadCount > 0 && !isOpen && (
-            <motion.span
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center shadow-md border-2 border-app-card"
-            >
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </motion.span>
-          )}
-        </motion.button>
-      </div>
+                {/* Label (Desktop / Tablet) */}
+                <div className="hidden sm:flex flex-col text-left leading-tight">
+                  <span className="text-xs font-bold tracking-wide">
+                    {isOpen ? "Свернуть" : "Поддержка 24/7"}
+                  </span>
+                  {!isOpen && (
+                    <span className="text-[10px] opacity-90 flex items-center gap-1 font-medium">
+                      <span className={`w-1.5 h-1.5 rounded-full ${devOnline ? "bg-emerald-400 animate-pulse" : "bg-app-muted"}`} />
+                      {devOnline ? "В сети онлайн" : "На связи 24/7"}
+                    </span>
+                  )}
+                </div>
+
+                {/* Unread Messages Badge */}
+                {unreadCount > 0 && !isOpen && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-1.5 -left-1.5 min-w-[20px] h-5 px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center shadow-md border-2 border-app-card"
+                  >
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </motion.span>
+                )}
+              </motion.button>
+
+              {/* Close floating badge & fly to menu button (Top-Right like modals) */}
+              {!isOpen && !isClosingFlyAnim && (
+                <button
+                  type="button"
+                  onClick={handleDismissFloating}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-zinc-900/85 hover:bg-zinc-900 text-white hover:text-rose-300 flex items-center justify-center transition-all cursor-pointer shadow-md border border-white/20 z-20 hover:scale-110 active:scale-95"
+                  title="Закрыть плашку (свернуть в верхнее меню)"
+                >
+                  <X size={11} className="stroke-[3]" />
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ========================================================= */}
       {/* FLOATING CHAT WINDOW MODAL (PERSISTENT & ULTRA FAST) */}

@@ -537,6 +537,9 @@ export default function AdminPage() {
 
   // Floating Support Chat Widget state (for regular users)
   const [isFloatingSupportOpen, setIsFloatingSupportOpen] = useState(false);
+  const [isSupportDockedToHeader, setIsSupportDockedToHeader] = useState<boolean>(() => {
+    return localStorage.getItem("tma_support_badge_dismissed") === "1";
+  });
 
   // Unread chat messages counter
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -3616,6 +3619,33 @@ export default function AdminPage() {
               <span className="hidden sm:inline text-[11px] font-semibold">Баг-репорт</span>
             </button>
 
+            {/* Docked Support 24/7 Chat Button (When floating badge was dismissed/closed into menu) */}
+            {!isDeveloperUser && (
+              <AnimatePresence>
+                {isSupportDockedToHeader && (
+                  <motion.button
+                    type="button"
+                    initial={{ opacity: 0, scale: 0.8, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.8, y: -10 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                    onClick={() => setIsFloatingSupportOpen(true)}
+                    className="relative px-2.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 text-xs font-mono group"
+                    title="Поддержка 24/7 & Чат с разработчиком"
+                  >
+                    <MessageSquare size={14} className="text-emerald-500 group-hover:scale-110 transition-transform" />
+                    <span className="text-[11px] font-semibold hidden sm:inline">Поддержка 24/7</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {unreadChatCount > 0 && (
+                      <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">
+                        {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                      </span>
+                    )}
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            )}
+
             {["settings", "profile", "createshop", "addservice", "editservice"].includes(activeTab) && (
               <button
                 onClick={closeSubView}
@@ -4618,6 +4648,8 @@ export default function AdminPage() {
         <SupportChatWidget
           forceOpen={isFloatingSupportOpen}
           onOpenChange={setIsFloatingSupportOpen}
+          dockedToHeader={isSupportDockedToHeader}
+          onDockChange={setIsSupportDockedToHeader}
         />
       )}
     </div>
