@@ -495,6 +495,54 @@ html.light .skeleton-shimmer {
   perspective: 1000px;
 }
 
+/* Chat Message Bubbles - High Contrast in Light & Dark Mode */
+.chat-bubble-outgoing {
+  background-color: #18181b !important;
+  color: #fafafa !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+.chat-bubble-outgoing a {
+  color: #6ee7b7 !important;
+  text-decoration: underline;
+}
+.chat-bubble-outgoing .chat-meta {
+  color: rgba(255, 255, 255, 0.70) !important;
+}
+
+html.dark .chat-bubble-outgoing {
+  background-color: #27272a !important;
+  color: #f4f4f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+html.dark .chat-bubble-outgoing .chat-meta {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+.chat-bubble-incoming {
+  background-color: #ffffff !important;
+  color: #111114 !important;
+  border: 1px solid rgba(0, 0, 0, 0.10) !important;
+}
+.chat-bubble-incoming a {
+  color: #059669 !important;
+  text-decoration: underline;
+}
+.chat-bubble-incoming .chat-meta {
+  color: #71717a !important;
+}
+
+html.dark .chat-bubble-incoming {
+  background-color: #141419 !important;
+  color: #e6e6ec !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+html.dark .chat-bubble-incoming a {
+  color: #34d399 !important;
+}
+html.dark .chat-bubble-incoming .chat-meta {
+  color: #92929e !important;
+}
+
 /* Snappy Interactive Feedback */
 .btn-interactive {
   transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);

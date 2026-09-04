@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, CheckCheck, Clock, Trash2, Maximize2, ShieldCheck, User as UserIcon, AlertCircle, Image as ImageIcon } from "lucide-react";
+import { Check, CheckCheck, Clock, Trash2, Maximize2, ShieldCheck, User as UserIcon, AlertCircle, Image as ImageIcon, Copy, Check as CopyCheck } from "lucide-react";
 import { ChatMessage } from "../../types";
 import { formatBytes } from "./MediaLightboxModal";
 
@@ -35,11 +35,7 @@ function renderFormattedText(text?: string | null, isCurrentUser = false) {
           href={part}
           target="_blank"
           rel="noopener noreferrer"
-          className={`underline break-all transition font-medium ${
-            isCurrentUser
-              ? "text-emerald-200 hover:text-white"
-              : "text-emerald-600 dark:text-emerald-400 hover:opacity-80"
-          }`}
+          className="underline break-all transition font-medium"
           onClick={(e) => e.stopPropagation()}
         >
           {part}
@@ -60,25 +56,34 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = React.memo(({
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const isDeveloperSender = message.senderRole === "DEVELOPER";
   const isVideo = message.mediaType === "video";
   const isImage = message.mediaType === "image";
   const hasMedia = Boolean(message.mediaUrl);
 
+  const handleCopyText = () => {
+    if (message.text) {
+      navigator.clipboard.writeText(message.text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
+
   return (
     <div
-      className={`group relative flex flex-col my-1 ${
+      className={`group relative flex flex-col my-1 select-text ${
         isCurrentUser ? "items-end" : "items-start"
       }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Sender Header if needed */}
+      {/* Sender Header for Partner Messages */}
       {!isCurrentUser && showSenderName && (
-        <div className="flex items-center gap-1.5 mb-1 px-1">
+        <div className="flex items-center gap-1.5 mb-1 px-1 select-none">
           {isDeveloperSender ? (
-            <div className="flex items-center gap-1 text-[11px] font-semibold text-app-primary">
+            <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
               <ShieldCheck size={13} className="shrink-0 text-emerald-500" />
               <span>Разработчик TMA-Builder</span>
             </div>
@@ -93,18 +98,18 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = React.memo(({
 
       {/* Main Message Bubble */}
       <div
-        className={`relative max-w-[85%] sm:max-w-[78%] px-3.5 py-2.5 text-xs leading-relaxed transition-all shadow-xs ${
+        className={`relative max-w-[85%] sm:max-w-[78%] px-3.5 py-2 text-xs leading-relaxed transition-all shadow-xs ${
           isCurrentUser
-            ? "bg-zinc-900 text-white dark:bg-zinc-800 dark:text-zinc-100 dark:border dark:border-white/10 rounded-2xl rounded-tr-xs"
-            : "bg-app-card text-app-primary border border-app-border rounded-2xl rounded-tl-xs"
+            ? "chat-bubble-outgoing rounded-2xl rounded-tr-xs"
+            : "chat-bubble-incoming rounded-2xl rounded-tl-xs"
         }`}
       >
         {/* Media Block (Image or Video) */}
         {hasMedia && message.mediaUrl && (
-          <div className="mb-2 relative rounded-xl overflow-hidden border border-app-border bg-app-surface/50">
+          <div className="mb-2 relative rounded-xl overflow-hidden border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5">
             {isImage ? (
               <div
-                className="relative group/media cursor-pointer overflow-hidden max-h-72 flex items-center justify-center bg-app-surface"
+                className="relative group/media cursor-pointer overflow-hidden max-h-72 flex items-center justify-center"
                 onClick={() =>
                   onOpenMedia(
                     message.mediaUrl!,
@@ -121,8 +126,8 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = React.memo(({
                   </div>
                 )}
                 {imageError ? (
-                  <div className="w-full h-24 flex items-center justify-center gap-1.5 text-app-muted text-[11px]">
-                    <AlertCircle size={14} className="text-rose-500" />
+                  <div className="w-full h-24 flex items-center justify-center gap-1.5 text-rose-500 text-[11px]">
+                    <AlertCircle size={14} />
                     <span>Не удалось загрузить изображение</span>
                   </div>
                 ) : (
@@ -138,7 +143,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = React.memo(({
                   />
                 )}
                 {imageLoaded && (
-                  <div className="absolute inset-0 bg-black/0 group-hover/media:bg-black/25 transition-colors flex items-center justify-center opacity-0 group-hover/media:opacity-100">
+                  <div className="absolute inset-0 bg-black/0 group-hover/media:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover/media:opacity-100">
                     <div className="p-2 rounded-full bg-black/60 text-white backdrop-blur-xs shadow-md">
                       <Maximize2 size={15} />
                     </div>
@@ -180,52 +185,58 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = React.memo(({
 
         {/* Text Content */}
         {message.text && (
-          <p className="whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed select-text">
+          <p className="whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed select-text font-normal">
             {renderFormattedText(message.text, isCurrentUser)}
           </p>
         )}
 
         {/* Message Metadata (Time & Read Status) */}
-        <div
-          className={`flex items-center justify-end gap-1 mt-1 text-[10px] select-none ${
-            isCurrentUser
-              ? "text-white/60 dark:text-zinc-400"
-              : "text-app-muted"
-          }`}
-        >
+        <div className="flex items-center justify-end gap-1 mt-1 text-[10px] select-none chat-meta">
           <span>{formatTime(message.createdAt)}</span>
 
           {/* Delivery & Read Receipts (for current user messages) */}
           {isCurrentUser && (
             <span className="flex items-center ml-0.5">
               {message.status === "sending" ? (
-                <Clock size={11} className="animate-spin text-white/70 dark:text-zinc-300" />
+                <Clock size={11} className="animate-spin text-white/70" />
               ) : message.status === "error" ? (
                 <AlertCircle size={11} className="text-rose-400" title="Ошибка отправки" />
               ) : message.isRead ? (
                 <CheckCheck size={13} className="text-emerald-400" title="Прочитано" />
               ) : (
-                <Check size={12} className="text-white/70 dark:text-zinc-300" title="Отправлено" />
+                <Check size={12} className="text-white/70" title="Отправлено" />
               )}
             </span>
           )}
         </div>
       </div>
 
-      {/* Hover Actions (Delete) */}
-      {isHovered && onDeleteMessage && (
+      {/* Hover Actions (Copy & Delete) */}
+      {isHovered && (
         <div
           className={`absolute top-1 ${
-            isCurrentUser ? "-left-7" : "-right-7"
-          } flex items-center`}
+            isCurrentUser ? "-left-14" : "-right-14"
+          } flex items-center gap-1 z-10`}
         >
-          <button
-            onClick={() => onDeleteMessage(message.id)}
-            className="p-1 rounded-lg bg-app-card hover:bg-rose-500/10 text-app-muted hover:text-rose-500 transition cursor-pointer shadow-xs border border-app-border"
-            title="Удалить сообщение"
-          >
-            <Trash2 size={12} />
-          </button>
+          {message.text && (
+            <button
+              onClick={handleCopyText}
+              className="p-1 rounded-lg bg-app-card hover:bg-app-hover text-app-muted hover:text-app-primary transition cursor-pointer shadow-xs border border-app-border"
+              title="Скопировать текст"
+            >
+              {copied ? <CopyCheck size={12} className="text-emerald-500" /> : <Copy size={12} />}
+            </button>
+          )}
+
+          {onDeleteMessage && (
+            <button
+              onClick={() => onDeleteMessage(message.id)}
+              className="p-1 rounded-lg bg-app-card hover:bg-rose-500/10 text-app-muted hover:text-rose-500 transition cursor-pointer shadow-xs border border-app-border"
+              title="Удалить сообщение"
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
         </div>
       )}
     </div>
