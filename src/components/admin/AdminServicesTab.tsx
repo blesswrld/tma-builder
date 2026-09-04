@@ -587,7 +587,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
         </div>
       ) : (
         /* Services Grid Display */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {services.map((service, idx) => {
             let galleryList: string[] = [];
             if (service.gallery) {
@@ -601,25 +601,25 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
             return (
               <motion.div
                 key={service.id}
-                initial={{ opacity: 0, y: 14 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, delay: idx * 0.03 }}
-                whileHover={{ y: -3 }}
-                className={`p-5 rounded-2xl bg-app-surface border border-app-border flex flex-col justify-between space-y-4 shadow-sm relative transition-all hover:shadow-md ${
+                transition={{ duration: 0.2, delay: idx * 0.02, ease: [0.16, 1, 0.3, 1] }}
+                whileHover={{ y: -2 }}
+                className={`p-4 rounded-2xl bg-app-surface border border-app-border flex flex-col justify-between space-y-3.5 shadow-2xs relative transition-all hover:shadow-md card-interactive ${
                   !service.isAvailable ? "opacity-60" : ""
                 }`}
               >
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {/* Image */}
                   {service.imageUrl && (
-                    <div className="h-36 rounded-xl overflow-hidden bg-app-card border border-app-border relative">
+                    <div className="h-32 rounded-xl overflow-hidden bg-app-card border border-app-border relative">
                       <img
                         src={service.imageUrl}
                         alt={service.title}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                       />
                       {service.badge && (
-                        <span className="absolute top-2.5 left-2.5 px-2 py-0.5 bg-app-accent text-app-accent-fg font-mono text-[9px] font-bold rounded-md shadow-sm">
+                        <span className="absolute top-2 left-2 px-2 py-0.5 bg-app-accent text-app-accent-fg font-mono text-[9px] font-bold rounded-md shadow-xs">
                           {service.badge}
                         </span>
                       )}
@@ -628,29 +628,29 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
 
                   {/* Header Title & Price */}
                   <div className="flex justify-between items-start gap-2">
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1 flex-wrap">
                         {service.category && (
-                          <span className="px-2 py-0.5 bg-app-card border border-app-border text-app-muted font-mono text-[9px] rounded-md">
+                          <span className="px-1.5 py-0.5 bg-app-card border border-app-border text-app-muted font-mono text-[9px] rounded-md truncate max-w-[120px]">
                             {service.category}
                           </span>
                         )}
                         {service.tags && (
-                          <span className="px-2 py-0.5 bg-app-card border border-app-border text-app-muted font-mono text-[9px] rounded-md">
+                          <span className="px-1.5 py-0.5 bg-app-card border border-app-border text-app-muted font-mono text-[9px] rounded-md truncate max-w-[120px]">
                             {service.tags}
                           </span>
                         )}
                       </div>
-                      <h4 className="font-bold text-sm text-app-primary font-sans pt-1">
+                      <h4 className="font-semibold text-xs text-app-primary font-sans pt-1 truncate">
                         {service.title}
                       </h4>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-mono font-bold text-sm text-app-primary">
+                      <p className="font-mono font-bold text-xs text-app-primary">
                         {service.price} ₽
                       </p>
                       {service.oldPrice && (
-                        <p className="font-mono text-[10px] text-app-muted line-through">
+                        <p className="font-mono text-[9px] text-app-muted line-through">
                           {service.oldPrice} ₽
                         </p>
                       )}
@@ -659,28 +659,28 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
 
                   {/* Description */}
                   {service.description && (
-                    <p className="text-xs text-app-muted leading-relaxed font-sans line-clamp-2">
+                    <p className="text-[11px] text-app-muted leading-relaxed font-sans line-clamp-2">
                       {service.description}
                     </p>
                   )}
 
                   {/* Meta Details: Prep time, Weight, Fulfillment */}
-                  <div className="flex items-center gap-2 flex-wrap text-[10px] font-mono text-app-muted">
+                  <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-mono text-app-muted">
                     {service.prepTime && (
-                      <span className="flex items-center gap-1 px-2 py-0.5 bg-app-card border border-app-border rounded-md">
-                        <Clock size={11} className="text-app-muted" />
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 bg-app-card border border-app-border rounded-md">
+                        <Clock size={10} className="text-app-muted" />
                         <span>{service.prepTime}</span>
                       </span>
                     )}
                     {service.weight && (
-                      <span className="flex items-center gap-1 px-2 py-0.5 bg-app-card border border-app-border rounded-md">
-                        <Weight size={11} className="text-app-muted" />
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 bg-app-card border border-app-border rounded-md">
+                        <Weight size={10} className="text-app-muted" />
                         <span>{service.weight}</span>
                       </span>
                     )}
                     {service.fulfillment && (
-                      <span className="flex items-center gap-1 px-2 py-0.5 bg-app-card border border-app-border rounded-md">
-                        <Truck size={11} className="text-app-muted" />
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 bg-app-card border border-app-border rounded-md">
+                        <Truck size={10} className="text-app-muted" />
                         <span>
                           {service.fulfillment === "pickup"
                             ? "В заведении"
@@ -696,13 +696,13 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
 
                   {/* Gallery Thumbnails */}
                   {galleryList.length > 0 && (
-                    <div className="flex items-center gap-1.5 pt-1 overflow-x-auto scrollbar-none">
+                    <div className="flex items-center gap-1.5 pt-0.5 overflow-x-auto scrollbar-none">
                       {galleryList.map((url, i) => (
                         <img
                           key={i}
                           src={url}
                           alt=""
-                          className="w-10 h-10 rounded-lg object-cover border border-app-border shrink-0"
+                          className="w-8 h-8 rounded-lg object-cover border border-app-border shrink-0"
                         />
                       ))}
                     </div>
@@ -710,21 +710,21 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                 </div>
 
                 {/* Footer Controls */}
-                <div className="pt-3 border-t border-app-border flex items-center justify-between text-xs font-mono">
+                <div className="pt-2.5 border-t border-app-border flex items-center justify-between text-xs font-mono">
                   <button
                     type="button"
                     onClick={() =>
                       handleToggleAvailability(service.id, !service.isAvailable)
                     }
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
                       service.isAvailable
-                        ? "bg-app-card text-app-primary border border-app-border"
-                        : "bg-app-card text-app-muted border border-app-border opacity-70"
+                        ? "bg-app-card text-app-primary border border-app-border hover:border-app-accent"
+                        : "bg-app-card text-app-muted border border-app-border opacity-70 hover:opacity-100"
                     }`}
                   >
                     {service.isAvailable ? (
                       <>
-                        <CheckCircle2 size={11} className="text-app-primary" />
+                        <CheckCircle2 size={11} className="text-emerald-500" />
                         <span>Доступен</span>
                       </>
                     ) : (
@@ -736,14 +736,14 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                   </button>
 
                   {!isStaff && (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
                       <button
                         type="button"
                         onClick={() => handleDuplicateService(service)}
                         className="p-1.5 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-card transition-colors cursor-pointer"
                         title="Дублировать"
                       >
-                        <Copy size={14} />
+                        <Copy size={13} />
                       </button>
                       <button
                         type="button"
@@ -779,15 +779,15 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                         className="p-1.5 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-card transition-colors cursor-pointer"
                         title="Редактировать"
                       >
-                        <Edit3 size={14} />
+                        <Edit3 size={13} />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDeleteService(service.id)}
-                        className="p-1.5 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-hover border border-transparent hover:border-app-border transition-all cursor-pointer backdrop-blur-sm"
+                        className="p-1.5 text-app-muted hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
                         title="Удалить"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   )}

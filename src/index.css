@@ -448,7 +448,7 @@ html.light .text-zinc-500:not(.keep-white):not(.keep-white *):not(.dark-card):no
   }
 }
 
-/* Animation utilities */
+/* Animation & Performance Utilities */
 @keyframes pulseGlow {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 0.9; }
@@ -487,3 +487,37 @@ html.light .skeleton-shimmer {
   );
   background-size: 200% 100%;
 }
+
+/* GPU Accelerated Smooth Motion */
+.hardware-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Snappy Interactive Feedback */
+.btn-interactive {
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateZ(0);
+}
+.btn-interactive:hover {
+  transform: translateY(-1px);
+}
+.btn-interactive:active {
+  transform: scale(0.975);
+}
+
+.card-interactive {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateZ(0);
+}
+.card-interactive:hover {
+  transform: translateY(-2px);
+}
+
+/* Compact layout utilities */
+.compact-table th, .compact-table td {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+

@@ -11,7 +11,7 @@ import {
   Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon, Globe, ArrowLeft,
   ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare, GripVertical, Keyboard,
   UserPlus, CheckCircle, Key, Loader2, Truck, CreditCard, Github, Bug, ShieldAlert, Info,
-  Server, Activity
+  Server, Activity, PanelLeftOpen, PanelLeftClose
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -27,6 +27,7 @@ import AnalyticsTab from "../components/AnalyticsTab";
 import { AdminPageSkeleton, AdminContentSkeleton, ReviewSkeletonList, SpinnerLoader, Skeleton } from "../components/Skeleton";
 import ImageUploader from "../components/ImageUploader";
 import { AdminAuthModal } from "../components/admin/AdminAuthModal";
+import { AdminSidebar } from "../components/admin/AdminSidebar";
 import { updatePageSeo } from "../lib/seo";
 import { playNotificationSound, playToggleOnSound, playToggleOffSound } from "../lib/sound";
 import { AdminSettingsTab } from "../components/admin/AdminSettingsTab";
@@ -979,6 +980,23 @@ export default function AdminPage() {
     }
   });
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("tma_admin_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem("tma_admin_sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   const startResizingSidebar = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
@@ -3457,505 +3475,109 @@ export default function AdminPage() {
       </div>
 
       {/* Sleek Vercel / Linear Left Sidebar Navigation */}
-      <aside
-        style={{ ["--sidebar-w" as any]: `${sidebarWidth}px` }}
-        className={`
-          fixed md:sticky top-0 left-0 z-50 h-[100dvh] md:h-screen max-h-[100dvh] md:max-h-screen bg-app-surface border-r border-app-border
-          w-[280px] max-w-[85vw] md:w-[var(--sidebar-w)] md:max-w-none shrink-0
-          ${isResizingSidebar ? "select-none" : "transition-transform duration-200 ease-out"}
-          ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0 shadow-none"}
-        `}
-      >
-        {/* Inner Scrollable Navigation Container */}
-        <div className="h-full w-full overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col justify-between p-3.5 space-y-3.5 pb-8 md:pb-3.5">
-          <div className="space-y-3.5">
-            {/* Logo Brand Header */}
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-xl bg-app-accent text-app-accent-fg flex items-center justify-center font-mono font-bold text-xs shadow-sm">
-                  ▲
-                </div>
-                <span className="font-bold text-xs tracking-tight text-app-primary font-mono">TMA BUILDER</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 rounded-md bg-app-card border border-app-border text-[10px] font-mono text-app-muted uppercase">
-                  v2.6
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsSidebarOpen(false)}
-                  className="p-1.5 rounded-lg text-app-muted hover:text-app-primary bg-app-card border border-app-border md:hidden cursor-pointer"
-                  title="Закрыть меню"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-
-            {/* Workspace / Custom Shop Selector Dropdown */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-app-muted px-1">
-                <span>Активное заведение</span>
-                <span className="text-[10px] text-app-secondary font-mono lowercase tracking-normal">
-                  всего: <strong className="text-app-primary">{shops.length}</strong>
-                </span>
-              </div>
-
-              <div className="relative" ref={shopDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
-                  className="w-full bg-app-card hover:bg-app-hover border border-app-border text-xs font-medium text-app-primary rounded-xl px-3 py-2 flex items-center justify-between gap-2 transition-all cursor-pointer shadow-sm focus:outline-none"
-                >
-                  <div className="flex items-center gap-2 min-w-0 pr-1 truncate">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                    <span className="truncate font-semibold text-app-primary text-xs">
-                      {selectedShop ? selectedShop.name : "Выберите заведение"}
-                    </span>
-                    {selectedShop && (
-                      <span className="text-[10px] text-app-muted font-mono shrink-0">
-                        ({selectedShop.slug})
-                      </span>
-                    )}
-                  </div>
-                  <ChevronDown
-                    size={14}
-                    className={`text-app-muted shrink-0 transition-transform duration-200 ${
-                      isShopDropdownOpen ? "rotate-180 text-app-primary" : ""
-                    }`}
-                  />
-                </button>
-
-                <AnimatePresence>
-                  {isShopDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-app-modal border border-app-border rounded-xl shadow-2xl p-1.5 space-y-1 backdrop-blur-xl"
-                    >
-                      <div className="px-2.5 py-1.5 flex items-center justify-between text-[10px] font-mono text-app-muted border-b border-app-border pb-1.5 mb-1">
-                        <span>Список заведений ({shops.length})</span>
-                        {shops.length > 3 && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShopFilterMode(shopFilterMode === "my" ? "all" : "my");
-                            }}
-                            className="text-app-accent hover:underline cursor-pointer"
-                          >
-                            {shopFilterMode === "my" ? "Все заведения" : "Мои"}
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="max-h-48 overflow-y-auto space-y-1 pr-0.5 custom-scrollbar">
-                        {activeShops.length === 0 ? (
-                          <div className="p-3 text-center text-xs text-app-muted font-mono">
-                            Заведений не найдено
-                          </div>
-                        ) : (
-                          activeShops.map((s) => {
-                            const isSelected = selectedShop?.id === s.id;
-                            const sRole = s.currentUserRole || (user && s.ownerId === user.id ? "OWNER" : "STAFF");
-                            return (
-                              <button
-                                key={s.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedShop(s);
-                                  setIsShopDropdownOpen(false);
-                                }}
-                                className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-mono transition-all cursor-pointer text-left ${
-                                  isSelected
-                                    ? "bg-app-accent text-app-accent-fg font-bold shadow-sm"
-                                    : "text-app-secondary hover:text-app-primary hover:bg-app-hover"
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 min-w-0 pr-1">
-                                  <Store size={14} className={isSelected ? "text-app-accent-fg shrink-0" : "text-app-muted shrink-0"} />
-                                  <span className="truncate">{s.name}</span>
-                                  <span className={`text-[10px] ${isSelected ? "text-app-accent-fg/80" : "text-app-muted"} shrink-0`}>
-                                    ({s.slug})
-                                  </span>
-                                </div>
-                                {isSelected && <Check size={14} className="text-app-accent-fg shrink-0" />}
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
-
-                      {!isStaff && !isManager && (
-                        <div className="pt-1.5 border-t border-app-border">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsShopDropdownOpen(false);
-                              handleOpenCreateShop();
-                            }}
-                            className="w-full py-2 px-2.5 rounded-lg text-xs font-mono font-bold bg-app-card hover:bg-app-hover text-app-primary border border-app-border flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                          >
-                            <Plus size={14} className="text-emerald-500" />
-                            <span>Создать новое заведение</span>
-                          </button>
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Quick Actions Bar */}
-              {selectedShop && (
-                <div className="flex items-center justify-between gap-1.5 px-0.5 pt-0.5">
-                  {!isStaff && (
-                    <button
-                      onClick={handleOpenCreateShop}
-                      className="flex-1 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-[11px] font-mono text-app-secondary hover:text-app-primary rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus size={12} /> Заведение
-                    </button>
-                  )}
-                  {!isStaff && (
-                    <button
-                      onClick={() => handleOpenSettings(selectedShop)}
-                      className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-colors cursor-pointer"
-                      title="Настройки заведения"
-                    >
-                      <Settings size={13} />
-                    </button>
-                  )}
-                  <a
-                    href={`/${selectedShop.slug}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-colors"
-                    title="Открыть витрину"
-                  >
-                    <ExternalLink size={13} />
-                  </a>
-                  {isOwner && (
-                    <button
-                      onClick={() => handleDeleteShop(selectedShop)}
-                      className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-all cursor-pointer backdrop-blur-sm"
-                      title="Удалить заведение"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Navigation Items */}
-            <nav className="space-y-1 font-mono text-xs">
-              {(isStaff
-                ? [
-                    { id: "orders", label: "Заказы", icon: ShoppingBag, badge: (orders || []).filter(o => o.status === "PENDING").length, alert: (orders || []).filter(o => o.status === "PENDING").length > 0 },
-                    { id: "botsim", label: "Симулятор бота", icon: Smartphone },
-                    ...(isDeveloperUser ? [
-                      { id: "devchat", label: "Чат поддержки (Dev)", icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
-                      { id: "dev-users", label: "Пользователи (Dev)", icon: ShieldAlert },
-                      { id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
-                    ] : []),
-                    { id: "profile", label: "Профиль сотрудника", icon: User }
-                  ]
-                : [
-                    { id: "services", label: "Меню и услуги", icon: Layers, badge: (selectedShop?.services || []).length },
-                    { id: "orders", label: "Заказы", icon: ShoppingBag, badge: (orders || []).filter(o => o.status === "PENDING").length, alert: (orders || []).filter(o => o.status === "PENDING").length > 0 },
-                    { id: "promocodes", label: "Промокоды", icon: Tag, badge: (promocodes || []).length },
-                    { id: "reviews", label: "Отзывы", icon: Star, badge: (reviews || []).length },
-                    { id: "banners", label: "Баннеры", icon: ImageIcon, badge: (banners || []).length },
-                    { id: "broadcasts", label: "Рассылки", icon: Send, badge: (broadcasts || []).length },
-                    { id: "customers", label: "Клиенты CRM", icon: Users, badge: (customers || []).length },
-                    { id: "team", label: "Команда и доступ", icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
-                    { id: "analytics", label: "Аналитика", icon: BarChart3 },
-                    { id: "referrals", label: "Рефералы", icon: Gift },
-                    { id: "botsim", label: "Симулятор бота", icon: Smartphone },
-                    { id: "payments", label: "История оплат", icon: CreditCard },
-                    ...(isDeveloperUser ? [
-                      { id: "devchat", label: "Чат поддержки (Dev)", icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
-                      { id: "servers", label: "Состояние серверов (Dev)", icon: Server },
-                      { id: "dev-users", label: "Пользователи (Dev)", icon: ShieldAlert },
-                      { id: "reports", label: "Репорты (Dev)", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
-                    ] : []),
-                    { id: "profile", label: "Профиль администратора", icon: User }
-                  ]
-              ).map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                return (
-                  <motion.button
-                    key={tab.id}
-                    whileHover={{ x: 2, scale: 1.005 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => {
-                      if (tab.id === "dev-users") {
-                        navigate("/dev-users");
-                      } else if (tab.id === "reports") {
-                        navigate("/reports");
-                      } else if (tab.id === "profile") {
-                        handleOpenProfile();
-                      } else {
-                        closeSubView();
-                        setActiveTab(tab.id as any);
-                      }
-                      setIsSidebarOpen(false);
-                    }}
-                    className={`relative w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all cursor-pointer text-xs ${
-                      isActive 
-                        ? "bg-app-accent text-app-accent-fg font-bold shadow-sm" 
-                        : "text-app-muted hover:text-app-primary hover:bg-app-hover"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 z-10">
-                      <Icon size={15} className={isActive ? "text-app-accent-fg" : (tab.id === "reports" && unhandledReportsCount > 0 ? "text-rose-500" : "text-app-muted")} />
-                      <span>{tab.label}</span>
-                    </div>
-                    {tab.badge !== undefined && tab.badge > 0 && (
-                      <span className={`z-10 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold transition-all ${
-                        tab.alert 
-                          ? "bg-rose-500 text-white animate-pulse" 
-                          : isActive 
-                            ? "bg-app-accent-fg/20 text-app-accent-fg border border-app-accent-fg/20" 
-                            : "bg-app-card text-app-muted border border-app-border"
-                      }`}>
-                        {tab.badge}
-                      </span>
-                    )}
-                  </motion.button>
-                );
-              })}
-            </nav>
-          </div>
-
-          {/* Bottom Sidebar Footer */}
-          <div className="space-y-2.5 pt-3 border-t border-app-border font-mono text-xs">
-            <div className="flex items-center justify-between px-0.5 gap-1.5">
-              <button
-                onClick={handleToggleAdminAudio}
-                className="p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-primary transition-colors cursor-pointer flex items-center justify-center"
-                title={isAudioEnabled ? "Звук уведомлений включен (нажмите, чтобы выключить)" : "Звук уведомлений выключен (нажмите, чтобы включить)"}
-              >
-                {isAudioEnabled ? (
-                  <Volume2 size={14} className="text-app-primary shrink-0" />
-                ) : (
-                  <VolumeX size={14} className="text-app-muted shrink-0" />
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setIsQrModalOpen(true);
-                  setIsSidebarOpen(false);
-                }}
-                className="p-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-app-primary hover:text-app-primary transition-colors cursor-pointer flex items-center justify-center"
-                title="Генератор QR-кодов"
-              >
-                <QrCode size={14} className="text-app-primary shrink-0" />
-              </button>
-              <button
-                onClick={() => {
-                  setIsPlanModalOpen(true);
-                  setIsSidebarOpen(false);
-                }}
-                className="px-2.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Crown size={12} className="text-amber-400" />
-                <span>{user?.plan || "БЕСПЛАТНЫЙ"}</span>
-              </button>
-            </div>
-
-            <div className="p-2.5 bg-app-surface border border-app-border rounded-2xl flex items-center justify-between shadow-sm">
-              <button 
-                onClick={handleOpenProfile}
-                className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity flex-1 mr-2 cursor-pointer group"
-                title="Настройки профиля"
-              >
-                {user?.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="Avatar" className="w-8 h-8 rounded-xl object-cover border border-app-border shrink-0" />
-                ) : (
-                  <div className="w-8 h-8 rounded-xl bg-app-accent text-app-accent-fg border border-app-border flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
-                    {user?.name ? user.name.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : "А")}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-app-primary truncate group-hover:text-app-accent transition-colors leading-tight">
-                    {user?.name || user?.email || "Администратор"}
-                  </p>
-                  <div className="flex items-center gap-1.5 text-[10px] text-app-muted truncate font-mono mt-0.5">
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${token ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-                    <span className="truncate">
-                      {user?.companyName || (token ? "Онлайн" : "Гость")}
-                    </span>
-                  </div>
-                </div>
-              </button>
-              <div className="flex items-center gap-1 shrink-0">
-                {token ? (
-                  <>
-                    <button 
-                      onClick={handleOpenProfile}
-                      className="p-1.5 text-app-primary hover:bg-app-card rounded-lg transition-colors cursor-pointer"
-                      title="Редактировать профиль"
-                    >
-                      <User size={14} className="text-app-primary" />
-                    </button>
-                    <button 
-                      onClick={() => {
-                        handleLogoutRequest();
-                        setIsSidebarOpen(false);
-                      }} 
-                      className="p-1.5 text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-lg transition-all cursor-pointer" 
-                      title="Выйти из аккаунта"
-                    >
-                      <LogOut size={14} className="text-app-primary" />
-                    </button>
-                  </>
-                ) : (
-                  <button 
-                    onClick={() => {
-                      setIsAuthModalOpen(true);
-                      setIsSidebarOpen(false);
-                    }} 
-                    className="px-2.5 py-1.5 bg-app-accent text-app-accent-fg font-mono font-bold text-[10px] rounded-lg hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1 shrink-0" 
-                    title="Войти в аккаунт"
-                  >
-                    <LogIn size={12} />
-                    <span>Войти</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Compact Privacy Policy, Changelog & GitHub Footer Links */}
-            <div className="grid grid-cols-3 gap-1.5 pt-0.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPrivacyModalOpen(true);
-                  setIsSidebarOpen(false);
-                }}
-                className="p-2 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl flex items-center justify-center gap-1 text-[10px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer group shadow-sm text-center"
-                title="Ознакомиться с Политикой конфиденциальности (ФЗ-152)"
-              >
-                <ShieldCheck size={12} className="text-emerald-500 shrink-0" />
-                <span className="truncate group-hover:text-app-primary font-medium">ФЗ-152</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsChangelogOpen(true);
-                  setIsSidebarOpen(false);
-                }}
-                className="p-2 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl flex items-center justify-center gap-1 text-[10px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer group shadow-sm text-center"
-                title="История обновлений и новые функции платформы"
-              >
-                <Sparkles size={12} className="text-indigo-500 shrink-0" />
-                <span className="truncate group-hover:text-app-primary font-medium">v2.7</span>
-              </button>
-
-              <a
-                href="https://github.com/blesswrld/tma-builder"
-                target="_blank"
-                rel="noreferrer"
-                className="p-2 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl flex items-center justify-center gap-1 text-[10px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer group shadow-sm text-center"
-                title="Открыть исходный код приложения на GitHub"
-              >
-                <Github size={12} className="text-app-primary shrink-0" />
-                <span className="truncate group-hover:text-app-primary font-medium">Git</span>
-              </a>
-            </div>
-          </div>
-        </div>
-
-      {/* Minimalist Interactive Drag Resizer Handle */}
-      <div
-        onMouseDown={startResizingSidebar}
-        onTouchStart={startResizingSidebar}
-        onDoubleClick={resetSidebarWidth}
-        title="Потяните для изменения ширины. Двойной клик — сбросить (256px)"
-        className="hidden md:flex absolute top-0 -right-2 bottom-0 w-4 cursor-col-resize z-50 group items-center justify-center select-none"
-      >
-        {/* Active / Hover Guide Line */}
-        <div
-          className={`absolute top-0 bottom-0 w-0.5 right-2 transition-colors duration-150 ${
-            isResizingSidebar ? "bg-amber-400 opacity-100" : "bg-transparent group-hover:bg-app-accent/50 opacity-70"
-          }`}
-        />
-
-        {/* Sleek Centered Grip Pill */}
-        <div
-          className={`
-            relative z-10 flex items-center justify-center w-3.5 h-8 rounded-full bg-app-surface border border-app-border shadow-sm
-            transition-all duration-200 group-hover:scale-110 group-hover:border-app-accent group-hover:shadow-md
-            ${isResizingSidebar ? "border-amber-400 bg-amber-500/15 scale-110 shadow-md text-amber-400" : "opacity-50 group-hover:opacity-100 text-app-muted"}
-          `}
-        >
-          <GripVertical size={10} className="shrink-0" />
-        </div>
-
-        {/* Live Width Badge Tooltip */}
-        <div
-          className={`
-            absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-150 z-50
-            ${isResizingSidebar ? "opacity-100 scale-100" : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100"}
-          `}
-        >
-          <div className="bg-zinc-900 text-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md shadow-xl flex items-center gap-1.5 whitespace-nowrap border border-app-border/40">
-            <span>{sidebarWidth}px</span>
-            {sidebarWidth === 256 && (
-              <span className="text-[9px] opacity-60 font-sans">★</span>
-            )}
-          </div>
-        </div>
-      </div>
-      </aside>
+      <AdminSidebar
+        sidebarWidth={sidebarWidth}
+        isResizingSidebar={isResizingSidebar}
+        startResizingSidebar={startResizingSidebar}
+        resetSidebarWidth={resetSidebarWidth}
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+        isSidebarCollapsed={isSidebarCollapsed}
+        toggleSidebarCollapsed={toggleSidebarCollapsed}
+        selectedShop={selectedShop}
+        setSelectedShop={setSelectedShop}
+        shops={shops}
+        activeShops={activeShops}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        closeSubView={closeSubView}
+        isStaff={isStaff}
+        isManager={isManager}
+        isOwner={isOwner}
+        isDeveloperUser={isDeveloperUser}
+        unreadChatCount={unreadChatCount}
+        unhandledReportsCount={unhandledReportsCount}
+        orders={orders}
+        promocodes={promocodes}
+        reviews={reviews}
+        banners={banners}
+        broadcasts={broadcasts}
+        customers={customers}
+        teamMembers={teamMembers}
+        user={user}
+        token={token}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        isAudioEnabled={isAudioEnabled}
+        handleToggleAdminAudio={handleToggleAdminAudio}
+        handleOpenCreateShop={handleOpenCreateShop}
+        handleOpenSettings={handleOpenSettings}
+        handleDeleteShop={handleDeleteShop}
+        handleOpenProfile={handleOpenProfile}
+        handleLogoutRequest={handleLogoutRequest}
+        setIsAuthModalOpen={setIsAuthModalOpen}
+        setIsQrModalOpen={setIsQrModalOpen}
+        setIsPlanModalOpen={setIsPlanModalOpen}
+        setIsPrivacyModalOpen={setIsPrivacyModalOpen}
+        setIsChangelogOpen={setIsChangelogOpen}
+        setIsHelpCenterOpen={setIsHelpCenterOpen}
+        shopFilterMode={shopFilterMode}
+        setShopFilterMode={setShopFilterMode}
+      />
 
       {/* Main Content Workspace */}
       <main className="flex-1 min-w-0 flex flex-col min-h-screen">
         {/* Workspace Top Bar Header */}
         <header className="min-h-[3.5rem] sm:min-h-[4rem] border-b border-app-border px-4 sm:px-6 py-2.5 sm:py-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-app-surface/80 backdrop-blur-md sticky top-14 md:top-0 z-30 shadow-sm">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-app-muted font-mono">
-                {activeTab === "profile" ? "Аккаунт /" : "Заведение /"}
-              </span>
-              <h2 className="text-sm font-semibold tracking-tight text-app-primary font-mono">
-                {activeTab === "services" && "Меню и услуги"}
-                {activeTab === "orders" && "Заказы"}
-                {activeTab === "promocodes" && "Промокоды"}
-                {activeTab === "reviews" && "Отзывы"}
-                {activeTab === "banners" && "Баннеры"}
-                {activeTab === "broadcasts" && "Рассылки"}
-                {activeTab === "customers" && "Клиенты CRM"}
-                {activeTab === "team" && "Команда и доступ"}
-                {activeTab === "analytics" && "Аналитика"}
-                {activeTab === "botsim" && "Симулятор бота"}
-                {activeTab === "payments" && "История оплат"}
-                {activeTab === "servers" && "Состояние серверов (Dev)"}
-                {activeTab === "devchat" && (isDeveloperUser ? "Чат поддержки платформы (Dev)" : "Чат с разработчиком")}
-                {activeTab === "settings" && "Настройки заведения"}
-                {activeTab === "profile" && "Профиль администратора"}
-                {activeTab === "createshop" && "Создать заведение"}
-                {activeTab === "addservice" && "Новая позиция меню"}
-                {activeTab === "editservice" && "Редактирование позиции"}
-              </h2>
+          <div className="flex items-center gap-3">
+            {isSidebarCollapsed && (
+              <button
+                type="button"
+                onClick={toggleSidebarCollapsed}
+                className="hidden md:flex p-1.5 rounded-lg text-app-muted hover:text-app-primary bg-app-card hover:bg-app-hover border border-app-border transition-colors cursor-pointer shrink-0"
+                title="Развернуть боковую панель"
+              >
+                <PanelLeftOpen size={16} />
+              </button>
+            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-app-muted font-mono">
+                  {activeTab === "profile" ? "Аккаунт /" : "Заведение /"}
+                </span>
+                <h2 className="text-sm font-semibold tracking-tight text-app-primary font-mono">
+                  {activeTab === "services" && "Меню и услуги"}
+                  {activeTab === "orders" && "Заказы"}
+                  {activeTab === "promocodes" && "Промокоды"}
+                  {activeTab === "reviews" && "Отзывы"}
+                  {activeTab === "banners" && "Баннеры"}
+                  {activeTab === "broadcasts" && "Рассылки"}
+                  {activeTab === "customers" && "Клиенты CRM"}
+                  {activeTab === "team" && "Команда и доступ"}
+                  {activeTab === "analytics" && "Аналитика"}
+                  {activeTab === "botsim" && "Симулятор бота"}
+                  {activeTab === "payments" && "История оплат"}
+                  {activeTab === "servers" && "Состояние серверов (Dev)"}
+                  {activeTab === "devchat" && (isDeveloperUser ? "Чат поддержки платформы (Dev)" : "Чат с разработчиком")}
+                  {activeTab === "settings" && "Настройки заведения"}
+                  {activeTab === "profile" && "Профиль администратора"}
+                  {activeTab === "createshop" && "Создать заведение"}
+                  {activeTab === "addservice" && "Новая позиция меню"}
+                  {activeTab === "editservice" && "Редактирование позиции"}
+                </h2>
+              </div>
+              <p className="text-[11px] text-app-muted font-sans truncate max-w-[200px] sm:max-w-xs">
+                {activeTab === "profile"
+                  ? (user?.email || "Управление аккаунтом")
+                  : activeTab === "servers"
+                  ? "Телеметрия и статус инфраструктуры"
+                  : activeTab === "devchat"
+                  ? "Прямая связь с разработчиком, поддержка и вопросы"
+                  : (activeTab === "createshop"
+                    ? "Новое заведение"
+                    : `Управление заведением ${selectedShop?.name || ""}`)}
+              </p>
             </div>
-            <p className="text-[11px] text-app-muted font-sans truncate max-w-[200px] sm:max-w-xs">
-              {activeTab === "profile"
-                ? (user?.email || "Управление аккаунтом")
-                : activeTab === "servers"
-                ? "Телеметрия и статус инфраструктуры"
-                : activeTab === "devchat"
-                ? "Прямая связь с разработчиком, поддержка и вопросы"
-                : (activeTab === "createshop"
-                  ? "Новое заведение"
-                  : `Управление заведением ${selectedShop?.name || ""}`)}
-            </p>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
