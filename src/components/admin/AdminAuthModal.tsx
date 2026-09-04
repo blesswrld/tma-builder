@@ -8,6 +8,8 @@ import {
   AlertCircle,
   CheckCircle2,
   RefreshCw,
+  Github,
+  ExternalLink,
 } from "lucide-react";
 import { SpinnerLoader } from "../Skeleton";
 import { useScrollLock } from "../../hooks/useScrollLock";
@@ -372,18 +374,34 @@ export function AdminAuthModal({
         </div>
 
         {onOpenPrivacy && (
-          <div className="text-center pt-1 text-[11px] font-mono text-app-muted border-t border-app-border/60">
-            <span>Продолжая, вы соглашаетесь с </span>
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onOpenPrivacy();
-              }}
-              className="underline hover:text-app-primary text-app-secondary cursor-pointer transition-colors"
-            >
-              Политикой конфиденциальности
-            </button>
+          <div className="text-center pt-1 text-[11px] font-mono text-app-muted border-t border-app-border/60 space-y-2">
+            <div>
+              <span>Продолжая, вы соглашаетесь с </span>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenPrivacy();
+                }}
+                className="underline hover:text-app-primary text-app-secondary cursor-pointer transition-colors"
+              >
+                Политикой конфиденциальности
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-1.5 pt-1 text-[10px] text-app-muted">
+              <span>Developer:</span>
+              <a
+                href="https://github.com/blesswrld"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-app-secondary hover:text-app-primary inline-flex items-center gap-1 font-semibold underline underline-offset-2"
+              >
+                <Github size={11} />
+                <span>@blesswrld</span>
+                <ExternalLink size={9} />
+              </a>
+            </div>
           </div>
         )}
       </div>

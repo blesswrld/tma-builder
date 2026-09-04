@@ -192,6 +192,11 @@ export default function AdminPage() {
       "Выход из аккаунта",
       "Вы уверены, что хотите выйти из текущего аккаунта? Потребуется повторный вход по паролю или коду из E-mail.",
       () => {
+        setShops([]);
+        setSelectedShop(null);
+        setOrders([]);
+        localStorage.removeItem("tma_cached_shops");
+        localStorage.removeItem("tma_selected_shop_id");
         logout();
         showToast("Вы успешно вышли из системы", "warning");
       },
@@ -258,6 +263,8 @@ export default function AdminPage() {
 
   const [shops, setShops] = useState<Shop[]>(() => {
     try {
+      const storedToken = localStorage.getItem("auth_token");
+      if (!storedToken) return [];
       const cached = localStorage.getItem("tma_cached_shops");
       return cached ? JSON.parse(cached) : [];
     } catch {
@@ -267,6 +274,8 @@ export default function AdminPage() {
 
   const [selectedShop, setSelectedShop] = useState<Shop | null>(() => {
     try {
+      const storedToken = localStorage.getItem("auth_token");
+      if (!storedToken) return null;
       const cachedShops = localStorage.getItem("tma_cached_shops");
       const cachedShopId = localStorage.getItem("tma_selected_shop_id");
       if (cachedShops) {
@@ -287,6 +296,11 @@ export default function AdminPage() {
 
   // Sync shops & selectedShop to localStorage cache
   useEffect(() => {
+    if (!token || !user) {
+      localStorage.removeItem("tma_cached_shops");
+      localStorage.removeItem("tma_selected_shop_id");
+      return;
+    }
     if (shops && shops.length > 0) {
       try {
         localStorage.setItem("tma_cached_shops", JSON.stringify(shops));
@@ -294,9 +308,13 @@ export default function AdminPage() {
         // ignore
       }
     }
-  }, [shops]);
+  }, [shops, token, user]);
 
   useEffect(() => {
+    if (!token || !user) {
+      localStorage.removeItem("tma_selected_shop_id");
+      return;
+    }
     if (selectedShop?.id) {
       try {
         localStorage.setItem("tma_selected_shop_id", selectedShop.id);
@@ -304,7 +322,7 @@ export default function AdminPage() {
         // ignore
       }
     }
-  }, [selectedShop?.id]);
+  }, [selectedShop?.id, token, user]);
 
   const [loading, setLoading] = useState(!shops || shops.length === 0);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
@@ -1789,6 +1807,14 @@ export default function AdminPage() {
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const res = await fetch(`/api/shops/${encodeURIComponent(shopId.trim())}/orders`, { headers });
+      if (res.status === 403 || res.status === 401) {
+        // User no longer has permission to access this shop's orders or shop was deleted/switched
+        setOrders([]);
+        if (!silent) setOrdersLoading(false);
+        // Refresh shops list to reconcile state
+        fetchShops(true);
+        return;
+      }
       if (res.ok) {
         const contentType = res.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
@@ -1825,14 +1851,14 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    if (selectedShop) {
+    if (selectedShop && token) {
       prevOrdersCountRef.current = null;
       fetchOrders(selectedShop.id);
     } else {
       setOrders([]);
       prevOrdersCountRef.current = null;
     }
-  }, [selectedShop?.id]);
+  }, [selectedShop?.id, token]);
 
   useEffect(() => {
     if (selectedShop) {
@@ -3085,42 +3111,91 @@ export default function AdminPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-app-bg text-app-primary flex items-center justify-center p-4 selection:bg-zinc-800 font-sans">
-        <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent blur-sm" />
+      <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center p-4 selection:bg-neutral-800 font-sans relative overflow-hidden">
+        {/* Creative Monochrome / Dark Gradient Background Effects */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {/* Subtle Ambient Radial Gradients */}
+          <div className="absolute -top-[25%] left-1/2 -translate-x-1/2 w-[750px] h-[550px] bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.07)_0%,rgba(16,185,129,0.05)_35%,transparent_70%)] blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
+          <div className="absolute -bottom-[20%] left-[15%] w-[600px] h-[500px] bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0.01)_40%,transparent_70%)] blur-3xl" />
+          <div className="absolute top-[40%] -right-[15%] w-[550px] h-[450px] bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.04)_0%,transparent_65%)] blur-3xl" />
 
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-app-accent text-app-accent-fg mx-auto flex items-center justify-center font-mono font-bold text-lg shadow-lg">
-              ▲
+          {/* Precision Grid & Dot Matrix Overlay */}
+          <div 
+            className="absolute inset-0 opacity-[0.035]" 
+            style={{ 
+              backgroundImage: `linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)`,
+              backgroundSize: '36px 36px' 
+            }} 
+          />
+
+          {/* Elegant Vignette & Scanlines */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.85)_100%)]" />
+        </div>
+
+        {/* Floating Developer Watermark / Badge in Background */}
+        <a 
+          href="https://github.com/blesswrld" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900/80 hover:bg-neutral-800/90 text-neutral-400 hover:text-neutral-200 border border-neutral-800 hover:border-neutral-700 backdrop-blur-md transition-all text-[11px] font-mono shadow-xl group"
+        >
+          <Github size={13} className="text-neutral-400 group-hover:text-white transition-colors" />
+          <span className="text-[10px] text-neutral-500 font-sans">created by</span>
+          <span className="font-semibold text-neutral-300 group-hover:text-emerald-400 transition-colors">@blesswrld</span>
+          <ExternalLink size={10} className="text-neutral-500 group-hover:text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </a>
+
+
+        {/* Central Auth Container with Gradient Glassmorphism Card */}
+        <motion.div 
+          initial={{ opacity: 0, y: 16, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="max-w-md w-full bg-neutral-900/90 border border-neutral-800/80 hover:border-neutral-700/80 rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl relative z-10 backdrop-blur-xl transition-colors duration-300"
+        >
+          {/* Top highlight beam */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-44 h-[2px] bg-gradient-to-r from-transparent via-white/40 to-transparent blur-[1px]" />
+
+          <div className="text-center space-y-2.5">
+            <div className="relative inline-block mx-auto">
+              <div className="w-13 h-13 rounded-2xl bg-gradient-to-b from-neutral-100 to-neutral-300 text-neutral-950 flex items-center justify-center font-mono font-black text-xl shadow-[0_0_30px_rgba(255,255,255,0.15)] border border-white/40">
+                ▲
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-neutral-900 flex items-center justify-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+              </div>
             </div>
-            <h1 className="text-xl font-bold font-mono tracking-tight text-app-primary">
-              Панель администратора
-            </h1>
-            <p className="text-xs text-app-muted">
-              Обязательная авторизация для доступа к заведениям и управлению заказами.
-            </p>
+
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-white flex items-center justify-center gap-2">
+                <span>Панель управления</span>
+              </h1>
+              <p className="text-xs text-neutral-400 mt-1 max-w-xs mx-auto">
+                Авторизуйтесь для управления заведениями, каталогом и заказами
+              </p>
+            </div>
           </div>
 
           {inviteInfo && (
-            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-1.5">
-              <div className="flex items-center gap-2 text-emerald-400 font-semibold text-xs font-mono">
-                <Mail size={14} />
+            <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl space-y-1">
+              <div className="flex items-center gap-1.5 text-emerald-400 font-semibold text-xs font-mono">
+                <Mail size={13} />
                 <span>Приглашение в команду</span>
               </div>
-              <p className="text-sm font-bold text-app-primary">Заведение «{inviteInfo.shop.name}»</p>
-              <p className="text-xs text-app-muted leading-relaxed">
+              <p className="text-sm font-bold text-white">Заведение «{inviteInfo.shop.name}»</p>
+              <p className="text-[11px] text-neutral-400 leading-relaxed">
                 Войдите или зарегистрируйтесь, чтобы автоматически принять приглашение и получить доступ к заведению.
               </p>
             </div>
           )}
 
           {/* Mode Switcher Tabs */}
-          <div className="grid grid-cols-3 gap-1 bg-app-card p-1 rounded-xl border border-app-border text-xs font-mono">
+          <div className="grid grid-cols-3 gap-1 bg-neutral-950/80 p-1 rounded-2xl border border-neutral-800 text-xs font-mono">
             <button
               type="button"
               onClick={() => { setAuthMode("otp"); setOtpStep("email"); setAuthError(null); setAuthSuccessMsg(null); }}
-              className={`py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
-                authMode === "otp" ? "bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30" : "text-app-muted hover:text-app-primary"
+              className={`py-2 px-2 rounded-xl transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
+                authMode === "otp" ? "bg-neutral-800 text-white font-bold border border-neutral-700 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
               }`}
             >
               <Mail size={12} />
@@ -3129,8 +3204,8 @@ export default function AdminPage() {
             <button
               type="button"
               onClick={() => { setAuthMode("login"); setAuthError(null); setAuthSuccessMsg(null); }}
-              className={`py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 border cursor-pointer ${
-                authMode === "login" ? "bg-app-accent text-app-accent-fg border-app-border font-bold shadow-sm" : "border-transparent text-app-muted hover:text-app-primary"
+              className={`py-2 px-2 rounded-xl transition-all text-center flex items-center justify-center gap-1.5 border cursor-pointer ${
+                authMode === "login" ? "bg-neutral-100 text-neutral-950 border-neutral-200 font-bold shadow-md" : "border-transparent text-neutral-400 hover:text-neutral-200"
               }`}
             >
               <Lock size={12} />
@@ -3139,8 +3214,8 @@ export default function AdminPage() {
             <button
               type="button"
               onClick={() => { setAuthMode("register"); setAuthError(null); setAuthSuccessMsg(null); }}
-              className={`py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1 border cursor-pointer ${
-                authMode === "register" ? "bg-app-accent text-app-accent-fg border-app-border font-bold shadow-sm" : "border-transparent text-app-muted hover:text-app-primary"
+              className={`py-2 px-2 rounded-xl transition-all text-center flex items-center justify-center gap-1.5 border cursor-pointer ${
+                authMode === "register" ? "bg-neutral-100 text-neutral-950 border-neutral-200 font-bold shadow-md" : "border-transparent text-neutral-400 hover:text-neutral-200"
               }`}
             >
               <User size={12} />
@@ -3149,67 +3224,67 @@ export default function AdminPage() {
           </div>
 
           {authError && (
-            <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 text-rose-400 text-xs font-mono">
-              <AlertCircle size={14} className="shrink-0" />
+            <div className="p-3 bg-rose-500/10 border border-rose-500/25 rounded-2xl flex items-center gap-2.5 text-rose-300 text-xs font-mono">
+              <AlertCircle size={15} className="shrink-0 text-rose-400" />
               <span>{authError}</span>
             </div>
           )}
 
           {authSuccessMsg && (
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-emerald-400 text-xs font-mono">
-              <CheckCircle size={14} className="shrink-0" />
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl flex items-center gap-2.5 text-emerald-300 text-xs font-mono">
+              <CheckCircle size={15} className="shrink-0 text-emerald-400" />
               <span>{authSuccessMsg}</span>
             </div>
           )}
 
           {/* Form rendering */}
           {otpStep === "code" ? (
-            <form onSubmit={handleVerifyOtpCode} noValidate className="space-y-3 font-sans">
-              <p className="text-xs text-app-muted">
+            <form onSubmit={handleVerifyOtpCode} noValidate className="space-y-3.5 font-sans">
+              <p className="text-xs text-neutral-400">
                 {authMode === "register" && (
-                  <>Код подтверждения отправлен на <strong className="text-app-primary">{authEmail}</strong> для завершения регистрации.</>
+                  <>Код подтверждения отправлен на <strong className="text-neutral-200">{authEmail}</strong> для завершения регистрации.</>
                 )}
                 {authMode === "reset" && (
-                  <>Код подтверждения отправлен на <strong className="text-app-primary">{authEmail}</strong> для сброса пароля.</>
+                  <>Код подтверждения отправлен на <strong className="text-neutral-200">{authEmail}</strong> для сброса пароля.</>
                 )}
                 {authMode === "otp" && (
-                  <>Код отправлен на <strong className="text-app-primary">{authEmail}</strong> для входа в аккаунт.</>
+                  <>Код отправлен на <strong className="text-neutral-200">{authEmail}</strong> для входа в аккаунт.</>
                 )}
               </p>
 
               {authDevCode ? (
-                <div className="p-3 bg-app-card border border-app-border rounded-xl text-app-primary text-xs space-y-2 font-mono">
+                <div className="p-3 bg-neutral-950 border border-neutral-800 rounded-2xl text-neutral-200 text-xs space-y-2 font-mono">
                   <div className="flex items-start gap-2">
-                    <AlertCircle size={16} className="text-app-muted shrink-0 mt-0.5" />
+                    <AlertCircle size={15} className="text-amber-400 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-semibold text-app-primary">
+                      <p className="font-semibold text-white">
                         Тестовый режим отправки кода
                       </p>
-                      <p className="text-[11px] text-app-muted mt-0.5">
+                      <p className="text-[11px] text-neutral-400 mt-0.5">
                         Код сгенерирован для быстрой авторизации:
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between bg-app-surface p-2 rounded-lg border border-app-border font-mono">
-                    <span className="text-sm font-bold text-app-primary tracking-widest">{authDevCode}</span>
+                  <div className="flex items-center justify-between bg-neutral-900 p-2 rounded-xl border border-neutral-800 font-mono">
+                    <span className="text-sm font-bold text-emerald-400 tracking-widest">{authDevCode}</span>
                     <button
                       type="button"
                       onClick={() => setAuthOtpCode(authDevCode)}
-                      className="px-2.5 py-1 bg-app-card hover:bg-app-hover border border-app-border text-app-primary text-[10px] font-bold rounded transition-colors cursor-pointer"
+                      className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
                     >
                       Вставить код
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="p-2.5 bg-app-card border border-app-border rounded-xl text-app-primary text-[11px] flex items-center gap-2 font-mono">
-                  <CheckCircle2 size={15} className="shrink-0 text-app-primary" />
+                <div className="p-2.5 bg-neutral-950 border border-neutral-800 rounded-2xl text-neutral-200 text-[11px] flex items-center gap-2 font-mono">
+                  <CheckCircle2 size={15} className="shrink-0 text-emerald-400" />
                   <span>Письмо отправлено на {authEmail}. Проверьте папку «Входящие» или «Спам».</span>
                 </div>
               )}
 
               <div>
-                <label className="text-[11px] text-app-muted font-mono mb-1 block">6-значный код подтверждения</label>
+                <label className="text-[11px] text-neutral-400 font-mono mb-1.5 block">6-значный код подтверждения</label>
                 <input
                   type="text"
                   maxLength={6}
@@ -3217,20 +3292,20 @@ export default function AdminPage() {
                   value={authOtpCode}
                   onChange={e => setAuthOtpCode(e.target.value)}
                   placeholder="123456"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-3 text-center text-lg font-mono font-bold tracking-[8px] text-app-primary focus:outline-none focus:border-app-accent"
+                  className="w-full bg-neutral-950 border border-neutral-800 focus:border-white/60 rounded-2xl px-3.5 py-3 text-center text-lg font-mono font-bold tracking-[8px] text-white focus:outline-none transition-all"
                 />
               </div>
 
               {authMode === "reset" && (
                 <div>
-                  <label className="text-[11px] text-app-muted font-mono mb-1 block">Новый пароль (не менее 6 символов)</label>
+                  <label className="text-[11px] text-neutral-400 font-mono mb-1.5 block">Новый пароль (не менее 6 символов)</label>
                   <input
                     type="password"
                     autoComplete="new-password"
                     value={authPassword}
                     onChange={e => setAuthPassword(e.target.value)}
                     placeholder="Новый пароль"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                    className="w-full bg-neutral-950 border border-neutral-800 focus:border-white/60 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-all"
                   />
                 </div>
               )}
@@ -3238,7 +3313,7 @@ export default function AdminPage() {
               <button
                 type="submit"
                 disabled={isSubmittingAuth || authOtpCode.length !== 6 || (authMode === "reset" && authPassword.length < 6)}
-                className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-sm"
+                className="w-full py-3 bg-white hover:bg-neutral-200 text-neutral-950 font-mono font-bold text-xs rounded-2xl transition-all uppercase flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-lg hover:shadow-white/10 active:scale-[0.99]"
               >
                 {isSubmittingAuth ? <SpinnerLoader size={14} /> : <ShieldCheck size={14} />}
                 {isSubmittingAuth
@@ -3255,7 +3330,7 @@ export default function AdminPage() {
                   type="button"
                   disabled={resendTimer > 0 || isSubmittingAuth}
                   onClick={() => handleSendOtpCode(authMode === "register" ? "REGISTER" : authMode === "reset" ? "RESET_PASSWORD" : "LOGIN")}
-                  className="text-app-muted hover:text-app-primary font-mono text-[11px] flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                  className="text-neutral-400 hover:text-white font-mono text-[11px] flex items-center gap-1 disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   <RefreshCw size={12} className={isSubmittingAuth ? "animate-spin" : ""} />
                   {resendTimer > 0 ? `Повтор через ${resendTimer}с` : "Отправить код повторно"}
@@ -3263,7 +3338,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => { setOtpStep("email"); setAuthOtpCode(""); setAuthError(null); setAuthSuccessMsg(null); }}
-                  className="text-app-muted hover:text-app-primary font-mono text-[11px] underline cursor-pointer"
+                  className="text-neutral-400 hover:text-white font-mono text-[11px] underline cursor-pointer transition-colors"
                 >
                   Изменить данные
                 </button>
@@ -3273,7 +3348,7 @@ export default function AdminPage() {
             <>
               {authMode === "otp" && (
                 <div className="space-y-3 font-sans">
-                  <p className="text-xs text-app-muted">
+                  <p className="text-xs text-neutral-400">
                     Вход по одноразовому коду из E-mail доступен только для существующих аккаунтов. Если у вас еще нет аккаунта, перейдите в «Создать».
                   </p>
                   <input
@@ -3281,13 +3356,13 @@ export default function AdminPage() {
                     value={authEmail}
                     onChange={e => setAuthEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                    className="w-full bg-neutral-950 border border-neutral-800 focus:border-white/60 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-all"
                   />
                   <button
                     type="button"
                     disabled={isSubmittingAuth}
                     onClick={() => handleSendOtpCode("LOGIN")}
-                    className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                    className="w-full py-3 bg-white hover:bg-neutral-200 text-neutral-950 font-mono font-bold text-xs rounded-2xl transition-all uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-white/10 active:scale-[0.99]"
                   >
                     {isSubmittingAuth ? <SpinnerLoader size={14} /> : <Mail size={14} />}
                     {isSubmittingAuth ? "Отправка..." : "Получить код на E-mail"}
@@ -3304,7 +3379,7 @@ export default function AdminPage() {
                       value={authName}
                       onChange={e => setAuthName(e.target.value)}
                       placeholder="ФИО / Название организации"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
+                      className="w-full bg-neutral-950 border border-neutral-800 focus:border-white/60 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-all"
                     />
                   )}
                   <input
@@ -3313,7 +3388,7 @@ export default function AdminPage() {
                     value={authEmail}
                     onChange={e => setAuthEmail(e.target.value)}
                     placeholder="Электронная почта"
-                    className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
+                    className="w-full bg-neutral-950 border border-neutral-800 focus:border-white/60 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-all"
                   />
                   {authMode !== "reset" && (
                     <input
@@ -3322,25 +3397,25 @@ export default function AdminPage() {
                       value={authPassword}
                       onChange={e => setAuthPassword(e.target.value)}
                       placeholder={authMode === "register" ? "Пароль (не менее 6 символов)" : "Пароль"}
-                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none"
+                      className="w-full bg-neutral-950 border border-neutral-800 focus:border-white/60 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-all"
                     />
                   )}
                   {authMode === "register" && (
-                    <div className="space-y-2 p-3 bg-app-surface/60 border border-app-border rounded-xl text-left font-sans">
+                    <div className="space-y-2 p-3 bg-neutral-950/80 border border-neutral-800 rounded-2xl text-left font-sans">
                       <div className="flex items-start gap-2">
                         <input
                           id="admin-consent-pd"
                           type="checkbox"
                           checked={authConsentPd}
                           onChange={(e) => setAuthConsentPd(e.target.checked)}
-                          className="w-4 h-4 mt-0.5 rounded border-app-border accent-emerald-500 cursor-pointer shrink-0"
+                          className="w-4 h-4 mt-0.5 rounded border-neutral-700 bg-neutral-900 accent-emerald-500 cursor-pointer shrink-0"
                         />
-                        <label htmlFor="admin-consent-pd" className="text-[11px] text-app-secondary cursor-pointer leading-tight select-none">
+                        <label htmlFor="admin-consent-pd" className="text-[11px] text-neutral-400 cursor-pointer leading-tight select-none">
                           <span>Я даю </span>
                           <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); setIsPrivacyModalOpen(true); }}
-                            className="underline text-app-primary hover:text-emerald-400 font-medium"
+                            className="underline text-neutral-200 hover:text-emerald-400 font-medium"
                           >
                             согласие на обработку персональных данных (152-ФЗ)
                           </button>
@@ -3348,7 +3423,7 @@ export default function AdminPage() {
                           <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); setIsPrivacyModalOpen(true); }}
-                            className="underline text-app-primary hover:text-emerald-400 font-medium"
+                            className="underline text-neutral-200 hover:text-emerald-400 font-medium"
                           >
                             Пользовательское соглашение
                           </button>
@@ -3356,15 +3431,15 @@ export default function AdminPage() {
                         </label>
                       </div>
 
-                      <div className="flex items-start gap-2 pt-1 border-t border-app-border/40">
+                      <div className="flex items-start gap-2 pt-1 border-t border-neutral-800/60">
                         <input
                           id="admin-consent-ads"
                           type="checkbox"
                           checked={authConsentAds}
                           onChange={(e) => setAuthConsentAds(e.target.checked)}
-                          className="w-4 h-4 mt-0.5 rounded border-app-border accent-emerald-500 cursor-pointer shrink-0"
+                          className="w-4 h-4 mt-0.5 rounded border-neutral-700 bg-neutral-900 accent-emerald-500 cursor-pointer shrink-0"
                         />
-                        <label htmlFor="admin-consent-ads" className="text-[10px] text-app-muted cursor-pointer leading-tight select-none">
+                        <label htmlFor="admin-consent-ads" className="text-[10px] text-neutral-500 cursor-pointer leading-tight select-none">
                           Согласен получать информационные и сервисные уведомления платформы (38-ФЗ)
                         </label>
                       </div>
@@ -3374,7 +3449,7 @@ export default function AdminPage() {
                   <button
                     type="submit"
                     disabled={isSubmittingAuth}
-                    className="w-full py-2.5 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-opacity uppercase cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full py-3 bg-white hover:bg-neutral-200 text-neutral-950 font-mono font-bold text-xs rounded-2xl transition-all uppercase cursor-pointer flex items-center justify-center gap-2 shadow-lg hover:shadow-white/10 active:scale-[0.99]"
                   >
                     {isSubmittingAuth ? <SpinnerLoader size={14} /> : <ShieldCheck size={14} />}
                     <span>
@@ -3384,12 +3459,12 @@ export default function AdminPage() {
                     </span>
                   </button>
 
-                  <div className="text-center pt-2 flex items-center justify-center gap-4 text-xs font-mono text-app-muted">
+                  <div className="text-center pt-1.5 flex items-center justify-center gap-4 text-xs font-mono text-neutral-400">
                     {authMode === "login" && (
                       <button
                         type="button"
                         onClick={() => { setAuthMode("reset"); setOtpStep("email"); setAuthError(null); setAuthSuccessMsg(null); }}
-                        className="hover:text-app-primary underline cursor-pointer"
+                        className="hover:text-white underline cursor-pointer transition-colors"
                       >
                         Забыли пароль?
                       </button>
@@ -3398,7 +3473,7 @@ export default function AdminPage() {
                       <button
                         type="button"
                         onClick={() => { setAuthMode("login"); setOtpStep("email"); setAuthError(null); setAuthSuccessMsg(null); }}
-                        className="hover:text-app-primary underline cursor-pointer"
+                        className="hover:text-white underline cursor-pointer transition-colors"
                       >
                         ← Вернуться ко входу
                       </button>
@@ -3410,18 +3485,18 @@ export default function AdminPage() {
           )}
 
           {/* Legal / Privacy Policy footer link */}
-          <div className="text-center pt-2 text-[11px] font-mono text-app-muted border-t border-app-border/60 flex items-center justify-center gap-2">
+          <div className="text-center pt-2 text-[11px] font-mono text-neutral-500 border-t border-neutral-800/80 flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => setIsPrivacyModalOpen(true)}
-              className="underline hover:text-app-primary text-app-secondary cursor-pointer transition-colors"
+              className="underline hover:text-neutral-300 text-neutral-400 cursor-pointer transition-colors"
             >
               Правовой центр (152-ФЗ / 54-ФЗ РФ)
             </button>
             <span>•</span>
             <span className="text-[10px] text-emerald-400 font-bold">РФ 0+</span>
           </div>
-        </div>
+        </motion.div>
 
         {/* Privacy Policy Modal */}
         <PrivacyPolicyModal
