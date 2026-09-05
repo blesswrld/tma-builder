@@ -195,7 +195,7 @@ export function AdminBannersTab({
                     <button
                       type="button"
                       onClick={() => handleCopyText(`${banner.title}\n${banner.subtitle || ""}`, banner.id)}
-                      className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-card border border-transparent hover:border-app-border rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-app-secondary hover:text-indigo-500 dark:hover:text-indigo-300 hover:bg-indigo-500/15 border border-transparent hover:border-indigo-500/30 rounded-lg transition-all cursor-pointer active:scale-95"
                       title="Скопировать текст"
                     >
                       {copiedId === banner.id ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
@@ -203,7 +203,7 @@ export function AdminBannersTab({
                     <button
                       type="button"
                       onClick={() => handleDeleteBanner(banner.id)}
-                      className="p-1.5 text-app-muted hover:text-rose-500 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-app-secondary hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 rounded-lg transition-all cursor-pointer active:scale-95"
                       title="Удалить баннер"
                     >
                       <Trash2 size={14} />
@@ -276,7 +276,8 @@ export function AdminBannersTab({
                 <button
                   type="button"
                   onClick={() => setIsCreatingBanner(false)}
-                  className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-card rounded-xl transition-colors cursor-pointer"
+                  className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-xl transition-all cursor-pointer active:scale-95"
+                  title="Закрыть"
                 >
                   <X size={18} />
                 </button>

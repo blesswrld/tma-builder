@@ -12,6 +12,7 @@ import { RealtimeProvider } from './context/RealtimeContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ComplianceNotice } from './components/ComplianceNotice';
 import { LegalCenterModal } from './components/LegalCenterModal';
+import { GlobalTooltip } from './components/ui/Tooltip';
 
 function ReferralCapture() {
   const location = useLocation();
@@ -158,6 +159,9 @@ export default function App() {
               shopName="TMA Builder"
               source="admin"
             />
+
+            {/* Custom Global Tooltip Engine */}
+            <GlobalTooltip />
           </BrowserRouter>
         </AuthProvider>
       </RealtimeProvider>

@@ -624,7 +624,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                           <button
                             type="button"
                             onClick={() => setReceiptOrder(order)}
-                            className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary hover:text-app-primary rounded-lg transition-all cursor-pointer active:scale-95"
                             title="Печать чека"
                           >
                             <Printer size={13} />
@@ -634,7 +634,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                             <button
                               type="button"
                               onClick={() => handleStatusChange(order.id, "CONFIRMED")}
-                              className="px-2 py-1 bg-app-card hover:bg-app-hover border border-app-border text-app-primary text-[10px] font-semibold rounded-lg transition-colors cursor-pointer"
+                              className="px-2 py-1 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary hover:text-app-primary text-[10px] font-semibold rounded-lg transition-all cursor-pointer active:scale-95"
                             >
                               В работу
                             </button>
@@ -644,7 +644,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                             <button
                               type="button"
                               onClick={() => handleStatusChange(order.id, "COMPLETED")}
-                              className="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[10px] rounded-lg transition-colors cursor-pointer shadow-2xs"
+                              className="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[10px] rounded-lg transition-all cursor-pointer shadow-2xs active:scale-95"
                             >
                               Завершить
                             </button>
@@ -654,7 +654,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                             <button
                               type="button"
                               onClick={() => handleStatusChange(order.id, "CANCELLED")}
-                              className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 bg-app-card hover:bg-rose-500/15 border border-app-border hover:border-rose-500/30 text-app-secondary hover:text-rose-500 rounded-lg transition-all cursor-pointer active:scale-95"
                               title="Отменить заказ"
                             >
                               <XCircle size={13} />
@@ -665,7 +665,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                             <button
                               type="button"
                               onClick={() => handleStatusChange(order.id, "PENDING")}
-                              className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary hover:text-app-primary rounded-lg transition-all cursor-pointer active:scale-95"
                               title="Вернуть в ожидание"
                             >
                               <RotateCcw size={13} />
@@ -676,7 +676,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                             <button
                               type="button"
                               onClick={() => handleDeleteOrder(order.id)}
-                              className="p-1.5 text-app-muted hover:text-rose-500 hover:bg-app-hover rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 bg-app-card hover:bg-rose-500/15 border border-app-border hover:border-rose-500/30 text-app-secondary hover:text-rose-500 rounded-lg transition-all cursor-pointer active:scale-95"
                               title="Удалить заказ"
                             >
                               <Trash2 size={13} />
@@ -978,10 +978,10 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                     <button
                       type="button"
                       onClick={() => setReceiptOrder(order)}
-                      className="px-3 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                      className="px-3 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary hover:text-app-primary font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
                       title="Печать товарного чека / талона заказа"
                     >
-                      <Printer size={12} className="text-app-muted" />
+                      <Printer size={13} className="text-app-secondary" />
                       <span>Печать чека</span>
                     </button>
 
@@ -990,7 +990,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                       <button
                         type="button"
                         onClick={() => handleDeleteOrder(order.id)}
-                        className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-colors cursor-pointer"
+                        className="p-1.5 bg-app-card hover:bg-rose-500/15 border border-app-border hover:border-rose-500/30 text-app-secondary hover:text-rose-500 rounded-xl transition-all cursor-pointer active:scale-95"
                         title="Удалить заказ"
                       >
                         <Trash2 size={13} />
@@ -1026,7 +1026,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                       <button
                         type="button"
                         onClick={() => handleStatusChange(order.id, "CANCELLED")}
-                        className="px-3.5 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary font-medium rounded-xl transition-all cursor-pointer flex items-center gap-1.5 active:scale-[0.98]"
+                        className="px-3.5 py-1.5 bg-app-card hover:bg-rose-500/15 border border-app-border hover:border-rose-500/30 text-app-secondary hover:text-rose-500 font-medium rounded-xl transition-all cursor-pointer flex items-center gap-1.5 active:scale-[0.98]"
                       >
                         <XCircle size={12} />
                         <span>Отменить</span>

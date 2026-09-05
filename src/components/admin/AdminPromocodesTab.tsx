@@ -474,7 +474,7 @@ export function AdminPromocodesTab({
                       <button
                         type="button"
                         onClick={() => handleDeletePromocode(promo.id)}
-                        className="p-1.5 text-app-secondary hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 text-app-secondary hover:text-rose-500 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 rounded-lg transition-all cursor-pointer active:scale-95"
                         title="Удалить промокод"
                       >
                         <Trash2 size={14} />

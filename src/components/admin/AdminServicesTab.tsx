@@ -736,11 +736,11 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                   </button>
 
                   {!isStaff && (
-                    <div className="flex items-center gap-0.5">
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
                         onClick={() => handleDuplicateService(service)}
-                        className="p-1.5 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-card transition-colors cursor-pointer"
+                        className="p-1.5 text-app-secondary hover:text-app-primary rounded-lg bg-transparent hover:bg-app-card border border-transparent hover:border-app-border transition-all cursor-pointer active:scale-95"
                         title="Дублировать"
                       >
                         <Copy size={13} />
@@ -776,7 +776,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                             isAvailable: service.isAvailable !== false,
                           });
                         }}
-                        className="p-1.5 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-card transition-colors cursor-pointer"
+                        className="p-1.5 text-app-secondary hover:text-app-primary rounded-lg bg-transparent hover:bg-app-card border border-transparent hover:border-app-border transition-all cursor-pointer active:scale-95"
                         title="Редактировать"
                       >
                         <Edit3 size={13} />
@@ -784,7 +784,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                       <button
                         type="button"
                         onClick={() => handleDeleteService(service.id)}
-                        className="p-1.5 text-app-muted hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        className="p-1.5 text-app-secondary hover:text-rose-500 rounded-lg bg-transparent hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 transition-all cursor-pointer active:scale-95"
                         title="Удалить"
                       >
                         <Trash2 size={13} />

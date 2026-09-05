@@ -1355,7 +1355,7 @@ export default function DeveloperReportsPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedIds([])}
-                  className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-card rounded-lg transition-colors cursor-pointer"
+                  className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-lg transition-all cursor-pointer active:scale-95"
                   title="Сбросить выбор"
                 >
                   <X size={15} />

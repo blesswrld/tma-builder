@@ -251,8 +251,43 @@ html.light .border-zinc-900 {
 .keep-white,
 .keep-white *,
 .dark-card,
-.dark-card * {
+.dark-card *,
+.tooltip-card,
+.tooltip-card * {
   color: #ffffff !important;
+}
+
+.tooltip-card {
+  background-color: #121217 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.6), 0 4px 10px -2px rgba(0, 0, 0, 0.4) !important;
+}
+
+.tooltip-card.tooltip-danger {
+  background-color: #1f0b0f !important;
+  border-color: rgba(244, 63, 94, 0.4) !important;
+}
+
+.tooltip-card.tooltip-danger,
+.tooltip-card.tooltip-danger * {
+  color: #fecdd3 !important;
+}
+
+.tooltip-card.tooltip-success {
+  background-color: #091a10 !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+}
+
+.tooltip-card.tooltip-success,
+.tooltip-card.tooltip-success * {
+  color: #a7f3d0 !important;
+}
+
+.tooltip-card kbd {
+  background-color: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: #f4f4f5 !important;
 }
 
 .keep-white-subtle,

@@ -312,7 +312,7 @@ export function AdminReviewsTab({
                         className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
                           isSelected
                             ? "bg-app-accent text-app-accent-fg font-semibold"
-                            : "text-app-primary hover:bg-app-card"
+                            : "text-app-primary hover:bg-app-hover"
                         }`}
                       >
                         <span>{opt.label}</span>

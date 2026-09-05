@@ -4441,7 +4441,8 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => setIsHotkeysModalOpen(false)}
-                  className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-card rounded-xl transition-colors cursor-pointer"
+                  className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-xl transition-all cursor-pointer active:scale-95"
+                  title="Закрыть"
                 >
                   <X size={18} />
                 </button>

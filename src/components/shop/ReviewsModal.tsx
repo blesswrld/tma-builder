@@ -104,7 +104,8 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-app-muted hover:text-app-primary hover:bg-app-card transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border transition-all cursor-pointer active:scale-95"
+            title="Закрыть"
           >
             <X size={18} />
           </button>

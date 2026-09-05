@@ -411,7 +411,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => handleOpenSettings(selectedShop)}
-                        className="p-1 rounded-md bg-app-surface hover:bg-app-hover border border-app-border/80 text-app-muted hover:text-app-primary transition-colors cursor-pointer"
+                        className="p-1 rounded-md bg-app-surface hover:bg-app-hover border border-app-border/80 text-app-secondary hover:text-app-primary transition-all cursor-pointer active:scale-95"
                         title="Настройки заведения"
                       >
                         <Settings size={12} />
@@ -421,7 +421,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       href={`/${selectedShop.slug}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 rounded-md bg-app-surface hover:bg-app-hover border border-app-border/80 text-app-muted hover:text-app-primary transition-colors"
+                      className="p-1 rounded-md bg-app-surface hover:bg-app-hover border border-app-border/80 text-app-secondary hover:text-app-primary transition-all cursor-pointer active:scale-95"
                       title="Открыть витрину заведения"
                     >
                       <ExternalLink size={12} />
