@@ -6879,6 +6879,14 @@ if (!process.env.VERCEL) {
       app.use(vite.middlewares);
     } else {
       const distPath = path.join(process.cwd(), "dist");
+      app.use((req, res, next) => {
+        if (req.path === "/sw.js") {
+          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+          res.setHeader("Content-Type", "application/javascript; charset=UTF-8");
+          res.setHeader("Service-Worker-Allowed", "/");
+        }
+        next();
+      });
       app.use(express.static(distPath));
       app.get("*", (req, res) => {
         res.sendFile(path.join(distPath, "index.html"));

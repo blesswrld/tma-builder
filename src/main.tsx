@@ -17,6 +17,29 @@ if (customApiBase) {
   };
 }
 
+// Global capture for PWA install prompt
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    (window as any).__deferredPWAInstallPrompt = e;
+    window.dispatchEvent(new CustomEvent('pwa:prompt-ready'));
+  });
+
+  // Register PWA Service Worker for cache-first static resources
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((reg) => {
+          console.log('[PWA] Service Worker успешно зарегистрирован:', reg.scope);
+        })
+        .catch((err) => {
+          console.warn('[PWA] Ошибка регистрации Service Worker:', err);
+        });
+    });
+  }
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

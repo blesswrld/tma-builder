@@ -28,6 +28,7 @@ import { AdminPageSkeleton, AdminContentSkeleton, ReviewSkeletonList, SpinnerLoa
 import ImageUploader from "../components/ImageUploader";
 import { AdminAuthModal } from "../components/admin/AdminAuthModal";
 import { AdminSidebar } from "../components/admin/AdminSidebar";
+import { InstallButton } from "../components/InstallButton";
 import { updatePageSeo } from "../lib/seo";
 import { playNotificationSound, playToggleOnSound, playToggleOffSound } from "../lib/sound";
 import { AdminSettingsTab } from "../components/admin/AdminSettingsTab";
@@ -3132,6 +3133,15 @@ export default function AdminPage() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.85)_100%)]" />
         </div>
 
+        {/* Top Right Actions (PWA Install Icon) */}
+        <div className="absolute top-4 sm:top-6 right-4 sm:right-6 z-20 flex items-center gap-2">
+          <InstallButton
+            variant="icon"
+            tooltipText="Установить приложение"
+            className="bg-neutral-900/80 border-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-800 backdrop-blur-md shadow-xl"
+          />
+        </div>
+
         {/* Floating Developer Watermark / Badge in Background */}
         <a 
           href="https://github.com/blesswrld" 
@@ -3158,9 +3168,11 @@ export default function AdminPage() {
 
           <div className="text-center space-y-2.5">
             <div className="relative inline-block mx-auto">
-              <div className="w-13 h-13 rounded-2xl bg-gradient-to-b from-neutral-100 to-neutral-300 text-neutral-950 flex items-center justify-center font-mono font-black text-xl shadow-[0_0_30px_rgba(255,255,255,0.15)] border border-white/40">
-                ▲
-              </div>
+              <img 
+                src="/logo.svg" 
+                alt="TMA Builder" 
+                className="w-13 h-13 rounded-2xl object-cover shadow-[0_0_30px_rgba(255,255,255,0.2)] border border-white/20" 
+              />
               <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-neutral-900 flex items-center justify-center">
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
               </div>
@@ -3527,12 +3539,11 @@ export default function AdminPage() {
       {/* Mobile Top Navigation */}
       <div className="md:hidden sticky top-0 z-40 bg-app-surface/90 backdrop-blur-xl border-b border-app-border px-4 h-14 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-app-accent text-app-accent-fg flex items-center justify-center font-mono font-bold text-xs">
-            ▲
-          </div>
+          <img src="/favicon.svg" alt="TMA Builder" className="w-6 h-6 rounded-lg shrink-0 object-cover shadow-2xs border border-white/10" />
           <span className="font-semibold text-sm text-app-primary font-mono">TMA BUILDER</span>
         </div>
         <div className="flex items-center gap-2">
+          <InstallButton variant="icon" className="w-8 h-8" tooltipText="Установить приложение" />
           <button
             type="button"
             onClick={toggleTheme}
@@ -3659,6 +3670,13 @@ export default function AdminPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            {/* Minimalist PWA Install Icon Button with Tooltip */}
+            <InstallButton
+              variant="icon"
+              tooltipText="Установить приложение"
+              className="hidden md:flex"
+            />
+
             {/* Global Theme Switcher */}
             <button
               onClick={toggleTheme}

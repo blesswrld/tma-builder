@@ -307,18 +307,16 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               <button
                 type="button"
                 onClick={toggleSidebarCollapsed}
-                className="w-9 h-9 rounded-xl bg-app-card hover:bg-app-hover border border-app-border flex items-center justify-center font-mono font-bold text-xs text-app-primary transition-all cursor-pointer group shadow-2xs"
+                className="w-9 h-9 rounded-xl bg-app-card hover:bg-app-hover border border-app-border flex items-center justify-center font-mono font-bold text-xs text-app-primary transition-all cursor-pointer group shadow-2xs p-1.5"
                 title="Развернуть боковое меню (Compact Mode)"
               >
-                <span className="group-hover:hidden text-xs">▲</span>
+                <img src="/favicon.svg" alt="TMA" className="w-5 h-5 rounded-md object-cover group-hover:hidden" />
                 <PanelLeftOpen size={16} className="hidden group-hover:block text-app-accent" />
               </button>
             ) : (
               <>
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-6 h-6 rounded-lg bg-app-accent text-app-accent-fg flex items-center justify-center font-mono font-bold text-xs shrink-0 shadow-2xs">
-                    ▲
-                  </div>
+                  <img src="/favicon.svg" alt="TMA Builder" className="w-6 h-6 rounded-lg shrink-0 object-cover shadow-2xs border border-white/10" />
                   <span className="font-bold text-xs tracking-tight text-app-primary font-mono truncate">
                     TMA BUILDER
                   </span>
