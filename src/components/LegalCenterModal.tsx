@@ -174,32 +174,34 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: "spring", damping: 26, stiffness: 280 }}
-            className="w-full max-w-5xl h-[92vh] max-h-[850px] bg-app-modal border border-app-border rounded-3xl overflow-hidden shadow-2xl relative z-50 flex flex-col text-app-primary"
+            className="w-full max-w-5xl h-[94vh] sm:h-[92vh] max-h-[850px] bg-app-modal border border-app-border rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl relative z-50 flex flex-col text-app-primary"
           >
             {/* Header */}
-            <div className="h-16 px-5 sm:px-6 border-b border-app-border bg-app-modal-header flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                  <Scale size={20} />
+            <div className="min-h-[3.75rem] py-2.5 px-3.5 sm:px-6 border-b border-app-border bg-app-modal-header flex items-center justify-between gap-2.5 shrink-0">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Scale size={18} className="sm:w-5 sm:h-5" />
                 </div>
-                <div>
-                  <h2 className="text-sm sm:text-base font-bold text-app-primary flex items-center gap-2">
-                    <span>Правовой центр и соответствие законодательству РФ</span>
-                    <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-[10px] font-semibold">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xs sm:text-sm md:text-base font-bold text-app-primary flex items-center gap-1.5 min-w-0">
+                    <span className="truncate">Правовой центр</span>
+                    <span className="hidden xs:inline text-app-muted font-normal">•</span>
+                    <span className="hidden xs:inline truncate">Законодательство РФ</span>
+                    <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-[10px] font-semibold shrink-0">
                       152-ФЗ / 54-ФЗ / 38-ФЗ
                     </span>
                   </h2>
-                  <p className="text-[11px] text-app-muted font-mono truncate">
+                  <p className="text-[10px] sm:text-[11px] text-app-muted font-mono truncate">
                     {effectiveShopName自我} • Редакция от {updateDate}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="p-2 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover text-app-muted hover:text-app-primary transition-colors text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+                  className="p-1.5 sm:p-2 sm:px-3 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover text-app-muted hover:text-app-primary transition-colors text-xs font-mono flex items-center gap-1.5 cursor-pointer shrink-0"
                   title="Скопировать ссылку на документ"
                 >
                   <Copy size={14} />
@@ -209,19 +211,19 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
                 <button
                   type="button"
                   onClick={handlePrint}
-                  className="p-2 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover text-app-muted hover:text-app-primary transition-colors cursor-pointer"
+                  className="p-1.5 sm:p-2 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover text-app-muted hover:text-app-primary transition-colors cursor-pointer shrink-0"
                   title="Распечатать документ"
                 >
-                  <Printer size={15} />
+                  <Printer size={14} />
                 </button>
 
                 <button
                   type="button"
                   onClick={onClose}
-                  className="p-2 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover text-app-muted hover:text-app-primary transition-colors cursor-pointer ml-1"
+                  className="p-1.5 sm:p-2 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover text-app-muted hover:text-app-primary transition-colors cursor-pointer shrink-0"
                   title="Закрыть"
                 >
-                  <X size={18} />
+                  <X size={16} className="sm:w-[18px] sm:h-[18px]" />
                 </button>
               </div>
             </div>
@@ -229,7 +231,7 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
             {/* Content Body: Left Nav + Right Document */}
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
               {/* Left Navigation */}
-              <div className="w-full md:w-72 bg-app-bg/60 border-b md:border-b-0 md:border-r border-app-border p-3 overflow-x-auto md:overflow-y-auto shrink-0 flex md:flex-col gap-1.5 scrollbar-none">
+              <div className="w-full md:w-72 bg-app-bg/60 border-b md:border-b-0 md:border-r border-app-border p-2 sm:p-3 overflow-x-auto md:overflow-y-auto shrink-0 flex md:flex-col gap-1.5 no-scrollbar scroll-smooth">
                 {docs.map((doc) => {
                   const Icon = doc.icon;
                   const isActive提高 = activeDoc === doc.id;
@@ -241,18 +243,18 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
                         setActiveDoc(doc.id);
                         contentContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                      className={`w-full text-left p-2.5 sm:p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer shrink-0 md:shrink border ${
+                      className={`text-left p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all flex items-center gap-2.5 sm:gap-3 cursor-pointer shrink-0 md:shrink w-[210px] md:w-full border ${
                         isActive提高
                           ? "bg-app-card border-app-border text-app-primary shadow-sm ring-1 ring-emerald-500/20"
                           : "border-transparent text-app-muted hover:text-app-primary hover:bg-app-card/40"
                       }`}
                     >
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 border ${
                         isActive提高
                           ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                           : "bg-app-surface text-app-muted border-app-border"
                       }`}>
-                        <Icon size={16} />
+                        <Icon size={15} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
@@ -281,7 +283,7 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
               </div>
 
               {/* Right Document Display */}
-              <div ref={contentContainerRef} className="flex-1 p-5 sm:p-8 overflow-y-auto space-y-6 text-app-secondary leading-relaxed font-sans scrollbar-thin">
+              <div ref={contentContainerRef} className="flex-1 p-3.5 sm:p-6 md:p-8 overflow-y-auto space-y-5 sm:space-y-6 text-app-secondary leading-relaxed font-sans custom-scrollbar">
                 
                 {/* 1. ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ (152-ФЗ) */}
                 {activeDoc === "privacy" && (
@@ -680,12 +682,12 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
             </div>
 
             {/* Bottom Footer */}
-            <div className="h-14 px-6 border-t border-app-border bg-app-modal-header flex items-center justify-between shrink-0 text-xs font-mono text-app-muted">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded bg-app-surface border border-app-border text-[10px] text-emerald-400 font-bold">
+            <div className="h-12 sm:h-14 px-3.5 sm:px-6 border-t border-app-border bg-app-modal-header flex items-center justify-between shrink-0 text-xs font-mono text-app-muted">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="px-2 py-0.5 rounded bg-app-surface border border-app-border text-[10px] text-emerald-400 font-bold shrink-0">
                   РФ 0+
                 </span>
-                <span className="hidden sm:inline text-[11px]">
+                <span className="hidden sm:inline text-[11px] truncate">
                   Все документы соответствуют нормам законодательства РФ
                 </span>
               </div>
@@ -693,7 +695,7 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="py-1.5 px-4 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer"
+                className="py-1.5 px-3.5 sm:px-4 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer shrink-0"
               >
                 Закрыть
               </button>

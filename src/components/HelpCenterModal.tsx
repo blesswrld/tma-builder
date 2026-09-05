@@ -213,36 +213,36 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5 overflow-hidden">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 md:p-5 overflow-hidden">
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
-        className="w-full max-w-4xl bg-app-surface border border-app-border rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden text-app-primary"
+        className="w-full max-w-4xl bg-app-surface border border-app-border rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[94vh] sm:max-h-[90vh] overflow-hidden text-app-primary"
       >
         {/* Top Header Bar */}
-        <div className="px-5 py-4 border-b border-app-border flex items-center justify-between gap-4 bg-app-card/60 backdrop-blur-sm">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-500 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20 shrink-0">
-              <Sparkles size={19} />
+        <div className="px-3.5 sm:px-5 py-3 sm:py-4 border-b border-app-border flex items-center justify-between gap-2.5 sm:gap-4 bg-app-card/60 backdrop-blur-sm shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-500 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20 shrink-0">
+              <Sparkles size={17} className="sm:w-[19px] sm:h-[19px]" />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold font-mono tracking-tight truncate">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h3 className="text-xs sm:text-sm md:text-base font-bold font-mono tracking-tight truncate">
                   Центр помощи & GitBook AI
                 </h3>
-                <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-full shrink-0">
+                <span className="hidden xs:inline-flex px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-full shrink-0">
                   Docs v2.8
                 </span>
               </div>
-              <p className="text-xs text-app-muted font-sans truncate">
+              <p className="text-[10px] sm:text-xs text-app-muted font-sans truncate">
                 Пошаговые гайды, быстрый AI-поиск по базе знаний и инструкции
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <a
               href="https://docs.gitbook.com"
               target="_blank"
@@ -258,7 +258,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-colors cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -266,20 +266,20 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
         </div>
 
         {/* View Navigation Tabs */}
-        <div className="px-5 pt-3 pb-0 border-b border-app-border bg-app-card/30 flex items-center gap-2 overflow-x-auto custom-scrollbar">
+        <div className="px-3 sm:px-5 py-2.5 border-b border-app-border bg-app-card/30 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth shrink-0 min-h-[48px]">
           <button
             type="button"
             onClick={() => {
               setActiveView("search");
               setSelectedArticle(null);
             }}
-            className={`px-3.5 py-2 rounded-t-xl font-mono text-xs font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer select-none shrink-0 ${
+            className={`h-9 px-3.5 rounded-xl font-mono text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer select-none shrink-0 whitespace-nowrap border ${
               activeView === "search" && !selectedArticle
-                ? "border-app-accent text-app-primary bg-app-surface shadow-2xs"
-                : "border-transparent text-app-muted hover:text-app-primary hover:bg-app-hover/50"
+                ? "bg-app-surface border-indigo-500/50 text-indigo-500 dark:text-indigo-400 shadow-xs ring-1 ring-indigo-500/20 font-bold"
+                : "bg-transparent border-transparent text-app-muted hover:text-app-primary hover:bg-app-hover/60"
             }`}
           >
-            <Search size={14} />
+            <Search size={14} className="shrink-0" />
             <span>AI-Поиск</span>
           </button>
 
@@ -288,13 +288,13 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
             onClick={() => {
               setActiveView("articles");
             }}
-            className={`px-3.5 py-2 rounded-t-xl font-mono text-xs font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer select-none shrink-0 ${
+            className={`h-9 px-3.5 rounded-xl font-mono text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer select-none shrink-0 whitespace-nowrap border ${
               activeView === "articles" || selectedArticle
-                ? "border-app-accent text-app-primary bg-app-surface shadow-2xs"
-                : "border-transparent text-app-muted hover:text-app-primary hover:bg-app-hover/50"
+                ? "bg-app-surface border-indigo-500/50 text-indigo-500 dark:text-indigo-400 shadow-xs ring-1 ring-indigo-500/20 font-bold"
+                : "bg-transparent border-transparent text-app-muted hover:text-app-primary hover:bg-app-hover/60"
             }`}
           >
-            <BookOpen size={14} />
+            <BookOpen size={14} className="shrink-0" />
             <span>База знаний ({DOC_ARTICLES.length})</span>
           </button>
 
@@ -304,15 +304,15 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
               setActiveView("onboarding");
               setSelectedArticle(null);
             }}
-            className={`px-3.5 py-2 rounded-t-xl font-mono text-xs font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer select-none shrink-0 ${
+            className={`h-9 px-3.5 rounded-xl font-mono text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer select-none shrink-0 whitespace-nowrap border ${
               activeView === "onboarding"
-                ? "border-app-accent text-app-primary bg-app-surface shadow-2xs"
-                : "border-transparent text-app-muted hover:text-app-primary hover:bg-app-hover/50"
+                ? "bg-app-surface border-emerald-500/50 text-emerald-500 dark:text-emerald-400 shadow-xs ring-1 ring-emerald-500/20 font-bold"
+                : "bg-transparent border-transparent text-app-muted hover:text-app-primary hover:bg-app-hover/60"
             }`}
           >
-            <CheckCircle2 size={14} className="text-emerald-500" />
+            <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
             <span>Чек-лист запуска</span>
-            <span className="px-1.5 py-0.2 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] rounded-full">
+            <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold rounded-full shrink-0">
               {completedSteps.length}/{ONBOARDING_CHECKLIST.length}
             </span>
           </button>
@@ -323,19 +323,19 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
               setActiveView("hotkeys");
               setSelectedArticle(null);
             }}
-            className={`px-3.5 py-2 rounded-t-xl font-mono text-xs font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer select-none shrink-0 ${
+            className={`h-9 px-3.5 rounded-xl font-mono text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer select-none shrink-0 whitespace-nowrap border ${
               activeView === "hotkeys"
-                ? "border-app-accent text-app-primary bg-app-surface shadow-2xs"
-                : "border-transparent text-app-muted hover:text-app-primary hover:bg-app-hover/50"
+                ? "bg-app-surface border-indigo-500/50 text-indigo-500 dark:text-indigo-400 shadow-xs ring-1 ring-indigo-500/20 font-bold"
+                : "bg-transparent border-transparent text-app-muted hover:text-app-primary hover:bg-app-hover/60"
             }`}
           >
-            <Keyboard size={14} />
+            <Keyboard size={14} className="shrink-0" />
             <span>Горячие клавиши</span>
           </button>
         </div>
 
         {/* Modal Main Content Area */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 sm:p-5 space-y-4 sm:space-y-5">
           {/* ARTICLE DETAIL VIEW */}
           {selectedArticle ? (
             <div className="space-y-6 max-w-3xl mx-auto">
@@ -871,18 +871,18 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
         </div>
 
         {/* Modal Bottom Status Bar */}
-        <div className="px-5 py-3 border-t border-app-border bg-app-card/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] font-mono text-app-muted">
-          <div className="flex items-center gap-2">
+        <div className="px-3.5 sm:px-5 py-2.5 sm:py-3 border-t border-app-border bg-app-card/40 flex items-center justify-between gap-2.5 text-[11px] font-mono text-app-muted shrink-0 min-h-[44px]">
+          <div className="flex items-center gap-2 min-w-0">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <span>GitBook Knowledge Base • Синхронизировано</span>
+            <span className="truncate">GitBook Knowledge Base</span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <span>Клавиша <kbd className="px-1.5 py-0.2 bg-app-surface border border-app-border rounded text-[10px]">?</kbd> открывает справку</span>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="hidden sm:inline">Клавиша <kbd className="px-1.5 py-0.5 bg-app-surface border border-app-border rounded text-[10px]">?</kbd> открывает справку</span>
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary rounded-lg transition-colors cursor-pointer"
+              className="px-3 py-1 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary rounded-lg transition-colors cursor-pointer text-xs font-mono"
             >
               Закрыть
             </button>

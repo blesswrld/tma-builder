@@ -86,36 +86,36 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5 overflow-hidden">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 md:p-5 overflow-hidden">
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
-        className="w-full max-w-4xl bg-app-surface border border-app-border rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden text-app-primary"
+        className="w-full max-w-4xl bg-app-surface border border-app-border rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[94vh] sm:max-h-[92vh] overflow-hidden text-app-primary"
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-app-border flex items-center justify-between gap-4 bg-app-card/60 backdrop-blur-sm">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-500 flex items-center justify-center border border-emerald-500/20 shrink-0">
-              <History size={19} />
+        <div className="px-3.5 sm:px-5 py-3 sm:py-4 border-b border-app-border flex items-center justify-between gap-2.5 sm:gap-4 bg-app-card/60 backdrop-blur-sm">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-500 flex items-center justify-center border border-emerald-500/20 shrink-0">
+              <History size={17} className="sm:w-[19px] sm:h-[19px]" />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold font-mono tracking-tight truncate">
-                  История обновлений (Changelog)
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h3 className="text-xs sm:text-sm md:text-base font-bold font-mono tracking-tight truncate">
+                  История обновлений
                 </h3>
-                <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-full shrink-0">
+                <span className="hidden xs:inline-flex px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-full shrink-0">
                   {CHANGELOG_DATA[0].version}
                 </span>
               </div>
-              <p className="text-xs text-app-muted font-sans truncate">
+              <p className="text-[10px] sm:text-xs text-app-muted font-sans truncate">
                 Что нового появилось на платформе TMA Builder
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <a
               href="https://github.com/blesswrld/tma-builder/releases"
               target="_blank"
@@ -129,7 +129,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-xl transition-colors cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -137,7 +137,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
         </div>
 
         {/* Search & Timeline bar */}
-        <div className="p-4 border-b border-app-border bg-app-card/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="p-3 sm:p-4 border-b border-app-border bg-app-card/30 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3">
           <div className="relative w-full sm:w-72 flex items-center">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted pointer-events-none shrink-0" />
             <input
