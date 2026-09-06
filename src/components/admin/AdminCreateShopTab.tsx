@@ -25,12 +25,24 @@ import {
   Eye,
   Info,
   Layers,
+  Search,
   ArrowRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ImageUploader from "../ImageUploader";
 import { SpinnerLoader } from "../Skeleton";
-import { cleanSlugForSubmit, generateRandomSyllableSlug, transliterateToSlug, validateShopName, validateSlug } from "../../lib/validation";
+import { 
+  cleanSlugForSubmit, 
+  generateRandomSyllableSlug, 
+  transliterateToSlug, 
+  validateShopName, 
+  validateSlug,
+  SUPPORTED_CURRENCIES,
+  POPULAR_CURRENCY_SYMBOLS,
+  validateCurrencySymbol,
+  validateCurrencyCode,
+  sanitizeCurrencySymbolInput
+} from "../../lib/validation";
 import { AdminMapPickerModal } from "./AdminMapPickerModal";
 
 export interface CreateShopFormData {
@@ -71,13 +83,7 @@ interface AdminCreateShopTabProps {
   showToast: (msg: string, type?: "success" | "error" | "info" | "warning") => void;
 }
 
-const CURRENCY_OPTIONS = [
-  { code: "RUB", symbol: "₽", label: "RUB — Российский рубль (₽)", name: "Российский рубль" },
-  { code: "USD", symbol: "$", label: "USD — Доллар США ($)", name: "Доллар США" },
-  { code: "EUR", symbol: "€", label: "EUR — Евро (€)", name: "Евро" },
-  { code: "KZT", symbol: "₸", label: "KZT — Казахстанский тенге (₸)", name: "Казахстанский тенге" },
-  { code: "BYN", symbol: "Br", label: "BYN — Белорусский рубль (Br)", name: "Белорусский рубль" },
-];
+const CURRENCY_OPTIONS = SUPPORTED_CURRENCIES;
 
 interface ShopPreset {
   id: string;
@@ -218,6 +224,7 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
   const [showLivePreview, setShowLivePreview] = useState(true);
   const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = useState(false);
+  const [currencySymbolError, setCurrencySymbolError] = useState<string | null>(null);
   const currencyDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -392,6 +399,22 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
       return;
     }
 
+    const codeRes = validateCurrencyCode(formData.currency || "RUB");
+    if (!codeRes.isValid) {
+      setError(codeRes.error || "Недопустимый код валюты");
+      showToast(codeRes.error || "Недопустимый код валюты", "error");
+      setActiveTab("currency");
+      return;
+    }
+
+    const symbolRes = validateCurrencySymbol(formData.currencySymbol || "₽");
+    if (!symbolRes.isValid) {
+      setError(symbolRes.error || "Недопустимый символ валюты");
+      showToast(symbolRes.error || "Недопустимый символ валюты", "error");
+      setActiveTab("currency");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -407,8 +430,8 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
         isOpen: formData.isOpen,
         logoUrl: formData.logoUrl.trim() || undefined,
         bannerUrl: formData.bannerUrl.trim() || undefined,
-        currency: formData.currency.trim() || "RUB",
-        currencySymbol: formData.currencySymbol.trim() || "₽",
+        currency: codeRes.sanitized,
+        currencySymbol: symbolRes.sanitized,
         paymentInstructions: formData.paymentInstructions.trim() || undefined,
         socialLinks: formData.socialLinks,
         deliveryOptions: {
@@ -919,45 +942,199 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                   </div>
 
                   <div className="space-y-4">
-                    {/* Currency Selector */}
-                    <div>
-                      <label className="block text-[11px] font-mono text-app-muted mb-1.5">Основная валюта цен</label>
-                      <div className="relative" ref={currencyDropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() => setIsCurrencyDropdownOpen(!isCurrencyDropdownOpen)}
-                          className="w-full bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-xs text-app-primary flex items-center justify-between focus:outline-none focus:border-app-accent cursor-pointer"
-                        >
-                          <span className="font-mono font-bold">
-                            {currentCurrency.code} — {currentCurrency.name} ({currentCurrency.symbol})
-                          </span>
-                          <ChevronDown size={14} className="text-app-muted" />
-                        </button>
+                    {/* Currency Code & Symbol Grid */}
+                    {(() => {
+                      const matchedCurrency = SUPPORTED_CURRENCIES.find((c) => c.code === formData.currency) || SUPPORTED_CURRENCIES[0];
+                      const symbolValidation = validateCurrencySymbol(formData.currencySymbol);
+                      const displaySymbol = symbolValidation.isValid ? formData.currencySymbol : (matchedCurrency.symbol || "₽");
 
-                        {isCurrencyDropdownOpen && (
-                          <div className="absolute left-0 right-0 top-full mt-1 z-30 bg-app-modal border border-app-border rounded-xl shadow-xl p-1.5 space-y-1">
-                            {CURRENCY_OPTIONS.map((opt) => (
+                      return (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Currency Selector */}
+                            <div className="relative" ref={currencyDropdownRef}>
+                              <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
+                                Основная валюта цен
+                              </label>
                               <button
-                                key={opt.code}
                                 type="button"
                                 onClick={() => {
-                                  setFormData((p) => ({ ...p, currency: opt.code, currencySymbol: opt.symbol }));
-                                  setIsCurrencyDropdownOpen(false);
+                                  setIsCurrencyDropdownOpen(!isCurrencyDropdownOpen);
                                 }}
-                                className={`w-full text-left p-2 rounded-lg text-xs font-mono flex items-center justify-between transition-colors cursor-pointer ${
-                                  formData.currency === opt.code
-                                    ? "bg-app-accent text-app-accent-fg font-bold"
-                                    : "text-app-secondary hover:text-app-primary hover:bg-app-hover"
-                                }`}
+                                className={`w-full bg-app-card hover:bg-app-hover border ${
+                                  isCurrencyDropdownOpen ? "border-app-accent ring-1 ring-app-accent/30" : "border-app-border"
+                                } rounded-xl px-3.5 py-2.5 text-xs text-app-primary flex items-center justify-between gap-2 transition-all cursor-pointer shadow-xs focus:outline-none`}
                               >
-                                <span>{opt.label}</span>
-                                {formData.currency === opt.code && <Check size={14} />}
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="w-6 h-6 rounded-md bg-app-surface border border-app-border flex items-center justify-center text-xs font-mono font-bold text-app-primary shrink-0 overflow-hidden px-1">
+                                    {displaySymbol}
+                                  </span>
+                                  <span className="truncate font-mono font-medium text-app-primary">
+                                    {matchedCurrency.code} — {matchedCurrency.name} ({matchedCurrency.symbol})
+                                  </span>
+                                </div>
+                                <ChevronDown
+                                  size={14}
+                                  className={`text-app-muted shrink-0 transition-transform duration-200 ${
+                                    isCurrencyDropdownOpen ? "rotate-180 text-app-primary" : ""
+                                  }`}
+                                />
                               </button>
-                            ))}
+
+                              {isCurrencyDropdownOpen && (
+                                <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-app-modal border border-app-border rounded-2xl shadow-xl overflow-hidden backdrop-blur-md p-1.5 space-y-0.5">
+                                  {SUPPORTED_CURRENCIES.map((opt) => {
+                                    const isSelected = formData.currency === opt.code;
+                                    return (
+                                      <button
+                                        key={opt.code}
+                                        type="button"
+                                        onClick={() => {
+                                          setFormData((p) => ({ ...p, currency: opt.code, currencySymbol: opt.symbol }));
+                                          setCurrencySymbolError(null);
+                                          setIsCurrencyDropdownOpen(false);
+                                        }}
+                                        className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-mono flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                                          isSelected
+                                            ? "bg-app-accent text-app-accent-fg font-semibold"
+                                            : "text-app-secondary hover:text-app-primary hover:bg-app-card"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span
+                                            className={`w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-mono font-bold shrink-0 ${
+                                              isSelected
+                                                ? "bg-black/15 text-app-accent-fg border border-white/20"
+                                                : "bg-app-surface text-app-primary border border-app-border"
+                                            }`}
+                                          >
+                                            {opt.symbol}
+                                          </span>
+                                          <div className="truncate">
+                                            <span className="font-bold">{opt.code}</span>
+                                            <span className="ml-1.5 opacity-80 text-[11px]">
+                                              — {opt.name}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        {isSelected && <Check size={14} className="shrink-0" />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Currency Symbol Input */}
+                            <div>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <label className="block text-[11px] font-mono text-app-muted uppercase tracking-wider">
+                                  Символ валюты
+                                </label>
+                                <span className="text-[10px] font-mono text-app-muted">
+                                  Только знак (до 4 символов)
+                                </span>
+                              </div>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  maxLength={4}
+                                  value={formData.currencySymbol}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const sanitized = sanitizeCurrencySymbolInput(val);
+                                    setFormData((p) => ({ ...p, currencySymbol: sanitized }));
+                                    if (sanitized) {
+                                      const res = validateCurrencySymbol(sanitized);
+                                      if (!res.isValid) {
+                                        setCurrencySymbolError(res.error || "Недопустимый символ");
+                                      } else {
+                                        setCurrencySymbolError(null);
+                                      }
+                                    } else {
+                                      setCurrencySymbolError("Символ валюты не может быть пустым");
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    const res = validateCurrencySymbol(formData.currencySymbol);
+                                    if (!res.isValid) {
+                                      const fallback = matchedCurrency?.symbol || "₽";
+                                      setFormData((p) => ({ ...p, currencySymbol: fallback }));
+                                      setCurrencySymbolError(null);
+                                      showToast(`Восстановлен символ по умолчанию: ${fallback}`, "info");
+                                    }
+                                  }}
+                                  placeholder="₽"
+                                  className="w-full bg-app-card border border-app-border focus:border-app-accent rounded-xl px-3.5 py-2.5 text-xs focus:outline-none font-mono font-bold tracking-wider text-app-primary"
+                                />
+                                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                                  {formData.currencySymbol !== matchedCurrency.symbol && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setFormData((p) => ({ ...p, currencySymbol: matchedCurrency.symbol }));
+                                        setCurrencySymbolError(null);
+                                      }}
+                                      title="Сбросить к символу выбранной валюты"
+                                      className="text-[10px] font-mono px-2 py-0.5 rounded bg-app-surface border border-app-border hover:bg-app-hover text-app-muted hover:text-app-primary transition-colors cursor-pointer"
+                                    >
+                                      Сброс ({matchedCurrency.symbol})
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {(currencySymbolError || !symbolValidation.isValid) && (
+                                <p className="text-[11px] text-rose-400 mt-1 font-mono flex items-center gap-1">
+                                  <AlertCircle size={12} className="shrink-0" />
+                                  <span>{currencySymbolError || symbolValidation.error || "Недопустимый символ валюты"}</span>
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
+
+                          {/* Quick Currency Symbols Chips */}
+                          <div className="p-3 bg-app-card border border-app-border rounded-2xl space-y-2">
+                            <div className="flex items-center justify-between flex-wrap gap-1">
+                              <span className="text-[11px] font-mono font-bold text-app-primary flex items-center gap-1.5">
+                                <span>Предложенные символы валюты:</span>
+                                <span className="text-[10px] font-normal text-app-muted font-sans">(нажмите для выбора)</span>
+                              </span>
+                              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                Активно: {formData.currency} ({displaySymbol})
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {POPULAR_CURRENCY_SYMBOLS.map((item) => {
+                                const isSelected = formData.currencySymbol === item.symbol;
+                                return (
+                                  <button
+                                    key={`${item.code}_${item.symbol}`}
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData((p) => ({
+                                        ...p,
+                                        currencySymbol: item.symbol,
+                                        currency: item.code
+                                      }));
+                                      setCurrencySymbolError(null);
+                                    }}
+                                    className={`h-7 px-2.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                                      isSelected
+                                        ? "bg-app-accent text-app-accent-fg border-app-accent shadow-xs scale-105"
+                                        : "bg-app-surface hover:bg-app-hover text-app-primary border-app-border hover:border-app-muted"
+                                    }`}
+                                  >
+                                    <span>{item.symbol}</span>
+                                    <span className="text-[9px] opacity-70 font-normal">{item.code}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Payment Instructions */}
                     <div>

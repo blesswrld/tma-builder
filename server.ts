@@ -12,7 +12,8 @@ import nodemailer from "nodemailer";
 import { 
   validateShopName, validateSlug, validateCisPhone, 
   validateCustomerName, validateTelegramBotToken, validateTelegramChatId,
-  validateEmail, validatePassword, validateItemTitle, validatePrice
+  validateEmail, validatePassword, validateItemTitle, validatePrice,
+  validateCurrencyCode, validateCurrencySymbol
 } from "./src/lib/validation.js";
 import {
   getTelegramMe,
@@ -2806,6 +2807,16 @@ app.post("/api/shops", async (req, res) => {
       }
     }
 
+    const codeVal = validateCurrencyCode(currency || "RUB");
+    if (!codeVal.isValid) {
+      return res.status(400).json({ error: codeVal.error || "Недопустимый код валюты." });
+    }
+
+    const symbolVal = validateCurrencySymbol(currencySymbol || "₽");
+    if (!symbolVal.isValid) {
+      return res.status(400).json({ error: symbolVal.error || "Недопустимый символ валюты." });
+    }
+
     const newShop = await db.shop.create({
       data: {
         name: name.trim(),
@@ -2814,8 +2825,8 @@ app.post("/api/shops", async (req, res) => {
         phone: phone?.trim() || null,
         address: address?.trim() || null,
         workingHours: workingHours?.trim() || null,
-        currency: currency?.trim() || "RUB",
-        currencySymbol: currencySymbol?.trim() || "₽",
+        currency: codeVal.sanitized,
+        currencySymbol: symbolVal.sanitized,
         logoUrl: logoUrl?.trim() || null,
         bannerUrl: bannerUrl?.trim() || null,
         socialLinks: typeof socialLinks === "object" ? JSON.stringify(socialLinks) : (socialLinks || null),
@@ -3221,6 +3232,25 @@ app.post("/api/shops", async (req, res) => {
           : JSON.stringify(req.body.telegramSettings);
       }
 
+      let nextCurrency = shop.currency || "RUB";
+      let nextCurrencySymbol = shop.currencySymbol || "₽";
+
+      if (currency !== undefined) {
+        const cVal = validateCurrencyCode(String(currency));
+        if (!cVal.isValid) {
+          return res.status(400).json({ error: cVal.error || "Недопустимый код валюты." });
+        }
+        nextCurrency = cVal.sanitized;
+      }
+
+      if (currencySymbol !== undefined) {
+        const sVal = validateCurrencySymbol(String(currencySymbol));
+        if (!sVal.isValid) {
+          return res.status(400).json({ error: sVal.error || "Недопустимый символ валюты. Допустимы только специальные символы валют (₽, $, €, ₸, Br и др.)." });
+        }
+        nextCurrencySymbol = sVal.sanitized;
+      }
+
       const updatedShop = await db.shop.update({
         where: { id },
         data: {
@@ -3237,8 +3267,8 @@ app.post("/api/shops", async (req, res) => {
           isOpen: isOpen !== undefined ? Boolean(isOpen) : (shop.isOpen !== undefined ? shop.isOpen : true),
           logoUrl: logoUrl !== undefined ? (logoUrl ? String(logoUrl).trim() : null) : shop.logoUrl,
           bannerUrl: bannerUrl !== undefined ? (bannerUrl ? String(bannerUrl).trim() : null) : shop.bannerUrl,
-          currency: currency !== undefined ? String(currency).trim() : (shop.currency || "RUB"),
-          currencySymbol: currencySymbol !== undefined ? String(currencySymbol).trim() : (shop.currencySymbol || "₽"),
+          currency: nextCurrency,
+          currencySymbol: nextCurrencySymbol,
           socialLinks: socialLinks !== undefined ? (typeof socialLinks === "string" ? socialLinks : JSON.stringify(socialLinks)) : shop.socialLinks,
           deliveryOptions: deliveryOptions !== undefined ? (typeof deliveryOptions === "string" ? deliveryOptions : JSON.stringify(deliveryOptions)) : shop.deliveryOptions,
           paymentInstructions: paymentInstructions !== undefined ? (paymentInstructions ? String(paymentInstructions).trim() : null) : shop.paymentInstructions,

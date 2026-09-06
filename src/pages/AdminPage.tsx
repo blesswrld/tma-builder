@@ -50,7 +50,8 @@ import SupportChatWidget from "../components/chat/SupportChatWidget";
 import { 
   validateShopName, validateSlug, cleanSlugForSubmit, transliterateToSlug, generateRandomSyllableSlug, validateCisPhone, 
   validateTelegramBotToken, validateTelegramChatId, validateItemTitle, 
-  validatePrice, validatePromoCodeData, validateAddress 
+  validatePrice, validatePromoCodeData, validateAddress,
+  validateCurrencyCode, validateCurrencySymbol, SUPPORTED_CURRENCIES
 } from "../lib/validation";
 
 interface Service {
@@ -2777,6 +2778,13 @@ export default function AdminPage() {
       } catch {}
     }
 
+    const codeVal = validateCurrencyCode(shop.currency || "RUB");
+    const rawSymbol = shop.currencySymbol || "₽";
+    const symbolVal = validateCurrencySymbol(rawSymbol);
+    const safeSymbol = symbolVal.isValid 
+      ? symbolVal.sanitized 
+      : (SUPPORTED_CURRENCIES.find((c) => c.code === codeVal.sanitized)?.symbol || "₽");
+
     setSettingsData({
       name: shop.name,
       slug: shop.slug || "",
@@ -2788,8 +2796,8 @@ export default function AdminPage() {
       phone: shop.phone || "",
       logoUrl: shop.logoUrl || "",
       bannerUrl: shop.bannerUrl || "",
-      currency: shop.currency || "RUB",
-      currencySymbol: shop.currencySymbol || "₽",
+      currency: codeVal.sanitized,
+      currencySymbol: safeSymbol,
       socialLinks: parsedSocials,
       deliveryOptions: parsedDelivery,
       paymentInstructions: shop.paymentInstructions || "",
@@ -2920,6 +2928,18 @@ export default function AdminPage() {
       formattedPhone = phoneRes.formatted;
     }
 
+    const codeRes = validateCurrencyCode(settingsData.currency);
+    if (!codeRes.isValid) {
+      setSettingsError(codeRes.error || "Недопустимый код валюты");
+      return;
+    }
+
+    const symbolRes = validateCurrencySymbol(settingsData.currencySymbol);
+    if (!symbolRes.isValid) {
+      setSettingsError(symbolRes.error || "Недопустимый символ валюты. Выберите символ из предложенных (₽, $, €, ₸, Br и др.)");
+      return;
+    }
+
     setIsSavingSettings(true);
     setSettingsError(null);
     setSettingsSuccess(null);
@@ -2942,8 +2962,8 @@ export default function AdminPage() {
           phone: formattedPhone,
           logoUrl: settingsData.logoUrl.trim(),
           bannerUrl: settingsData.bannerUrl.trim(),
-          currency: settingsData.currency,
-          currencySymbol: settingsData.currencySymbol,
+          currency: codeRes.sanitized,
+          currencySymbol: symbolRes.sanitized,
           socialLinks: JSON.stringify(settingsData.socialLinks),
           deliveryOptions: JSON.stringify(settingsData.deliveryOptions),
           paymentInstructions: settingsData.paymentInstructions.trim(),

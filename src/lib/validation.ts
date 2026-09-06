@@ -693,3 +693,119 @@ export function validatePromoCodeData(
 
   return { isValid: true };
 }
+
+/**
+ * Валидация и справочник поддерживаемых валют и символов
+ */
+export interface CurrencyOption {
+  code: string;
+  symbol: string;
+  name: string;
+  label: string;
+  country?: string;
+}
+
+export const SUPPORTED_CURRENCIES: CurrencyOption[] = [
+  { code: "RUB", symbol: "₽", name: "Российский рубль", label: "RUB — Российский рубль (₽)", country: "Россия" },
+  { code: "USD", symbol: "$", name: "Доллар США", label: "USD — Доллар США ($)", country: "США" },
+  { code: "EUR", symbol: "€", name: "Евро", label: "EUR — Евро (€)", country: "Евросоюз" },
+  { code: "KZT", symbol: "₸", name: "Казахстанский тенге", label: "KZT — Казахстанский тенге (₸)", country: "Казахстан" },
+  { code: "BYN", symbol: "Br", name: "Белорусский рубль", label: "BYN — Белорусский рубль (Br)", country: "Беларусь" },
+];
+
+export const POPULAR_CURRENCY_SYMBOLS: Array<{ symbol: string; code: string; label: string }> = [
+  { symbol: "₽", code: "RUB", label: "Рубль (₽)" },
+  { symbol: "$", code: "USD", label: "Доллар ($)" },
+  { symbol: "€", code: "EUR", label: "Евро (€)" },
+  { symbol: "₸", code: "KZT", label: "Тенге (₸)" },
+  { symbol: "Br", code: "BYN", label: "Бел. рубль (Br)" },
+];
+
+export const ALLOWED_CURRENCY_SYMBOLS = new Set([
+  "₽", "$", "€", "₸", "Br", "р.", "руб"
+]);
+
+/**
+ * Строгая валидация кода валюты
+ */
+export function validateCurrencyCode(code: string): { isValid: boolean; sanitized: string; error?: string } {
+  if (!code || !code.trim()) {
+    return { isValid: false, sanitized: "RUB", error: "Код валюты не может быть пустым." };
+  }
+  const clean = code.trim().toUpperCase();
+  const matched = SUPPORTED_CURRENCIES.find(c => c.code === clean);
+  if (matched) {
+    return { isValid: true, sanitized: matched.code };
+  }
+  if (/^[A-Z]{3}$/.test(clean)) {
+    return { isValid: true, sanitized: clean };
+  }
+  return { 
+    isValid: false, 
+    sanitized: "RUB", 
+    error: "Некорректный код валюты (должен состоять из 3 латинских букв, напр. RUB, USD, KZT)." 
+  };
+}
+
+/**
+ * Строгая валидация символа валюты:
+ * - Запрещены цифры и случайный текст
+ * - Ограничение длины до 4 символов
+ * - Разрешены только утверждённые знаки валют или одиночные Unicode currency signs
+ */
+export function validateCurrencySymbol(symbol: string): { isValid: boolean; sanitized: string; error?: string } {
+  if (!symbol || !symbol.trim()) {
+    return { isValid: false, sanitized: "₽", error: "Символ валюты не может быть пустым." };
+  }
+
+  const trimmed = symbol.trim();
+
+  // Строго запрещены цифры
+  if (/\d/.test(trimmed)) {
+    return { 
+      isValid: false, 
+      sanitized: "₽", 
+      error: "Символ валюты не может содержать цифры." 
+    };
+  }
+
+  // Ограничение по длине (символы валюты короткие: ₽, $, €, ₸, Br, сум, сом, с., AED)
+  if (trimmed.length > 4) {
+    return { 
+      isValid: false, 
+      sanitized: trimmed.slice(0, 4), 
+      error: "Символ валюты слишком длинный (максимум 4 символа, например: ₽, $, €, ₸, Br)." 
+    };
+  }
+
+  // Проверка по утверждённому набору
+  if (ALLOWED_CURRENCY_SYMBOLS.has(trimmed)) {
+    return { isValid: true, sanitized: trimmed };
+  }
+
+  // Проверка на одиночный символ Unicode валюты (\p{Sc})
+  const unicodeCurrencyRegex = /^\p{Sc}$/u;
+  if (unicodeCurrencyRegex.test(trimmed)) {
+    return { isValid: true, sanitized: trimmed };
+  }
+
+  return {
+    isValid: false,
+    sanitized: "₽",
+    error: "Недопустимый символ. Выберите из предложенных (₽, $, €, ₸, Br и др.) или введите знак валюты."
+  };
+}
+
+/**
+ * Очистка вводимого значения в реальном времени при наборе в input
+ */
+export function sanitizeCurrencySymbolInput(value: string): string {
+  if (!value) return "";
+  // Удаляем цифры
+  let cleaned = value.replace(/[0-9]/g, "");
+  // Удаляем пробелы
+  cleaned = cleaned.replace(/\s+/g, "");
+  // Ограничиваем длину максимум 4 символа
+  return cleaned.slice(0, 4);
+}
+
