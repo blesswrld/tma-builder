@@ -6,6 +6,7 @@ import { SpinnerLoader } from "../Skeleton";
 import { useScrollLock } from "../../hooks/useScrollLock";
 import CityDropdown from "../CityDropdown";
 import { formatPhoneInputLive } from "../../lib/validation";
+import { searchRussianAddressSuggestions, localizeToRussian, AddressSuggestion } from "../../lib/russianGeo";
 
 interface CheckoutModalProps {
   shop: Shop;
@@ -126,6 +127,42 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     const raw = e.target.value;
     const formatted = formatPhoneInputLive(raw);
     setFormData(prev => ({ ...prev, phone: formatted }));
+  };
+
+  const [addressSuggestions, setAddressSuggestions] = React.useState<AddressSuggestion[]>([]);
+  const [isSearchingAddress, setIsSearchingAddress] = React.useState<boolean>(false);
+  const searchTimeoutRef = React.useRef<any>(null);
+
+  const handleAddressInputChange = (val: string) => {
+    setFormData(prev => ({ ...prev, deliveryAddress: val }));
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (val.trim().length < 3) {
+      setAddressSuggestions([]);
+      setIsSearchingAddress(false);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearchingAddress(true);
+      const query = formData.city ? `${formData.city}, ${val}` : val;
+      const suggestions = await searchRussianAddressSuggestions(query);
+      setAddressSuggestions(suggestions);
+      setIsSearchingAddress(false);
+    }, 350);
+  };
+
+  const handleSelectAddressSuggestion = (item: AddressSuggestion) => {
+    const cleanTitle = localizeToRussian(item.title);
+    setFormData(prev => ({
+      ...prev,
+      deliveryAddress: cleanTitle,
+      city: prev.city || (item.subtitle ? localizeToRussian(item.subtitle.split(',')[0].trim()) : prev.city)
+    }));
+    setAddressSuggestions([]);
   };
 
   return (
@@ -413,24 +450,66 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       />
 
                       {/* Street & House */}
-                      <div className="space-y-1">
+                      <div className="space-y-1 relative">
                         <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
                           <MapPin size={12} className="text-app-muted" />
                           <span>Улица, номер дома, корпус</span>
                           <span className="text-rose-500 font-bold">*</span>
                         </label>
-                        <input 
-                          type="text" 
-                          maxLength={120}
-                          value={formData.deliveryAddress} 
-                          onChange={e => setFormData(p => ({ ...p, deliveryAddress: e.target.value }))} 
-                          placeholder="Например: ул. Пушкина, д. 15, корп. 2" 
-                          className={`w-full bg-app-input border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none transition-colors font-sans ${
-                            formErrors.deliveryAddress
-                              ? "border-rose-500/60 ring-1 ring-rose-500/20 bg-rose-500/5"
-                              : "border-app-border focus:border-app-border/80"
-                          }`} 
-                        />
+                        <div className="relative">
+                          <input 
+                            type="text" 
+                            maxLength={120}
+                            value={formData.deliveryAddress} 
+                            onChange={e => handleAddressInputChange(e.target.value)} 
+                            onBlur={() => {
+                              setTimeout(() => setAddressSuggestions([]), 250);
+                              if (formData.deliveryAddress.trim()) {
+                                setFormData(p => ({ ...p, deliveryAddress: localizeToRussian(p.deliveryAddress.trim()) }));
+                              }
+                            }}
+                            placeholder="Например: ул. Пушкина, д. 15, корп. 2" 
+                            className={`w-full bg-app-input border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none transition-colors font-sans ${
+                              formErrors.deliveryAddress
+                                ? "border-rose-500/60 ring-1 ring-rose-500/20 bg-rose-500/5"
+                                : "border-app-border focus:border-app-border/80"
+                            }`} 
+                          />
+                          {isSearchingAddress && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+                          )}
+                        </div>
+
+                        {/* Live Address Suggestions Dropdown */}
+                        {addressSuggestions.length > 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-app-modal border border-app-border rounded-xl shadow-2xl overflow-hidden divide-y divide-app-border text-xs max-h-48 overflow-y-auto">
+                            {addressSuggestions.map((item, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  handleSelectAddressSuggestion(item);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-app-hover text-app-secondary hover:text-app-primary flex items-center justify-between gap-2 transition-colors cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <MapPin size={13} className="text-emerald-500 shrink-0" />
+                                  <div className="truncate">
+                                    <span className="font-semibold text-app-primary block truncate">{item.title}</span>
+                                    {item.subtitle && (
+                                      <span className="text-[10px] text-app-muted block truncate">{item.subtitle}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <span className="text-[9px] font-mono text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded shrink-0">
+                                  Выбрать
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
                         {formErrors.deliveryAddress && (
                           <p className="text-[11px] text-rose-400 mt-1 font-mono flex items-center gap-1">
                             <AlertCircle size={12} />

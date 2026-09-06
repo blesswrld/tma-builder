@@ -175,22 +175,32 @@ button, a, input, select, textarea {
 
 /* Explicit text selection styling for high contrast & legibility across themes */
 ::selection {
-  background-color: #3f3f46;
+  background-color: rgba(16, 185, 129, 0.35) !important;
   color: #ffffff !important;
 }
 
 ::-moz-selection {
-  background-color: #3f3f46;
+  background-color: rgba(16, 185, 129, 0.35) !important;
+  color: #ffffff !important;
+}
+
+html.dark ::selection {
+  background-color: rgba(16, 185, 129, 0.40) !important;
+  color: #ffffff !important;
+}
+
+html.dark ::-moz-selection {
+  background-color: rgba(16, 185, 129, 0.40) !important;
   color: #ffffff !important;
 }
 
 html.light ::selection {
-  background-color: #d4d4d8 !important;
+  background-color: rgba(16, 185, 129, 0.28) !important;
   color: #09090b !important;
 }
 
 html.light ::-moz-selection {
-  background-color: #d4d4d8 !important;
+  background-color: rgba(16, 185, 129, 0.28) !important;
   color: #09090b !important;
 }
 
@@ -332,18 +342,18 @@ html.light .bg-app-modal {
   color: var(--text-primary);
 }
 
-html.light .text-white:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-black"]):not([class*="bg-black"] *):not([class*="bg-gradient"]):not([class*="bg-gradient"] *):not([class*="bg-zinc-900"]):not([class*="bg-zinc-900"] *):not([class*="bg-zinc-950"]):not([class*="bg-zinc-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500):not(.bg-rose-500 *):not(.bg-rose-600):not(.bg-rose-600 *):not(.bg-emerald-500):not(.bg-emerald-500 *):not(.bg-emerald-600):not(.bg-emerald-600 *):not(.bg-indigo-600):not(.bg-indigo-600 *) {
+html.light .text-white:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-black"]):not([class*="bg-black"] *):not([class*="bg-gradient"]):not([class*="bg-gradient"] *):not([class*="bg-zinc-900"]):not([class*="bg-zinc-900"] *):not([class*="bg-zinc-950"]):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-900"]):not([class*="bg-neutral-900"] *):not([class*="bg-neutral-950"]):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500):not(.bg-rose-500 *):not(.bg-rose-600):not(.bg-rose-600 *):not(.bg-emerald-500):not(.bg-emerald-500 *):not(.bg-emerald-600):not(.bg-emerald-600 *):not(.bg-indigo-600):not(.bg-indigo-600 *) {
   color: var(--text-primary) !important;
 }
 
-html.light .text-zinc-100:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *),
-html.light .text-zinc-200:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *),
-html.light .text-zinc-300:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *) {
+html.light .text-zinc-100:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *),
+html.light .text-zinc-200:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *),
+html.light .text-zinc-300:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *) {
   color: var(--text-secondary) !important;
 }
 
-html.light .text-zinc-400:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not(.bg-app-accent):not(.bg-app-accent *),
-html.light .text-zinc-500:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not(.bg-app-accent):not(.bg-app-accent *) {
+html.light .text-zinc-400:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *),
+html.light .text-zinc-500:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *) {
   color: var(--text-muted) !important;
 }
 

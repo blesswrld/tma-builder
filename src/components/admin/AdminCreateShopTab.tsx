@@ -31,6 +31,7 @@ import { motion, AnimatePresence } from "motion/react";
 import ImageUploader from "../ImageUploader";
 import { SpinnerLoader } from "../Skeleton";
 import { cleanSlugForSubmit, generateRandomSyllableSlug, transliterateToSlug, validateShopName, validateSlug } from "../../lib/validation";
+import { AdminMapPickerModal } from "./AdminMapPickerModal";
 
 export interface CreateShopFormData {
   name: string;
@@ -207,6 +208,7 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
 }) => {
   const [formData, setFormData] = useState<CreateShopFormData>(INITIAL_FORM_DATA);
   const [activeTab, setActiveTab] = useState<CreateSectionTab>("general");
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [isSlugCustomized, setIsSlugCustomized] = useState(false);
   const [initialAutoSlug, setInitialAutoSlug] = useState("");
@@ -779,9 +781,19 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                        Физический адрес / Точка самовывоза
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-[11px] font-mono text-app-muted">
+                          Физический адрес / Точка самовывоза
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsMapPickerOpen(true)}
+                          className="text-[11px] font-mono text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <MapPin size={12} />
+                          <span>На карте РФ</span>
+                        </button>
+                      </div>
                       <div className="relative flex items-center">
                         <MapPin size={14} className="absolute left-3.5 text-app-muted" />
                         <input
@@ -789,7 +801,7 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                           value={formData.address}
                           onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))}
                           placeholder="г. Санкт-Петербург, Невский пр-т, д. 28"
-                          className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-4 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-sans"
+                          className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-sans"
                         />
                       </div>
                     </div>
@@ -1479,6 +1491,17 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
           </div>
         )}
       </form>
+
+      {/* Interactive Map Picker Modal */}
+      <AdminMapPickerModal
+        isOpen={isMapPickerOpen}
+        onClose={() => setIsMapPickerOpen(false)}
+        currentAddress={formData.address}
+        onSelectAddress={(newAddress) => {
+          setFormData((p) => ({ ...p, address: newAddress }));
+          showToast("Адрес заведения выбран на карте", "success");
+        }}
+      />
     </div>
   );
 };

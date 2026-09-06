@@ -23,6 +23,7 @@ import {
   Bug,
   HelpCircle,
   Music,
+  MapPin,
   X
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -33,6 +34,7 @@ import { AdminMusicSettingsSection } from "./AdminMusicSettingsSection";
 import { AdminTelegramIntegrationTab } from "./AdminTelegramIntegrationTab";
 import { CustomCheckbox } from "../CustomCheckbox";
 import { parseMusicSettings } from "../../types";
+import { AdminMapPickerModal } from "./AdminMapPickerModal";
 
 interface AdminSettingsTabProps {
   selectedShop: any;
@@ -143,6 +145,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
   >(settingsActiveTab);
 
   const [isTgGuideOpen, setIsTgGuideOpen] = React.useState(false);
+  const [isMapPickerOpen, setIsMapPickerOpen] = React.useState(false);
   const [backupSettingsData, setBackupSettingsData] = React.useState<any | null>(null);
   const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = React.useState(false);
   const [isSlugCustomized, setIsSlugCustomized] = React.useState(false);
@@ -462,18 +465,34 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
-                  Физический адрес
-                </label>
-                <input
-                  type="text"
-                  value={settingsData.address}
-                  onChange={(e) =>
-                    setSettingsData((s: any) => ({ ...s, address: e.target.value }))
-                  }
-                  placeholder="г. Москва, ул. Арбат, 10"
-                  className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-sans"
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] font-mono text-app-muted uppercase tracking-wider">
+                    Физический адрес
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsMapPickerOpen(true)}
+                    className="text-[11px] font-mono text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <MapPin size={12} />
+                    <span>Указать на карте РФ</span>
+                  </button>
+                </div>
+                <div className="relative flex items-center">
+                  <MapPin size={14} className="absolute left-3.5 text-app-muted pointer-events-none" />
+                  <input
+                    type="text"
+                    value={settingsData.address}
+                    onChange={(e) =>
+                      setSettingsData((s: any) => ({ ...s, address: e.target.value }))
+                    }
+                    placeholder="г. Москва, ул. Арбат, 10"
+                    className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-sans"
+                  />
+                </div>
+                <p className="text-[11px] text-app-muted font-sans mt-1">
+                  Актуальный адрес с интерактивной картой городов РФ и навигацией для клиентов
+                </p>
               </div>
             </div>
 
@@ -1176,6 +1195,17 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
           </button>
         </div>
       </form>
+
+      {/* Interactive RF Map Picker Modal */}
+      <AdminMapPickerModal
+        isOpen={isMapPickerOpen}
+        onClose={() => setIsMapPickerOpen(false)}
+        currentAddress={settingsData.address}
+        onSelectAddress={(newAddress) => {
+          setSettingsData((s: any) => ({ ...s, address: newAddress }));
+          showToast("Адрес обновлён на карте", "success");
+        }}
+      />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { MapPin, ChevronDown, Check, Search, X, Building2 } from "lucide-react";
+import { localizeToRussian } from "../lib/russianGeo";
 
 export interface CityItem {
   id: string;
@@ -154,7 +155,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
   }, []);
 
   const handleSelectCity = (cityName: string) => {
-    onChange(cityName);
+    onChange(localizeToRussian(cityName));
     setIsCustomMode(false);
     setCustomCityInput("");
     setSearchQuery("");
@@ -164,7 +165,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
   const handleApplyCustomCity = () => {
     const trimmed = customCityInput.trim();
     if (trimmed) {
-      onChange(trimmed);
+      onChange(localizeToRussian(trimmed));
       setCustomCityInput("");
       setIsCustomMode(false);
       setIsOpen(false);

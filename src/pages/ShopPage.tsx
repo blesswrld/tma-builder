@@ -19,6 +19,7 @@ import { ShopBanners } from "../components/shop/ShopBanners";
 import { ShopCategories } from "../components/shop/ShopCategories";
 import { ServiceCard } from "../components/shop/ServiceCard";
 import { ShopInfoModal } from "../components/shop/ShopInfoModal";
+import { ShopMapModal } from "../components/shop/ShopMapModal";
 import { ShopMusicPlayer } from "../components/shop/ShopMusicPlayer";
 import { ServiceDetailModal } from "../components/shop/ServiceDetailModal";
 import { CheckoutModal } from "../components/shop/CheckoutModal";
@@ -61,6 +62,7 @@ export default function ShopPage() {
 
   // Modals & Drawers state
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [isMusicModalOpen, setIsMusicModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -974,6 +976,7 @@ export default function ShopPage() {
           onOpenInfoModal={() => setShowInfoModal(true)}
           onOpenReviews={handleOpenReviews}
           onOpenMusic={() => setIsMusicModalOpen(true)}
+          onOpenMap={() => setIsMapModalOpen(true)}
         />
 
         {/* Active Order Tracker Banner */}
@@ -1161,6 +1164,14 @@ export default function ShopPage() {
         onClose={() => setShowInfoModal(false)}
         onOpenPrivacy={() => setIsPrivacyModalOpen(true)}
         onOpenMusic={() => setIsMusicModalOpen(true)}
+        onOpenMap={() => setIsMapModalOpen(true)}
+      />
+
+      {/* Full Interactive RF Map Modal */}
+      <ShopMapModal
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        shop={shop}
       />
 
       {/* Store Music Player & Playlist Dialog */}

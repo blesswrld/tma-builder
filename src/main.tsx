@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import 'leaflet/dist/leaflet.css';
 
 // Automatically route relative /api/* requests to remote server if VITE_API_URL is set
 const customApiBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');

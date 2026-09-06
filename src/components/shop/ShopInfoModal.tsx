@@ -10,9 +10,10 @@ interface ShopInfoModalProps {
   onClose: () => void;
   onOpenPrivacy?: () => void;
   onOpenMusic?: () => void;
+  onOpenMap?: () => void;
 }
 
-export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onClose, onOpenPrivacy, onOpenMusic }) => {
+export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onClose, onOpenPrivacy, onOpenMusic, onOpenMap }) => {
   useScrollLock(isOpen);
 
   const socials = parseSocialLinks(shop.socialLinks);
@@ -159,15 +160,29 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({ shop, isOpen, onCl
                         <span className="text-app-primary font-semibold text-xs truncate block">{shop.address}</span>
                       </div>
                     </div>
-                    <a
-                      href={`https://yandex.ru/maps/?text=${encodeURIComponent(shop.address)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-2.5 py-1 rounded-lg bg-app-surface text-app-primary border border-app-border text-[11px] font-bold shrink-0 hover:bg-app-hover hover:border-emerald-500/40 transition-all flex items-center gap-1 shadow-xs"
-                    >
-                      <Navigation size={11} className="text-emerald-500" />
-                      <span>Карта</span>
-                    </a>
+                    {onOpenMap ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          onOpenMap();
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-app-surface text-app-primary border border-app-border text-[11px] font-bold shrink-0 hover:bg-app-hover hover:border-emerald-500/40 transition-all flex items-center gap-1 shadow-xs cursor-pointer"
+                      >
+                        <Navigation size={11} className="text-emerald-500" />
+                        <span>Карта</span>
+                      </button>
+                    ) : (
+                      <a
+                        href={`https://yandex.ru/maps/?text=${encodeURIComponent(shop.address)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-app-surface text-app-primary border border-app-border text-[11px] font-bold shrink-0 hover:bg-app-hover hover:border-emerald-500/40 transition-all flex items-center gap-1 shadow-xs"
+                      >
+                        <Navigation size={11} className="text-emerald-500" />
+                        <span>Карта</span>
+                      </a>
+                    )}
                   </div>
                 )}
                 {shop.phone && (

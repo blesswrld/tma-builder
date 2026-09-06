@@ -10,6 +10,7 @@ interface ShopHeroProps {
   reviewsStats?: { totalReviews: number; avgRating: number };
   onOpenReviews?: () => void;
   onOpenMusic?: () => void;
+  onOpenMap?: () => void;
 }
 
 export const ShopHero: React.FC<ShopHeroProps> = ({
@@ -19,6 +20,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
   reviewsStats,
   onOpenReviews,
   onOpenMusic,
+  onOpenMap,
 }) => {
   const handleOpenInfo = onOpenInfoModal || onOpenInfo || (() => {});
   const socials = parseSocialLinks(shop.socialLinks);
@@ -125,10 +127,15 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         {/* Quick Details Chips */}
         <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-mono">
           {shop.address && (
-            <div className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border text-app-secondary flex items-center gap-2">
-              <MapPin size={13} className="text-app-muted shrink-0" />
+            <button
+              type="button"
+              onClick={onOpenMap}
+              className="px-3 py-1.5 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border hover:border-emerald-500/40 text-app-secondary hover:text-app-primary flex items-center gap-2 transition-all cursor-pointer group shadow-xs"
+              title="Посмотреть на интерактивной карте"
+            >
+              <MapPin size={13} className="text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
               <span className="truncate max-w-[200px] sm:max-w-xs">{shop.address}</span>
-            </div>
+            </button>
           )}
 
           {Boolean(shop.cashbackPercent && Number(shop.cashbackPercent) > 0) && (

@@ -158,14 +158,14 @@ export const InstallButton: React.FC<InstallButtonProps> = ({
   // Icon-only minimalist variant for top headers
   if (variant === 'icon') {
     return (
-      <div className="relative group inline-flex items-center">
+      <div className={`relative group ${className || 'inline-flex'}`}>
         <button
           id="pwa-install-button"
           type="button"
           onClick={handleInstallClick}
           disabled={isInstalling}
           aria-label={tooltipText || label}
-          className={`p-2 w-9 h-9 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+          className={`p-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${className?.includes('w-8') ? 'w-8 h-8 p-1.5 rounded-lg' : ''}`}
           {...rest}
         >
           {justInstalled ? (
