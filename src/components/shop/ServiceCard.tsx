@@ -103,13 +103,13 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         </div>
       )}
 
-      <div className="p-4 sm:p-5 pt-2 flex-1 flex flex-col justify-between">
-        <div className="space-y-2 mb-4">
+      <div className="p-4 sm:p-5 pt-3.5 flex-1 flex flex-col justify-between">
+        <div className="space-y-2 mb-3.5">
           <div 
             onClick={() => handleOpenDetail(service)}
             className="flex justify-between items-start gap-2.5 cursor-pointer"
           >
-            <h3 className={`text-sm font-semibold tracking-tight hover:underline leading-snug ${isOutOfStock ? "text-app-muted" : "text-app-primary"}`}>
+            <h3 className={`text-sm font-semibold tracking-tight hover:underline leading-snug line-clamp-2 ${isOutOfStock ? "text-app-muted" : "text-app-primary"}`}>
               {service.title}
             </h3>
             <div className="flex flex-col items-end shrink-0">
@@ -118,7 +118,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                   {service.oldPrice} ₽
                 </span>
               )}
-              <span className="text-xs font-mono font-bold text-app-primary px-2 py-1 rounded-lg bg-app-card border border-app-border shrink-0">
+              <span className="h-7 px-2.5 rounded-lg bg-app-surface border border-app-border text-xs font-mono font-bold text-app-primary flex items-center justify-center shrink-0 shadow-2xs">
                 {service.price} ₽
               </span>
             </div>
@@ -200,11 +200,11 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             {isOutOfStock ? (
               <span className="text-xs text-app-muted font-mono">Недоступно</span>
             ) : currentQty > 0 ? (
-              <div className="flex items-center gap-1 sm:gap-2 bg-app-card rounded-xl p-1 border border-app-border">
+              <div className="h-8 flex items-center gap-1 sm:gap-1.5 bg-app-surface rounded-xl p-0.5 border border-app-border">
                 <button 
                   type="button"
                   onClick={() => onRemoveFromCart(service.id)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-app-secondary text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-app-card text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
                 >
                   <Minus size={13} />
                 </button>
@@ -212,7 +212,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                 <button 
                   type="button"
                   onClick={() => onAddToCart(service.id)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-app-accent text-app-accent-fg hover:opacity-90 transition-opacity cursor-pointer"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-app-accent text-app-accent-fg hover:opacity-90 transition-opacity cursor-pointer"
                 >
                   <Plus size={13} />
                 </button>
@@ -221,7 +221,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               <button 
                 type="button"
                 onClick={() => handleOpenDetail(service)}
-                className="px-4 py-2 rounded-xl bg-app-accent text-app-accent-fg font-bold text-xs hover:opacity-90 transition-opacity font-mono cursor-pointer shadow-xs"
+                className="h-8 px-4 rounded-xl bg-app-accent text-app-accent-fg font-bold text-xs hover:opacity-90 transition-opacity font-mono cursor-pointer shadow-2xs flex items-center justify-center"
               >
                 Выбрать
               </button>

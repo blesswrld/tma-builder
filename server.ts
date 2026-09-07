@@ -3693,6 +3693,14 @@ app.post("/api/shops", async (req, res) => {
       const dailyTrends = Array.from(dailyStatsMap.values()).sort((a, b) => a.date.localeCompare(b.date));
       const topServices = Array.from(serviceSalesMap.values()).sort((a, b) => b.total - a.total).slice(0, 7);
 
+      // Timeline of orders for dynamic client-side filtering by hour/day/month
+      const ordersTimeline = orders.map(o => ({
+        id: o.id,
+        createdAt: o.createdAt,
+        totalPrice: o.totalPrice || 0,
+        status: o.status
+      }));
+
       res.json({
         summary: {
           totalOrders,
@@ -3702,7 +3710,8 @@ app.post("/api/shops", async (req, res) => {
         },
         dailyTrends,
         topServices,
-        hourlyDistribution
+        hourlyDistribution,
+        ordersTimeline
       });
     } catch (error: any) {
       console.error("Ошибка при расчете аналитики:", error);
@@ -4524,6 +4533,110 @@ app.post("/api/shops", async (req, res) => {
     } catch (error) {
       console.error("Ошибка изменения бонусов:", error);
       res.status(500).json({ error: "Не удалось изменить баланс бонусов." });
+    }
+  });
+
+  // API Route: Редактирование данных клиента
+  app.put("/api/shops/:shopId/customers/:customerId", async (req, res) => {
+    try {
+      const { shopId, customerId } = req.params;
+      const { name, phone, bonusBalance } = req.body;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на редактирование клиентов." });
+      }
+
+      const existing = await db.customer.findUnique({
+        where: { id: customerId }
+      });
+
+      if (!existing || existing.shopId !== shopId) {
+        return res.status(404).json({ error: "Клиент не найден." });
+      }
+
+      const trimmedName = typeof name === "string" ? name.trim() : existing.name;
+      const cleanPhone = typeof phone === "string" ? phone.trim() : existing.phone;
+
+      if (!trimmedName) {
+        return res.status(400).json({ error: "Имя клиента не может быть пустым." });
+      }
+      if (!cleanPhone) {
+        return res.status(400).json({ error: "Номер телефона не может быть пустым." });
+      }
+
+      const updated = await db.customer.update({
+        where: { id: customerId },
+        data: {
+          name: trimmedName,
+          phone: cleanPhone,
+          bonusBalance: typeof bonusBalance === "number" ? Math.max(0, bonusBalance) : existing.bonusBalance,
+          updatedAt: new Date()
+        }
+      });
+
+      // Update associated orders if name or phone changed so stats and history stay consistent
+      if (existing.phone !== cleanPhone || existing.name !== trimmedName) {
+        await db.order.updateMany({
+          where: { shopId, customerPhone: existing.phone },
+          data: {
+            customerPhone: cleanPhone,
+            customerName: trimmedName
+          }
+        }).catch(() => {});
+      }
+
+      broadcastEvent({ type: "CUSTOMER_UPDATED", shopId, payload: updated });
+      res.json(updated);
+    } catch (error) {
+      console.error("Ошибка редактирования клиента:", error);
+      res.status(500).json({ error: "Не удалось обновить данные клиента." });
+    }
+  });
+
+  // API Route: Удаление клиента
+  app.delete("/api/shops/:shopId/customers/:customerId", async (req, res) => {
+    try {
+      const { shopId, customerId } = req.params;
+      const authUser = getAuthUser(req);
+      const db = getPrismaClient() as any;
+      if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
+
+      await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на удаление клиентов." });
+      }
+
+      const existing = await db.customer.findUnique({
+        where: { id: customerId }
+      });
+
+      if (!existing || existing.shopId !== shopId) {
+        return res.status(404).json({ error: "Клиент не найден." });
+      }
+
+      // Unlink phone on orders for this shop so GET /customers won't re-create this customer
+      await db.order.updateMany({
+        where: { shopId, customerPhone: existing.phone },
+        data: { customerPhone: "" }
+      }).catch(() => {});
+
+      await db.customer.delete({
+        where: { id: customerId }
+      });
+
+      broadcastEvent({ type: "CUSTOMER_DELETED", shopId, payload: { id: customerId, phone: existing.phone } });
+      res.json({ success: true, id: customerId });
+    } catch (error) {
+      console.error("Ошибка удаления клиента:", error);
+      res.status(500).json({ error: "Не удалось удалить клиента." });
     }
   });
 

@@ -195,7 +195,7 @@ export function AdminBannersTab({
                     <button
                       type="button"
                       onClick={() => handleCopyText(`${banner.title}\n${banner.subtitle || ""}`, banner.id)}
-                      className="p-1.5 text-app-secondary hover:text-indigo-500 dark:hover:text-indigo-300 hover:bg-indigo-500/15 border border-transparent hover:border-indigo-500/30 rounded-lg transition-all cursor-pointer active:scale-95"
+                      className="p-1.5 text-app-secondary hover:text-app-primary rounded-lg bg-transparent hover:bg-app-card border border-transparent hover:border-app-border transition-all cursor-pointer active:scale-95"
                       title="Скопировать текст"
                     >
                       {copiedId === banner.id ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}

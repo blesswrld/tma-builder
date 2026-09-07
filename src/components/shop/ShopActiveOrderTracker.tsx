@@ -82,9 +82,9 @@ export const ShopActiveOrderTracker: React.FC<ShopActiveOrderTrackerProps> = ({
   const info = getOrderStatusInfo(activeOrder.status);
 
   return (
-    <div className="p-4 rounded-2xl bg-app-surface border border-app-border space-y-3 shadow-xs transition-all duration-300">
+    <div className="p-4 sm:p-5 rounded-2xl bg-app-card border border-app-border space-y-3 shadow-2xs transition-all duration-300">
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <span className="relative flex h-2.5 w-2.5">
             {info.isPulse && (
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${info.dotPing} opacity-75`}></span>
@@ -99,7 +99,7 @@ export const ShopActiveOrderTracker: React.FC<ShopActiveOrderTrackerProps> = ({
           {info.label}
         </span>
       </div>
-      <div className="w-full bg-app-card h-1.5 rounded-full overflow-hidden border border-app-border">
+      <div className="w-full bg-app-surface h-1.5 rounded-full overflow-hidden border border-app-border">
         <div 
           className={`h-full ${info.barColor} transition-all duration-500 ${info.progressWidth}`} 
         />

@@ -94,7 +94,7 @@ export const ReferralPostShareModal: React.FC<ReferralPostShareModalProps> = ({
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => handleShareTelegram(tpl.text)}
-                      className="p-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-lg transition-colors cursor-pointer"
                       title="Поделиться в Telegram"
                     >
                       <Send size={14} />

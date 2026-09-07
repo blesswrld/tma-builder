@@ -30,6 +30,7 @@ import {
   Volume2,
   VolumeX,
   QrCode,
+  Bell,
   Crown,
   LogOut,
   LogIn,
@@ -114,6 +115,8 @@ interface AdminSidebarProps {
   setIsHelpCenterOpen: (open: boolean) => void;
   shopFilterMode: "my" | "all";
   setShopFilterMode: (mode: "my" | "all") => void;
+  unreadNotificationsCount?: number;
+  onOpenNotificationBox?: () => void;
 }
 
 interface SidebarNavItem {
@@ -173,7 +176,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   setIsPrivacyModalOpen,
   setIsChangelogOpen,
   shopFilterMode,
-  setShopFilterMode
+  setShopFilterMode,
+  unreadNotificationsCount = 0,
+  onOpenNotificationBox
 }) => {
   const navigate = useNavigate();
   const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
@@ -680,6 +685,22 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               title="Генератор QR-кодов"
             >
               <QrCode size={13} className="text-app-primary shrink-0" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenNotificationBox) onOpenNotificationBox();
+              }}
+              className="relative p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-lg text-app-primary transition-colors cursor-pointer flex items-center justify-center"
+              title="Ящик уведомлений (текстовые сообщения вместо звука)"
+            >
+              <Bell size={13} className="text-app-primary shrink-0" />
+              {Boolean(unreadNotificationsCount && unreadNotificationsCount > 0) && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 bg-rose-500 text-white font-bold text-[8px] rounded-full flex items-center justify-center ring-2 ring-app-surface shadow-xs animate-pulse">
+                  {unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}
+                </span>
+              )}
             </button>
 
             {!isSidebarCollapsed && (

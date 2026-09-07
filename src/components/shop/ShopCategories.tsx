@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Search, Heart } from "lucide-react";
+import { Search, Heart, X } from "lucide-react";
 
 interface ShopCategoriesProps {
   categories: string[];
@@ -23,13 +23,13 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 border-b border-app-border pb-4 font-sans">
       {/* Category Pill Tabs */}
       <div className="relative flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 overflow-x-auto touch-scroll-x scrollbar-none py-1 w-full pr-8">
+        <div className="flex items-center gap-1.5 overflow-x-auto touch-scroll-x scrollbar-none py-0.5 w-full pr-8">
           <motion.button
-            whileTap={{ scale: 0.96 }}
+            whileTap={{ scale: 0.97 }}
             whileHover={{ scale: 1.02 }}
             type="button"
             onClick={() => onSelectCategory("ALL")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all shrink-0 cursor-pointer ${
+            className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center justify-center cursor-pointer shadow-2xs ${
               selectedCategory === "ALL"
                 ? "bg-app-accent text-app-accent-fg font-bold shadow-xs"
                 : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
@@ -40,11 +40,11 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
           
           {/* Favorites Category Tab */}
           <motion.button
-            whileTap={{ scale: 0.96 }}
+            whileTap={{ scale: 0.97 }}
             whileHover={{ scale: 1.02 }}
             type="button"
             onClick={() => onSelectCategory("FAVORITES")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs ${
               selectedCategory === "FAVORITES"
                 ? "bg-app-accent text-app-accent-fg font-bold shadow-xs"
                 : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
@@ -57,11 +57,11 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
           {categories.map(cat => (
             <motion.button
               key={cat}
-              whileTap={{ scale: 0.96 }}
+              whileTap={{ scale: 0.97 }}
               whileHover={{ scale: 1.02 }}
               type="button"
               onClick={() => onSelectCategory(cat)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs transition-all shrink-0 cursor-pointer ${
+              className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center justify-center cursor-pointer shadow-2xs ${
                 selectedCategory === cat
                   ? "bg-app-accent text-app-accent-fg shadow-xs font-bold"
                   : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
@@ -76,21 +76,22 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
 
       {/* Search Box */}
       <div className="relative w-full sm:w-64 shrink-0">
-        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-app-muted" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted pointer-events-none" />
         <input
           type="text"
           value={searchQuery}
           onChange={e => onSearchChange(e.target.value)}
           placeholder="Поиск по каталогу..."
-          className="w-full bg-app-surface text-xs rounded-xl pl-9 pr-8 py-2 text-app-primary focus:outline-none focus:border-app-border border border-app-border transition-colors placeholder:text-app-muted font-sans"
+          className="h-9 w-full bg-app-surface text-xs rounded-xl pl-9 pr-8 text-app-primary focus:outline-none focus:border-app-secondary border border-app-border transition-colors placeholder:text-app-muted font-sans shadow-2xs"
         />
         {searchQuery && (
           <button
             type="button"
             onClick={() => onSearchChange("")}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-muted hover:text-app-primary text-xs cursor-pointer"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center text-app-muted hover:text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
+            title="Очистить поиск"
           >
-            ✕
+            <X size={12} />
           </button>
         )}
       </div>

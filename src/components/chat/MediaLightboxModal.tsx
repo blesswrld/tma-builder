@@ -193,12 +193,12 @@ export default function MediaLightboxModal({
             </div>
           ) : (
             <div className="p-8 rounded-2xl bg-slate-900 border border-slate-700 text-center text-white max-w-sm">
-              <FileText size={48} className="mx-auto text-indigo-400 mb-3" />
+              <FileText size={48} className="mx-auto text-slate-400 mb-3" />
               <p className="font-semibold text-sm mb-1">{mediaName || "Файл"}</p>
               <p className="text-xs text-slate-400 mb-4">{formatBytes(mediaSize)}</p>
               <button
                 onClick={handleDownload}
-                className="w-full py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition"
+                className="w-full py-2 px-4 rounded-xl bg-white text-slate-900 hover:bg-slate-100 font-medium text-xs transition cursor-pointer"
               >
                 Скачать документ
               </button>

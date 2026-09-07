@@ -11,10 +11,12 @@ import {
   Tooltip,
   ResponsiveContainer
 } from "recharts";
-import { TrendingUp, ShoppingBag, DollarSign, Award, RefreshCw, BarChart2 } from "lucide-react";
+import { TrendingUp, ShoppingBag, DollarSign, Award, RefreshCw, BarChart2, Zap } from "lucide-react";
 import { AnalyticsSkeleton } from "./Skeleton";
 import { useRealtimeEvent } from "../context/RealtimeContext";
 import { useAuth } from "../context/AuthContext";
+import RevenueDynamicsChart, { OrderTimelineItem } from "./RevenueDynamicsChart";
+import MarginCalculator from "./MarginCalculator";
 
 interface AnalyticsData {
   summary: {
@@ -26,6 +28,7 @@ interface AnalyticsData {
   dailyTrends: Array<{ date: string; revenue: number; orders: number }>;
   topServices: Array<{ title: string; count: number; total: number }>;
   hourlyDistribution: Array<{ hour: string; orders: number }>;
+  ordersTimeline?: OrderTimelineItem[];
 }
 
 interface AnalyticsTabProps {
@@ -94,6 +97,17 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
   const dailyTrends = data.dailyTrends || [];
   const topServices = data.topServices || [];
   const hourlyDistribution = data.hourlyDistribution || [];
+  const ordersTimeline = data.ordersTimeline || [];
+
+  const completionRate = summary.totalOrders > 0
+    ? Math.round((summary.completedOrders / summary.totalOrders) * 100)
+    : 0;
+
+  const totalServicesRev = topServices.reduce((acc, s) => acc + s.total, 0) || 1;
+
+  const peakHour = hourlyDistribution.length > 0
+    ? hourlyDistribution.reduce((max, h) => (h.orders > (max?.orders || 0) ? h : max), hourlyDistribution[0])
+    : null;
 
   return (
     <div className="space-y-6">
@@ -104,19 +118,21 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, delay: 0 }}
           whileHover={{ y: -2 }}
-          className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4 transition-shadow hover:shadow-md"
+          className="bg-app-surface p-5 rounded-2xl border border-app-border flex flex-col justify-between transition-shadow hover:shadow-md"
         >
-          <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
-            <DollarSign size={20} />
-          </div>
-          <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-app-muted">Общая выручка</p>
-            <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">
-              {summary.totalRevenue.toLocaleString("ru-RU")} ₽
-            </h3>
-            <p className="text-[10px] text-emerald-500 font-mono mt-0.5 flex items-center gap-1">
-              <TrendingUp size={12} /> Выполненные заказы
-            </p>
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
+              <DollarSign size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-app-muted">Общая выручка</p>
+              <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">
+                {summary.totalRevenue.toLocaleString("ru-RU")} ₽
+              </h3>
+              <p className="text-[10px] text-emerald-500 font-mono mt-0.5 flex items-center gap-1">
+                <TrendingUp size={12} /> Завершённые заказы
+              </p>
+            </div>
           </div>
         </motion.div>
 
@@ -125,17 +141,26 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, delay: 0.05 }}
           whileHover={{ y: -2 }}
-          className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4 transition-shadow hover:shadow-md"
+          className="bg-app-surface p-5 rounded-2xl border border-app-border flex flex-col justify-between transition-shadow hover:shadow-md"
         >
-          <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
-            <ShoppingBag size={20} />
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
+              <ShoppingBag size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-app-muted">Всего заказов</p>
+              <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">{summary.totalOrders}</h3>
+              <p className="text-[10px] text-app-secondary font-mono mt-0.5 flex items-center justify-between">
+                <span>{summary.completedOrders} выполнено</span>
+                <span className="font-semibold text-emerald-500">{completionRate}%</span>
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-app-muted">Заказы</p>
-            <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">{summary.totalOrders}</h3>
-            <p className="text-[10px] text-app-secondary font-mono mt-0.5">
-              {summary.completedOrders} выполнено ({summary.totalOrders > 0 ? Math.round((summary.completedOrders / summary.totalOrders) * 100) : 0}%)
-            </p>
+          <div className="w-full bg-app-card h-1.5 rounded-full overflow-hidden mt-3 border border-app-border/40">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+              style={{ width: `${Math.min(100, completionRate)}%` }}
+            />
           </div>
         </motion.div>
 
@@ -144,17 +169,19 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, delay: 0.1 }}
           whileHover={{ y: -2 }}
-          className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4 transition-shadow hover:shadow-md"
+          className="bg-app-surface p-5 rounded-2xl border border-app-border flex flex-col justify-between transition-shadow hover:shadow-md"
         >
-          <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
-            <Award size={20} />
-          </div>
-          <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-app-muted">Средний чек</p>
-            <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">
-              {summary.avgCheck.toLocaleString("ru-RU")} ₽
-            </h3>
-            <p className="text-[10px] text-app-secondary font-mono mt-0.5">На один заказ</p>
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
+              <Award size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-app-muted">Средний чек</p>
+              <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">
+                {summary.avgCheck.toLocaleString("ru-RU")} ₽
+              </h3>
+              <p className="text-[10px] text-app-secondary font-mono mt-0.5">В расчете на один заказ</p>
+            </div>
           </div>
         </motion.div>
 
@@ -163,15 +190,21 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, delay: 0.15 }}
           whileHover={{ y: -2 }}
-          className="bg-app-surface p-5 rounded-2xl border border-app-border flex items-center gap-4 transition-shadow hover:shadow-md"
+          className="bg-app-surface p-5 rounded-2xl border border-app-border flex flex-col justify-between transition-shadow hover:shadow-md"
         >
-          <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
-            <BarChart2 size={20} />
-          </div>
-          <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-app-muted">Размер каталога</p>
-            <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">{topServices.length}</h3>
-            <p className="text-[10px] text-app-secondary font-mono mt-0.5">Активные позиции</p>
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-app-card text-app-primary rounded-xl shrink-0 border border-app-border">
+              <BarChart2 size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-app-muted">Топовых услуг</p>
+              <h3 className="text-xl font-bold text-app-primary mt-0.5 font-mono">{topServices.length}</h3>
+              <p className="text-[10px] text-app-secondary font-mono mt-0.5">
+                {topServices.length > 0
+                  ? `~${Math.round(summary.totalRevenue / topServices.length).toLocaleString("ru-RU")} ₽ / позиция`
+                  : "Активные позиции"}
+              </p>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -182,68 +215,15 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          className="lg:col-span-2 bg-app-surface p-6 rounded-2xl border border-app-border space-y-4"
+          className="lg:col-span-2 bg-app-surface p-6 rounded-2xl border border-app-border"
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-app-primary">Динамика выручки</h3>
-              <p className="text-xs text-app-muted font-mono">Ежедневный доход</p>
-            </div>
-            <button
-              onClick={fetchAnalytics}
-              className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover rounded-lg transition-colors"
-              title="Обновить"
-            >
-              <RefreshCw size={15} />
-            </button>
-          </div>
-
-          <div className="h-64 w-full">
-            {dailyTrends.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dailyTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorRevenueDark" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--chart-line)" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="var(--chart-line)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
-                  <XAxis
-                    dataKey="date"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-                    tickFormatter={val => val.slice(5)}
-                  />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "var(--text-muted)" }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--chart-tooltip-bg)",
-                      borderRadius: "12px",
-                      color: "var(--chart-tooltip-text)",
-                      border: "1px solid var(--chart-tooltip-border)",
-                      fontSize: "12px"
-                    }}
-                    formatter={(val: any) => [`${Number(val).toLocaleString("ru-RU")} ₽`, "Выручка"]}
-                    labelFormatter={label => `Дата: ${label}`}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="var(--chart-line)"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorRevenueDark)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-xs text-app-muted font-mono">
-                История выручки пока отсутствует
-              </div>
-            )}
-          </div>
+          <RevenueDynamicsChart
+            ordersTimeline={ordersTimeline}
+            dailyTrends={dailyTrends}
+            hourlyDistribution={hourlyDistribution}
+            summary={summary}
+            onRefresh={fetchAnalytics}
+          />
         </motion.div>
 
         {/* Top Services */}
@@ -253,34 +233,63 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
           transition={{ duration: 0.3, delay: 0.25 }}
           className="bg-app-surface p-6 rounded-2xl border border-app-border space-y-4"
         >
-          <div>
-            <h3 className="text-sm font-semibold text-app-primary">Популярные позиции</h3>
-            <p className="text-xs text-app-muted font-mono">Лидеры продаж</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-app-primary">Популярные позиции</h3>
+              <p className="text-xs text-app-muted font-mono">Доля в структуре продаж</p>
+            </div>
+            <span className="text-[10px] font-mono text-app-muted px-2 py-0.5 rounded bg-app-card border border-app-border">
+              ТОП-{topServices.length}
+            </span>
           </div>
 
           {topServices.length > 0 ? (
-            <div className="space-y-3">
-              {topServices.map((service, idx) => (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.2, delay: 0.3 + idx * 0.04 }}
-                  className="flex items-center justify-between text-xs hover:bg-app-hover/50 p-1.5 -mx-1.5 rounded-xl transition-colors"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: MONO_COLORS[idx % MONO_COLORS.length] }}
-                    />
-                    <span className="font-medium text-app-secondary truncate">{service.title}</span>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="font-semibold text-app-primary font-mono">{service.total.toLocaleString("ru-RU")} ₽</span>
-                    <span className="text-[10px] text-app-muted font-mono block">{service.count} шт</span>
-                  </div>
-                </motion.div>
-              ))}
+            <div className="space-y-3.5">
+              {topServices.map((service, idx) => {
+                const share = Math.round((service.total / totalServicesRev) * 100);
+                return (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: 0.3 + idx * 0.04 }}
+                    className="text-xs hover:bg-app-hover/50 p-2 -mx-2 rounded-xl transition-colors space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 pr-2">
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: MONO_COLORS[idx % MONO_COLORS.length] }}
+                        />
+                        <span className="font-medium text-app-secondary truncate">{service.title}</span>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="font-semibold text-app-primary font-mono">
+                          {service.total.toLocaleString("ru-RU")} ₽
+                        </span>
+                        <span className="text-[10px] text-app-muted font-mono ml-1.5">
+                          ({service.count} шт)
+                        </span>
+                      </div>
+                    </div>
+                    {/* Share progress bar */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-app-card h-1.5 rounded-full overflow-hidden border border-app-border/40">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.max(4, share)}%`,
+                            backgroundColor: MONO_COLORS[idx % MONO_COLORS.length]
+                          }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-mono text-app-muted shrink-0 w-8 text-right">
+                        {share}%
+                      </span>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           ) : (
             <div className="py-12 text-center text-xs text-app-muted font-mono">
@@ -297,17 +306,25 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
         transition={{ duration: 0.3, delay: 0.3 }}
         className="bg-app-surface p-6 rounded-2xl border border-app-border space-y-4"
       >
-        <div>
-          <h3 className="text-sm font-semibold text-app-primary">Пиковые часы</h3>
-          <p className="text-xs text-app-muted font-mono">Распределение заказов по времени суток</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-app-primary">Пиковые часы нагрузки</h3>
+            <p className="text-xs text-app-muted font-mono">Распределение оформленных заказов по времени суток</p>
+          </div>
+          {peakHour && peakHour.orders > 0 && (
+            <div className="flex items-center gap-1.5 text-xs font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2.5 py-1 rounded-xl">
+              <Zap size={12} className="fill-amber-400 text-amber-400" />
+              <span>Час пик: {peakHour.hour} ({peakHour.orders} зак.)</span>
+            </div>
+          )}
         </div>
 
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={hourlyDistribution} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+            <BarChart data={hourlyDistribution} margin={{ top: 10, right: 15, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
               <XAxis dataKey="hour" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
-              <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "var(--text-muted)" }} allowDecimals={false} />
+              <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "var(--text-muted)" }} allowDecimals={false} width={30} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "var(--chart-tooltip-bg)",
@@ -318,11 +335,23 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
                 }}
                 formatter={(val: any) => [`${val} заказов`, "Количество"]}
               />
-              <Bar dataKey="orders" fill="var(--chart-line)" radius={[4, 4, 0, 0]} />
+              <Bar
+                dataKey="orders"
+                fill="var(--chart-line)"
+                radius={[4, 4, 0, 0]}
+                isAnimationActive={true}
+                animationDuration={500}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </motion.div>
+
+      {/* Margin & Profitability Calculator */}
+      <MarginCalculator
+        topServices={topServices}
+        avgCheck={summary.avgCheck}
+      />
     </div>
   );
 }

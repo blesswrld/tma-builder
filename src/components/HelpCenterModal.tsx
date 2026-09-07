@@ -451,7 +451,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                   href={`https://docs.gitbook.com`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 text-xs font-mono text-indigo-500 hover:text-indigo-400 font-semibold"
+                  className="flex items-center gap-1.5 text-xs font-mono text-app-primary hover:underline font-semibold"
                 >
                   <span>Открыть в пространстве GitBook</span>
                   <ExternalLink size={12} />
@@ -462,7 +462,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
             /* SEARCH & AI ASSISTANT VIEW */
             <div className="space-y-6 max-w-3xl mx-auto">
               {/* Search Bar */}
-              <div className="flex items-center gap-3 px-4 py-3 bg-app-card border border-app-border rounded-2xl focus-within:border-indigo-500/70 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all shadow-2xs">
+              <div className="flex items-center gap-3 px-4 py-3 bg-app-card border border-app-border rounded-2xl focus-within:border-app-border focus-within:ring-1 focus-within:ring-app-border transition-all shadow-2xs">
                 <Search
                   size={18}
                   className="text-app-muted shrink-0"
@@ -597,7 +597,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                     <div
                       key={article.id}
                       onClick={() => setSelectedArticle(article)}
-                      className="p-4 bg-app-card hover:bg-app-hover border border-app-border hover:border-indigo-500/40 rounded-2xl space-y-2 cursor-pointer transition-all duration-150 group shadow-2xs"
+                      className="p-4 bg-app-card hover:bg-app-hover border border-app-border hover:border-app-border rounded-2xl space-y-2 cursor-pointer transition-all duration-150 group shadow-2xs"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="px-2 py-0.5 bg-app-surface border border-app-border text-app-muted text-[10px] font-mono rounded-lg">
@@ -608,7 +608,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                         </span>
                       </div>
 
-                      <h4 className="font-mono font-bold text-xs text-app-primary group-hover:text-indigo-500 transition-colors line-clamp-2">
+                      <h4 className="font-mono font-bold text-xs text-app-primary transition-colors line-clamp-2">
                         {article.title}
                       </h4>
 
@@ -616,7 +616,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                         {article.summary}
                       </p>
 
-                      <div className="pt-1 flex items-center gap-1 text-[11px] font-mono text-indigo-500 font-semibold">
+                      <div className="pt-1 flex items-center gap-1 text-[11px] font-mono text-app-primary font-semibold">
                         <span>Открыть инструкцию</span>
                         <ChevronRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
                       </div>
@@ -665,7 +665,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                         </span>
                       </div>
 
-                      <h4 className="font-mono font-bold text-xs text-app-primary group-hover:text-indigo-500 transition-colors line-clamp-2">
+                      <h4 className="font-mono font-bold text-xs text-app-primary transition-colors line-clamp-2">
                         {article.title}
                       </h4>
 
@@ -678,7 +678,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                       <span className="text-[10px] text-app-muted">
                         {article.keySteps.length} шагов
                       </span>
-                      <span className="text-indigo-500 font-bold flex items-center gap-0.5">
+                      <span className="text-app-primary font-bold flex items-center gap-0.5">
                         <span>Читать</span>
                         <ChevronRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
                       </span>

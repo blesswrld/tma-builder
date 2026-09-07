@@ -75,7 +75,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-end gap-3.5">
             {/* Store Logo */}
-            <div className={`-mt-10 sm:-mt-16 w-18 h-18 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center font-mono font-bold text-xl sm:text-2xl text-app-primary shrink-0 shadow-lg overflow-hidden border-2 border-app-card ${
+            <div className={`-mt-10 sm:-mt-16 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center font-mono font-bold text-xl sm:text-2xl text-app-primary shrink-0 shadow-lg overflow-hidden border-2 border-app-card ${
               shop.logoUrl ? "bg-transparent" : "bg-app-surface"
             }`}>
               {shop.logoUrl ? (
@@ -100,7 +100,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
             <button
               type="button"
               onClick={handleOpenInfo}
-              className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover hover:text-app-primary text-xs font-mono font-semibold text-app-secondary transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs backdrop-blur-sm"
+              className="flex-1 sm:flex-initial h-9 px-3.5 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover hover:text-app-primary text-xs font-mono font-semibold text-app-secondary transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
             >
               <Info size={14} className="text-app-muted shrink-0" />
               <span>О заведении</span>
@@ -108,9 +108,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
             {shop.phone && (
               <a
                 href={`tel:${shop.phone}`}
-                className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-app-surface text-app-primary border border-app-border hover:bg-app-hover text-xs font-mono font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs backdrop-blur-sm"
+                className="flex-1 sm:flex-initial h-9 px-3.5 rounded-xl bg-app-surface text-app-secondary hover:text-app-primary border border-app-border hover:bg-app-hover text-xs font-mono font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
               >
-                <PhoneIcon size={14} className="text-app-muted" />
+                <PhoneIcon size={14} className="text-app-muted shrink-0" />
                 <span>Позвонить</span>
               </a>
             )}
@@ -119,7 +119,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
 
         {/* Description / Welcome */}
         {shop.description && (
-          <p className="text-xs sm:text-sm text-app-secondary leading-relaxed pt-1 whitespace-pre-line">
+          <p className="text-xs sm:text-sm text-app-secondary leading-relaxed pt-0.5 whitespace-pre-line">
             {shop.description}
           </p>
         )}
@@ -130,7 +130,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
             <button
               type="button"
               onClick={onOpenMap}
-              className="px-3 py-1.5 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border hover:border-emerald-500/40 text-app-secondary hover:text-app-primary flex items-center gap-2 transition-all cursor-pointer group shadow-xs"
+              className="h-8 px-3 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border hover:border-emerald-500/40 text-app-secondary hover:text-app-primary flex items-center gap-2 transition-all cursor-pointer group shadow-2xs"
               title="Посмотреть на интерактивной карте"
             >
               <MapPin size={13} className="text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
@@ -139,21 +139,21 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
           )}
 
           {Boolean(shop.cashbackPercent && Number(shop.cashbackPercent) > 0) && (
-            <div className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center gap-2 font-medium">
+            <div className="h-8 px-3 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center gap-2 font-medium shadow-2xs">
               <Gift size={13} className="shrink-0 text-app-muted" />
               <span>Кэшбэк {shop.cashbackPercent}%</span>
             </div>
           )}
 
           {delivery.enabled !== false && (delivery.courier !== false || Boolean(delivery.shipping)) && (
-            <div className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center gap-2 font-medium">
+            <div className="h-8 px-3 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center gap-2 font-medium shadow-2xs">
               <Truck size={13} className="shrink-0 text-app-muted" />
               <span>Доставка</span>
             </div>
           )}
 
           {delivery.enabled !== false && delivery.pickup !== false && (
-            <div className="px-3 py-1.5 rounded-xl bg-app-surface border border-app-border text-app-secondary flex items-center gap-2">
+            <div className="h-8 px-3 rounded-xl bg-app-surface border border-app-border text-app-secondary flex items-center gap-2 shadow-2xs">
               <Store size={13} className="text-app-muted shrink-0" />
               <span>Самовывоз</span>
             </div>
@@ -163,9 +163,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
             <button
               type="button"
               onClick={onOpenMusic}
-              className="px-3 py-1.5 rounded-xl bg-app-surface hover:bg-app-hover border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 flex items-center gap-2 transition-all cursor-pointer"
+              className="h-8 px-3 rounded-xl bg-app-surface hover:bg-app-hover border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center gap-2 transition-all cursor-pointer shadow-2xs"
             >
-              <Music size={13} className="text-emerald-400 shrink-0" />
+              <Music size={13} className="shrink-0" />
               <span>{musicSettings.title || "Музыка салона"}</span>
             </button>
           )}
@@ -180,9 +180,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.telegram.startsWith("http") ? socials.telegram : `https://t.me/${socials.telegram.replace("@", "")}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-[11px] font-mono font-medium flex items-center gap-1.5 transition-all backdrop-blur-sm"
+                className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
               >
-                <Send size={12} className="text-app-muted" />
+                <Send size={13} className="text-app-muted" />
                 <span>Telegram</span>
               </a>
             )}
@@ -192,9 +192,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 target="_blank"
                 rel="noreferrer"
                 title="* Instagram принадлежит компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ"
-                className="px-2.5 py-1 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-[11px] font-mono font-medium flex items-center gap-1.5 transition-all backdrop-blur-sm"
+                className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
               >
-                <ExternalLink size={12} className="text-app-muted" />
+                <ExternalLink size={13} className="text-app-muted" />
                 <span>Instagram*</span>
               </a>
             )}
@@ -204,9 +204,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 target="_blank"
                 rel="noreferrer"
                 title="* WhatsApp принадлежит компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ"
-                className="px-2.5 py-1 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-[11px] font-mono font-medium flex items-center gap-1.5 transition-all backdrop-blur-sm"
+                className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
               >
-                <MessageCircle size={12} className="text-app-muted" />
+                <MessageCircle size={13} className="text-app-muted" />
                 <span>WhatsApp*</span>
               </a>
             )}
@@ -215,9 +215,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.vk.startsWith("http") ? socials.vk : `https://vk.com/${socials.vk}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-[11px] font-mono font-medium flex items-center gap-1.5 transition-all backdrop-blur-sm"
+                className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
               >
-                <Globe size={12} className="text-app-muted" />
+                <Globe size={13} className="text-app-muted" />
                 <span>ВКонтакте</span>
               </a>
             )}
@@ -226,9 +226,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.website.startsWith("http") ? socials.website : `https://${socials.website}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-[11px] font-mono flex items-center gap-1.5 transition-all backdrop-blur-sm"
+                className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
               >
-                <Globe size={12} className="text-app-muted" />
+                <Globe size={13} className="text-app-muted" />
                 <span>Сайт</span>
               </a>
             )}
@@ -238,11 +238,10 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         {/* Meta Disclaimer Note */}
         {hasSocials && (socials.instagram || socials.whatsapp) && (
           <div
-            className="mt-3 p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] font-mono space-y-0.5 leading-tight"
-            style={{ color: "oklch(0.78 0.18 87.53)" }}
+            className="mt-3 p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 rounded-xl text-[10.5px] font-mono space-y-0.5 leading-tight"
           >
             <strong className="block font-bold">* Примечание о маркировке:</strong>
-            <p>
+            <p className="text-amber-800/90 dark:text-amber-200/90">
               Instagram, WhatsApp и Facebook принадлежат компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ.
             </p>
           </div>

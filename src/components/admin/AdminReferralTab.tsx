@@ -315,7 +315,7 @@ export const AdminReferralTab: React.FC = () => {
 
             <button
               onClick={handleShareTelegram}
-              className="flex items-center justify-center gap-2 py-2.5 px-4 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-mono text-xs font-medium rounded-xl transition-colors cursor-pointer shrink-0"
+              className="flex items-center justify-center gap-2 py-2.5 px-4 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-medium rounded-xl transition-colors cursor-pointer shrink-0"
             >
               <Send size={14} />
               <span>В Telegram</span>

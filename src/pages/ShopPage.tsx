@@ -109,10 +109,20 @@ export default function ShopPage() {
 
   const showToast = (message: string, type: "success" | "error" | "warning" = "success") => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts(prev => [...prev, { id, message, type }]);
+    setToasts(prev => {
+      // Prevent spam: limit identical message to max 3 times
+      const sameMessageCount = prev.filter(t => t.message === message).length;
+      if (sameMessageCount >= 3) {
+        return prev;
+      }
+      // Keep maximum 3 toasts visible simultaneously
+      const trimmed = prev.length >= 3 ? prev.slice(prev.length - 2) : prev;
+      return [...trimmed, { id, message, type }];
+    });
+
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
+    }, 3000);
   };
 
   // Custom Confirmation Modal
@@ -967,7 +977,7 @@ export default function ShopPage() {
       />
 
       {/* Main Container */}
-      <main className="max-w-5xl mx-auto px-4 py-6 space-y-6 pb-28">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 pb-28">
         
         {/* Hero Section */}
         <ShopHero
@@ -1270,7 +1280,8 @@ export default function ShopPage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className={`p-3.5 sm:p-4 rounded-2xl border shadow-xl pointer-events-auto flex items-start gap-3 backdrop-blur-md w-full sm:w-auto ${
+              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+              className={`p-3.5 sm:p-4 rounded-2xl border shadow-xl pointer-events-auto flex items-start gap-3 backdrop-blur-md w-full sm:w-auto cursor-pointer hover:opacity-95 transition-opacity ${
                 toast.type === "success" 
                   ? "bg-[#0b2518]/95 text-emerald-200 border-emerald-800/50" 
                   : toast.type === "error" 

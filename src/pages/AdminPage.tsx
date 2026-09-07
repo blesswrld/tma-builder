@@ -18,6 +18,7 @@ import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useScrollLock } from "../hooks/useScrollLock";
 import QrGeneratorModal from "../components/QrGeneratorModal";
+import NotificationInbox, { TextNotificationItem } from "../components/NotificationInbox";
 import PlanModal from "../components/PlanModal";
 import ReportModal from "../components/ReportModal";
 import { PrivacyPolicyModal } from "../components/PrivacyPolicyModal";
@@ -242,10 +243,20 @@ export default function AdminPage() {
 
   const showToast = (message: string, type: "success" | "error" | "warning" | "info" = "success") => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts(prev => [...prev, { id, message, type }]);
+    setToasts(prev => {
+      // Prevent spam: if identical message is already displayed 3 times, do not add more
+      const sameMessageCount = prev.filter(t => t.message === message).length;
+      if (sameMessageCount >= 3) {
+        return prev;
+      }
+      // Keep maximum 3 toasts simultaneously on screen
+      const trimmed = prev.length >= 3 ? prev.slice(prev.length - 2) : prev;
+      return [...trimmed, { id, message, type }];
+    });
+
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
+    }, 3000);
   };
 
   const requestConfirm = (title: string, message: string, onConfirm: () => void, confirmText = "Подтвердить", isDangerous = true) => {
@@ -331,6 +342,50 @@ export default function AdminPage() {
 
   const { subscribeShop, subscribeShops, isConnected } = useRealtime();
 
+  const [isNotificationBoxOpen, setIsNotificationBoxOpen] = useState(false);
+  const [inboxNotifications, setInboxNotifications] = useState<TextNotificationItem[]>(() => {
+    try {
+      const saved = localStorage.getItem("admin_notifications_inbox");
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+    return [
+      {
+        id: "welcome-system-notif",
+        type: "system",
+        title: "Ящик уведомлений активирован",
+        sender: "Система",
+        message: "Сюда будут приходить текстовые уведомления о новых сообщениях, заказах и отзывах вместо звука.",
+        timestamp: Date.now() - 1800000,
+        isRead: true
+      }
+    ];
+  });
+
+  const saveNotifications = useCallback((items: TextNotificationItem[]) => {
+    setInboxNotifications(items);
+    try {
+      localStorage.setItem("admin_notifications_inbox", JSON.stringify(items.slice(0, 300)));
+    } catch {}
+  }, []);
+
+  const addInboxNotification = useCallback((item: Omit<TextNotificationItem, "id" | "timestamp" | "isRead">) => {
+    const newItem: TextNotificationItem = {
+      ...item,
+      id: "notif_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
+      timestamp: Date.now(),
+      isRead: false
+    };
+    setInboxNotifications((prev) => {
+      const next = [newItem, ...prev.filter((n) => n.id !== newItem.id)].slice(0, 300);
+      try {
+        localStorage.setItem("admin_notifications_inbox", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     if (shops && shops.length > 0) {
       subscribeShops(shops.map(s => s.id));
@@ -354,7 +409,16 @@ export default function AdminPage() {
     if (event.payload && event.shopId === selectedShop?.id) {
       setOrders(prev => [event.payload, ...prev.filter(o => o.id !== event.payload.id)]);
       setNewOrderAlert(event.payload);
-      playOrderChime();
+      addInboxNotification({
+        type: "order",
+        title: `Новый заказ #${event.payload.id ? String(event.payload.id).slice(-4) : ""}`,
+        sender: event.payload.customerName || event.payload.phone || "Покупатель",
+        message: `Сумма: ${Number(event.payload.totalPrice || 0).toLocaleString("ru-RU")} ₽. Ожидает обработки.`,
+        actionTab: "orders"
+      });
+      if (isAudioEnabled) {
+        playOrderChime();
+      }
       fetchOrders(selectedShop.id, true);
     }
   });
@@ -419,7 +483,16 @@ export default function AdminPage() {
   useRealtimeEvent("REVIEW_CREATED", (event) => {
     if (event.payload && (event.shopId === selectedShop?.id || !event.shopId)) {
       setReviews(prev => [event.payload, ...prev.filter(r => r.id !== event.payload.id)]);
-      playOrderChime();
+      addInboxNotification({
+        type: "review",
+        title: `Новый отзыв (${event.payload.rating || 5}★)`,
+        sender: event.payload.authorName || "Пользователь",
+        message: event.payload.comment || "Клиент оставил новый отзыв о товаре.",
+        actionTab: "reviews"
+      });
+      if (isAudioEnabled) {
+        playOrderChime();
+      }
       fetchReviews(true);
     }
   });
@@ -445,6 +518,13 @@ export default function AdminPage() {
         if (!exists) return [event.payload, ...prev];
         return prev.map(c => (c.id === event.payload.id || c.phone === event.payload.phone) ? { ...c, ...event.payload } : c);
       });
+      fetchCustomers(true);
+    }
+  });
+
+  useRealtimeEvent("CUSTOMER_DELETED", (event) => {
+    if (event.payload && (event.shopId === selectedShop?.id || !event.shopId)) {
+      setCustomers(prev => prev.filter(c => c.id !== event.payload.id && c.phone !== event.payload.phone));
       fetchCustomers(true);
     }
   });
@@ -588,8 +668,25 @@ export default function AdminPage() {
     return () => clearInterval(interval);
   }, [fetchChatUnreadCount]);
 
-  useRealtimeEvent(["CHAT_MESSAGE_CREATED", "CHAT_MESSAGES_READ"], () => {
+  useRealtimeEvent(["CHAT_MESSAGE_CREATED", "CHAT_MESSAGES_READ"], (event) => {
     fetchChatUnreadCount();
+    if (event.type === "CHAT_MESSAGE_CREATED" && event.payload) {
+      const msg = event.payload.message;
+      const isFromMe = event.payload.senderId === user?.id;
+      if (!isFromMe && msg && msg.text) {
+        const isFromDev = event.payload.senderRole === "DEVELOPER";
+        addInboxNotification({
+          type: "chat",
+          title: isFromDev ? "Сообщение от разработчика" : "Новое сообщение в чате",
+          sender: isFromDev ? "Команда платформы" : (msg.userName || "Пользователь"),
+          message: msg.text,
+          actionTab: isDeveloperUser ? "devchat" : "support"
+        });
+        if (isAudioEnabled) {
+          playNotificationSound();
+        }
+      }
+    }
   });
 
   // Auto switch tab based on URL query or hash
@@ -3632,6 +3729,8 @@ export default function AdminPage() {
         setIsHelpCenterOpen={setIsHelpCenterOpen}
         shopFilterMode={shopFilterMode}
         setShopFilterMode={setShopFilterMode}
+        unreadNotificationsCount={inboxNotifications.filter((n) => !n.isRead).length}
+        onOpenNotificationBox={() => setIsNotificationBoxOpen((prev) => !prev)}
       />
 
       {/* Main Content Workspace */}
@@ -4342,7 +4441,14 @@ export default function AdminPage() {
 
           {/* TAB: CRM CUSTOMERS */}
           {activeTab === "customers" && (
-            <AdminCustomersTab customers={customers} />
+            <AdminCustomersTab
+              customers={customers}
+              shopId={selectedShop?.id}
+              token={token}
+              requestConfirm={requestConfirm}
+              showToast={showToast}
+              onCustomerUpdated={() => fetchCustomers(true)}
+            />
           )}
 
           {/* TAB: ANALYTICS */}
@@ -4644,6 +4750,93 @@ export default function AdminPage() {
         shopSlug={selectedShop?.slug || "shop"}
       />
 
+      <NotificationInbox
+        isOpen={isNotificationBoxOpen}
+        onClose={() => setIsNotificationBoxOpen(false)}
+        notifications={inboxNotifications}
+        onMarkAllAsRead={() =>
+          saveNotifications(inboxNotifications.map((n) => ({ ...n, isRead: true })))
+        }
+        onClearAll={() => saveNotifications([])}
+        onDeleteNotification={(id) =>
+          saveNotifications(inboxNotifications.filter((n) => n.id !== id))
+        }
+        onNotificationClick={(item) => {
+          saveNotifications(
+            inboxNotifications.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
+          );
+          setIsNotificationBoxOpen(false);
+          if (item.actionTab === "orders") {
+            setActiveTab("orders");
+          } else if (item.actionTab === "reviews") {
+            setActiveTab("reviews");
+          } else if (item.actionTab === "devchat") {
+            setActiveTab("devchat");
+          } else if (item.actionTab === "support" || item.type === "chat") {
+            if (isDeveloperUser) {
+              setActiveTab("devchat");
+            } else {
+              setIsFloatingSupportOpen(true);
+            }
+          }
+        }}
+        isAudioEnabled={isAudioEnabled}
+        onToggleAudio={handleToggleAdminAudio}
+        onSendTestNotification={(category?: "all" | "chat" | "order" | "review") => {
+          const cat = category && category !== "all" 
+            ? category 
+            : (["order", "chat", "review"] as const)[Math.floor(Math.random() * 3)];
+
+          if (cat === "order") {
+            const randomNum = Math.floor(1000 + Math.random() * 9000);
+            const clients = ["Елена (покупатель)", "Алексей В.", "Дмитрий С.", "Анна М."];
+            const amounts = [1200, 2450, 3800, 950, 4200];
+            const sender = clients[Math.floor(Math.random() * clients.length)];
+            const amount = amounts[Math.floor(Math.random() * amounts.length)];
+            addInboxNotification({
+              type: "order",
+              title: `Новый заказ #${randomNum}`,
+              sender,
+              message: `Оформлен заказ на сумму ${amount.toLocaleString("ru-RU")} ₽. Ожидает обработки.`,
+              actionTab: "orders"
+            });
+          } else if (cat === "review") {
+            const reviews = [
+              { sender: "Михаил К.", text: "«Отличный сервис и быстрая доставка! Буду заказывать ещё.»", rating: "5★" },
+              { sender: "Ольга П.", text: "«Качество превзошло все ожидания, спасибо большое за подарок!»", rating: "5★" },
+              { sender: "Артем Д.", text: "«Все пришло в идеальном состоянии, рекомендую магазин.»", rating: "5★" }
+            ];
+            const rev = reviews[Math.floor(Math.random() * reviews.length)];
+            addInboxNotification({
+              type: "review",
+              title: `Новый отзыв (${rev.rating})`,
+              sender: rev.sender,
+              message: rev.text,
+              actionTab: "reviews"
+            });
+          } else {
+            // "chat" - support dialog with platform developer/support
+            if (isDeveloperUser) {
+              addInboxNotification({
+                type: "chat",
+                title: "Чат поддержки платформы",
+                sender: "Пользователь платформы",
+                message: "Здравствуйте! Подскажите, пожалуйста, как подключить бота к каналу?",
+                actionTab: "devchat"
+              });
+            } else {
+              addInboxNotification({
+                type: "chat",
+                title: "Сообщение от поддержки",
+                sender: "Поддержка платформы",
+                message: "Здравствуйте! Мы проверили настройки вашего магазина, всё подключено и работает стабильно.",
+                actionTab: "support"
+              });
+            }
+          }
+        }}
+      />
+
       <PlanModal
         isOpen={isPlanModalOpen}
         onClose={() => setIsPlanModalOpen(false)}
@@ -4730,7 +4923,8 @@ export default function AdminPage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className={`p-4 rounded-xl border shadow-lg pointer-events-auto flex items-start gap-3 backdrop-blur-md ${
+              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+              className={`p-4 rounded-xl border shadow-lg pointer-events-auto flex items-start gap-3 backdrop-blur-md cursor-pointer hover:opacity-95 transition-opacity ${
                 toast.type === "success" 
                   ? "bg-[#0b2518]/90 text-emerald-200 border-emerald-800/40" 
                   : toast.type === "error" 
