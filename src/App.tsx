@@ -10,6 +10,7 @@ import { DeveloperServersPage } from './pages/DeveloperServersPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { ComplianceNotice } from './components/ComplianceNotice';
 import { LegalCenterModal } from './components/LegalCenterModal';
 import { GlobalTooltip } from './components/ui/Tooltip';
@@ -63,11 +64,12 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <RealtimeProvider>
-        <AuthProvider>
-          <BrowserRouter>
-            <ReferralCapture />
-            <Routes>
+      <LanguageProvider>
+        <RealtimeProvider>
+          <AuthProvider>
+            <BrowserRouter>
+              <ReferralCapture />
+              <Routes>
               <Route path="/" element={<AdminPage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/referrals" element={<ReferralPage />} />
@@ -165,8 +167,9 @@ export default function App() {
           </BrowserRouter>
         </AuthProvider>
       </RealtimeProvider>
-    </ThemeProvider>
-  );
+    </LanguageProvider>
+  </ThemeProvider>
+);
 }
 
 

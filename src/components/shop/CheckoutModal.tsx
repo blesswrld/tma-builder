@@ -7,6 +7,7 @@ import { useScrollLock } from "../../hooks/useScrollLock";
 import CityDropdown from "../CityDropdown";
 import { formatPhoneInputLive } from "../../lib/validation";
 import { searchRussianAddressSuggestions, localizeToRussian, AddressSuggestion } from "../../lib/russianGeo";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface CheckoutModalProps {
   shop: Shop;
@@ -97,6 +98,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   handleSubmitOrder,
   onOpenPrivacy,
 }) => {
+  const { t } = useLanguage();
   useScrollLock(isOpen);
   const [consentPd, setConsentPd] = React.useState<boolean>(false);
   const [consentAds, setConsentAds] = React.useState<boolean>(false);
@@ -188,12 +190,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <div className="h-16 flex items-center justify-between px-6 border-b border-app-border bg-app-modal-header shrink-0">
               <div className="flex items-center gap-2">
                 <ShoppingBag size={18} className="text-app-muted" />
-                <h2 className="text-sm font-semibold tracking-tight text-app-primary">Оформление заказа</h2>
+                <h2 className="text-sm font-semibold tracking-tight text-app-primary">{t("checkout.title", "Оформление заказа")}</h2>
               </div>
               <button 
                 type="button"
                 onClick={onClose} 
                 className="text-app-muted hover:text-app-primary transition-colors p-1.5 rounded-lg hover:bg-app-hover cursor-pointer"
+                title={t("common.close", "Закрыть")}
               >
                 <X size={18} />
               </button>
@@ -202,7 +205,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 custom-scrollbar">
               {/* Order Items Summary */}
               <div>
-                <h3 className="text-[10px] font-mono text-app-muted uppercase tracking-wider mb-3">Состав заказа</h3>
+                <h3 className="text-[10px] font-mono text-app-muted uppercase tracking-wider mb-3">{t("checkout.order_summary", "Состав заказа")}</h3>
                 <div className="space-y-2.5">
                   {Object.entries(cart).map(([id, qty]) => {
                     const service = (shop?.services || []).find((s: Service) => s.id === id);
@@ -226,7 +229,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       type="text"
                       value={promocodeInput}
                       onChange={e => setPromocodeInput(e.target.value.toUpperCase())}
-                      placeholder="Промокод на скидку"
+                      placeholder={t("checkout.promo_placeholder", "Промокод на скидку")}
                       className="flex-1 bg-app-input border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border font-mono uppercase"
                     />
                     <button
@@ -236,13 +239,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       className="px-4 bg-app-secondary hover:bg-app-hover text-app-primary text-xs rounded-xl transition-colors disabled:opacity-50 font-mono flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       {isValidatingPromo && <SpinnerLoader size={12} />}
-                      {isValidatingPromo ? "Проверка..." : "Применить"}
+                      {isValidatingPromo ? t("checkout.checking", "Проверка...") : t("checkout.apply_promo", "Применить")}
                     </button>
                   </div>
                   {promoError && <p className="text-xs text-rose-500 font-mono">{promoError}</p>}
                   {appliedPromo && (
                     <div className="flex justify-between items-center text-xs font-mono text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl">
-                      <span>✓ Промокод {appliedPromo.code} применён</span>
+                      <span>✓ {t("checkout.promo_applied", "Промокод")} {appliedPromo.code} {t("checkout.applied", "применён")}</span>
                       <span className="font-semibold">-{discountValue} ₽</span>
                     </div>
                   )}
@@ -251,7 +254,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 {/* Tipping Options Section */}
                 <div className="mt-5 pt-4 border-t border-app-border space-y-2.5">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">Чаевые заведению</span>
+                    <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">{t("checkout.tips", "Чаевые заведению")}</span>
                     {tipAmount > 0 && <span className="text-xs font-mono text-app-primary font-bold">+{tipAmount} ₽</span>}
                   </div>
                   <div className="grid grid-cols-4 gap-2">
@@ -278,37 +281,37 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 {/* Totals Breakdown */}
                 <div className="mt-4 pt-4 border-t border-app-border space-y-1.5 font-mono">
                   <div className="flex justify-between items-center text-xs text-app-muted">
-                    <span>Товары ({(Object.values(cart) as number[]).reduce((acc, qty) => acc + (qty || 0), 0)})</span>
+                    <span>{t("checkout.items", "Товары")} ({(Object.values(cart) as number[]).reduce((acc, qty) => acc + (qty || 0), 0)})</span>
                     <span>{totalPrice} ₽</span>
                   </div>
                   {discountValue > 0 && (
                     <div className="flex justify-between items-center text-xs text-emerald-500">
-                      <span>Скидка</span>
+                      <span>{t("checkout.discount", "Скидка")}</span>
                       <span className="font-semibold">-{discountValue} ₽</span>
                     </div>
                   )}
                   {tipAmount > 0 && (
                     <div className="flex justify-between items-center text-xs text-app-primary">
-                      <span>Чаевые</span>
+                      <span>{t("checkout.tips_label", "Чаевые")}</span>
                       <span className="font-semibold">+{tipAmount} ₽</span>
                     </div>
                   )}
                   <div className="flex justify-between items-center text-xs text-app-muted">
-                    <span>Доставка</span>
+                    <span>{t("checkout.delivery", "Доставка")}</span>
                     <span className="text-app-primary font-medium">
                       {fulfillmentMethod === "courier"
                         ? (calculatedDeliveryFee === 0 
-                            ? (isDeliveryFree ? "Бесплатно (акция)" : "Бесплатно") 
+                            ? (isDeliveryFree ? t("checkout.free_promo", "Бесплатно (акция)") : t("checkout.free", "Бесплатно")) 
                             : `+${calculatedDeliveryFee} ₽`)
                         : fulfillmentMethod === "shipping"
-                        ? (calculatedDeliveryFee > 0 ? `+${calculatedDeliveryFee} ₽` : "0 ₽ (Почта / СДЭК)")
+                        ? (calculatedDeliveryFee > 0 ? `+${calculatedDeliveryFee} ₽` : t("checkout.shipping_free", "0 ₽ (Почта / СДЭК)"))
                         : fulfillmentMethod === "online"
-                        ? "Онлайн (0 ₽)"
-                        : "0 ₽ (Самовывоз)"}
+                        ? t("checkout.online_free", "Онлайн (0 ₽)")
+                        : t("checkout.pickup_free", "0 ₽ (Самовывоз)")}
                     </span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-app-border text-base font-bold text-app-primary">
-                    <span className="text-xs text-app-muted uppercase font-normal">Итого к оплате</span>
+                    <span className="text-xs text-app-muted uppercase font-normal">{t("checkout.total_to_pay", "Итого к оплате")}</span>
                     <span>{finalTotalPrice} ₽</span>
                   </div>
 
@@ -316,7 +319,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <div className="pt-2 flex items-center justify-between text-[11px] font-mono text-app-primary font-semibold bg-app-card p-2.5 rounded-xl border border-app-border">
                       <div className="flex items-center gap-1.5">
                         <Gift size={13} className="shrink-0 text-app-muted" />
-                        <span>Бонусы за заказ ({shop.cashbackPercent}%)</span>
+                        <span>{t("checkout.bonus_cashback", "Бонусы за заказ")} ({shop.cashbackPercent}%)</span>
                       </div>
                       <span>+{Math.round((finalTotalPrice * Number(shop.cashbackPercent)) / 100)} ₽</span>
                     </div>
@@ -329,7 +332,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <div className="p-3.5 bg-app-card border border-app-border rounded-2xl space-y-1.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-app-primary font-mono">
                     <CreditCard size={14} className="text-app-muted shrink-0" />
-                    <span>Инструкции по оплате</span>
+                    <span>{t("checkout.payment_instructions", "Инструкции по оплате")}</span>
                   </div>
                   <p className="text-xs text-app-secondary leading-relaxed font-sans whitespace-pre-line bg-app-surface p-2.5 rounded-xl border border-app-border/60">
                     {shop.paymentInstructions}
@@ -339,7 +342,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               {/* Delivery / Fulfillment Section */}
               <div>
-                <h3 className="text-[10px] font-mono text-app-muted uppercase tracking-wider mb-3">Способ получения и данные</h3>
+                <h3 className="text-[10px] font-mono text-app-muted uppercase tracking-wider mb-3">{t("checkout.fulfillment_section", "Способ получения и данные")}</h3>
                 
                 {/* Fulfillment Method Selector */}
                 <div className={`grid ${gridColsClass} gap-2 mb-4 font-mono text-xs`}>
@@ -355,10 +358,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
                           : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
                       }`}
-                      title={isCourierDisabled ? "Доставка курьером недоступна" : undefined}
+                      title={isCourierDisabled ? t("checkout.courier_disabled", "Доставка курьером недоступна") : undefined}
                     >
                       <Truck size={14} />
-                      <span>Курьер</span>
+                      <span>{t("checkout.courier", "Курьер")}</span>
                     </button>
                   )}
 
@@ -374,10 +377,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
                           : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
                       }`}
-                      title={isPickupDisabled ? "Самовывоз недоступен" : undefined}
+                      title={isPickupDisabled ? t("checkout.pickup_disabled", "Самовывоз недоступен") : undefined}
                     >
                       <Store size={14} />
-                      <span>Самовывоз</span>
+                      <span>{t("checkout.pickup", "Самовывоз")}</span>
                     </button>
                   )}
 
@@ -393,10 +396,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
                           : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
                       }`}
-                      title={isShippingDisabled ? "Доставка Почтой / СДЭК недоступна" : undefined}
+                      title={isShippingDisabled ? t("checkout.shipping_disabled", "Доставка Почтой / СДЭК недоступна") : undefined}
                     >
                       <Package size={14} />
-                      <span>Почта / СДЭК</span>
+                      <span>{t("checkout.shipping", "Почта / СДЭК")}</span>
                     </button>
                   )}
 
@@ -412,10 +415,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
                           : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
                       }`}
-                      title={isOnlineDisabled ? "Онлайн недоступен для выбранных позиций" : undefined}
+                      title={isOnlineDisabled ? t("checkout.online_disabled", "Онлайн недоступен для выбранных позиций") : undefined}
                     >
                       <Globe size={14} />
-                      <span>Онлайн</span>
+                      <span>{t("checkout.online", "Онлайн")}</span>
                     </button>
                   )}
                 </div>
@@ -434,7 +437,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <div className="space-y-3 p-3.5 bg-app-card/50 border border-app-border rounded-2xl">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-app-primary font-mono">
                         <Truck size={14} className="text-app-muted" />
-                        <span>Адрес курьерской доставки</span>
+                        <span>{t("checkout.courier_address", "Адрес курьерской доставки")}</span>
                       </div>
 
                       {/* City Dropdown Selection */}
@@ -444,8 +447,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           setFormData(prev => ({ ...prev, city: selectedCity }));
                         }}
                         error={formErrors.city}
-                        label="Город доставки"
-                        placeholder="Выберите город доставки..."
+                        label={t("checkout.city_label", "Город доставки")}
+                        placeholder={t("checkout.city_placeholder", "Выберите город доставки...")}
                         required
                       />
 
@@ -453,7 +456,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <div className="space-y-1 relative">
                         <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
                           <MapPin size={12} className="text-app-muted" />
-                          <span>Улица, номер дома, корпус</span>
+                          <span>{t("checkout.street_house", "Улица, номер дома, корпус")}</span>
                           <span className="text-rose-500 font-bold">*</span>
                         </label>
                         <div className="relative">
@@ -468,7 +471,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                                 setFormData(p => ({ ...p, deliveryAddress: localizeToRussian(p.deliveryAddress.trim()) }));
                               }
                             }}
-                            placeholder="Например: ул. Пушкина, д. 15, корп. 2" 
+                            placeholder={t("checkout.address_placeholder", "Например: ул. Пушкина, д. 15, корп. 2")} 
                             className={`w-full bg-app-input border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none transition-colors font-sans ${
                               formErrors.deliveryAddress
                                 ? "border-rose-500/60 ring-1 ring-rose-500/20 bg-rose-500/5"
@@ -503,7 +506,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                                   </div>
                                 </div>
                                 <span className="text-[9px] font-mono text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded shrink-0">
-                                  Выбрать
+                                  {t("checkout.select", "Выбрать")}
                                 </span>
                               </button>
                             ))}
@@ -522,14 +525,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <div className="space-y-1">
                         <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
                           <Clock size={12} className="text-app-muted" />
-                          <span>Желаемое время доставки</span>
+                          <span>{t("checkout.desired_time", "Желаемое время доставки")}</span>
                         </label>
                         <input 
                           type="text" 
                           maxLength={40}
                           value={formData.preferredTime} 
                           onChange={e => setFormData(p => ({ ...p, preferredTime: e.target.value }))} 
-                          placeholder="Как можно скорее или укажите время (напр. к 19:30)" 
+                          placeholder={t("checkout.desired_time_placeholder", "Как можно скорее или укажите время (напр. к 19:30)")} 
                           className="w-full bg-app-input border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-border/80 transition-colors font-sans" 
                         />
                       </div>
@@ -537,16 +540,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       {deliveryMinOrderVal > 0 && totalPrice < deliveryMinOrderVal && (
                         <div className="mt-2 p-2.5 bg-app-card border border-app-border rounded-xl text-app-primary text-[11px] font-mono flex items-center gap-1.5">
                           <AlertCircle size={13} className="text-app-muted shrink-0" />
-                          <span>Минимальный заказ для доставки: {deliveryMinOrderVal} ₽ (не хватает {deliveryMinOrderVal - totalPrice} ₽)</span>
+                          <span>{t("checkout.min_order_msg", "Минимальный заказ для доставки")}: {deliveryMinOrderVal} ₽ ({t("checkout.missing", "не хватает")} {deliveryMinOrderVal - totalPrice} ₽)</span>
                         </div>
                       )}
                       {isDeliveryFree ? (
                         <p className="text-[11px] text-emerald-500 font-semibold mt-1 font-mono">
-                          ✓ Бесплатная доставка при заказе от {freeDeliveryThreshVal} ₽ применена!
+                          ✓ {t("checkout.free_applied", "Бесплатная доставка при заказе от")} {freeDeliveryThreshVal} ₽ {t("checkout.applied", "применена")}!
                         </p>
                       ) : freeDeliveryThreshVal > 0 ? (
                         <p className="text-[11px] text-app-muted mt-1 font-mono">
-                          💡 Добавьте ещё на {freeDeliveryThreshVal - totalPrice} ₽ для бесплатной доставки!
+                          💡 {t("checkout.add_more", "Добавьте ещё на")} {freeDeliveryThreshVal - totalPrice} ₽ {t("checkout.for_free_delivery", "для бесплатной доставки!")}
                         </p>
                       ) : null}
                     </div>
@@ -557,7 +560,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <div className="space-y-3 p-3.5 bg-app-card/50 border border-app-border rounded-2xl">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-app-primary font-mono">
                         <Package size={14} className="text-app-muted" />
-                        <span>Доставка Почтой России / СДЭК</span>
+                        <span>{t("checkout.shipping_title", "Доставка Почтой России / СДЭК")}</span>
                       </div>
 
                       {/* City Dropdown Selection */}
@@ -567,8 +570,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           setFormData(prev => ({ ...prev, city: selectedCity }));
                         }}
                         error={formErrors.city}
-                        label="Город получения посылки"
-                        placeholder="Выберите город назначения..."
+                        label={t("checkout.shipping_city_label", "Город получения посылки")}
+                        placeholder={t("checkout.shipping_city_placeholder", "Выберите город назначения...")}
                         required
                       />
 
@@ -576,7 +579,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <div className="space-y-1">
                         <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
                           <MapPin size={12} className="text-app-muted" />
-                          <span>Почтовый индекс (6 цифр) или адрес ПВЗ СДЭК</span>
+                          <span>{t("checkout.postal_index_label", "Почтовый индекс (6 цифр) или адрес ПВЗ СДЭК")}</span>
                           <span className="text-rose-500 font-bold">*</span>
                         </label>
                         <input 
@@ -584,7 +587,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           maxLength={150}
                           value={formData.deliveryAddress} 
                           onChange={e => setFormData(p => ({ ...p, deliveryAddress: e.target.value }))} 
-                          placeholder="Например: 364000 или ПВЗ СДЭК ул. Мира, 10" 
+                          placeholder={t("checkout.postal_index_placeholder", "Например: 364000 или ПВЗ СДЭК ул. Мира, 10")} 
                           className={`w-full bg-app-input border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none transition-colors font-sans ${
                             formErrors.deliveryAddress
                               ? "border-rose-500/60 ring-1 ring-rose-500/20 bg-rose-500/5"
@@ -598,7 +601,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           </p>
                         )}
                         <p className="text-[10px] text-app-muted font-mono leading-relaxed pt-0.5">
-                          📦 Для отправки укажите 6-значный индекс вашего почтового отделения или адрес/код пункта выдачи СДЭК.
+                          📦 {t("checkout.shipping_hint", "Для отправки укажите 6-значный индекс вашего почтового отделения или адрес/код пункта выдачи СДЭК.")}
                         </p>
                       </div>
                     </div>
@@ -610,10 +613,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <div className="p-3 bg-app-surface border border-app-border rounded-xl text-xs space-y-1 font-sans">
                         <span className="font-bold text-app-primary font-mono block flex items-center gap-1.5">
                           <Store size={14} className="text-app-muted" />
-                          <span>Пункт самовывоза заведения:</span>
+                          <span>{t("checkout.pickup_point", "Пункт самовывоза заведения:")}</span>
                         </span>
                         <p className="text-app-secondary">
-                          {shop.address || "Адрес заведения уточняется"}
+                          {shop.address || t("checkout.address_clarifying", "Адрес заведения уточняется")}
                         </p>
                       </div>
 
@@ -621,28 +624,28 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         <div className="space-y-1">
                           <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
                             <Hash size={12} className="text-app-muted" />
-                            <span>№ стола / места</span>
+                            <span>{t("checkout.table_number", "№ стола / места")}</span>
                           </label>
                           <input 
                             type="text" 
                             maxLength={30}
                             value={formData.tableNumber} 
                             onChange={e => setFormData(p => ({ ...p, tableNumber: e.target.value }))} 
-                            placeholder="Если заказ в зале" 
+                            placeholder={t("checkout.table_placeholder", "Если заказ в зале")} 
                             className="w-full bg-app-input border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-border/80 transition-colors" 
                           />
                         </div>
                         <div className="space-y-1">
                           <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
                             <Clock size={12} className="text-app-muted" />
-                            <span>Время готовности</span>
+                            <span>{t("checkout.ready_time", "Время готовности")}</span>
                           </label>
                           <input 
                             type="text" 
                             maxLength={30}
                             value={formData.preferredTime} 
                             onChange={e => setFormData(p => ({ ...p, preferredTime: e.target.value }))} 
-                            placeholder="К какому времени" 
+                            placeholder={t("checkout.ready_time_placeholder", "К какому времени")} 
                             className="w-full bg-app-input border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-border/80 transition-colors" 
                           />
                         </div>
@@ -654,14 +657,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <div className="space-y-3 p-3.5 bg-app-card/50 border border-app-border rounded-2xl">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-app-primary font-mono">
                       <User size={14} className="text-app-muted" />
-                      <span>{fulfillmentMethod === "shipping" ? "Данные получателя (по паспорту)" : "Контактные данные"}</span>
+                      <span>{fulfillmentMethod === "shipping" ? t("checkout.recipient_data", "Данные получателя (по паспорту)") : t("checkout.contact_data", "Контактные данные")}</span>
                     </div>
 
                     {/* Customer Name */}
                     <div className="space-y-1">
                       <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
                         <User size={12} className="text-app-muted" />
-                        <span>{fulfillmentMethod === "shipping" ? "ФИО получателя полностью" : "Ваше имя"}</span>
+                        <span>{fulfillmentMethod === "shipping" ? t("checkout.full_name", "ФИО получателя полностью") : t("checkout.your_name", "Ваше имя")}</span>
                         <span className="text-rose-500 font-bold">*</span>
                       </label>
                       <input 
@@ -669,7 +672,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         maxLength={60}
                         value={formData.name} 
                         onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} 
-                        placeholder={fulfillmentMethod === "shipping" ? "Иванов Иван Иванович" : "Как к вам обращаться"} 
+                        placeholder={fulfillmentMethod === "shipping" ? t("checkout.name_placeholder_shipping", "Иванов Иван Иванович") : t("checkout.name_placeholder", "Как к вам обращаться")} 
                         className={`w-full bg-app-input border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none transition-colors font-sans ${
                           formErrors.name
                             ? "border-rose-500/60 ring-1 ring-rose-500/20 bg-rose-500/5"
@@ -688,7 +691,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <div className="space-y-1">
                       <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
                         <Phone size={12} className="text-app-muted" />
-                        <span>Номер телефона</span>
+                        <span>{t("checkout.phone_number", "Номер телефона")}</span>
                         <span className="text-rose-500 font-bold">*</span>
                       </label>
                       <input 
@@ -716,7 +719,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <div className="space-y-1 p-3.5 bg-app-card/50 border border-app-border rounded-2xl">
                     <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
                       <FileText size={12} className="text-app-muted" />
-                      <span>Комментарий к заказу</span>
+                      <span>{t("checkout.order_comment", "Комментарий к заказу")}</span>
                     </label>
                     <div className="relative">
                       <textarea 
@@ -724,7 +727,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         maxLength={300}
                         value={formData.note} 
                         onChange={e => setFormData(p => ({ ...p, note: e.target.value }))} 
-                        placeholder="Пожелания к заказу, код домофона, ориентир или детали..." 
+                        placeholder={t("checkout.comment_placeholder", "Пожелания к заказу, код домофона, ориентир или детали...")} 
                         className="w-full bg-app-input border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-border/80 transition-colors resize-none font-sans" 
                       />
                       <span className="absolute bottom-2 right-2 text-[10px] font-mono text-app-muted pointer-events-none">
@@ -748,7 +751,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         className="w-4 h-4 mt-0.5 rounded border-app-border accent-emerald-500 cursor-pointer shrink-0"
                       />
                       <label htmlFor="consent-pd" className="text-[11px] text-app-secondary cursor-pointer leading-tight select-none">
-                        <span>Я даю согласие на </span>
+                        <span>{t("checkout.consent_agree", "Я даю согласие на")} </span>
                         <button
                           type="button"
                           onClick={(e) => {
@@ -757,9 +760,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           }}
                           className="underline text-app-primary font-medium hover:text-emerald-400 cursor-pointer"
                         >
-                          обработку персональных данных
+                          {t("checkout.privacy_policy", "обработку персональных данных")}
                         </button>
-                        <span> (152-ФЗ) и принимаю условия </span>
+                        <span> {t("checkout.and_accept", "(152-ФЗ) и принимаю условия")} </span>
                         <button
                           type="button"
                           onClick={(e) => {
@@ -768,7 +771,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           }}
                           className="underline text-app-primary font-medium hover:text-emerald-400 cursor-pointer"
                         >
-                          Публичной оферты
+                          {t("checkout.public_offer", "Публичной оферты")}
                         </button>
                         <span className="text-rose-500 font-bold ml-0.5">*</span>
                       </label>
@@ -791,14 +794,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         className="w-4 h-4 mt-0.5 rounded border-app-border accent-emerald-500 cursor-pointer shrink-0"
                       />
                       <label htmlFor="consent-ads" className="text-[11px] text-app-muted cursor-pointer leading-tight select-none">
-                        Получать персональные скидки, промокоды и уведомления об акциях (38-ФЗ «О рекламе»)
+                        {t("checkout.consent_ads", "Получать персональные скидки, промокоды и уведомления об акциях (38-ФЗ «О рекламе»)")}
                       </label>
                     </div>
 
                     {/* 54-FZ Fiscal Receipt Notice */}
                     <div className="pt-1.5 flex items-center gap-1.5 text-[10px] font-mono text-app-muted border-t border-app-border/40">
                       <CreditCard size={12} className="text-emerald-400 shrink-0" />
-                      <span>Электронный чек (54-ФЗ) будет отправлен по номеру телефона</span>
+                      <span>{t("checkout.receipt_notice", "Электронный чек (54-ФЗ) будет отправлен по номеру телефона")}</span>
                     </div>
                   </div>
                 </form>
@@ -812,7 +815,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 onClick={(e) => {
                   if (!consentPd) {
                     e.preventDefault();
-                    setConsentError("Необходимо подтвердить согласие на обработку персональных данных (152-ФЗ)");
+                    setConsentError(t("checkout.consent_error", "Необходимо подтвердить согласие на обработку персональных данных (152-ФЗ)"));
                     return;
                   }
                   setConsentError(null);
@@ -823,12 +826,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 {isSubmitting ? (
                   <>
                     <SpinnerLoader size={16} />
-                    <span>Обработка заказа...</span>
+                    <span>{t("checkout.submitting", "Обработка заказа...")}</span>
                   </>
                 ) : (
                   <>
                     <ShoppingBag size={16} className="text-app-accent-fg" />
-                    <span>Подтвердить заказ ({finalTotalPrice} ₽)</span>
+                    <span>{t("checkout.confirm_order", "Подтвердить заказ")} ({finalTotalPrice} ₽)</span>
                   </>
                 )}
               </button>
@@ -840,7 +843,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     onClick={onOpenPrivacy}
                     className="underline hover:text-app-primary text-app-secondary cursor-pointer transition-colors"
                   >
-                    Политика конфиденциальности (152-ФЗ)
+                    {t("footer.privacy", "Политика конфиденциальности (152-ФЗ)")}
                   </button>
                   <span>•</span>
                   <button
@@ -848,7 +851,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     onClick={onOpenPrivacy}
                     className="underline hover:text-app-primary text-app-secondary cursor-pointer transition-colors"
                   >
-                    Публичная оферта (437 ГК РФ)
+                    {t("footer.terms", "Публичная оферта (437 ГК РФ)")}
                   </button>
                 </div>
               )}

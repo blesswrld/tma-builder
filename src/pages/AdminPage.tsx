@@ -16,6 +16,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
 import { useTheme } from "../context/ThemeContext";
+import { useLanguage } from "../context/LanguageContext";
 import { useScrollLock } from "../hooks/useScrollLock";
 import QrGeneratorModal from "../components/QrGeneratorModal";
 import NotificationInbox, { TextNotificationItem } from "../components/NotificationInbox";
@@ -129,6 +130,7 @@ export default function AdminPage() {
   const navigate = useNavigate();
   const { user, token, isLoading: authLoading, login, register, logout, sendCode, verifyCode, resetPassword, updateProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { t } = useLanguage();
 
   // Developer check for gelgaev.dev@mail.ru
   const isDeveloperUser = Boolean(
@@ -3751,39 +3753,40 @@ export default function AdminPage() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-app-muted font-mono">
-                  {activeTab === "profile" ? "Аккаунт /" : "Заведение /"}
+                  {activeTab === "profile" ? t("sub.account", "Аккаунт /") : t("sub.establishment", "Заведение /")}
                 </span>
                 <h2 className="text-sm font-semibold tracking-tight text-app-primary font-mono">
-                  {activeTab === "services" && "Меню и услуги"}
-                  {activeTab === "orders" && "Заказы"}
-                  {activeTab === "promocodes" && "Промокоды"}
-                  {activeTab === "reviews" && "Отзывы"}
-                  {activeTab === "banners" && "Баннеры"}
-                  {activeTab === "broadcasts" && "Рассылки"}
-                  {activeTab === "customers" && "Клиенты CRM"}
-                  {activeTab === "team" && "Команда и доступ"}
-                  {activeTab === "analytics" && "Аналитика"}
-                  {activeTab === "botsim" && "Симулятор бота"}
-                  {activeTab === "payments" && "История оплат"}
-                  {activeTab === "servers" && "Состояние серверов (Dev)"}
-                  {activeTab === "devchat" && (isDeveloperUser ? "Чат поддержки платформы (Dev)" : "Чат с разработчиком")}
-                  {activeTab === "settings" && "Настройки заведения"}
-                  {activeTab === "profile" && "Профиль администратора"}
-                  {activeTab === "createshop" && "Создать заведение"}
-                  {activeTab === "addservice" && "Новая позиция меню"}
-                  {activeTab === "editservice" && "Редактирование позиции"}
+                  {activeTab === "services" && t("nav.services", "Меню и услуги")}
+                  {activeTab === "orders" && t("nav.orders", "Заказы")}
+                  {activeTab === "promocodes" && t("nav.promocodes", "Промокоды")}
+                  {activeTab === "reviews" && t("nav.reviews", "Отзывы")}
+                  {activeTab === "banners" && t("nav.banners", "Баннеры")}
+                  {activeTab === "broadcasts" && t("nav.broadcasts", "Рассылки")}
+                  {activeTab === "referrals" && t("nav.referrals", "Рефералы")}
+                  {activeTab === "customers" && t("nav.customers", "Клиенты CRM")}
+                  {activeTab === "team" && t("nav.team", "Команда и доступ")}
+                  {activeTab === "analytics" && t("nav.analytics", "Аналитика")}
+                  {activeTab === "botsim" && t("nav.botsim", "Симулятор бота")}
+                  {activeTab === "payments" && t("nav.payments", "История оплат")}
+                  {activeTab === "servers" && t("nav.servers", "Состояние серверов (Dev)")}
+                  {activeTab === "devchat" && (isDeveloperUser ? t("nav.devchat_support", "Чат поддержки платформы (Dev)") : t("nav.devchat", "Чат с разработчиком"))}
+                  {activeTab === "settings" && t("nav.settings", "Настройки заведения")}
+                  {activeTab === "profile" && t("nav.profile", "Профиль администратора")}
+                  {activeTab === "createshop" && t("nav.createshop", "Создать заведение")}
+                  {activeTab === "addservice" && t("nav.addservice", "Новая позиция меню")}
+                  {activeTab === "editservice" && t("nav.editservice", "Редактирование позиции")}
                 </h2>
               </div>
               <p className="text-[11px] text-app-muted font-sans truncate max-w-[200px] sm:max-w-xs">
                 {activeTab === "profile"
-                  ? (user?.email || "Управление аккаунтом")
+                  ? (user?.email || t("sub.manage_account", "Управление аккаунтом"))
                   : activeTab === "servers"
-                  ? "Телеметрия и статус инфраструктуры"
+                  ? t("sub.servers_desc", "Телеметрия и статус инфраструктуры")
                   : activeTab === "devchat"
-                  ? "Прямая связь с разработчиком, поддержка и вопросы"
+                  ? t("sub.devchat_desc", "Прямая связь с разработчиком, поддержка и вопросы")
                   : (activeTab === "createshop"
-                    ? "Новое заведение"
-                    : `Управление заведением ${selectedShop?.name || ""}`)}
+                    ? t("sub.createshop_desc", "Новое заведение")
+                    : `${t("sub.manage_shop", "Управление заведением")} ${selectedShop?.name || ""}`)}
               </p>
             </div>
           </div>
@@ -3792,7 +3795,7 @@ export default function AdminPage() {
             {/* Minimalist PWA Install Icon Button with Tooltip */}
             <InstallButton
               variant="icon"
-              tooltipText="Установить приложение"
+              tooltipText={t("btn.install_app", "Установить приложение")}
               className="hidden md:flex"
             />
 
@@ -3800,7 +3803,7 @@ export default function AdminPage() {
             <button
               onClick={toggleTheme}
               className="p-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer hidden md:flex items-center justify-center shrink-0"
-              title={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
+              title={theme === "dark" ? t("btn.theme_light", "Переключить на светлую тему") : t("btn.theme_dark", "Переключить на тёмную тему")}
             >
               {theme === "dark" ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-400" />}
             </button>
@@ -3816,7 +3819,7 @@ export default function AdminPage() {
               title="Центр помощи & GitBook AI (?)"
             >
               <Sparkles size={14} className="text-indigo-500 group-hover:rotate-12 transition-transform" />
-              <span className="hidden sm:inline text-[11px] font-semibold">Справка</span>
+              <span className="hidden sm:inline text-[11px] font-semibold">{t("btn.help", "Справка")}</span>
               <kbd className="hidden lg:inline text-[9px] font-bold text-app-muted border border-app-border/80 px-1 py-0.5 rounded bg-app-surface/50">?</kbd>
             </button>
 
@@ -3828,7 +3831,7 @@ export default function AdminPage() {
               title="Сообщить об ошибке / отправить идею"
             >
               <Bug size={14} className="text-app-muted" />
-              <span className="hidden sm:inline text-[11px] font-semibold">Баг-репорт</span>
+              <span className="hidden sm:inline text-[11px] font-semibold">{t("btn.bug_report", "Баг-репорт")}</span>
             </button>
 
             {/* Docked Support 24/7 Chat Button (When floating badge was dismissed/closed into menu) */}
@@ -3863,7 +3866,7 @@ export default function AdminPage() {
                 onClick={closeSubView}
                 className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
               >
-                <ArrowLeft size={14} /> <span>Вернуться к панели</span>
+                <ArrowLeft size={14} /> <span>{t("common.back", "Назад")}</span>
               </button>
             )}
 
@@ -3879,7 +3882,7 @@ export default function AdminPage() {
                 }}
                 className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
-                <Plus size={14} /> <span>Добавить услугу</span>
+                <Plus size={14} /> <span>{t("btn.add_service", "Добавить услугу")}</span>
               </button>
             )}
           </div>
@@ -4736,6 +4739,14 @@ export default function AdminPage() {
           setHelpCenterArticleId(null);
         }}
         initialArticleId={helpCenterArticleId}
+        onNavigateTab={(tab) => {
+          setIsHelpCenterOpen(false);
+          setActiveTab(tab as any);
+        }}
+        shop={selectedShop}
+        services={selectedShop?.services || []}
+        orders={orders}
+        promocodes={promocodes}
       />
 
       <ChangelogModal

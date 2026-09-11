@@ -44,6 +44,7 @@ import {
   GripVertical
 } from "lucide-react";
 import { CHANGELOG_DATA } from "../../data/changelogData";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface Service {
   id: string;
@@ -180,6 +181,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   unreadNotificationsCount = 0,
   onOpenNotificationBox
 }) => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
   const [sidebarFilterQuery, setSidebarFilterQuery] = useState("");
@@ -203,58 +205,58 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const navigationGroups: SidebarNavGroup[] = isStaff
     ? [
         {
-          title: "Сотрудник",
+          title: t("group.staff", "Сотрудник"),
           items: [
-            { id: "orders", label: "Заказы", icon: ShoppingBag, badge: pendingOrdersCount, alert: pendingOrdersCount > 0 },
-            { id: "botsim", label: "Симулятор бота", icon: Smartphone },
+            { id: "orders", label: t("nav.orders", "Заказы"), icon: ShoppingBag, badge: pendingOrdersCount, alert: pendingOrdersCount > 0 },
+            { id: "botsim", label: t("nav.botsim", "Симулятор бота"), icon: Smartphone },
             ...(isDeveloperUser
               ? [
-                  { id: "devchat", label: "Чат поддержки", icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
-                  { id: "dev-users", label: "Пользователи", icon: ShieldAlert },
-                  { id: "reports", label: "Репорты", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
+                  { id: "devchat", label: t("nav.devchat_support", "Чат поддержки"), icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
+                  { id: "dev-users", label: t("nav.users", "Пользователи"), icon: ShieldAlert },
+                  { id: "reports", label: t("nav.reports", "Репорты"), icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
                 ]
               : []),
-            { id: "profile", label: "Профиль сотрудника", icon: User }
+            { id: "profile", label: t("nav.profile_staff", "Профиль сотрудника"), icon: User }
           ]
         }
       ]
     : [
         {
-          title: "Основное",
+          title: t("group.main", "Основное"),
           items: [
-            { id: "services", label: "Меню и услуги", icon: Layers, badge: (selectedShop?.services || []).length },
-            { id: "orders", label: "Заказы", icon: ShoppingBag, badge: pendingOrdersCount, alert: pendingOrdersCount > 0 },
-            { id: "customers", label: "Клиенты CRM", icon: Users, badge: (customers || []).length }
+            { id: "services", label: t("nav.services", "Меню и услуги"), icon: Layers, badge: (selectedShop?.services || []).length },
+            { id: "orders", label: t("nav.orders", "Заказы"), icon: ShoppingBag, badge: pendingOrdersCount, alert: pendingOrdersCount > 0 },
+            { id: "customers", label: t("nav.customers", "Клиенты CRM"), icon: Users, badge: (customers || []).length }
           ]
         },
         {
-          title: "Маркетинг & Продажи",
+          title: t("group.marketing", "Маркетинг & Продажи"),
           items: [
-            { id: "promocodes", label: "Промокоды", icon: Tag, badge: (promocodes || []).length },
-            { id: "reviews", label: "Отзывы", icon: Star, badge: (reviews || []).length },
-            { id: "banners", label: "Баннеры", icon: ImageIcon, badge: (banners || []).length },
-            { id: "broadcasts", label: "Рассылки", icon: Send, badge: (broadcasts || []).length },
-            { id: "referrals", label: "Рефералы", icon: Gift }
+            { id: "promocodes", label: t("nav.promocodes", "Промокоды"), icon: Tag, badge: (promocodes || []).length },
+            { id: "reviews", label: t("nav.reviews", "Отзывы"), icon: Star, badge: (reviews || []).length },
+            { id: "banners", label: t("nav.banners", "Баннеры"), icon: ImageIcon, badge: (banners || []).length },
+            { id: "broadcasts", label: t("nav.broadcasts", "Рассылки"), icon: Send, badge: (broadcasts || []).length },
+            { id: "referrals", label: t("nav.referrals", "Рефералы"), icon: Gift }
           ]
         },
         {
-          title: "Управление & Инструменты",
+          title: t("group.management", "Управление & Инструменты"),
           items: [
-            { id: "analytics", label: "Аналитика", icon: BarChart3 },
-            { id: "team", label: "Команда и доступ", icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
-            { id: "botsim", label: "Симулятор бота", icon: Smartphone },
-            { id: "payments", label: "История оплат", icon: CreditCard }
+            { id: "analytics", label: t("nav.analytics", "Аналитика"), icon: BarChart3 },
+            { id: "team", label: t("nav.team", "Команда и доступ"), icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
+            { id: "botsim", label: t("nav.botsim", "Симулятор бота"), icon: Smartphone },
+            { id: "payments", label: t("nav.payments", "История оплат"), icon: CreditCard }
           ]
         },
         ...(isDeveloperUser
           ? [
               {
-                title: "Разработка (Dev)",
+                title: t("group.development", "Разработка (Dev)"),
                 items: [
-                  { id: "devchat", label: "Чат поддержки", icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
-                  { id: "servers", label: "Серверы", icon: Server },
-                  { id: "dev-users", label: "Пользователи", icon: ShieldAlert },
-                  { id: "reports", label: "Репорты", icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
+                  { id: "devchat", label: t("nav.devchat_support", "Чат поддержки"), icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
+                  { id: "servers", label: t("nav.servers", "Серверы"), icon: Server },
+                  { id: "dev-users", label: t("nav.users", "Пользователи"), icon: ShieldAlert },
+                  { id: "reports", label: t("nav.reports", "Репорты"), icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
                 ]
               }
             ]
@@ -295,6 +297,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   return (
     <aside
+      data-tooltip-side="right"
       style={{ ["--sidebar-w" as any]: `${effectiveWidth}px` }}
       className={`
         fixed md:sticky top-0 left-0 z-50 h-[100dvh] md:h-screen max-h-[100dvh] md:max-h-screen bg-app-surface border-r border-app-border
@@ -312,8 +315,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               <button
                 type="button"
                 onClick={toggleSidebarCollapsed}
+                data-tooltip-position="right"
                 className="w-9 h-9 rounded-xl bg-app-card hover:bg-app-hover border border-app-border flex items-center justify-center font-mono font-bold text-xs text-app-primary transition-all cursor-pointer group shadow-2xs p-1.5"
-                title="Развернуть боковое меню (Compact Mode)"
+                title={t("admin.sidebar_expand", "Развернуть боковое меню (Compact Mode)")}
               >
                 <img src="/favicon.svg" alt="TMA" className="w-5 h-5 rounded-md object-cover group-hover:hidden" />
                 <PanelLeftOpen size={16} className="hidden group-hover:block text-app-accent" />
@@ -335,7 +339,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     type="button"
                     onClick={toggleSidebarCollapsed}
                     className="hidden md:flex p-1.5 rounded-lg text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border transition-all cursor-pointer"
-                    title="Свернуть панель (Компактный режим)"
+                    title={t("admin.sidebar_collapse", "Свернуть панель (Компактный режим)")}
                   >
                     <PanelLeftClose size={15} />
                   </button>
@@ -344,7 +348,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     type="button"
                     onClick={() => setIsSidebarOpen(false)}
                     className="p-1.5 rounded-lg text-app-muted hover:text-app-primary bg-app-card border border-app-border md:hidden cursor-pointer"
-                    title="Закрыть меню"
+                    title={t("admin.sidebar_close", "Закрыть меню")}
                   >
                     <X size={14} />
                   </button>
@@ -358,9 +362,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             {isSidebarCollapsed ? (
               <button
                 type="button"
+                data-tooltip-position="right"
                 onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
                 className="w-full h-10 rounded-xl bg-app-card hover:bg-app-hover border border-app-border flex items-center justify-center text-app-primary relative transition-colors cursor-pointer group shadow-2xs"
-                title={selectedShop ? `Заведение: ${selectedShop.name} (${selectedShop.slug})` : "Выбрать заведение"}
+                title={selectedShop ? `${t("admin.venues_count", "Заведение")}: ${selectedShop.name} (${selectedShop.slug})` : t("admin.select_shop", "Выбрать заведение")}
               >
                 <Store size={16} className="text-app-secondary group-hover:text-app-primary" />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -379,11 +384,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <span className="text-[11.5px] font-semibold text-app-primary truncate group-hover:text-app-accent leading-none">
-                          {selectedShop ? selectedShop.name : "Выберите заведение"}
+                          {selectedShop ? selectedShop.name : t("admin.select_shop", "Выберите заведение")}
                         </span>
                       </div>
                       <p className="text-[9.5px] font-mono text-app-muted truncate mt-0.5">
-                        {selectedShop ? `/${selectedShop.slug}` : "нет заведений"}
+                        {selectedShop ? `/${selectedShop.slug}` : t("admin.no_shops", "нет заведений")}
                       </p>
                     </div>
                   </div>
@@ -404,10 +409,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                         type="button"
                         onClick={handleOpenCreateShop}
                         className="flex-1 py-1 px-1.5 rounded-md bg-app-surface hover:bg-app-hover border border-app-border/80 text-[10px] font-mono text-app-secondary hover:text-app-primary flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                        title="Создать новое заведение"
+                        title={t("admin.create_new_shop", "Создать новое заведение")}
                       >
                         <Plus size={11} className="text-emerald-500" />
-                        <span>Новое</span>
+                        <span>{t("admin.new_shop_short", "Новое")}</span>
                       </button>
                     )}
                     {!isStaff && (
@@ -415,7 +420,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                         type="button"
                         onClick={() => handleOpenSettings(selectedShop)}
                         className="p-1 rounded-md bg-app-surface hover:bg-app-hover border border-app-border/80 text-app-secondary hover:text-app-primary transition-all cursor-pointer active:scale-95"
-                        title="Настройки заведения"
+                        title={t("admin.shop_settings", "Настройки заведения")}
                       >
                         <Settings size={12} />
                       </button>
@@ -425,7 +430,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       target="_blank"
                       rel="noreferrer"
                       className="p-1 rounded-md bg-app-surface hover:bg-app-hover border border-app-border/80 text-app-secondary hover:text-app-primary transition-all cursor-pointer active:scale-95"
-                      title="Открыть витрину заведения"
+                      title={t("admin.open_storefront", "Открыть витрину заведения")}
                     >
                       <ExternalLink size={12} />
                     </a>
@@ -434,7 +439,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               </div>
             )}
 
-            {/* Shop Dropdown Menu Popover */}
+            {/* Shop Dropdown Menu Popover - completely opaque background */}
             <AnimatePresence>
               {isShopDropdownOpen && (
                 <motion.div
@@ -442,13 +447,17 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.98 }}
                   transition={{ duration: 0.12 }}
+                  style={{
+                    backgroundColor: "var(--surface)",
+                    opacity: 1
+                  }}
                   className={`absolute ${
                     isSidebarCollapsed ? "left-full ml-2 top-0 w-64" : "left-0 right-0 top-full mt-1.5"
-                  } z-50 bg-app-modal border border-app-border rounded-xl shadow-2xl p-2 space-y-1.5 backdrop-blur-xl`}
+                  } z-50 bg-[#121217] dark:bg-[#121217] text-app-primary border border-app-border rounded-xl shadow-2xl p-2 space-y-1.5`}
                 >
                   <div className="flex items-center justify-between text-[10px] font-mono text-app-muted pb-1 border-b border-app-border">
                     <span className="font-semibold text-app-primary">
-                      Заведения ({shops.length})
+                      {t("admin.venues_count", "Заведения")} ({shops.length})
                     </span>
                     {shops.length > 3 && (
                       <button
@@ -459,7 +468,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                         }}
                         className="text-app-accent hover:underline cursor-pointer"
                       >
-                        {shopFilterMode === "my" ? "Все заведения" : "Мои"}
+                        {shopFilterMode === "my" ? t("admin.all_venues", "Все заведения") : t("admin.my_venues", "Мои")}
                       </button>
                     )}
                   </div>
@@ -472,7 +481,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                         type="text"
                         value={shopSearchInput}
                         onChange={(e) => setShopSearchInput(e.target.value)}
-                        placeholder="Поиск заведения..."
+                        placeholder={t("admin.search_venue_placeholder", "Поиск заведения...")}
                         className="w-full pl-6 pr-2 py-1 text-[11px] bg-app-input border border-app-border rounded-md text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-secondary font-mono"
                       />
                     </div>
@@ -481,7 +490,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   <div className="max-h-48 overflow-y-auto space-y-0.5 pr-0.5 custom-scrollbar">
                     {filteredShopsList.length === 0 ? (
                       <div className="p-3 text-center text-[11px] text-app-muted font-mono">
-                        Заведений не найдено
+                        {t("admin.no_venues_found", "Заведений не найдено")}
                       </div>
                     ) : (
                       filteredShopsList.map((s) => {
@@ -525,7 +534,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                         className="w-full py-1.5 px-2 rounded-lg text-[11px] font-mono font-semibold bg-app-card hover:bg-app-hover text-app-primary border border-app-border flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <Plus size={13} className="text-emerald-500" />
-                        <span>Создать заведение</span>
+                        <span>{t("admin.create_venue", "Создать заведение")}</span>
                       </button>
 
                       {isOwner && selectedShop && (
@@ -538,7 +547,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                           className="w-full py-1 px-2 rounded-lg text-[10px] font-mono text-rose-500 hover:bg-rose-500/10 flex items-center justify-center gap-1 transition-colors cursor-pointer"
                         >
                           <Trash2 size={11} />
-                          <span>Удалить текущее заведение</span>
+                          <span>{t("admin.delete_current_venue", "Удалить текущее заведение")}</span>
                         </button>
                       )}
                     </div>
@@ -556,7 +565,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 type="text"
                 value={sidebarFilterQuery}
                 onChange={(e) => setSidebarFilterQuery(e.target.value)}
-                placeholder="Фильтр меню..."
+                placeholder={t("sidebar.search_placeholder", "Фильтр меню...")}
                 className="w-full pl-7 pr-6 py-1.5 text-[11px] bg-app-card border border-app-border rounded-lg text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-secondary transition-colors font-mono"
               />
               {sidebarFilterQuery && (
@@ -594,6 +603,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                         <button
                           key={tab.id}
                           type="button"
+                          data-tooltip-position="right"
                           onClick={() => handleNavClick(tab.id)}
                           className={`relative w-10 h-10 mx-auto rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
                             isActive
@@ -668,32 +678,35 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <div className={`flex items-center ${isSidebarCollapsed ? "flex-col gap-1.5" : "justify-between gap-1"} px-0.5`}>
             <button
               type="button"
+              data-tooltip-position="right"
               onClick={handleToggleAdminAudio}
               className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-lg text-app-primary transition-colors cursor-pointer flex items-center justify-center"
-              title={isAudioEnabled ? "Звук уведомлений включен" : "Звук уведомлений выключен"}
+              title={isAudioEnabled ? t("admin.audio_on", "Звук уведомлений включен") : t("admin.audio_off", "Звук уведомлений выключен")}
             >
               {isAudioEnabled ? <Volume2 size={13} className="text-app-primary shrink-0" /> : <VolumeX size={13} className="text-app-muted shrink-0" />}
             </button>
 
             <button
               type="button"
+              data-tooltip-position="right"
               onClick={() => {
                 setIsQrModalOpen(true);
                 setIsSidebarOpen(false);
               }}
               className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-lg text-app-primary transition-colors cursor-pointer flex items-center justify-center"
-              title="Генератор QR-кодов"
+              title={t("admin.qr_generator", "Генератор QR-кодов")}
             >
               <QrCode size={13} className="text-app-primary shrink-0" />
             </button>
 
             <button
               type="button"
+              data-tooltip-position="right"
               onClick={() => {
                 if (onOpenNotificationBox) onOpenNotificationBox();
               }}
               className="relative p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-lg text-app-primary transition-colors cursor-pointer flex items-center justify-center"
-              title="Ящик уведомлений (текстовые сообщения вместо звука)"
+              title={t("admin.notification_box", "Ящик уведомлений (текстовые сообщения вместо звука)")}
             >
               <Bell size={13} className="text-app-primary shrink-0" />
               {Boolean(unreadNotificationsCount && unreadNotificationsCount > 0) && (
@@ -722,9 +735,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           {isSidebarCollapsed ? (
             <button
               type="button"
+              data-tooltip-position="right"
               onClick={handleOpenProfile}
               className="w-10 h-10 mx-auto rounded-xl bg-app-surface border border-app-border flex items-center justify-center relative hover:border-app-secondary transition-colors cursor-pointer group shadow-2xs"
-              title={`Профиль: ${user?.name || user?.email || "Администратор"}`}
+              title={`${t("admin.profile_label", "Профиль")}: ${user?.name || user?.email || t("admin.role_admin", "Администратор")}`}
             >
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl} alt="" className="w-full h-full rounded-xl object-cover" />
@@ -741,7 +755,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 type="button"
                 onClick={handleOpenProfile}
                 className="flex items-center gap-2 min-w-0 text-left hover:opacity-85 transition-opacity flex-1 mr-1 cursor-pointer group"
-                title="Настройки профиля"
+                title={t("admin.profile_settings", "Настройки профиля")}
               >
                 {user?.avatarUrl ? (
                   <img src={user.avatarUrl} alt="" className="w-7 h-7 rounded-lg object-cover border border-app-border shrink-0" />
@@ -752,11 +766,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-semibold text-app-primary truncate group-hover:text-app-accent transition-colors leading-tight">
-                    {user?.name || user?.email || "Администратор"}
+                    {user?.name || user?.email || t("admin.role_admin", "Администратор")}
                   </p>
                   <div className="flex items-center gap-1 text-[9.5px] text-app-muted truncate font-mono mt-0.5">
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${token ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-                    <span className="truncate">{user?.companyName || (token ? "Онлайн" : "Гость")}</span>
+                    <span className="truncate">{user?.companyName || (token ? t("admin.status_online", "Онлайн") : t("admin.status_guest", "Гость"))}</span>
                   </div>
                 </div>
               </button>
@@ -770,7 +784,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       setIsSidebarOpen(false);
                     }}
                     className="p-1 text-app-muted hover:text-rose-500 hover:bg-app-hover rounded-md transition-colors cursor-pointer"
-                    title="Выйти из аккаунта"
+                    title={t("admin.logout", "Выйти из аккаунта")}
                   >
                     <LogOut size={13} />
                   </button>
@@ -782,7 +796,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       setIsSidebarOpen(false);
                     }}
                     className="p-1 text-app-accent hover:bg-app-hover rounded-md transition-colors cursor-pointer"
-                    title="Войти"
+                    title={t("admin.login", "Войти")}
                   >
                     <LogIn size={13} />
                   </button>
@@ -801,7 +815,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   setIsSidebarOpen(false);
                 }}
                 className="p-1 bg-app-surface hover:bg-app-hover border border-app-border rounded-lg flex items-center justify-center gap-1 text-[9.5px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer text-center"
-                title="Политика конфиденциальности"
+                title={t("admin.privacy_policy", "Политика конфиденциальности")}
               >
                 <ShieldCheck size={11} className="text-emerald-500 shrink-0" />
                 <span className="truncate">ФЗ-152</span>
@@ -814,7 +828,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   setIsSidebarOpen(false);
                 }}
                 className="p-1 bg-app-surface hover:bg-app-hover border border-app-border rounded-lg flex items-center justify-center gap-1 text-[9.5px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer text-center"
-                title="История обновлений"
+                title={t("admin.changelog", "История обновлений")}
               >
                 <Sparkles size={11} className="text-indigo-500 shrink-0" />
                 <span className="truncate">{CHANGELOG_DATA[0]?.version || "v2.8.0"}</span>
@@ -825,7 +839,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 target="_blank"
                 rel="noreferrer"
                 className="p-1 bg-app-surface hover:bg-app-hover border border-app-border rounded-lg flex items-center justify-center gap-1 text-[9.5px] font-mono text-app-muted hover:text-app-primary transition-colors text-center"
-                title="Исходный код на GitHub"
+                title={t("admin.github_code", "Исходный код на GitHub")}
               >
                 <Github size={11} className="text-app-primary shrink-0" />
                 <span className="truncate">Git</span>
@@ -841,7 +855,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           onMouseDown={startResizingSidebar}
           onTouchStart={startResizingSidebar}
           onDoubleClick={resetSidebarWidth}
-          title="Потяните для изменения ширины. Двойной клик — сбросить (256px)"
           className="hidden md:flex absolute top-0 -right-2 bottom-0 w-4 cursor-col-resize z-50 group items-center justify-center select-none"
         >
           <div
@@ -857,6 +870,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             `}
           >
             <GripVertical size={9} className="shrink-0" />
+
+            {/* Centered Tooltip positioned right next to the resize handle */}
+            <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 whitespace-nowrap bg-app-surface/95 backdrop-blur-md border border-app-border text-app-primary text-[11px] font-mono px-2.5 py-1.5 rounded-lg shadow-xl flex items-center gap-1.5">
+              <span>{t("sidebar.resize_tooltip", "Потяните для изменения ширины. Двойной клик — сбросить (256px)")}</span>
+            </div>
           </div>
         </div>
       )}

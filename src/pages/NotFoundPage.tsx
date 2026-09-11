@@ -1,16 +1,18 @@
 import { Link } from "react-router-dom";
 import { Store, Sun, Moon } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function NotFoundPage() {
   const { theme, toggleTheme } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center font-sans bg-app-bg text-app-primary relative">
       <button
         onClick={toggleTheme}
         className="absolute top-6 right-6 p-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer"
-        title={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
+        title={theme === "dark" ? t("btn.theme_light", "Переключить на светлую тему") : t("btn.theme_dark", "Переключить на тёмную тему")}
       >
         {theme === "dark" ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-indigo-400" />}
       </button>
@@ -24,9 +26,9 @@ export default function NotFoundPage() {
           <span className="text-3xl font-bold font-mono tracking-tight block mb-1 text-app-primary">
             404
           </span>
-          <h2 className="text-base font-semibold text-app-primary">Заведение не найдено</h2>
+          <h2 className="text-base font-semibold text-app-primary">{t("notfound.title", "Заведение не найдено")}</h2>
           <p className="text-app-muted text-xs mt-2 leading-relaxed">
-            Возможно, вы перешли по неверной ссылке или магазин временно недоступен.
+            {t("notfound.desc", "Возможно, вы перешли по неверной ссылке или магазин временно недоступен.")}
           </p>
         </div>
         
@@ -34,7 +36,7 @@ export default function NotFoundPage() {
           to="/"
           className="w-full inline-flex items-center justify-center py-2.5 px-4 rounded-xl bg-app-accent text-app-accent-fg font-medium text-xs hover:opacity-90 transition-colors"
         >
-          Вернуться на главную
+          {t("notfound.back_home", "Вернуться на главную")}
         </Link>
       </div>
     </div>

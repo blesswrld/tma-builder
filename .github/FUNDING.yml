@@ -1,0 +1,17 @@
+# These are supported funding model platforms
+
+github: [your-github-username] # Укажите ваш GitHub username (до 4 имён: [user1, user2])
+patreon: # Patreon username (например: mypatreon)
+open_collective: # Open Collective username
+ko_fi: # Ko-fi username (например: mykofi)
+tidelift: # Tidelift platform-name/package-name (например: npm/babel)
+community_bridge: # Community Bridge project-name
+liberapay: # Liberapay username
+issuehunt: # IssueHunt username
+lfx_crowdfunding: # LFX Crowdfunding project-name
+polar: # Polar username
+buy_me_a_coffee: # Buy Me a Coffee username (например: mybuymeacoffee)
+thanks_dev: # thanks.dev username
+
+# До 4 пользовательских ссылок (например: Boosty, CloudTips, YooMoney, Patreon, Telegram и т.д.)
+custom: ['https://boosty.to/your-profile', 'https://yoomoney.ru/to/your-account']

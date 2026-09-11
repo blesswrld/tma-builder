@@ -69,7 +69,7 @@ export const ReferralQrModal: React.FC<ReferralQrModalProps> = ({
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="relative w-full max-w-sm bg-app-card border border-app-border rounded-2xl p-6 shadow-2xl space-y-5"
+          className="relative w-full max-w-sm bg-app-surface border border-app-border rounded-2xl p-6 shadow-2xl space-y-5"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}

@@ -57,7 +57,7 @@ export const ReferralPostShareModal: React.FC<ReferralPostShareModalProps> = ({
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="relative w-full max-w-lg bg-app-card border border-app-border rounded-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto"
+          className="relative w-full max-w-lg bg-app-surface border border-app-border rounded-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -94,14 +94,14 @@ export const ReferralPostShareModal: React.FC<ReferralPostShareModalProps> = ({
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => handleShareTelegram(tpl.text)}
-                      className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary rounded-lg transition-colors cursor-pointer"
                       title="Поделиться в Telegram"
                     >
                       <Send size={14} />
                     </button>
                     <button
                       onClick={() => handleCopy(tpl.text, idx)}
-                      className="flex items-center gap-1 py-1 px-2.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-lg font-mono text-[11px] transition-colors cursor-pointer"
+                      className="flex items-center gap-1 py-1 px-2.5 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary rounded-lg font-mono text-[11px] transition-colors cursor-pointer"
                     >
                       {copiedIndex === idx ? (
                         <>
@@ -117,7 +117,7 @@ export const ReferralPostShareModal: React.FC<ReferralPostShareModalProps> = ({
                     </button>
                   </div>
                 </div>
-                <div className="p-2.5 bg-app-card/60 border border-app-border/60 rounded-lg font-mono text-[11px] text-app-muted leading-relaxed whitespace-pre-wrap select-all">
+                <div className="p-2.5 bg-app-surface/60 border border-app-border/60 rounded-lg font-mono text-[11px] text-app-muted leading-relaxed whitespace-pre-wrap select-all">
                   {tpl.text}
                 </div>
               </div>
@@ -127,7 +127,7 @@ export const ReferralPostShareModal: React.FC<ReferralPostShareModalProps> = ({
           <div className="flex justify-end">
             <button
               onClick={onClose}
-              className="py-2 px-4 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer"
+              className="py-2 px-4 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer"
             >
               Закрыть
             </button>

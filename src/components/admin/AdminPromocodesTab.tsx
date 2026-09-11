@@ -251,17 +251,17 @@ export function AdminPromocodesTab({
     <div className="space-y-6 font-sans">
       {/* Top Header & Metrics Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        <div className="p-4 rounded-2xl bg-app-card border border-app-border flex items-center justify-between shadow-xs">
+        <div className="p-4 rounded-2xl bg-app-surface border border-app-border flex items-center justify-between shadow-xs">
           <div>
             <p className="text-[11px] font-mono text-app-secondary uppercase tracking-wider font-medium">Всего промокодов</p>
             <p className="text-xl font-bold font-mono text-app-primary mt-0.5">{totalCount}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-app-surface border border-app-border flex items-center justify-center text-app-primary">
+          <div className="w-10 h-10 rounded-xl bg-app-card border border-app-border flex items-center justify-center text-app-primary">
             <Tag size={18} />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-app-card border border-app-border flex items-center justify-between shadow-xs">
+        <div className="p-4 rounded-2xl bg-app-surface border border-app-border flex items-center justify-between shadow-xs">
           <div>
             <p className="text-[11px] font-mono text-app-secondary uppercase tracking-wider font-medium">Активные акции</p>
             <p className="text-xl font-bold font-mono text-emerald-500 mt-0.5">{activeCount}</p>
@@ -271,12 +271,12 @@ export function AdminPromocodesTab({
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-app-card border border-app-border flex items-center justify-between shadow-xs">
+        <div className="p-4 rounded-2xl bg-app-surface border border-app-border flex items-center justify-between shadow-xs">
           <div>
             <p className="text-[11px] font-mono text-app-secondary uppercase tracking-wider font-medium">Использований клиентами</p>
             <p className="text-xl font-bold font-mono text-app-primary mt-0.5">{totalUses}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-app-surface border border-app-border flex items-center justify-center text-app-primary">
+          <div className="w-10 h-10 rounded-xl bg-app-card border border-app-border flex items-center justify-center text-app-primary">
             <ShoppingBag size={18} />
           </div>
         </div>
@@ -292,7 +292,7 @@ export function AdminPromocodesTab({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Поиск по коду или описанию..."
-              className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3.5 py-2 text-xs text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-primary/50 transition-colors"
+              className="w-full bg-app-surface border border-app-border rounded-xl pl-9 pr-3.5 py-2 text-xs text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-primary/50 transition-colors"
             />
             {searchQuery && (
               <button
@@ -319,7 +319,7 @@ export function AdminPromocodesTab({
                 className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
                   statusFilter === f.id
                     ? "bg-app-accent text-app-accent-fg font-semibold shadow-xs"
-                    : "bg-app-card border border-app-border text-app-secondary hover:text-app-primary hover:bg-app-surface font-medium"
+                    : "bg-app-surface border border-app-border text-app-secondary hover:text-app-primary hover:bg-app-hover font-medium"
                 }`}
               >
                 {f.label}
@@ -354,8 +354,8 @@ export function AdminPromocodesTab({
 
       {/* Promocodes Grid */}
       {filteredPromocodes.length === 0 ? (
-        <div className="py-14 text-center bg-app-card border border-dashed border-app-border rounded-3xl p-8 space-y-4">
-          <div className="w-14 h-14 rounded-2xl bg-app-surface border border-app-border flex items-center justify-center mx-auto text-app-muted">
+        <div className="py-14 text-center bg-app-surface border border-dashed border-app-border rounded-3xl p-8 space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-app-card border border-app-border flex items-center justify-center mx-auto text-app-muted">
             <Tag size={24} />
           </div>
           <div className="space-y-1 max-w-sm mx-auto">
@@ -375,7 +375,7 @@ export function AdminPromocodesTab({
                   applyTemplate(PRESET_TEMPLATES[0]);
                   setIsCreatingPromo(true);
                 }}
-                className="px-4 py-2 bg-app-surface border border-app-border hover:bg-app-hover text-app-primary text-xs font-mono font-semibold rounded-xl transition-all cursor-pointer inline-flex items-center gap-2"
+                className="px-4 py-2 bg-app-card border border-app-border hover:bg-app-hover text-app-primary text-xs font-mono font-semibold rounded-xl transition-all cursor-pointer inline-flex items-center gap-2"
               >
                 <Sparkles size={14} className="text-amber-500" />
                 <span>Создать первый промокод (Шаблон)</span>
@@ -406,8 +406,8 @@ export function AdminPromocodesTab({
                 whileHover={{ y: -2 }}
                 className={`relative rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-xs hover:shadow-md ${
                   !isActive
-                    ? "bg-app-card/60 border-app-border opacity-75"
-                    : "bg-app-card border-app-border hover:border-app-primary/30"
+                    ? "bg-app-surface/60 border-app-border opacity-75"
+                    : "bg-app-surface border-app-border hover:border-app-primary/30"
                 }`}
               >
                 {/* Perforation / Ticket Style Left Notch */}
@@ -415,7 +415,7 @@ export function AdminPromocodesTab({
                   {/* Top Bar: Discount Type Badge + Actions */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <div className="px-3 py-1 bg-app-surface border border-app-border rounded-xl flex items-center gap-1.5 shadow-2xs">
+                      <div className="px-3 py-1 bg-app-card border border-app-border rounded-xl flex items-center gap-1.5 shadow-2xs">
                         {isPercent ? (
                           <Percent size={13} className="text-indigo-400 shrink-0" />
                         ) : (
@@ -483,7 +483,7 @@ export function AdminPromocodesTab({
                   </div>
 
                   {/* Promo Code Box with Quick Copy */}
-                  <div className="p-3 bg-app-surface border border-app-border rounded-xl flex items-center justify-between gap-2 group/code">
+                  <div className="p-3 bg-app-card border border-app-border rounded-xl flex items-center justify-between gap-2 group/code">
                     <div className="min-w-0">
                       <p className="text-[10px] font-mono text-app-secondary uppercase font-medium">Код для ввода</p>
                       <p className="font-mono font-bold text-base text-app-primary tracking-wider uppercase truncate">
@@ -493,7 +493,7 @@ export function AdminPromocodesTab({
                     <button
                       type="button"
                       onClick={() => handleCopyCode(promo.code, promo.id)}
-                      className="px-2.5 py-1.5 bg-app-card border border-app-border hover:bg-app-hover rounded-lg text-xs font-mono text-app-primary transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs font-medium"
+                      className="px-2.5 py-1.5 bg-app-surface border border-app-border hover:bg-app-hover rounded-lg text-xs font-mono text-app-primary transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs font-medium"
                       title="Скопировать промокод"
                     >
                       {copiedId === promo.id ? (
@@ -525,7 +525,7 @@ export function AdminPromocodesTab({
                         {uses} / {limit}
                       </span>
                     </div>
-                    <div className="w-full h-1.5 bg-app-surface rounded-full overflow-hidden border border-app-border/40">
+                    <div className="w-full h-1.5 bg-app-card rounded-full overflow-hidden border border-app-border/40">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
                           usagePercent >= 100
@@ -542,19 +542,19 @@ export function AdminPromocodesTab({
                   {/* Extra Condition Tags (Min order & Expiration date) */}
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     {promo.minOrderAmount && promo.minOrderAmount > 0 ? (
-                      <span className="px-2 py-0.5 bg-app-surface border border-app-border text-[10px] font-mono text-app-secondary font-medium rounded-md flex items-center gap-1">
+                      <span className="px-2 py-0.5 bg-app-card border border-app-border text-[10px] font-mono text-app-secondary font-medium rounded-md flex items-center gap-1">
                         <ShoppingBag size={10} className="text-app-secondary" />
                         <span>Чек от {promo.minOrderAmount} ₽</span>
                       </span>
                     ) : null}
 
                     {promo.expiresAt ? (
-                      <span className="px-2 py-0.5 bg-app-surface border border-app-border text-[10px] font-mono text-app-secondary font-medium rounded-md flex items-center gap-1">
+                      <span className="px-2 py-0.5 bg-app-card border border-app-border text-[10px] font-mono text-app-secondary font-medium rounded-md flex items-center gap-1">
                         <Calendar size={10} className="text-app-secondary" />
                         <span>до {new Date(promo.expiresAt).toLocaleDateString("ru-RU")}</span>
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 bg-app-surface border border-app-border text-[10px] font-mono text-app-secondary font-medium rounded-md flex items-center gap-1">
+                      <span className="px-2 py-0.5 bg-app-card border border-app-border text-[10px] font-mono text-app-secondary font-medium rounded-md flex items-center gap-1">
                         <Clock size={10} className="text-app-secondary" />
                         <span>Бессрочный</span>
                       </span>

@@ -169,7 +169,7 @@ export function CustomDropdown<T extends string = string>({
             transition={{ duration: 0.12, ease: "easeOut" }}
             className={`absolute ${
               align === "right" ? "right-0" : "left-0"
-            } mt-1.5 ${minMenuWidth} w-full max-w-[320px] bg-app-card border border-app-border rounded-xl shadow-xl z-50 p-1 backdrop-blur-md overflow-hidden ${menuClassName}`}
+            } mt-1.5 ${minMenuWidth} w-full max-w-[320px] bg-app-surface border border-app-border rounded-xl shadow-2xl z-50 p-1 overflow-hidden ${menuClassName}`}
             onClick={(e) => e.stopPropagation()}
             role="listbox"
             tabIndex={-1}
@@ -196,7 +196,7 @@ export function CustomDropdown<T extends string = string>({
                     }}
                     className={`w-full text-left px-3 py-2 text-xs rounded-lg font-medium flex items-start justify-between gap-2.5 transition-colors cursor-pointer select-none ${
                       isSelected
-                        ? "bg-app-surface text-app-primary font-bold shadow-2xs border border-app-border/60"
+                        ? "bg-app-card text-app-primary font-bold shadow-2xs border border-app-border/80"
                         : isHighlighted
                         ? "bg-app-hover text-app-primary"
                         : "text-app-secondary hover:bg-app-hover hover:text-app-primary"

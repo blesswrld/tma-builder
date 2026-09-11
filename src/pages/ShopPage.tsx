@@ -5,6 +5,7 @@ import { ArrowRight, ShoppingCart, ShieldCheck } from "lucide-react";
 import NotFoundPage from "./NotFoundPage";
 import { ShopPageSkeleton } from "../components/Skeleton";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
+import { useLanguage } from "../context/LanguageContext";
 import { useTheme } from "../context/ThemeContext";
 import { jsPDF } from "jspdf";
 import { validateCustomerName, validateCisPhone, validateDeliveryAddress } from "../lib/validation";
@@ -172,6 +173,7 @@ export default function ShopPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { theme, toggleTheme } = useTheme();
+  const { t } = useLanguage();
 
   // Load saved favorites from localStorage
   useEffect(() => {
@@ -405,9 +407,17 @@ export default function ShopPage() {
     if (orderId && status) {
       setActiveOrder(prev => (prev && prev.id === orderId) ? { ...prev, status } : prev);
       setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-      const statusLabel = status === "COMPLETED" ? "Завершён" : status === "CONFIRMED" ? "Подтверждён" : status === "IN_PROGRESS" ? "В работе" : status === "CANCELLED" ? "Отменён" : "В ожидании";
+      const statusLabel = status === "COMPLETED" 
+        ? t("shop.completed", "Завершён") 
+        : status === "CONFIRMED" 
+        ? t("shop.confirmed", "Подтверждён") 
+        : status === "IN_PROGRESS" 
+        ? t("shop.in_progress", "В работе") 
+        : status === "CANCELLED" 
+        ? t("shop.cancelled", "Отменён") 
+        : t("shop.in_waiting", "В ожидании");
       playNotificationSound();
-      showToast(`Заказ #${orderId.slice(-6).toUpperCase()}: статус изменён на "${statusLabel}"`, status === "COMPLETED" ? "success" : status === "CANCELLED" ? "error" : "warning");
+      showToast(`${t("order.label", "Заказ")} #${orderId.slice(-6).toUpperCase()}: ${t("order.status_changed_to", "статус изменён на")} "${statusLabel}"`, status === "COMPLETED" ? "success" : status === "CANCELLED" ? "error" : "warning");
       refreshMyOrders();
     }
   });
@@ -553,15 +563,15 @@ export default function ShopPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setPromoError(data.error || "Недействительный промокод");
+        setPromoError(data.error || t("shop.invalid_promo", "Недействительный промокод"));
         setAppliedPromo(null);
       } else {
         setAppliedPromo(data.promocode);
         setPromoError(null);
-        showToast(`Промокод ${data.promocode.code} успешно применён!`, "success");
+        showToast(`${t("shop.promo_applied_success", "Промокод")} ${data.promocode.code} ${t("shop.applied_successfully", "успешно применён!")}`, "success");
       }
     } catch (e) {
-      setPromoError("Ошибка при проверке промокода");
+      setPromoError(t("shop.promo_check_error", "Ошибка при проверке промокода"));
     } finally {
       setIsValidatingPromo(false);
     }
@@ -576,19 +586,19 @@ export default function ShopPage() {
 
     const nameVal = validateCustomerName(formData.name);
     if (!nameVal.isValid) {
-      errors.name = nameVal.error || "Некорректное имя";
+      errors.name = nameVal.error || t("validation.invalid_name", "Некорректное имя");
     }
 
     const phoneVal = validateCisPhone(formData.phone);
     if (!phoneVal.isValid) {
-      errors.phone = phoneVal.error || "Некорректный номер телефона";
+      errors.phone = phoneVal.error || t("validation.invalid_phone", "Некорректный номер телефона");
     }
 
     let finalAddress = formData.deliveryAddress.trim();
 
     if (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping") {
       if (!formData.city || !formData.city.trim()) {
-        errors.city = "Выберите город доставки";
+        errors.city = t("validation.select_city", "Выберите город доставки");
       }
 
       const addressVal = validateDeliveryAddress(formData.deliveryAddress, {
@@ -597,13 +607,13 @@ export default function ShopPage() {
       });
 
       if (!addressVal.isValid) {
-        errors.deliveryAddress = addressVal.error || "Укажите корректный адрес доставки";
+        errors.deliveryAddress = addressVal.error || t("validation.invalid_address", "Укажите корректный адрес доставки");
       } else {
         finalAddress = addressVal.address;
       }
 
       if (fulfillmentMethod === "courier" && deliveryMinOrderVal > 0 && totalPrice < deliveryMinOrderVal) {
-        errors.general = `Минимальная сумма заказа для доставки — ${deliveryMinOrderVal} ₽`;
+        errors.general = `${t("validation.min_order_for_delivery", "Минимальная сумма заказа для доставки")} — ${deliveryMinOrderVal} ₽`;
       }
     }
 
@@ -844,10 +854,10 @@ export default function ShopPage() {
     if (!shop) return;
     setConfirmModal({
       isOpen: true,
-      title: "Удаление отзыва",
-      message: "Вы уверены, что хотите удалить свой отзыв? Это действие нельзя будет отменить.",
-      confirmText: "Да, удалить",
-      cancelText: "Отмена",
+      title: t("reviews.delete_title", "Удаление отзыва"),
+      message: t("reviews.delete_confirm", "Вы уверены, что хотите удалить свой отзыв? Это действие нельзя будет отменить."),
+      confirmText: t("common.delete", "Удалить"),
+      cancelText: t("common.cancel", "Отмена"),
       isDangerous: true,
       onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
@@ -1020,13 +1030,13 @@ export default function ShopPage() {
               <div className="space-y-1 max-w-sm mx-auto">
                 <h4 className="text-xs font-bold text-app-primary font-mono">
                   {(shop.services || []).length === 0
-                    ? "В заведении пока нет доступных позиций"
-                    : "По вашему запросу ничего не найдено"}
+                    ? t("shop.empty_catalog", "В этой категории пока нет позиций")
+                    : t("shop.empty_search", "Ничего не найдено по вашему запросу")}
                 </h4>
                 <p className="text-[11px] text-app-muted font-sans leading-relaxed">
                   {(shop.services || []).length === 0
-                    ? "Меню и услуги заведения обновляются. Загляните чуть позже!"
-                    : "Попробуйте изменить поисковый запрос или сбросить выбранную категорию."}
+                    ? t("shop.empty_catalog_desc", "Меню и услуги заведения обновляются. Загляните чуть позже!")
+                    : t("shop.empty_search_desc", "Попробуйте изменить поисковый запрос или сбросить выбранную категорию.")}
                 </p>
               </div>
               {(searchQuery || selectedCategory !== "ALL") && (
@@ -1039,7 +1049,7 @@ export default function ShopPage() {
                     }}
                     className="px-3.5 py-1.5 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer"
                   >
-                    Сбросить фильтры
+                    {t("shop.reset_filters", "Сбросить фильтры")}
                   </button>
                 </div>
               )}
@@ -1066,7 +1076,7 @@ export default function ShopPage() {
         <footer className="pt-10 pb-4 border-t border-app-border/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-app-muted">
           <div className="flex items-center gap-2 text-center sm:text-left">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <span className="truncate">© {new Date().getFullYear()} {shop.name}. Все права защищены.</span>
+            <span className="truncate">© {new Date().getFullYear()} {shop.name}. {t("footer.all_rights_reserved", "Все права защищены.")}</span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 shrink-0">
@@ -1076,7 +1086,7 @@ export default function ShopPage() {
               className="hover:text-app-primary underline flex items-center gap-1.5 transition-colors cursor-pointer text-app-secondary"
             >
               <ShieldCheck size={13} className="text-emerald-500 shrink-0" />
-              <span>Политика конфиденциальности</span>
+              <span>{t("admin.privacy_policy", "Политика конфиденциальности")}</span>
             </button>
 
             <button
@@ -1084,7 +1094,7 @@ export default function ShopPage() {
               onClick={() => setShowInfoModal(true)}
               className="hover:text-app-primary transition-colors cursor-pointer"
             >
-              О заведении
+              {t("shop.about", "О заведении")}
             </button>
 
             <button
@@ -1092,7 +1102,7 @@ export default function ShopPage() {
               onClick={handleOpenReviews}
               className="hover:text-app-primary transition-colors cursor-pointer"
             >
-              Отзывы
+              {t("shop.reviews", "Отзывы")}
             </button>
           </div>
         </footer>
@@ -1118,7 +1128,7 @@ export default function ShopPage() {
                 <span className="w-7 h-7 bg-app-accent-fg/20 text-app-accent-fg rounded-xl flex items-center justify-center text-xs font-bold shrink-0">
                   {totalItems}
                 </span>
-                <span className="text-xs font-bold uppercase tracking-wider text-app-accent-fg">Оформить заказ</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-app-accent-fg">{t("shop.checkout", "Оформить заказ")}</span>
               </div>
               <div className="flex items-center gap-2 text-app-accent-fg">
                 <span className="text-sm font-bold">{totalPrice} ₽</span>

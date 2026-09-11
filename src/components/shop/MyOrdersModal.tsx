@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Clock, Hash, MapPin, FileText, ShoppingBag, Truck, Store, Package, Globe } from "lucide-react";
 import { Order, OrderItem } from "../../types";
 import { useScrollLock } from "../../hooks/useScrollLock";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface MyOrdersModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
   myOrdersLoading,
   onReorder,
 }) => {
+  const { t } = useLanguage();
   useScrollLock(isOpen);
 
   return (
@@ -44,7 +46,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
             <div className="h-16 flex items-center justify-between px-6 border-b border-app-border bg-app-modal-header shrink-0">
               <div className="flex items-center gap-2">
                 <ShoppingBag size={18} className="text-app-muted" />
-                <h2 className="text-sm font-semibold tracking-tight text-app-primary">История ваших заказов</h2>
+                <h2 className="text-sm font-semibold tracking-tight text-app-primary">{t("orders.history_title", "История ваших заказов")}</h2>
               </div>
               <button 
                 type="button"
@@ -58,12 +60,12 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {myOrdersLoading ? (
                 <div className="text-center py-16">
-                  <p className="text-app-muted text-xs font-mono">Загрузка заказов...</p>
+                  <p className="text-app-muted text-xs font-mono">{t("orders.loading", "Загрузка заказов...")}</p>
                 </div>
               ) : myOrders.length === 0 ? (
                 <div className="text-center py-16 border border-dashed border-app-border rounded-2xl p-6">
                   <ShoppingBag size={28} className="mx-auto text-app-muted mb-2" />
-                  <p className="text-app-muted text-xs font-mono">История заказов пуста.</p>
+                  <p className="text-app-muted text-xs font-mono">{t("orders.empty", "История заказов пуста.")}</p>
                 </div>
               ) : (
                 myOrders.map(order => {
@@ -84,7 +86,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
                         <div className="flex items-center gap-2">
                           <span className="text-app-primary font-bold">#{order.id.slice(-6)}</span>
                           <span className="text-[10px] text-app-muted">
-                            {new Date(order.createdAt).toLocaleDateString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            {new Date(order.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                           </span>
                         </div>
                         <span className={`px-2 py-0.5 rounded-md text-[10px] uppercase font-bold border ${
@@ -93,9 +95,9 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
                           order.status === 'CANCELLED' ? 'bg-app-card text-app-muted border-app-border line-through' :
                           'bg-amber-500/20 text-amber-400 border-amber-500/30'
                         }`}>
-                          {order.status === 'COMPLETED' ? 'ЗАВЕРШЁН' :
-                           order.status === 'CONFIRMED' || order.status === 'IN_PROGRESS' ? 'В РАБОТЕ' :
-                           order.status === 'CANCELLED' ? 'ОТМЕНЁН' : 'В ОЖИДАНИИ'}
+                          {order.status === 'COMPLETED' ? t("tracker.status_completed", "ЗАВЕРШЁН") :
+                           order.status === 'CONFIRMED' || order.status === 'IN_PROGRESS' ? t("tracker.status_cooking", "В РАБОТЕ") :
+                           order.status === 'CANCELLED' ? t("tracker.status_cancelled", "ОТМЕНЁН") : t("tracker.status_created", "В ОЖИДАНИИ")}
                         </span>
                       </div>
 
@@ -113,7 +115,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
                             <Store size={12} className="text-app-muted" />
                           )}
                           <span>
-                            {method === "courier" ? "Курьер" : method === "shipping" ? "Почта / СДЭК" : method === "online" ? "Онлайн" : "Самовывоз / В зале"}
+                            {method === "courier" ? t("checkout.courier", "Курьер") : method === "shipping" ? t("checkout.shipping", "Почта / СДЭК") : method === "online" ? t("checkout.online", "Онлайн") : t("orders.pickup_in_hall", "Самовывоз / В зале")}
                           </span>
                         </div>
 
@@ -121,7 +123,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
                         {order.preferredTime && (
                           <div className="flex items-center gap-1.5 text-amber-500 text-[11px] font-semibold">
                             <Clock size={12} />
-                            <span>Время: {order.preferredTime}</span>
+                            <span>{t("orders.time", "Время")}: {order.preferredTime}</span>
                           </div>
                         )}
 
@@ -129,7 +131,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
                         {order.tableNumber && (
                           <div className="flex items-center gap-1.5 text-emerald-500 text-[11px] font-semibold">
                             <Hash size={12} />
-                            <span>Столик: № {order.tableNumber}</span>
+                            <span>{t("orders.table", "Столик")}: № {order.tableNumber}</span>
                           </div>
                         )}
 
@@ -167,7 +169,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
                       {/* Total & Reorder */}
                       <div className="pt-2 border-t border-app-border/60 flex items-center justify-between">
                         <div>
-                          <span className="text-[10px] text-app-muted font-mono block">Итого:</span>
+                          <span className="text-[10px] text-app-muted font-mono block">{t("orders.total", "Итого:")}</span>
                           <span className="text-base font-bold font-mono text-app-primary">{order.totalPrice} ₽</span>
                         </div>
                         <button 
@@ -175,7 +177,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
                           onClick={() => onReorder(order)} 
                           className="px-4 py-2 bg-app-secondary hover:bg-app-hover border border-app-border rounded-xl text-xs font-mono text-app-primary font-semibold transition-colors cursor-pointer active:scale-95"
                         >
-                          Повторить заказ
+                          {t("orders.reorder", "Повторить заказ")}
                         </button>
                       </div>
                     </div>

@@ -18,6 +18,7 @@ import {
 import { Shop, MusicTrack, parseMusicSettings } from "../../types";
 import { useScrollLock } from "../../hooks/useScrollLock";
 import { detectStreamingService, isDirectPlayableAudioUrl } from "../../utils/musicHelper";
+import { useLanguage } from "../../context/LanguageContext";
 
 // Высококачественные проверенные потоки без авторских отчислений для фонового лаунжа
 export const PRESET_RADIO_GENRES = [
@@ -81,6 +82,7 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
   onCloseModal,
   onOpenModal,
 }) => {
+  const { t } = useLanguage();
   useScrollLock(isModalOpen);
   const musicSettings = parseMusicSettings(shop.musicSettings);
 
@@ -367,11 +369,11 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
               <p className="text-[10px] font-mono text-app-muted truncate">
                 {isPlaying
                   ? audioLoading
-                    ? "Подключение..."
-                    : "Играет сейчас"
+                    ? t("music.connecting", "Подключение...")
+                    : t("music.playing_now", "Играет сейчас")
                   : playlistLinks.length > 0
-                  ? "Плейлист заведения"
-                  : "Фоновая музыка"}
+                  ? t("music.playlist", "Плейлист заведения")
+                  : t("music.background", "Фоновая музыка")}
               </p>
             </div>
 
@@ -381,7 +383,7 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
                 type="button"
                 onClick={togglePlay}
                 className="w-8 h-8 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border flex items-center justify-center text-app-primary transition-all cursor-pointer shrink-0 active:scale-95"
-                title={isPlaying ? "Пауза" : "Воспроизвести"}
+                title={isPlaying ? t("music.pause", "Пауза") : t("music.play", "Воспроизвести")}
               >
                 {isPlaying ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
               </button>
@@ -416,7 +418,7 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-base font-bold tracking-tight text-app-primary truncate">
-                      Музыка заведения
+                      {t("music.title", "Музыка заведения")}
                     </h3>
                     <p className="text-xs font-mono text-app-muted truncate">
                       {shop.name}
@@ -428,7 +430,7 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
                   type="button"
                   onClick={onCloseModal}
                   className="w-8 h-8 rounded-full bg-app-surface hover:bg-app-hover border border-app-border flex items-center justify-center text-app-muted hover:text-app-primary transition-all cursor-pointer"
-                  title="Закрыть"
+                  title={t("common.close", "Закрыть")}
                 >
                   <X size={16} />
                 </button>
@@ -442,7 +444,7 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono uppercase text-app-muted tracking-wider">
-                          Атмосфера салона
+                          {t("music.atmosphere", "Атмосфера салона")}
                         </span>
                         {isPlaying && (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
@@ -491,12 +493,12 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
                           {isPlaying ? (
                             <>
                               <Pause size={15} />
-                              <span>Приостановить</span>
+                              <span>{t("music.pause", "Пауза")}</span>
                             </>
                           ) : (
                             <>
                               <Play size={15} className="ml-0.5" />
-                              <span>{audioLoading ? "Загрузка..." : "Слушать онлайн"}</span>
+                              <span>{audioLoading ? t("music.connecting", "Загрузка...") : t("music.listen_online", "Слушать онлайн")}</span>
                             </>
                           )}
                         </button>
@@ -505,7 +507,7 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
                           type="button"
                           onClick={toggleMute}
                           className="w-10 h-10 rounded-xl bg-app-card hover:bg-app-hover border border-app-border flex items-center justify-center text-app-secondary hover:text-app-primary transition-all cursor-pointer shrink-0"
-                          title={isMuted ? "Включить звук" : "Выключить звук"}
+                          title={isMuted ? t("music.unmute", "Включить звук") : t("music.mute", "Выключить звук")}
                         >
                           {isMuted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
                         </button>
@@ -513,7 +515,7 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
 
                       {/* Регулятор громкости */}
                       <div className="flex items-center gap-3 px-1">
-                        <span className="text-[11px] font-mono text-app-muted">Громкость:</span>
+                        <span className="text-[11px] font-mono text-app-muted">{t("music.volume", "Громкость")}:</span>
                         <input
                           type="range"
                           min="0"
@@ -531,7 +533,7 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
                       {audioError && (
                         <p className="text-[11px] font-mono text-rose-400 bg-rose-500/10 border border-rose-500/20 p-2 rounded-xl text-center flex items-center justify-center gap-1.5">
                           <AlertCircle size={14} className="shrink-0" />
-                          <span>Не удалось загрузить аудиопоток. Откройте плейлист по ссылкам ниже.</span>
+                          <span>{t("music.stream_error", "Не удалось загрузить аудиопоток. Откройте плейлист по ссылкам ниже.")}</span>
                         </p>
                       )}
                     </div>
@@ -546,7 +548,11 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
                         rel="noopener noreferrer"
                         className="w-full py-2.5 px-4 bg-app-card hover:bg-app-hover border border-app-border rounded-xl font-mono text-xs font-bold text-app-primary flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
                       >
-                        <span>Слушать «{currentTrack.title}» в {currentTrackStreaming.serviceName}</span>
+                        <span>
+                          {t("music.listen_track_in", "Слушать «{title}» в {service}")
+                            .replace("{title}", currentTrack.title)
+                            .replace("{service}", currentTrackStreaming.serviceName)}
+                        </span>
                         <ExternalLink size={14} className="text-app-muted" />
                       </a>
                     </div>
@@ -559,7 +565,7 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
                     <div className="flex items-center gap-2">
                       <ListMusic size={14} className="text-app-muted" />
                       <span className="text-xs font-mono uppercase text-app-muted">
-                        Треки салона ({tracks.length})
+                        {t("music.salon_tracks", "Треки салона")} ({tracks.length})
                       </span>
                     </div>
 
@@ -642,10 +648,10 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-mono uppercase text-app-muted">
-                        Слушать в приложениях
+                        {t("music.listen_apps", "Слушать в приложениях")}
                       </span>
                       <span className="text-[10px] font-mono text-app-muted">
-                        Добавить в медиатеку
+                        {t("music.add_library", "Добавить в медиатеку")}
                       </span>
                     </div>
 
@@ -667,7 +673,7 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
                                 {link.name}
                               </p>
                               <p className="text-[10px] font-mono text-app-muted truncate">
-                                Открыть официальный плейлист
+                                {t("music.open_playlist", "Открыть официальный плейлист")}
                               </p>
                             </div>
                           </div>
@@ -698,12 +704,12 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
                     {copiedLink ? (
                       <>
                         <Check size={14} className="text-emerald-400" />
-                        <span className="text-emerald-400">Ссылка скопирована!</span>
+                        <span className="text-emerald-400">{t("common.copied", "Ссылка скопирована!")}</span>
                       </>
                     ) : (
                       <>
                         <Share2 size={14} className="text-app-muted" />
-                        <span>Поделиться витриной с друзьями</span>
+                        <span>{t("music.share_showcase", "Поделиться витриной с друзьями")}</span>
                       </>
                     )}
                   </button>

@@ -2,6 +2,7 @@ import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AlertCircle } from "lucide-react";
 import { useScrollLock } from "../../hooks/useScrollLock";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -18,12 +19,15 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   isOpen,
   title,
   message,
-  confirmText = "Подтвердить",
-  cancelText = "Отмена",
+  confirmText,
+  cancelText,
   isDangerous = false,
   onConfirm,
   onCancel,
 }) => {
+  const { t } = useLanguage();
+  const effectiveConfirmText = confirmText || t("common.confirm", "Подтвердить");
+  const effectiveCancelText = cancelText || t("common.cancel", "Отмена");
   useScrollLock(isOpen);
 
   return (
@@ -68,7 +72,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 onClick={onCancel}
                 className="px-4 py-2 bg-app-surface border border-app-border text-app-primary rounded-xl hover:bg-app-hover text-xs font-mono transition-colors cursor-pointer"
               >
-                {cancelText}
+                {effectiveCancelText}
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -81,7 +85,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                     : "bg-app-accent text-app-accent-fg hover:opacity-90"
                 }`}
               >
-                {confirmText}
+                {effectiveConfirmText}
               </motion.button>
             </div>
           </motion.div>

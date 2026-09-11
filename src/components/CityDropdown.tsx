@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { MapPin, ChevronDown, Check, Search, X, Building2 } from "lucide-react";
 import { localizeToRussian } from "../lib/russianGeo";
+import { useLanguage } from "../context/LanguageContext";
 
 export interface CityItem {
   id: string;
@@ -97,12 +98,15 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
   value,
   onChange,
   error,
-  label = "Город доставки",
+  label,
   required = true,
   className = "",
-  placeholder = "Выберите город...",
+  placeholder,
   showQuickChips = true,
 }) => {
+  const { t } = useLanguage();
+  const effectiveLabel = label !== undefined ? label : t("checkout.city_label", "Город доставки");
+  const effectivePlaceholder = placeholder || t("checkout.city_placeholder", "Выберите город...");
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCustomMode, setIsCustomMode] = useState(false);
@@ -174,11 +178,11 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
 
   return (
     <div className={`space-y-1.5 ${className}`} ref={containerRef}>
-      {label && (
+      {effectiveLabel && (
         <div className="flex justify-between items-center text-[11px] font-mono">
           <label className="text-app-muted flex items-center gap-1">
             <MapPin size={12} className="text-app-muted" />
-            <span>{label}</span>
+            <span>{effectiveLabel}</span>
             {required && <span className="text-rose-500 font-bold">*</span>}
           </label>
           {value && (
@@ -190,7 +194,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
               }}
               className="text-app-muted hover:text-app-primary flex items-center gap-0.5 text-[10px] cursor-pointer transition-colors"
             >
-              <X size={10} /> Сбросить
+              <X size={10} /> {t("common.reset", "Сбросить")}
             </button>
           )}
         </div>
@@ -212,7 +216,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
           <div className="flex items-center gap-2 truncate min-w-0">
             <Building2 size={14} className={value ? "text-app-primary" : "text-app-muted"} />
             <span className={`truncate font-medium ${value ? "text-app-primary" : "text-app-muted"}`}>
-              {value || placeholder}
+              {value || effectivePlaceholder}
             </span>
           </div>
           <ChevronDown
@@ -231,7 +235,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.98 }}
               transition={{ duration: 0.14, ease: "easeOut" }}
-              className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-app-modal border border-app-border rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl p-2 font-sans"
+              className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-app-surface border border-app-border rounded-2xl shadow-2xl overflow-hidden p-2 font-sans"
             >
               {/* Search Bar */}
               <div className="relative mb-2">
@@ -241,7 +245,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Поиск города..."
+                  placeholder={t("checkout.search_city", "Поиск города...")}
                   className="w-full bg-app-input border border-app-border rounded-xl pl-8.5 pr-8 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border font-sans transition-colors placeholder:text-app-muted"
                 />
                 {searchQuery && (
@@ -290,7 +294,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
                   })
                 ) : (
                   <div className="p-3 text-center text-xs text-app-muted">
-                    <p>Город не найден в списке</p>
+                    <p>{t("checkout.city_not_found", "Город не найден в списке")}</p>
                     <button
                       type="button"
                       onClick={() => {
@@ -299,7 +303,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
                       }}
                       className="mt-2 text-xs font-mono font-bold text-app-primary underline hover:opacity-80 cursor-pointer"
                     >
-                      Использовать «{searchQuery}»
+                      {t("checkout.use_city", "Использовать")} «{searchQuery}»
                     </button>
                   </div>
                 )}
@@ -313,7 +317,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
                     onClick={() => setIsCustomMode(true)}
                     className="w-full py-1.5 px-2.5 text-[11px] font-mono text-app-secondary hover:text-app-primary hover:bg-app-hover rounded-xl text-left flex items-center justify-between cursor-pointer transition-colors"
                   >
-                    <span>+ Другой город (ввести вручную)</span>
+                    <span>+ {t("checkout.other_city_manual", "Другой город (ввести вручную)")}</span>
                   </button>
                 ) : (
                   <div className="flex gap-1.5 p-1 bg-app-input border border-app-border rounded-xl">
@@ -328,7 +332,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
                           handleApplyCustomCity();
                         }
                       }}
-                      placeholder="Введите название города..."
+                      placeholder={t("checkout.enter_city_name", "Введите название города...")}
                       className="flex-1 bg-transparent px-2 py-1 text-xs text-app-primary focus:outline-none font-sans"
                     />
                     <button
@@ -337,7 +341,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
                       disabled={!customCityInput.trim()}
                       className="px-2.5 py-1 bg-app-accent text-app-accent-fg rounded-lg text-xs font-mono font-bold hover:opacity-90 disabled:opacity-40 cursor-pointer transition-opacity"
                     >
-                      ОК
+                      {t("common.ok", "ОК")}
                     </button>
                   </div>
                 )}
@@ -350,7 +354,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
       {/* Quick Chips for Top Popular Cities */}
       {showQuickChips && !value && (
         <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-          <span className="text-[10px] font-mono text-app-muted mr-0.5">Быстро:</span>
+          <span className="text-[10px] font-mono text-app-muted mr-0.5">{t("checkout.quick", "Быстро:")}</span>
           {popularCities.slice(0, 5).map((pc) => (
             <button
               key={pc.id}

@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { Clock, Info, Phone as PhoneIcon, MapPin, Gift, Truck, Store, Send, ExternalLink, MessageCircle, Globe, Music } from "lucide-react";
 import { Shop, parseSocialLinks, parseDeliveryOptions, parseMusicSettings } from "../../types";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface ShopHeroProps {
   shop: Shop;
@@ -17,11 +18,10 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
   shop,
   onOpenInfo,
   onOpenInfoModal,
-  reviewsStats,
-  onOpenReviews,
   onOpenMusic,
   onOpenMap,
 }) => {
+  const { t } = useLanguage();
   const handleOpenInfo = onOpenInfoModal || onOpenInfo || (() => {});
   const socials = parseSocialLinks(shop.socialLinks);
   const delivery = parseDeliveryOptions(shop.deliveryOptions);
@@ -65,7 +65,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
           <span className="px-3 py-1.5 rounded-full text-xs font-mono font-bold flex items-center gap-2 backdrop-blur-md shadow-md border bg-black/60 text-white border-white/10">
             <span className={`w-2 h-2 rounded-full ${shop.isOpen !== false ? "bg-emerald-400 animate-pulse" : "bg-zinc-400"}`} />
-            <span>{shop.isOpen !== false ? "Открыто" : "Закрыто"}</span>
+            <span>{shop.isOpen !== false ? t("shop.open", "Открыто") : t("shop.closed", "Закрыто")}</span>
           </span>
         </div>
       </div>
@@ -103,7 +103,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
               className="flex-1 sm:flex-initial h-9 px-3.5 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover hover:text-app-primary text-xs font-mono font-semibold text-app-secondary transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
             >
               <Info size={14} className="text-app-muted shrink-0" />
-              <span>О заведении</span>
+              <span>{t("shop.about", "О заведении")}</span>
             </button>
             {shop.phone && (
               <a
@@ -111,7 +111,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 className="flex-1 sm:flex-initial h-9 px-3.5 rounded-xl bg-app-surface text-app-secondary hover:text-app-primary border border-app-border hover:bg-app-hover text-xs font-mono font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
               >
                 <PhoneIcon size={14} className="text-app-muted shrink-0" />
-                <span>Позвонить</span>
+                <span>{t("shop.call", "Позвонить")}</span>
               </a>
             )}
           </div>
@@ -131,7 +131,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
               type="button"
               onClick={onOpenMap}
               className="h-8 px-3 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border hover:border-emerald-500/40 text-app-secondary hover:text-app-primary flex items-center gap-2 transition-all cursor-pointer group shadow-2xs"
-              title="Посмотреть на интерактивной карте"
+              title={t("shop.interactive_map", "Посмотреть на интерактивной карте")}
             >
               <MapPin size={13} className="text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
               <span className="truncate max-w-[200px] sm:max-w-xs">{shop.address}</span>
@@ -141,21 +141,21 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
           {Boolean(shop.cashbackPercent && Number(shop.cashbackPercent) > 0) && (
             <div className="h-8 px-3 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center gap-2 font-medium shadow-2xs">
               <Gift size={13} className="shrink-0 text-app-muted" />
-              <span>Кэшбэк {shop.cashbackPercent}%</span>
+              <span>{t("shop.cashback", "Кэшбэк")} {shop.cashbackPercent}%</span>
             </div>
           )}
 
           {delivery.enabled !== false && (delivery.courier !== false || Boolean(delivery.shipping)) && (
             <div className="h-8 px-3 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center gap-2 font-medium shadow-2xs">
               <Truck size={13} className="shrink-0 text-app-muted" />
-              <span>Доставка</span>
+              <span>{t("shop.delivery", "Доставка")}</span>
             </div>
           )}
 
           {delivery.enabled !== false && delivery.pickup !== false && (
             <div className="h-8 px-3 rounded-xl bg-app-surface border border-app-border text-app-secondary flex items-center gap-2 shadow-2xs">
               <Store size={13} className="text-app-muted shrink-0" />
-              <span>Самовывоз</span>
+              <span>{t("shop.pickup", "Самовывоз")}</span>
             </div>
           )}
 
@@ -166,7 +166,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
               className="h-8 px-3 rounded-xl bg-app-surface hover:bg-app-hover border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center gap-2 transition-all cursor-pointer shadow-2xs"
             >
               <Music size={13} className="shrink-0" />
-              <span>{musicSettings.title || "Музыка салона"}</span>
+              <span>{musicSettings.title || t("shop.tracks", "Музыка салона")}</span>
             </button>
           )}
         </div>
@@ -174,7 +174,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         {/* Social Networks Row */}
         {hasSocials && (
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-app-border/40">
-            <span className="text-[10px] font-mono text-app-muted uppercase mr-1">Соцсети:</span>
+            <span className="text-[10px] font-mono text-app-muted uppercase mr-1">{t("shop.socials", "Соцсети")}:</span>
             {socials.telegram && (
               <a
                 href={socials.telegram.startsWith("http") ? socials.telegram : `https://t.me/${socials.telegram.replace("@", "")}`}
@@ -191,7 +191,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.instagram.startsWith("http") ? socials.instagram : `https://instagram.com/${socials.instagram}`}
                 target="_blank"
                 rel="noreferrer"
-                title="* Instagram принадлежит компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ"
+                title="* Instagram принадлежит компании Meta Platforms Inc."
                 className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
               >
                 <ExternalLink size={13} className="text-app-muted" />
@@ -203,7 +203,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 href={socials.whatsapp.startsWith("http") ? socials.whatsapp : `https://wa.me/${socials.whatsapp.replace(/\D/g, "")}`}
                 target="_blank"
                 rel="noreferrer"
-                title="* WhatsApp принадлежит компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ"
+                title="* WhatsApp принадлежит компании Meta Platforms Inc."
                 className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
               >
                 <MessageCircle size={13} className="text-app-muted" />
@@ -218,7 +218,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
               >
                 <Globe size={13} className="text-app-muted" />
-                <span>ВКонтакте</span>
+                <span>{t("common.vkontakte", "ВКонтакте")}</span>
               </a>
             )}
             {socials.website && (
@@ -229,21 +229,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
                 className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
               >
                 <Globe size={13} className="text-app-muted" />
-                <span>Сайт</span>
+                <span>{t("common.website", "Сайт")}</span>
               </a>
             )}
-          </div>
-        )}
-
-        {/* Meta Disclaimer Note */}
-        {hasSocials && (socials.instagram || socials.whatsapp) && (
-          <div
-            className="mt-3 p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 rounded-xl text-[10.5px] font-mono space-y-0.5 leading-tight"
-          >
-            <strong className="block font-bold">* Примечание о маркировке:</strong>
-            <p className="text-amber-800/90 dark:text-amber-200/90">
-              Instagram, WhatsApp и Facebook принадлежат компании Meta Platforms Inc., признанной экстремистской организацией и запрещенной на территории РФ.
-            </p>
           </div>
         )}
       </div>

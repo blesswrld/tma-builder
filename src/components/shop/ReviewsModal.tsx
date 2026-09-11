@@ -5,6 +5,7 @@ import { Review, Shop } from "../../types";
 import { ReviewSkeletonList, SpinnerLoader } from "../Skeleton";
 import ImageUploader from "../ImageUploader";
 import { useScrollLock } from "../../hooks/useScrollLock";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface ReviewsModalProps {
   shop: Shop | null;
@@ -57,6 +58,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
   onCancelEditReview,
   onDeleteReview,
 }) => {
+  const { t } = useLanguage();
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   // Lock background scroll when modal or lightbox is open
@@ -91,13 +93,13 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-bold text-app-primary flex items-center gap-2">
-                Отзывы клиентов
+                {t("reviews.title", "Отзывы клиентов")}
                 <span className="px-2 py-0.5 bg-app-card border border-app-border rounded-full text-[11px] font-mono font-semibold text-app-muted">
                   {reviewsStats.totalReviews}
                 </span>
               </h2>
               <p className="text-[11px] text-app-muted font-sans truncate max-w-[200px]">
-                {shop?.name || "Заведение"}
+                {shop?.name || t("reviews.venue", "Заведение")}
               </p>
             </div>
           </div>
@@ -105,7 +107,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
             type="button"
             onClick={onClose}
             className="p-2 rounded-xl text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border transition-all cursor-pointer active:scale-95"
-            title="Закрыть"
+            title={t("common.close", "Закрыть")}
           >
             <X size={18} />
           </button>
@@ -139,7 +141,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                 </div>
               </div>
               <p className="text-[11px] font-mono text-app-muted">
-                {reviewsStats.totalReviews} {reviewsStats.totalReviews === 1 ? "отзыв" : reviewsStats.totalReviews < 5 ? "отзыва" : "отзывов"}
+                {reviewsStats.totalReviews} {t("reviews.count_label", "отзывов")}
               </p>
             </div>
 
@@ -155,7 +157,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
               className="px-3 py-1.5 bg-app-accent text-app-accent-fg font-mono text-xs font-semibold rounded-xl hover:opacity-90 transition-opacity flex items-center gap-1.5 cursor-pointer"
             >
               <MessageSquare size={13} />
-              <span>{isWriteReviewOpen ? "Отмена" : "Написать отзыв"}</span>
+              <span>{isWriteReviewOpen ? t("common.cancel", "Отмена") : t("reviews.write_review", "Написать отзыв")}</span>
             </button>
           </div>
 
@@ -175,14 +177,14 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                     {editingReviewId ? (
                       <>
                         <Edit2 size={13} className="text-app-primary" />
-                        <span>Редактировать отзыв</span>
+                        <span>{t("reviews.edit_review", "Редактировать отзыв")}</span>
                       </>
                     ) : (
-                      <span>Оставить отзыв</span>
+                      <span>{t("reviews.leave_review", "Оставить отзыв")}</span>
                     )}
                   </h3>
                   <span className="text-[10px] text-app-muted font-mono">
-                    {editingReviewId ? "Редактирование" : "Анонимно или с именем"}
+                    {editingReviewId ? t("reviews.editing", "Редактирование") : t("reviews.anonymous_or_name", "Анонимно или с именем")}
                   </span>
                 </div>
 
@@ -193,27 +195,27 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                 )}
                 {reviewSubmitSuccess && (
                   <p className="text-xs text-app-primary font-mono font-medium bg-app-surface p-2.5 rounded-xl border border-app-border">
-                    {editingReviewId ? "Отзыв успешно обновлен!" : "Спасибо за ваш отзыв! Он опубликован."}
+                    {editingReviewId ? t("reviews.updated_success", "Отзыв успешно обновлен!") : t("reviews.publish_success", "Спасибо за ваш отзыв! Он опубликован.")}
                   </p>
                 )}
 
                 <div>
                   <label className="block text-[10px] font-mono text-app-muted uppercase mb-1">
-                    Ваше имя
+                    {t("reviews.your_name", "Ваше имя")}
                   </label>
                   <input
                     type="text"
                     maxLength={50}
                     value={newReview.name}
                     onChange={(e) => setNewReview((p) => ({ ...p, name: e.target.value }))}
-                    placeholder="Ваше имя (до 50 символов)..."
+                    placeholder={t("reviews.name_placeholder", "Ваше имя (до 50 символов)...")}
                     className="w-full bg-app-surface border border-app-border rounded-xl px-3 py-2 text-xs text-app-primary focus:outline-none focus:border-app-border font-sans"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[10px] font-mono text-app-muted uppercase mb-1">
-                    Ваша оценка
+                    {t("reviews.your_rating", "Ваша оценка")}
                   </label>
                   <div className="flex items-center justify-between bg-app-surface p-2 rounded-xl border border-app-border">
                     <div className="flex gap-1">
@@ -244,7 +246,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
 
                 <div>
                   <label className="block text-[10px] font-mono text-app-muted uppercase mb-1">
-                    Текст отзыва
+                    {t("reviews.review_text", "Текст отзыва")}
                   </label>
                   <div className="relative">
                     <textarea
@@ -252,7 +254,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                       maxLength={500}
                       value={newReview.comment}
                       onChange={(e) => setNewReview((p) => ({ ...p, comment: e.target.value }))}
-                      placeholder="Поделитесь впечатлениями о заведении..."
+                      placeholder={t("reviews.text_placeholder", "Поделитесь впечатлениями о заведении...")}
                       className="w-full bg-app-surface border border-app-border rounded-xl p-3 text-xs text-app-primary focus:outline-none focus:border-app-accent resize-none font-sans"
                     />
                     <span className="absolute bottom-2.5 right-2.5 text-[10px] font-mono text-app-muted pointer-events-none">
@@ -266,9 +268,9 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                   <ImageUploader
                     value={newReview.imageUrl || ""}
                     onChange={(url) => setNewReview((p) => ({ ...p, imageUrl: url }))}
-                    label="Фото к отзыву (необязательно)"
+                    label={t("reviews.photo_attachment", "Фото к отзыву (необязательно)")}
                     type="photo"
-                    placeholder="Загрузите фото или вставьте ссылку..."
+                    placeholder={t("reviews.photo_placeholder", "Загрузите фото или вставьте ссылку...")}
                     maxHeightClass="max-h-28"
                   />
                 </div>
@@ -276,10 +278,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                 {/* 152-FZ and 149-FZ Disclaimer */}
                 <div className="p-2.5 bg-app-card/60 border border-app-border rounded-xl text-[10px] font-mono text-app-muted leading-tight space-y-1">
                   <p>
-                    Отправляя отзыв, вы соглашаетесь на публикацию указанного имени и текста в соответствии с <strong>152-ФЗ</strong>.
-                  </p>
-                  <p className="text-app-muted/80">
-                    Запрещены ненормативная лексика, спам и оскорбления (149-ФЗ РФ).
+                    {t("reviews.legal_consent", "Отправляя отзыв, вы соглашаетесь на публикацию указанного имени и текста.")}
                   </p>
                 </div>
 
@@ -290,7 +289,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                       onClick={onCancelEditReview}
                       className="flex-1 py-2 bg-app-surface border border-app-border text-app-muted font-mono text-xs font-semibold rounded-xl hover:text-app-primary transition-colors cursor-pointer"
                     >
-                      Отмена
+                      {t("common.cancel", "Отмена")}
                     </button>
                   )}
                   <button
@@ -301,10 +300,10 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                     {isSubmittingReview ? <SpinnerLoader size={14} /> : <Send size={13} />}
                     <span>
                       {isSubmittingReview
-                        ? "Сохранение..."
+                        ? t("common.saving", "Сохранение...")
                         : editingReviewId
-                        ? "Сохранить изменения"
-                        : "Отправить отзыв"}
+                        ? t("reviews.save_changes", "Сохранить изменения")
+                        : t("reviews.submit_review", "Отправить отзыв")}
                     </span>
                   </button>
                 </div>
@@ -326,7 +325,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                       : "bg-app-surface border-app-border text-app-muted hover:text-app-primary"
                   }`}
                 >
-                  {s === "ALL" ? `Все (${reviews.length})` : `${s} ★`}
+                  {s === "ALL" ? `${t("common.all", "Все")} (${reviews.length})` : `${s} ★`}
                 </button>
               ))}
             </div>
@@ -340,7 +339,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
               <div className="py-12 text-center bg-app-surface border border-dashed border-app-border rounded-2xl p-6 space-y-2">
                 <MessageSquare className="mx-auto text-app-muted" size={24} />
                 <p className="text-xs text-app-muted font-mono">
-                  Отзывов пока нет. Будьте первым!
+                  {t("reviews.no_reviews", "Отзывов пока нет. Будьте первым!")}
                 </p>
               </div>
             ) : (
@@ -361,17 +360,17 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                           <div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs font-semibold text-app-primary">
-                                {rev.customerName || "Клиент"}
+                                {rev.customerName || t("reviews.client", "Клиент")}
                               </span>
                               {isMyReview && (
                                 <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-app-card text-app-primary border border-app-border font-medium">
-                                  Мой отзыв
+                                  {t("reviews.my_review", "Мой отзыв")}
                                 </span>
                               )}
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] text-app-muted font-mono">
-                                {new Date(rev.createdAt).toLocaleDateString("ru-RU", {
+                                {new Date(rev.createdAt).toLocaleDateString(undefined, {
                                   day: "numeric",
                                   month: "short",
                                   year: "numeric"
@@ -379,7 +378,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                               </span>
                               {rev.isEdited && (
                                 <span className="text-[9px] font-mono italic text-app-muted bg-app-card px-1 py-0.2 rounded border border-app-border">
-                                  изменен
+                                  {t("reviews.edited", "изменен")}
                                 </span>
                               )}
                             </div>
@@ -407,7 +406,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                           >
                             <img
                               src={rev.imageUrl}
-                              alt="Фото к отзыву"
+                              alt={t("reviews.photo_alt", "Фото к отзыву")}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                             />
                             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
@@ -421,7 +420,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                       {rev.reply && (
                         <div className="mt-2 pt-1 pl-3 border-l-2 border-app-border space-y-0.5">
                           <span className="text-[10px] font-mono font-bold text-app-primary uppercase tracking-wider block">
-                            Ответ заведения
+                            {t("reviews.venue_reply", "Ответ заведения")}
                           </span>
                           <p className="text-xs text-app-secondary leading-relaxed font-sans">{rev.reply}</p>
                         </div>
@@ -437,7 +436,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                               className="px-2.5 py-1 rounded-lg bg-app-card border border-app-border text-app-primary hover:bg-app-hover hover:border-app-border transition-all flex items-center gap-1 cursor-pointer"
                             >
                               <Edit2 size={11} />
-                              <span>Редактировать</span>
+                              <span>{t("common.edit", "Редактировать")}</span>
                             </button>
                           )}
                           {onDeleteReview && (
@@ -447,7 +446,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                               className="px-2.5 py-1 rounded-lg bg-app-card border border-app-border text-app-muted hover:text-app-primary hover:bg-app-hover transition-all flex items-center gap-1 cursor-pointer"
                             >
                               <Trash2 size={11} />
-                              <span>Удалить</span>
+                              <span>{t("common.delete", "Удалить")}</span>
                             </button>
                           )}
                         </div>
@@ -480,7 +479,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
             </button>
             <img
               src={lightboxImage}
-              alt="Полноэкранное фото"
+              alt={t("reviews.fullscreen_photo", "Полноэкранное фото")}
               className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             />

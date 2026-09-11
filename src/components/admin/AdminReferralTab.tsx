@@ -255,7 +255,7 @@ export const AdminReferralTab: React.FC = () => {
       </AnimatePresence>
 
       {/* Hero Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-app-card via-app-card to-app-primary/5 border border-app-border rounded-2xl p-6 sm:p-8 shadow-sm">
+      <div className="relative overflow-hidden bg-gradient-to-br from-app-surface via-app-surface to-app-primary/5 border border-app-border rounded-2xl p-6 sm:p-8 shadow-sm">
         <div className="relative z-10 max-w-3xl space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-app-primary/10 border border-app-primary/20 text-app-primary text-xs font-mono font-medium">
             <Gift size={13} />
@@ -272,7 +272,7 @@ export const AdminReferralTab: React.FC = () => {
       </div>
 
       {/* Referral Link & Share Controls */}
-      <div className="bg-app-card border border-app-border rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+      <div className="bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-app-border pb-3">
           <div>
             <h2 className="font-bold text-sm text-app-primary flex items-center gap-2">
@@ -286,7 +286,7 @@ export const AdminReferralTab: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => fetchReferralData(true)}
-              className="p-2 bg-app-bg hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-xl transition-colors cursor-pointer"
+              className="p-2 bg-app-card hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary rounded-xl transition-colors cursor-pointer"
               title="Обновить данные"
             >
               <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
@@ -295,7 +295,7 @@ export const AdminReferralTab: React.FC = () => {
         </div>
 
         <div className="flex flex-col md:flex-row items-stretch gap-3">
-          <div className="flex-1 flex items-center bg-app-bg border border-app-border rounded-xl px-3.5 py-2.5 overflow-hidden">
+          <div className="flex-1 flex items-center bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 overflow-hidden">
             <input
               type="text"
               readOnly
@@ -323,7 +323,7 @@ export const AdminReferralTab: React.FC = () => {
 
             <button
               onClick={() => setQrModalOpen(true)}
-              className="flex items-center justify-center gap-2 py-2.5 px-3 bg-app-bg hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer shrink-0"
+              className="flex items-center justify-center gap-2 py-2.5 px-3 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer shrink-0"
               title="Показать QR-код"
             >
               <QrCode size={14} />
@@ -332,7 +332,7 @@ export const AdminReferralTab: React.FC = () => {
 
             <button
               onClick={() => setPostsModalOpen(true)}
-              className="flex items-center justify-center gap-2 py-2.5 px-3 bg-app-bg hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer shrink-0"
+              className="flex items-center justify-center gap-2 py-2.5 px-3 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-xl transition-colors cursor-pointer shrink-0"
               title="Готовые шаблоны постов"
             >
               <Sparkles size={14} />
@@ -343,7 +343,7 @@ export const AdminReferralTab: React.FC = () => {
 
         <div className="flex items-center gap-2 font-mono text-xs text-app-muted">
           <span>Ваш реферальный код:</span>
-          <span className="font-bold text-app-primary bg-app-bg px-2 py-0.5 rounded border border-app-border">
+          <span className="font-bold text-app-primary bg-app-card px-2 py-0.5 rounded border border-app-border">
             {referralCode || "..."}
           </span>
           <button
@@ -359,7 +359,7 @@ export const AdminReferralTab: React.FC = () => {
       {/* Reward Milestones Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Milestone 1: 50 Referrals -> PRO (1 month) */}
-        <div className={`relative bg-app-card border rounded-2xl p-6 shadow-sm transition-all flex flex-col justify-between ${
+        <div className={`relative bg-app-surface border rounded-2xl p-6 shadow-sm transition-all flex flex-col justify-between ${
           proTier?.isClaimed
             ? "border-emerald-500/40 bg-emerald-500/[0.02]"
             : proTier?.isUnlocked
@@ -394,7 +394,7 @@ export const AdminReferralTab: React.FC = () => {
                   {activatedCount} / 50 чел. ({proTier?.progressPercent || 0}%)
                 </span>
               </div>
-              <div className="w-full h-2.5 bg-app-bg border border-app-border rounded-full overflow-hidden">
+              <div className="w-full h-2.5 bg-app-card border border-app-border rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${proTier?.progressPercent || 0}%` }}
@@ -446,7 +446,7 @@ export const AdminReferralTab: React.FC = () => {
                 <span>Забрать тариф PRO на 1 месяц бесплатно</span>
               </button>
             ) : (
-              <div className="w-full py-3 px-4 rounded-xl bg-app-bg border border-app-border text-app-muted font-mono text-xs font-medium flex items-center justify-center gap-2">
+              <div className="w-full py-3 px-4 rounded-xl bg-app-card border border-app-border text-app-muted font-mono text-xs font-medium flex items-center justify-center gap-2">
                 <Lock size={14} />
                 <span>Осталось пригласить: {proTier?.remaining || 50} чел.</span>
               </div>
@@ -455,7 +455,7 @@ export const AdminReferralTab: React.FC = () => {
         </div>
 
         {/* Milestone 2: 100 Referrals -> ENTERPRISE (1 month) */}
-        <div className={`relative bg-app-card border rounded-2xl p-6 shadow-sm transition-all flex flex-col justify-between ${
+        <div className={`relative bg-app-surface border rounded-2xl p-6 shadow-sm transition-all flex flex-col justify-between ${
           entTier?.isClaimed
             ? "border-emerald-500/40 bg-emerald-500/[0.02]"
             : entTier?.isUnlocked
@@ -490,7 +490,7 @@ export const AdminReferralTab: React.FC = () => {
                   {activatedCount} / 100 чел. ({entTier?.progressPercent || 0}%)
                 </span>
               </div>
-              <div className="w-full h-2.5 bg-app-bg border border-app-border rounded-full overflow-hidden">
+              <div className="w-full h-2.5 bg-app-card border border-app-border rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${entTier?.progressPercent || 0}%` }}
@@ -542,7 +542,7 @@ export const AdminReferralTab: React.FC = () => {
                 <span>Забрать тариф ENTERPRISE на 1 месяц бесплатно</span>
               </button>
             ) : (
-              <div className="w-full py-3 px-4 rounded-xl bg-app-bg border border-app-border text-app-muted font-mono text-xs font-medium flex items-center justify-center gap-2">
+              <div className="w-full py-3 px-4 rounded-xl bg-app-card border border-app-border text-app-muted font-mono text-xs font-medium flex items-center justify-center gap-2">
                 <Lock size={14} />
                 <span>Осталось пригласить: {entTier?.remaining || 100} чел.</span>
               </div>
@@ -553,7 +553,7 @@ export const AdminReferralTab: React.FC = () => {
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="p-4 bg-app-card border border-app-border rounded-xl space-y-1">
+        <div className="p-4 bg-app-surface border border-app-border rounded-xl space-y-1">
           <span className="text-[11px] font-mono text-app-muted">Активировано</span>
           <div className="text-xl font-bold text-app-primary flex items-center gap-1.5">
             <Users size={18} className="text-app-accent" />
@@ -561,7 +561,7 @@ export const AdminReferralTab: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-4 bg-app-card border border-app-border rounded-xl space-y-1">
+        <div className="p-4 bg-app-surface border border-app-border rounded-xl space-y-1">
           <span className="text-[11px] font-mono text-app-muted">Текущий тариф</span>
           <div className="text-xl font-bold text-app-primary flex items-center gap-1.5">
             <Crown size={18} className="text-amber-500" />
@@ -569,7 +569,7 @@ export const AdminReferralTab: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-4 bg-app-card border border-app-border rounded-xl space-y-1">
+        <div className="p-4 bg-app-surface border border-app-border rounded-xl space-y-1">
           <span className="text-[11px] font-mono text-app-muted">Срок действия</span>
           <div className="text-xs font-mono font-bold text-app-primary truncate pt-1">
             {data?.subscriptionExpiresAt
@@ -578,7 +578,7 @@ export const AdminReferralTab: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-4 bg-app-card border border-app-border rounded-xl space-y-1">
+        <div className="p-4 bg-app-surface border border-app-border rounded-xl space-y-1">
           <span className="text-[11px] font-mono text-app-muted">Получено наград</span>
           <div className="text-xl font-bold text-app-primary flex items-center gap-1.5">
             <Award size={18} className="text-emerald-500" />
@@ -588,7 +588,7 @@ export const AdminReferralTab: React.FC = () => {
       </div>
 
       {/* Invited Users List */}
-      <div className="bg-app-card border border-app-border rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+      <div className="bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-app-border pb-4">
           <div>
             <h3 className="font-bold text-sm text-app-primary flex items-center gap-2">
@@ -607,7 +607,7 @@ export const AdminReferralTab: React.FC = () => {
               placeholder="Поиск по имени/почте..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-app-bg border border-app-border rounded-xl font-mono text-xs text-app-primary focus:outline-none focus:border-app-primary"
+              className="w-full pl-9 pr-3 py-1.5 bg-app-card border border-app-border rounded-xl font-mono text-xs text-app-primary focus:outline-none focus:border-app-primary"
             />
           </div>
         </div>
@@ -635,7 +635,7 @@ export const AdminReferralTab: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-app-border">
                 {filteredReferrals.map((ref) => (
-                  <tr key={ref.id} className="hover:bg-app-bg/50 transition-colors">
+                  <tr key={ref.id} className="hover:bg-app-hover/50 transition-colors">
                     <td className="py-3 text-app-primary font-medium font-sans">
                       {ref.name}
                     </td>
@@ -643,7 +643,7 @@ export const AdminReferralTab: React.FC = () => {
                       {ref.maskedEmail}
                     </td>
                     <td className="py-3">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-app-bg border border-app-border text-app-primary">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-app-card border border-app-border text-app-primary">
                         {ref.plan}
                       </span>
                     </td>
@@ -669,14 +669,14 @@ export const AdminReferralTab: React.FC = () => {
       </div>
 
       {/* Rules & FAQ Section */}
-      <div className="bg-app-card border border-app-border rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+      <div className="bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
         <h3 className="font-bold text-sm text-app-primary flex items-center gap-2">
           <Info size={16} className="text-app-muted" />
           <span>Правила и условия реферальной программы</span>
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-sans text-xs text-app-muted">
-          <div className="p-4 bg-app-bg border border-app-border rounded-xl space-y-2">
+          <div className="p-4 bg-app-card border border-app-border rounded-xl space-y-2">
             <div className="w-7 h-7 rounded-lg bg-app-primary/10 text-app-primary font-mono font-bold flex items-center justify-center text-xs">
               1
             </div>
@@ -686,7 +686,7 @@ export const AdminReferralTab: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-4 bg-app-bg border border-app-border rounded-xl space-y-2">
+          <div className="p-4 bg-app-card border border-app-border rounded-xl space-y-2">
             <div className="w-7 h-7 rounded-lg bg-app-primary/10 text-app-primary font-mono font-bold flex items-center justify-center text-xs">
               2
             </div>
@@ -696,7 +696,7 @@ export const AdminReferralTab: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-4 bg-app-bg border border-app-border rounded-xl space-y-2">
+          <div className="p-4 bg-app-card border border-app-border rounded-xl space-y-2">
             <div className="w-7 h-7 rounded-lg bg-app-primary/10 text-app-primary font-mono font-bold flex items-center justify-center text-xs">
               3
             </div>

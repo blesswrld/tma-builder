@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import { Search, Heart, X } from "lucide-react";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface ShopCategoriesProps {
   categories: string[];
@@ -19,6 +20,8 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
   searchQuery,
   onSearchChange,
 }) => {
+  const { t } = useLanguage();
+
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 border-b border-app-border pb-4 font-sans">
       {/* Category Pill Tabs */}
@@ -35,7 +38,7 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
                 : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
             }`}
           >
-            Все
+            {t("common.all", "Все")}
           </motion.button>
           
           {/* Favorites Category Tab */}
@@ -51,10 +54,10 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
             }`}
           >
             <Heart size={13} className={favoritesCount > 0 ? "fill-current text-rose-500" : "text-app-muted"} />
-            <span>Избранное ({favoritesCount})</span>
+            <span>{t("shop.favorites", "Избранное")} ({favoritesCount})</span>
           </motion.button>
 
-          {categories.map(cat => (
+          {categories.map((cat) => (
             <motion.button
               key={cat}
               whileTap={{ scale: 0.97 }}
@@ -80,8 +83,8 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
         <input
           type="text"
           value={searchQuery}
-          onChange={e => onSearchChange(e.target.value)}
-          placeholder="Поиск по каталогу..."
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder={t("shop.search_placeholder", "Поиск по каталогу...")}
           className="h-9 w-full bg-app-surface text-xs rounded-xl pl-9 pr-8 text-app-primary focus:outline-none focus:border-app-secondary border border-app-border transition-colors placeholder:text-app-muted font-sans shadow-2xs"
         />
         {searchQuery && (
@@ -89,7 +92,7 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
             type="button"
             onClick={() => onSearchChange("")}
             className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center text-app-muted hover:text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
-            title="Очистить поиск"
+            title={t("common.clear", "Очистить поиск")}
           >
             <X size={12} />
           </button>

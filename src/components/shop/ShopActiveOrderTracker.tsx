@@ -1,17 +1,18 @@
 import React from "react";
 import { Order } from "../../types";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface ShopActiveOrderTrackerProps {
   activeOrder: Order | null;
   onOpenMyOrders: () => void;
 }
 
-export const getOrderStatusInfo = (status: string) => {
+export const getOrderStatusInfo = (status: string, t: (key: string, def?: string) => string) => {
   switch (status) {
     case "NEW":
     case "PENDING":
       return {
-        label: "В ОЖИДАНИИ",
+        label: t("shop.in_waiting", "В ОЖИДАНИИ"),
         textClass: "text-app-muted",
         barColor: "bg-app-primary",
         progressWidth: "w-1/4",
@@ -21,7 +22,7 @@ export const getOrderStatusInfo = (status: string) => {
       };
     case "CONFIRMED":
       return {
-        label: "ПОДТВЕРЖДЁН",
+        label: t("shop.confirmed", "ПОДТВЕРЖДЁН"),
         textClass: "text-app-primary",
         barColor: "bg-app-primary",
         progressWidth: "w-2/4",
@@ -31,7 +32,7 @@ export const getOrderStatusInfo = (status: string) => {
       };
     case "IN_PROGRESS":
       return {
-        label: "В РАБОТЕ",
+        label: t("shop.in_progress", "В РАБОТЕ"),
         textClass: "text-app-primary",
         barColor: "bg-app-primary",
         progressWidth: "w-3/4",
@@ -41,7 +42,7 @@ export const getOrderStatusInfo = (status: string) => {
       };
     case "COMPLETED":
       return {
-        label: "ЗАВЕРШЁН",
+        label: t("shop.completed", "ЗАВЕРШЁН"),
         textClass: "text-emerald-500",
         barColor: "bg-emerald-500",
         progressWidth: "w-full",
@@ -51,7 +52,7 @@ export const getOrderStatusInfo = (status: string) => {
       };
     case "CANCELLED":
       return {
-        label: "ОТМЕНЁН",
+        label: t("shop.cancelled", "ОТМЕНЁН"),
         textClass: "text-rose-500",
         barColor: "bg-rose-500",
         progressWidth: "w-full",
@@ -61,7 +62,7 @@ export const getOrderStatusInfo = (status: string) => {
       };
     default:
       return {
-        label: status ? status.toUpperCase() : "В ОЖИДАНИИ",
+        label: status ? status.toUpperCase() : t("shop.in_waiting", "В ОЖИДАНИИ"),
         textClass: "text-app-muted",
         barColor: "bg-app-primary",
         progressWidth: "w-1/2",
@@ -76,10 +77,11 @@ export const ShopActiveOrderTracker: React.FC<ShopActiveOrderTrackerProps> = ({
   activeOrder,
   onOpenMyOrders,
 }) => {
+  const { t } = useLanguage();
   if (!activeOrder || !activeOrder.id) return null;
 
   const orderIdShort = (activeOrder.id || "").slice(-6).toUpperCase();
-  const info = getOrderStatusInfo(activeOrder.status);
+  const info = getOrderStatusInfo(activeOrder.status, t);
 
   return (
     <div className="p-4 sm:p-5 rounded-2xl bg-app-card border border-app-border space-y-3 shadow-2xs transition-all duration-300">
@@ -92,7 +94,7 @@ export const ShopActiveOrderTracker: React.FC<ShopActiveOrderTrackerProps> = ({
             <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${info.dotColor}`}></span>
           </span>
           <span className="text-xs font-bold font-mono text-app-primary">
-            Активный заказ #{orderIdShort}
+            {t("shop.active_order", "Активный заказ")} #{orderIdShort}
           </span>
         </div>
         <span className={`text-xs font-mono font-bold uppercase tracking-wider ${info.textClass}`}>
@@ -105,9 +107,9 @@ export const ShopActiveOrderTracker: React.FC<ShopActiveOrderTrackerProps> = ({
         />
       </div>
       <div className="flex justify-between items-center text-[11px] font-mono text-app-muted">
-        <span>Сумма: {activeOrder.totalPrice} ₽</span>
+        <span>{t("common.sum", "Сумма")}: {activeOrder.totalPrice} ₽</span>
         <button onClick={onOpenMyOrders} className="text-app-primary font-bold underline hover:opacity-80 transition-opacity cursor-pointer">
-          Детали заказа →
+          {t("shop.order_details", "Детали заказа")} →
         </button>
       </div>
     </div>

@@ -321,7 +321,8 @@ export const GlobalTooltip: React.FC = () => {
       const delay = parseInt(target.getAttribute("data-tooltip-delay") || "110", 10);
       const positionAttr = (target.getAttribute("data-tooltip-position") ||
         target.getAttribute("data-tooltip-side") ||
-        "auto") as TooltipPosition;
+        target.closest("[data-tooltip-side]")?.getAttribute("data-tooltip-side") ||
+        (target.closest("aside") ? "right" : "auto")) as TooltipPosition;
       const shortcutAttr = target.getAttribute("data-tooltip-shortcut") || undefined;
       const variantAttr = (target.getAttribute("data-tooltip-variant") || "default") as
         | "default"

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Store, Truck, Clock, Scale, Heart, Plus } from "lucide-react";
 import { Service } from "../../types";
 import { useScrollLock } from "../../hooks/useScrollLock";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface ServiceDetailModalProps {
   service: Service | null;
@@ -21,6 +22,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
   onAddToCart,
   onShowToast,
 }) => {
+  const { t } = useLanguage();
   useScrollLock(Boolean(service));
   const [detailItemNote, setDetailItemNote] = useState("");
 
@@ -98,7 +100,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                 <h2 className="text-lg font-bold text-app-primary">{service.title}</h2>
                 {service.category && (
                   <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">
-                    Категория: {service.category}
+                    {t("service.category", "Категория")}: {service.category}
                   </span>
                 )}
               </div>
@@ -135,13 +137,13 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
             {!hasCourier && (
               <div className="p-3 bg-app-card border border-app-border rounded-xl flex items-center gap-2.5 text-xs text-app-secondary font-mono font-medium">
                 <Store size={16} className="shrink-0 text-app-muted" />
-                <span>Только самовывоз или оказание услуги в заведении (доставка недоступна).</span>
+                <span>{t("service.pickup_only_notice", "Только самовывоз или оказание услуги в заведении (доставка недоступна).")}</span>
               </div>
             )}
             {!hasPickup && (
               <div className="p-3 bg-app-card border border-app-border rounded-xl flex items-center gap-2.5 text-xs text-app-secondary font-mono font-medium">
                 <Truck size={16} className="shrink-0 text-app-muted" />
-                <span>Только курьерская доставка (самовывоз недоступен).</span>
+                <span>{t("service.courier_only_notice", "Только курьерская доставка (самовывоз недоступен).")}</span>
               </div>
             )}
 
@@ -152,7 +154,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                   <div className="p-2.5 bg-app-card rounded-xl flex items-center gap-2 border border-app-border">
                     <Clock size={16} className="text-app-muted shrink-0" />
                     <div>
-                      <span className="block text-[9px] font-mono text-app-muted uppercase">Время</span>
+                      <span className="block text-[9px] font-mono text-app-muted uppercase">{t("service.time", "Время")}</span>
                       <span className="text-xs font-semibold text-app-primary">{service.prepTime}</span>
                     </div>
                   </div>
@@ -161,14 +163,14 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                   <div className="p-2.5 bg-app-card rounded-xl flex items-center gap-2 border border-app-border">
                     <Scale size={16} className="text-app-muted shrink-0" />
                     <div>
-                      <span className="block text-[9px] font-mono text-app-muted uppercase">Вес / Объём</span>
+                      <span className="block text-[9px] font-mono text-app-muted uppercase">{t("service.weight_volume", "Вес / Объём")}</span>
                       <span className="text-xs font-semibold text-app-primary">{service.weight}</span>
                     </div>
                   </div>
                 )}
                 {service.tags && (
                   <div className="col-span-2 p-2.5 bg-app-card rounded-xl space-y-1 border border-app-border">
-                    <span className="block text-[9px] font-mono text-app-muted uppercase">Теги</span>
+                    <span className="block text-[9px] font-mono text-app-muted uppercase">{t("service.tags", "Теги")}</span>
                     <div className="flex flex-wrap gap-1.5">
                       {service.tags.split(",").map(t => t.trim()).filter(Boolean).map(tag => (
                         <span key={tag} className="text-xs font-mono text-app-muted hover:text-app-primary transition-colors">
@@ -184,11 +186,11 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
             {/* Gallery Photos */}
             {Array.isArray(galleryImages) && galleryImages.length > 0 && (
               <div className="space-y-1.5 pt-1">
-                <label className="text-[10px] font-mono text-app-muted uppercase">Галерея фотографий</label>
+                <label className="text-[10px] font-mono text-app-muted uppercase">{t("service.photo_gallery", "Галерея фотографий")}</label>
                 <div className="grid grid-cols-3 gap-2">
                   {galleryImages.map((imgUrl, idx) => (
                     <div key={idx} className="h-20 rounded-xl overflow-hidden border border-app-border bg-app-card">
-                      <img src={imgUrl} alt={`Фото ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img src={imgUrl} alt={`${t("service.photo", "Фото")} ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     </div>
                   ))}
                 </div>
@@ -197,12 +199,12 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
 
             {/* Optional Note for Item */}
             <div className="space-y-1.5 pt-2">
-              <label className="text-[11px] font-mono text-app-muted uppercase">Пожелания к блюду / позиции</label>
+              <label className="text-[11px] font-mono text-app-muted uppercase">{t("service.wishes_label", "Пожелания к блюду / позиции")}</label>
               <input
                 type="text"
                 value={detailItemNote}
                 onChange={e => setDetailItemNote(e.target.value)}
-                placeholder="Например: без лука, погорячее..."
+                placeholder={t("service.wishes_placeholder", "Например: без лука, погорячее...")}
                 className="w-full bg-app-input border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-border transition-colors font-sans"
               />
             </div>
@@ -216,7 +218,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                 onToggleFavorite(service.id);
               }}
               className="p-3 rounded-2xl bg-app-surface border border-app-border hover:bg-app-hover text-app-primary transition-colors shrink-0 cursor-pointer"
-              title="В избранное"
+              title={t("service.to_favorites", "В избранное")}
             >
               <Heart size={18} className={isFavorite ? "fill-rose-500 text-rose-500" : "text-app-muted"} />
             </motion.button>
@@ -227,12 +229,12 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                 onAddToCart(service.id, detailItemNote);
                 onClose();
                 setDetailItemNote("");
-                onShowToast(`"${service.title}" добавлено в корзину`, "success");
+                onShowToast(`"${service.title}" ${t("cart.added_to_cart_msg", "добавлено в корзину")}`, "success");
               }}
               className="flex-1 py-3 bg-app-accent text-app-accent-fg font-bold font-mono text-xs uppercase rounded-2xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer shadow-sm"
             >
               <Plus size={16} />
-              <span>В корзину • {service.price} ₽</span>
+              <span>{t("service.to_cart", "В корзину")} • {service.price} ₽</span>
             </motion.button>
           </div>
         </motion.div>

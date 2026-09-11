@@ -7004,6 +7004,20 @@ Sitemap: ${req.protocol}://${req.get("host")}/sitemap.xml
     }
   });
 
+  // Explicit PWA Manifest and Service Worker handlers
+  app.get("/manifest.json", (req, res) => {
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.sendFile(path.join(process.cwd(), "public", "manifest.json"));
+  });
+
+  app.get("/sw.js", (req, res) => {
+    res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Service-Worker-Allowed", "/");
+    res.sendFile(path.join(process.cwd(), "public", "sw.js"));
+  });
+
   // 404 handler for unmatched /api/* routes (prevents serving index.html for unknown APIs)
   app.all("/api/*", (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl || req.url}` });

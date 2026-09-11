@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { Heart, Store, Truck, Clock, Scale, Plus, Minus } from "lucide-react";
 import { Service } from "../../types";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface ServiceCardProps {
   service: Service;
@@ -28,12 +29,13 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   onAddToCart,
   onRemoveFromCart,
 }) => {
+  const { t } = useLanguage();
   const currentQty = quantity ?? qty ?? 0;
   const isFavoriteItem = isFavorite ?? isFav ?? false;
   const handleOpenDetail = onSelectDetail || onOpenDetail || (() => {});
 
   const isOutOfStock = service.isAvailable === false;
-  const badges = service.badge ? service.badge.split(",").map(b => b.trim()).filter(Boolean) : [];
+  const badges = service.badge ? service.badge.split(",").map((b) => b.trim()).filter(Boolean) : [];
 
   const f = service.fulfillment || "courier,pickup";
   const hasCourier = f.includes("courier");
@@ -76,7 +78,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               onToggleFavorite(service.id);
             }}
             className="absolute top-2 right-2 p-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/20 text-white keep-white hover:scale-110 transition-transform cursor-pointer z-10"
-            title={isFavoriteItem ? "Удалить из избранного" : "В избранное"}
+            title={isFavoriteItem ? t("shop.remove_favorite", "Удалить из избранного") : t("shop.add_favorite", "В избранное")}
           >
             <Heart size={14} className={isFavoriteItem ? "fill-rose-500 text-rose-500" : "text-white keep-white"} />
           </button>
@@ -96,7 +98,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               onToggleFavorite(service.id);
             }}
             className="p-1.5 rounded-xl bg-app-card hover:bg-app-hover border border-app-border text-app-primary hover:scale-105 transition-all cursor-pointer shrink-0"
-            title={isFavoriteItem ? "Удалить из избранного" : "В избранное"}
+            title={isFavoriteItem ? t("shop.remove_favorite", "Удалить из избранного") : t("shop.add_favorite", "В избранное")}
           >
             <Heart size={14} className={isFavoriteItem ? "fill-rose-500 text-rose-500" : "text-app-muted"} />
           </button>
@@ -127,7 +129,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           {/* Badges */}
           {badges.length > 0 && (
             <div className="flex flex-wrap gap-1 py-0.5">
-              {badges.map(badge => (
+              {badges.map((badge) => (
                 <span key={badge} className="px-2 py-0.5 rounded-md bg-app-badge text-app-primary font-mono text-[9px]">
                   {badge}
                 </span>
@@ -139,14 +141,14 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           {!hasCourier && (
             <div className="pt-0.5">
               <span className="inline-flex items-center gap-1 bg-app-card text-app-secondary border border-app-border px-2 py-0.5 rounded-md text-[10px] font-mono">
-                <Store size={11} className="text-app-muted" /> Только самовывоз
+                <Store size={11} className="text-app-muted" /> {t("shop.pickup_only", "Только самовывоз")}
               </span>
             </div>
           )}
           {!hasPickup && (
             <div className="pt-0.5">
               <span className="inline-flex items-center gap-1 bg-app-card text-app-secondary border border-app-border px-2 py-0.5 rounded-md text-[10px] font-mono">
-                <Truck size={11} className="text-app-muted" /> Только доставка
+                <Truck size={11} className="text-app-muted" /> {t("shop.delivery_only", "Только доставка")}
               </span>
             </div>
           )}
@@ -180,7 +182,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               )}
               {service.tags && (
                 <div className="flex flex-wrap gap-1 items-center">
-                  {service.tags.split(",").map(t => t.trim()).filter(Boolean).map(tag => (
+                  {service.tags.split(",").map((t) => t.trim()).filter(Boolean).map((tag) => (
                     <span key={tag} className="text-app-muted hover:text-app-primary transition-colors">
                       #{tag}
                     </span>
@@ -193,12 +195,12 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         
         <div className="flex justify-between items-center mt-auto pt-3.5 border-t border-app-border">
           <span className="text-[10px] font-mono text-app-muted uppercase tracking-wider">
-            {currentQty > 0 ? `В корзине: ${currentQty}` : ""}
+            {currentQty > 0 ? `${t("shop.in_cart", "В корзине")}: ${currentQty}` : ""}
           </span>
 
           <div>
             {isOutOfStock ? (
-              <span className="text-xs text-app-muted font-mono">Недоступно</span>
+              <span className="text-xs text-app-muted font-mono">{t("common.unavailable", "Недоступно")}</span>
             ) : currentQty > 0 ? (
               <div className="h-8 flex items-center gap-1 sm:gap-1.5 bg-app-surface rounded-xl p-0.5 border border-app-border">
                 <button 
@@ -223,7 +225,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                 onClick={() => handleOpenDetail(service)}
                 className="h-8 px-4 rounded-xl bg-app-accent text-app-accent-fg font-bold text-xs hover:opacity-90 transition-opacity font-mono cursor-pointer shadow-2xs flex items-center justify-center"
               >
-                Выбрать
+                {t("shop.choose", "Выбрать")}
               </button>
             )}
           </div>

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, MapPin, Clock, Phone, Navigation, ExternalLink } from 'lucide-react';
 import { InteractiveMap } from '../map/InteractiveMap';
 import { getExternalMapLinks, localizeToRussian } from '../../lib/russianGeo';
+import { useLanguage } from '../../context/LanguageContext';
 
 export interface ShopMapModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const ShopMapModal: React.FC<ShopMapModalProps> = ({
   onClose,
   shop
 }) => {
+  const { t } = useLanguage();
   if (!isOpen) return null;
 
   const address = localizeToRussian(shop.address || 'Грозный, бульвар Эсамбаева, 8');
@@ -64,11 +66,11 @@ export const ShopMapModal: React.FC<ShopMapModalProps> = ({
                   <span className="truncate">{address}</span>
                   {shop.isOpen !== false ? (
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0 font-medium">
-                      Открыто
+                      {t("hero.open", "Открыто")}
                     </span>
                   ) : (
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 shrink-0 font-medium">
-                      Закрыто
+                      {t("hero.closed", "Закрыто")}
                     </span>
                   )}
                 </div>
@@ -79,8 +81,8 @@ export const ShopMapModal: React.FC<ShopMapModalProps> = ({
               type="button"
               onClick={onClose}
               className="w-8 h-8 rounded-xl bg-app-card hover:bg-app-hover text-app-muted hover:text-app-primary border border-app-border flex items-center justify-center transition-colors cursor-pointer shrink-0"
-              aria-label="Закрыть"
-              title="Закрыть"
+              aria-label={t("common.close", "Закрыть")}
+              title={t("common.close", "Закрыть")}
             >
               <X size={16} />
             </button>
@@ -128,7 +130,7 @@ export const ShopMapModal: React.FC<ShopMapModalProps> = ({
                 rel="noopener noreferrer"
                 className="flex-1 py-2.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-mono font-medium flex items-center justify-center gap-1.5 transition-all shadow-xs"
               >
-                <span>Маршрут в Яндекс Карты</span>
+                <span>{t("map.route_yandex", "Маршрут в Яндекс Карты")}</span>
                 <ExternalLink size={12} />
               </a>
               <a
@@ -137,7 +139,7 @@ export const ShopMapModal: React.FC<ShopMapModalProps> = ({
                 rel="noopener noreferrer"
                 className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-medium flex items-center justify-center gap-1.5 transition-all shadow-xs"
               >
-                <span>Открыть в 2ГИС</span>
+                <span>{t("map.open_2gis", "Открыть в 2ГИС")}</span>
                 <ExternalLink size={12} />
               </a>
             </div>

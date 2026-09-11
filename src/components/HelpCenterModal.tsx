@@ -34,12 +34,17 @@ import {
   ONBOARDING_CHECKLIST,
   DocArticle,
 } from "../data/documentationData";
+import { Shop, Service, Order } from "../types";
 
-interface HelpCenterModalProps {
+export interface HelpCenterModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialArticleId?: string | null;
   onNavigateTab?: (tab: string) => void;
+  shop?: Shop | null;
+  services?: Service[];
+  orders?: Order[];
+  promocodes?: any[];
 }
 
 export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
@@ -47,6 +52,10 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
   onClose,
   initialArticleId = null,
   onNavigateTab,
+  shop = null,
+  services = [],
+  orders = [],
+  promocodes = [],
 }) => {
   const [activeView, setActiveView] = useState<"search" | "articles" | "onboarding" | "hotkeys">("search");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -57,13 +66,144 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
   const [completedSteps, setCompletedSteps] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem("tma_onboarding_completed");
-      return saved ? JSON.parse(saved) : ["create-bot"];
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return ["create-bot"];
+      return [];
     }
   });
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Parse delivery options
+  const deliveryInfo = useMemo(() => {
+    if (!shop) return { isSet: false, text: "Условия не настроены" };
+    let opts: any = {};
+    if (typeof shop.deliveryOptions === "string") {
+      try {
+        opts = JSON.parse(shop.deliveryOptions);
+      } catch {}
+    } else if (shop.deliveryOptions && typeof shop.deliveryOptions === "object") {
+      opts = shop.deliveryOptions;
+    }
+    const hasAddress = Boolean(
+      (shop.address && shop.address.trim().length > 0) ||
+      (opts.pickupAddress && opts.pickupAddress.trim().length > 0)
+    );
+    const hasDeliveryMethods = opts.pickup !== false || Boolean(opts.courier) || Boolean(opts.shipping) || Number(opts.deliveryFee) > 0 || Number(opts.minOrder) > 0;
+    const isSet = hasAddress || hasDeliveryMethods;
+
+    let text = "Самовывоз и условия настроены";
+    if (hasAddress) {
+      text = `Адрес: ${shop.address || opts.pickupAddress}`;
+    } else if (hasDeliveryMethods) {
+      text = "Способы получения активны";
+    } else {
+      text = "Укажите адрес точки или условия доставки";
+    }
+    return { isSet, text };
+  }, [shop]);
+
+  // Real-time dynamic status computation for every onboarding step
+  const realChecklistItems = useMemo(() => {
+    const menuItemsCount = (services && services.length > 0)
+      ? services.length
+      : (shop?.services?.length || 0);
+
+    const hasBot = Boolean(
+      shop?.botToken ||
+      shop?.hasBotToken ||
+      shop?.isTelegramConnected ||
+      shop?.adminChatId ||
+      (typeof shop?.telegramSettings === "string" && shop.telegramSettings.length > 5) ||
+      (shop?.telegramSettings && typeof shop.telegramSettings === "object" && Boolean((shop.telegramSettings as any).botToken))
+    );
+
+    const hasDelivery = deliveryInfo.isSet;
+
+    const cashbackPct = shop?.cashbackPercent !== undefined && shop?.cashbackPercent !== null
+      ? Number(shop.cashbackPercent)
+      : 0;
+    const hasPromos = Boolean(promocodes && promocodes.length > 0);
+    const hasCashbackOrPromos = cashbackPct > 0 || hasPromos;
+
+    const ordersCount = (orders && orders.length > 0)
+      ? orders.length
+      : (shop?._count?.orders || 0);
+    const hasOrders = ordersCount > 0;
+
+    return ONBOARDING_CHECKLIST.map((step) => {
+      let isAutoDone = false;
+      let liveBadge = "";
+      let targetTab = "services";
+      let actionName = "Инструкция";
+
+      switch (step.id) {
+        case "create-bot":
+          isAutoDone = hasBot;
+          liveBadge = hasBot ? "Бот подключен" : "Токен не подключен";
+          targetTab = "settings";
+          actionName = "Настройки бота";
+          break;
+        case "add-items":
+          isAutoDone = menuItemsCount > 0;
+          liveBadge = menuItemsCount > 0
+            ? `В меню ${menuItemsCount} ${menuItemsCount === 1 ? "услуга" : menuItemsCount < 5 ? "услуги" : "услуг"}`
+            : "0 позиций в каталоге";
+          targetTab = "services";
+          actionName = "Управление меню";
+          break;
+        case "configure-delivery":
+          isAutoDone = hasDelivery;
+          liveBadge = deliveryInfo.text;
+          targetTab = "settings";
+          actionName = "Настроить условия";
+          break;
+        case "setup-cashback":
+          isAutoDone = hasCashbackOrPromos;
+          liveBadge = cashbackPct > 0
+            ? `Кэшбэк ${cashbackPct}% активен`
+            : hasPromos
+            ? `Промокодов: ${promocodes?.length}`
+            : "Бонусы выключены";
+          targetTab = hasPromos ? "promocodes" : "settings";
+          actionName = "Настроить кэшбэк";
+          break;
+        case "test-order":
+          isAutoDone = hasOrders;
+          liveBadge = hasOrders
+            ? `Оформлено ${ordersCount} ${ordersCount === 1 ? "заказ" : ordersCount < 5 ? "заказа" : "заказов"}`
+            : "Заказов пока не поступало";
+          targetTab = "botsim";
+          actionName = "Симулятор бота";
+          break;
+        default:
+          isAutoDone = false;
+          liveBadge = "";
+          targetTab = "services";
+          actionName = "Перейти";
+      }
+
+      // Done if auto-detected by real store data OR manually marked by user
+      const isDone = isAutoDone || completedSteps.includes(step.id);
+
+      return {
+        ...step,
+        isDone,
+        isAutoDone,
+        liveBadge,
+        targetTab,
+        actionName,
+      };
+    });
+  }, [shop, services, orders, promocodes, completedSteps, deliveryInfo]);
+
+  const completedCount = useMemo(() => {
+    return realChecklistItems.filter((i) => i.isDone).length;
+  }, [realChecklistItems]);
+
+  const progressPercent = useMemo(() => {
+    return Math.round((completedCount / ONBOARDING_CHECKLIST.length) * 100);
+  }, [completedCount]);
 
   // Set initial article if provided
   useEffect(() => {
@@ -313,7 +453,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
             <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
             <span>Чек-лист запуска</span>
             <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold rounded-full shrink-0">
-              {completedSteps.length}/{ONBOARDING_CHECKLIST.length}
+              {completedCount}/{ONBOARDING_CHECKLIST.length}
             </span>
           </button>
 
@@ -696,35 +836,37 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                     <CheckCircle2 size={18} />
                     <span>Чек-лист запуска заведения в Telegram</span>
                   </div>
-                  <span className="font-mono text-xs font-bold text-app-primary">
-                    {Math.round((completedSteps.length / ONBOARDING_CHECKLIST.length) * 100)}% готово
+                  <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                    {progressPercent}% готово
                   </span>
                 </div>
 
-                <div className="w-full bg-app-surface h-2 rounded-full overflow-hidden border border-app-border">
+                <div className="w-full bg-app-surface h-2.5 rounded-full overflow-hidden border border-app-border">
                   <div
-                    className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
+                    className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full transition-all duration-500 rounded-full"
                     style={{
-                      width: `${(completedSteps.length / ONBOARDING_CHECKLIST.length) * 100}%`,
+                      width: `${progressPercent}%`,
                     }}
                   />
                 </div>
-                <p className="text-xs text-app-muted font-sans">
-                  Выполните эти 5 простых шагов, чтобы ваше заведение было готово принимать заказы от гостей в Telegram Mini App.
-                </p>
+                <div className="flex items-center justify-between text-xs text-app-muted font-sans">
+                  <span>Выполните эти 5 шагов для полного запуска онлайн-заказов в Telegram Mini App.</span>
+                  <span className="font-mono font-semibold text-app-primary shrink-0 ml-2">
+                    {completedCount} из {ONBOARDING_CHECKLIST.length} завершено
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-3">
-                {ONBOARDING_CHECKLIST.map((step, idx) => {
-                  const isDone = completedSteps.includes(step.id);
+                {realChecklistItems.map((step, idx) => {
                   const linkedArticle = DOC_ARTICLES.find((a) => a.id === step.articleId);
 
                   return (
                     <div
                       key={step.id}
-                      className={`p-4 rounded-2xl border transition-all flex items-start justify-between gap-3.5 ${
-                        isDone
-                          ? "bg-app-card/60 border-app-border opacity-85"
+                      className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 ${
+                        step.isDone
+                          ? "bg-app-card/60 border-emerald-500/20 shadow-2xs"
                           : "bg-app-card border-app-border hover:border-app-primary/40 shadow-2xs"
                       }`}
                     >
@@ -736,37 +878,69 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                           type="button"
                           className="mt-0.5 text-app-primary shrink-0 transition-transform active:scale-90"
                         >
-                          {isDone ? (
+                          {step.isDone ? (
                             <CheckCircle2 size={20} className="text-emerald-500 fill-emerald-500/20" />
                           ) : (
                             <Circle size={20} className="text-app-muted" />
                           )}
                         </button>
 
-                        <div className="space-y-1">
-                          <h4
-                            className={`font-mono text-xs font-bold ${
-                              isDone ? "line-through text-app-muted" : "text-app-primary"
-                            }`}
-                          >
-                            {idx + 1}. {step.title}
-                          </h4>
-                          <p className="text-[11px] text-app-muted font-sans">
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4
+                              className={`font-mono text-xs font-bold ${
+                                step.isDone ? "text-app-primary" : "text-app-primary"
+                              }`}
+                            >
+                              {idx + 1}. {step.title}
+                            </h4>
+
+                            {step.liveBadge && (
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-medium ${
+                                  step.isAutoDone
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                    : step.isDone
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                    : "bg-app-surface text-app-muted border border-app-border"
+                                }`}
+                              >
+                                {step.isDone ? <Check size={10} strokeWidth={3} /> : <Info size={10} />}
+                                <span>{step.liveBadge}</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-[11px] text-app-muted font-sans leading-relaxed">
                             {step.desc}
                           </p>
                         </div>
                       </div>
 
-                      {linkedArticle && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedArticle(linkedArticle)}
-                          className="px-3 py-1.5 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl text-[11px] font-mono text-app-primary font-semibold flex items-center gap-1 shrink-0 cursor-pointer"
-                        >
-                          <span>Инструкция</span>
-                          <ChevronRight size={12} />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        {onNavigateTab && (
+                          <button
+                            type="button"
+                            onClick={() => onNavigateTab(step.targetTab)}
+                            className="px-2.5 py-1.5 bg-app-surface hover:bg-app-hover border border-app-border rounded-xl text-[11px] font-mono text-app-primary font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                            title={`Перейти: ${step.actionName}`}
+                          >
+                            <span>{step.actionName}</span>
+                            <ChevronRight size={12} />
+                          </button>
+                        )}
+
+                        {linkedArticle && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedArticle(linkedArticle)}
+                            className="px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-xl text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                          >
+                            <BookOpen size={12} />
+                            <span>Гайд</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { Sun, Moon, Star, Receipt, Bug } from "lucide-react";
 import { Shop } from "../../types";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface ShopHeaderProps {
   shop: Shop;
@@ -25,6 +26,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
   onOpenMyOrders,
   onOpenReport,
 }) => {
+  const { t } = useLanguage();
   const handleToggleTheme = onToggleTheme || toggleTheme || (() => {});
   const isDark = theme === "dark";
 
@@ -56,7 +58,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
               />
             </div>
             <p className="text-[10px] sm:text-[11px] font-mono text-app-muted truncate max-w-[120px] sm:max-w-xs">
-              {shop.workingHours || (shop.isOpen !== false ? "Открыто" : "Закрыто")}
+              {shop.workingHours || (shop.isOpen !== false ? t("shop.open", "Открыто") : t("shop.closed", "Закрыто"))}
             </p>
           </div>
         </div>
@@ -70,7 +72,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
             type="button"
             onClick={handleToggleTheme}
             className="w-8 h-8 rounded-lg flex items-center justify-center text-app-secondary hover:text-app-primary hover:bg-app-hover bg-app-card border border-app-border transition-all cursor-pointer shrink-0 shadow-2xs"
-            title={isDark ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
+            title={isDark ? t("btn.theme_light", "Переключить на светлую тему") : t("btn.theme_dark", "Переключить на тёмную тему")}
           >
             {isDark ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-app-secondary" />}
           </motion.button>
@@ -82,10 +84,10 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
             type="button"
             onClick={onOpenReviews}
             className="h-8 px-2.5 rounded-lg text-xs transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0 bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border border-app-border shadow-2xs"
-            title="Отзывы заведения"
+            title={t("shop.reviews", "Отзывы")}
           >
             <Star size={13} className="text-amber-400 shrink-0" />
-            <span className="hidden min-[440px]:inline">Отзывы</span>
+            <span className="hidden min-[440px]:inline">{t("shop.reviews", "Отзывы")}</span>
           </motion.button>
 
           {/* Orders History button */}
@@ -95,10 +97,10 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
             type="button"
             onClick={onOpenMyOrders}
             className="h-8 px-2.5 rounded-lg text-xs transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0 bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border border-app-border shadow-2xs"
-            title="Мои заказы"
+            title={t("shop.orders", "Заказы")}
           >
             <Receipt size={13} className="text-app-muted shrink-0" />
-            <span className="hidden min-[440px]:inline">Заказы</span>
+            <span className="hidden min-[440px]:inline">{t("shop.orders", "Заказы")}</span>
           </motion.button>
 
           {/* Bug / Feedback report */}
@@ -109,7 +111,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
               type="button"
               onClick={onOpenReport}
               className="w-8 h-8 rounded-lg text-xs transition-all flex items-center justify-center font-mono cursor-pointer shrink-0 bg-app-card hover:bg-app-hover text-app-muted hover:text-app-primary border border-app-border shadow-2xs"
-              title="Сообщить об ошибке / отзыв"
+              title={t("btn.bug_report", "Сообщить об ошибке")}
             >
               <Bug size={14} className="shrink-0" />
             </motion.button>
