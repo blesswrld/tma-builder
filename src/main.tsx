@@ -18,27 +18,31 @@ if (customApiBase) {
   };
 }
 
-// Global capture for PWA install prompt
+// Global capture for PWA install prompt & cleanup of legacy caches
 if (typeof window !== 'undefined') {
+  // Purge any stale cache entries that could return corrupted responses
+  if ('caches' in window) {
+    caches.keys().then((names) => {
+      names.forEach((name) => {
+        caches.delete(name).catch(() => {});
+      });
+    }).catch(() => {});
+  }
+
+  // Unregister any stale Service Worker to avoid intercepting manifest or dev requests
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const reg of registrations) {
+        reg.unregister().catch(() => {});
+      }
+    }).catch(() => {});
+  }
+
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     (window as any).__deferredPWAInstallPrompt = e;
     window.dispatchEvent(new CustomEvent('pwa:prompt-ready'));
   });
-
-  // Register PWA Service Worker for cache-first static resources
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((reg) => {
-          console.log('[PWA] Service Worker успешно зарегистрирован:', reg.scope);
-        })
-        .catch((err) => {
-          console.warn('[PWA] Ошибка регистрации Service Worker:', err);
-        });
-    });
-  }
 }
 
 createRoot(document.getElementById('root')!).render(

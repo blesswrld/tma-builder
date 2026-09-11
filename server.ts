@@ -1,4 +1,5 @@
 import "dotenv/config";
+import fs from "fs";
 import express from "express";
 import path from "path";
 import os from "os";
@@ -804,12 +805,12 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
   } else {
     res.setHeader("Access-Control-Allow-Origin", "*");
   }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
   }
@@ -822,6 +823,39 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 // Health check endpoint for Render / monitoring
 app.get("/api/health", (_req, res) => {
   res.status(200).json({ status: "ok", uptime: process.uptime(), timestamp: Date.now() });
+});
+
+// Explicit PWA Manifest and Service Worker handlers early in the pipeline
+app.get(["/manifest.json", "/manifest.webmanifest"], (req, res) => {
+  const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : undefined) || (req.headers.host ? `https://${req.headers.host}` : undefined);
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  const manifestPath = path.join(process.cwd(), "public", "manifest.json");
+  try {
+    const content = fs.readFileSync(manifestPath, "utf8");
+    res.status(200).send(content);
+  } catch (e) {
+    res.status(500).json({ error: "Failed to read manifest" });
+  }
+});
+
+app.get("/sw.js", (req, res) => {
+  res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Service-Worker-Allowed", "/");
+  const swPath = path.join(process.cwd(), "public", "sw.js");
+  try {
+    const content = fs.readFileSync(swPath, "utf8");
+    res.status(200).send(content);
+  } catch (e) {
+    res.status(500).send("// SW not found");
+  }
 });
 
 // Middleware: Rewrite /api/public/* to /api/*
@@ -7004,20 +7038,6 @@ Sitemap: ${req.protocol}://${req.get("host")}/sitemap.xml
     }
   });
 
-  // Explicit PWA Manifest and Service Worker handlers
-  app.get("/manifest.json", (req, res) => {
-    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.sendFile(path.join(process.cwd(), "public", "manifest.json"));
-  });
-
-  app.get("/sw.js", (req, res) => {
-    res.setHeader("Content-Type", "application/javascript; charset=utf-8");
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.setHeader("Service-Worker-Allowed", "/");
-    res.sendFile(path.join(process.cwd(), "public", "sw.js"));
-  });
-
   // 404 handler for unmatched /api/* routes (prevents serving index.html for unknown APIs)
   app.all("/api/*", (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl || req.url}` });
@@ -7030,7 +7050,7 @@ if (!process.env.VERCEL) {
     if (process.env.NODE_ENV !== "production") {
       const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
-        server: { middlewareMode: true },
+        server: { middlewareMode: true, hmr: false },
         appType: "spa",
       });
       app.use(vite.middlewares);
