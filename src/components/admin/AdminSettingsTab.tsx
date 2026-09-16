@@ -42,6 +42,7 @@ import {
 import { AdminMusicSettingsSection } from "./AdminMusicSettingsSection";
 import { AdminTelegramIntegrationTab } from "./AdminTelegramIntegrationTab";
 import { CustomCheckbox } from "../CustomCheckbox";
+import { CustomNumberInput } from "../CustomNumberInput";
 import { parseMusicSettings } from "../../types";
 import { AdminMapPickerModal } from "./AdminMapPickerModal";
 
@@ -817,10 +818,10 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                     <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
                       Размер кэшбэка (%)
                     </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="100"
+                    <CustomNumberInput
+                      min={1}
+                      max={100}
+                      step={1}
                       value={settingsData.cashbackPercent}
                       onChange={(e) =>
                         setSettingsData((s: any) => ({
@@ -829,6 +830,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                         }))
                       }
                       placeholder="5"
+                      suffix="%"
                       className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
                     />
                   </div>
@@ -1062,8 +1064,9 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                     <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
                       Минимальная сумма заказа для доставки (₽)
                     </label>
-                    <input
-                      type="number"
+                    <CustomNumberInput
+                      min={0}
+                      step={50}
                       value={settingsData.deliveryOptions?.minOrder ?? settingsData.deliveryOptions?.deliveryMinOrder ?? "0"}
                       onChange={(e) =>
                         setSettingsData((s: any) => ({
@@ -1080,8 +1083,9 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                     <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
                       Стоимость курьерской доставки (₽)
                     </label>
-                    <input
-                      type="number"
+                    <CustomNumberInput
+                      min={0}
+                      step={50}
                       value={settingsData.deliveryOptions?.deliveryFee || "0"}
                       onChange={(e) =>
                         setSettingsData((s: any) => ({
@@ -1098,8 +1102,9 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                     <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
                       Бесплатная доставка от (₽)
                     </label>
-                    <input
-                      type="number"
+                    <CustomNumberInput
+                      min={0}
+                      step={100}
                       value={settingsData.deliveryOptions?.freeDeliveryThreshold || "0"}
                       onChange={(e) =>
                         setSettingsData((s: any) => ({

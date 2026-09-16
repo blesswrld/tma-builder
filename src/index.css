@@ -24,6 +24,7 @@
 
 @layer base {
   :root, html.dark {
+    color-scheme: dark;
     --background: #08080b;
     --surface: #0e0e12;
     --card: var(--surface);
@@ -72,6 +73,7 @@
   }
 
   html.light {
+    color-scheme: light;
     --background: #e6e6eb;
     --surface: #efeff3;
     --card: var(--surface);
@@ -138,6 +140,17 @@
     min-height: 100dvh;
     min-height: -webkit-fill-available;
     overflow-x: hidden;
+  }
+
+  /* Universal Custom Number Input styling */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
   }
 }
 

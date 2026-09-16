@@ -1,5 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { CustomNumberInput } from "../CustomNumberInput";
 import {
   Users,
   UserPlus,
@@ -305,10 +306,10 @@ export function AdminTeamTab({
                 </div>
                 <div>
                   <label className="block text-app-muted mb-1.5">Лимит активаций ссылки</label>
-                  <input
-                    type="number"
+                  <CustomNumberInput
                     min={1}
                     max={100}
+                    step={1}
                     value={inviteMaxUses}
                     onChange={e => setInviteMaxUses(Number(e.target.value))}
                     className="w-full bg-app-card border border-app-border rounded-xl p-2.5 text-app-primary focus:outline-none focus:border-app-accent"

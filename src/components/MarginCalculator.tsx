@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { motion } from "motion/react";
+import { CustomNumberInput } from "./CustomNumberInput";
 import {
   Calculator,
   RotateCcw,
@@ -169,10 +170,9 @@ export default function MarginCalculator({
             <span>Цена продажи</span>
             <span>{currencySymbol}</span>
           </div>
-          <input
-            type="number"
-            min="0"
-            step="50"
+          <CustomNumberInput
+            min={0}
+            step={50}
             value={sellingPrice || ""}
             onChange={(e) => setSellingPrice(Number(e.target.value) || 0)}
             className="w-full bg-app-surface border border-app-border rounded-lg px-2.5 py-1.5 text-xs font-bold font-mono text-app-primary focus:outline-none focus:border-app-primary transition-colors"
@@ -202,10 +202,9 @@ export default function MarginCalculator({
             <span>Себестоимость</span>
             <span>{currencySymbol}</span>
           </div>
-          <input
-            type="number"
-            min="0"
-            step="50"
+          <CustomNumberInput
+            min={0}
+            step={50}
             value={costPrice || ""}
             onChange={(e) => setCostPrice(Number(e.target.value) || 0)}
             className="w-full bg-app-surface border border-app-border rounded-lg px-2.5 py-1.5 text-xs font-bold font-mono text-app-primary focus:outline-none focus:border-app-primary transition-colors"
@@ -235,10 +234,9 @@ export default function MarginCalculator({
             <span>Объём партии</span>
             <span>шт</span>
           </div>
-          <input
-            type="number"
-            min="1"
-            step="10"
+          <CustomNumberInput
+            min={1}
+            step={10}
             value={volume || ""}
             onChange={(e) => setVolume(Number(e.target.value) || 1)}
             className="w-full bg-app-surface border border-app-border rounded-lg px-2.5 py-1.5 text-xs font-bold font-mono text-app-primary focus:outline-none focus:border-app-primary transition-colors"
@@ -268,11 +266,10 @@ export default function MarginCalculator({
             <span>Эквайринг & Налог</span>
             <span>%</span>
           </div>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="0.5"
+          <CustomNumberInput
+            min={0}
+            max={100}
+            step={0.5}
             value={taxRate || ""}
             onChange={(e) => setTaxRate(Number(e.target.value) || 0)}
             className="w-full bg-app-surface border border-app-border rounded-lg px-2.5 py-1.5 text-xs font-bold font-mono text-app-primary focus:outline-none focus:border-app-primary transition-colors"

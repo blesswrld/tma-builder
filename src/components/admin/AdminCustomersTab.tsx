@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { CustomNumberInput } from "../CustomNumberInput";
 import {
   User,
   Phone,
@@ -439,18 +440,15 @@ export function AdminCustomersTab({
                     <span>Бонусный баланс</span>
                     <span className="text-[10.5px] font-mono text-app-muted">Баллы заведения</span>
                   </label>
-                  <div className="relative">
-                    <Award size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500" />
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={editBonus}
-                      onChange={(e) => setEditBonus(Math.max(0, parseInt(e.target.value) || 0))}
-                      placeholder="0"
-                      className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3 py-2 text-xs font-mono font-bold text-app-primary placeholder:text-app-muted/60 focus:outline-none focus:border-app-primary transition-colors"
-                    />
-                  </div>
+                  <CustomNumberInput
+                    min={0}
+                    step={1}
+                    value={editBonus}
+                    onChange={(e) => setEditBonus(Math.max(0, parseInt(e.target.value) || 0))}
+                    placeholder="0"
+                    leftIcon={<Award size={14} className="text-amber-500" />}
+                    className="w-full bg-app-card border border-app-border rounded-xl py-2 text-xs font-mono font-bold text-app-primary placeholder:text-app-muted/60 focus:outline-none focus:border-app-primary"
+                  />
                 </div>
 
                 {/* Info Note */}

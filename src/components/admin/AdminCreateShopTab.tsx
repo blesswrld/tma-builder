@@ -44,6 +44,7 @@ import {
   sanitizeCurrencySymbolInput
 } from "../../lib/validation";
 import { AdminMapPickerModal } from "./AdminMapPickerModal";
+import { CustomNumberInput } from "../CustomNumberInput";
 
 export interface CreateShopFormData {
   name: string;
@@ -1262,8 +1263,9 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                         <label className="block text-[11px] font-mono text-app-muted mb-1.5">
                           Мин. сумма для заказа ({formData.currencySymbol})
                         </label>
-                        <input
-                          type="number"
+                        <CustomNumberInput
+                          min={0}
+                          step={50}
                           value={formData.deliveryOptions.minOrder}
                           onChange={(e) =>
                             setFormData((p) => ({
@@ -1280,8 +1282,9 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                         <label className="block text-[11px] font-mono text-app-muted mb-1.5">
                           Стоимость доставки курьером ({formData.currencySymbol})
                         </label>
-                        <input
-                          type="number"
+                        <CustomNumberInput
+                          min={0}
+                          step={50}
                           value={formData.deliveryOptions.deliveryFee}
                           onChange={(e) =>
                             setFormData((p) => ({

@@ -21,6 +21,7 @@ import {
   Layers,
 } from "lucide-react";
 import ImageUploader from "../ImageUploader";
+import { CustomNumberInput } from "../CustomNumberInput";
 
 const FULFILLMENT_OPTIONS = [
   { value: "courier,pickup", label: "В заведении и Доставка", icon: Store, color: "text-app-muted" },
@@ -321,8 +322,9 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                 <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
                   Цена (₽) *
                 </label>
-                <input
-                  type="number"
+                <CustomNumberInput
+                  min={0}
+                  step={50}
                   value={newServiceData.price}
                   onChange={(e) =>
                     setNewServiceData((s: any) => ({ ...s, price: e.target.value }))
@@ -336,8 +338,9 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                 <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
                   Старая цена (₽)
                 </label>
-                <input
-                  type="number"
+                <CustomNumberInput
+                  min={0}
+                  step={50}
                   value={newServiceData.oldPrice || ""}
                   onChange={(e) =>
                     setNewServiceData((s: any) => ({ ...s, oldPrice: e.target.value }))

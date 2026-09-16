@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import QRCode from "qrcode";
 import { X, Printer, Download, QrCode, Copy, Check } from "lucide-react";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { CustomNumberInput } from "./CustomNumberInput";
 
 interface QrGeneratorModalProps {
   isOpen: boolean;
@@ -275,9 +276,10 @@ export default function QrGeneratorModal({
                   <label className="block text-xs text-app-muted mb-1">
                     Начальный стол №
                   </label>
-                  <input
-                    type="number"
-                    min="1"
+                  <CustomNumberInput
+                    min={1}
+                    max={50}
+                    step={1}
                     value={batchStart}
                     onChange={e => setBatchStart(e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-xl bg-app-input border border-app-border text-app-primary font-medium"
@@ -287,9 +289,10 @@ export default function QrGeneratorModal({
                   <label className="block text-xs text-app-muted mb-1">
                     Конечный стол №
                   </label>
-                  <input
-                    type="number"
-                    max="50"
+                  <CustomNumberInput
+                    min={1}
+                    max={50}
+                    step={1}
                     value={batchEnd}
                     onChange={e => setBatchEnd(e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-xl bg-app-input border border-app-border text-app-primary font-medium"

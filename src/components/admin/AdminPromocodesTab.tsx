@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { Promocode } from "../../types";
 import { CustomDatePicker } from "../ui/CustomDatePicker";
+import { CustomNumberInput } from "../CustomNumberInput";
 
 interface AdminPromocodesTabProps {
   promocodes: Promocode[];
@@ -759,24 +760,22 @@ export function AdminPromocodesTab({
                   {/* Input value and Quick Chips */}
                   {activeDiscountType === "percent" ? (
                     <div className="space-y-1.5">
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="1"
-                          max="100"
-                          value={newPromoData.discountPercent}
-                          onChange={(e) =>
-                            setNewPromoData((p) => ({
-                              ...p,
-                              discountPercent: e.target.value,
-                              discountAmount: "",
-                            }))
-                          }
-                          placeholder="Процент скидки (1-100)"
-                          className="w-full bg-app-surface border border-app-border rounded-xl px-3 py-1.5 sm:py-2 text-xs text-app-primary focus:outline-none focus:border-app-primary/50 font-mono placeholder:text-app-muted"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-app-secondary font-medium">%</span>
-                      </div>
+                      <CustomNumberInput
+                        min={1}
+                        max={100}
+                        step={1}
+                        value={newPromoData.discountPercent}
+                        onChange={(e) =>
+                          setNewPromoData((p) => ({
+                            ...p,
+                            discountPercent: e.target.value,
+                            discountAmount: "",
+                          }))
+                        }
+                        placeholder="Процент скидки (1-100)"
+                        suffix={<span className="text-xs font-mono text-app-secondary font-medium">%</span>}
+                        className="w-full bg-app-surface border border-app-border rounded-xl px-3 py-1.5 sm:py-2 text-xs text-app-primary focus:outline-none focus:border-app-primary/50 font-mono placeholder:text-app-muted"
+                      />
                       <div className="flex items-center gap-1 flex-wrap">
                         {["5", "10", "15", "20", "25", "30", "50"].map((pct) => (
                           <button
@@ -802,23 +801,21 @@ export function AdminPromocodesTab({
                     </div>
                   ) : (
                     <div className="space-y-1.5">
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="1"
-                          value={newPromoData.discountAmount}
-                          onChange={(e) =>
-                            setNewPromoData((p) => ({
-                              ...p,
-                              discountAmount: e.target.value,
-                              discountPercent: "",
-                            }))
-                          }
-                          placeholder="Фиксированная скидка (в рублях)"
-                          className="w-full bg-app-surface border border-app-border rounded-xl px-3 py-1.5 sm:py-2 text-xs text-app-primary focus:outline-none focus:border-app-primary/50 font-mono placeholder:text-app-muted"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-app-secondary font-medium">₽</span>
-                      </div>
+                      <CustomNumberInput
+                        min={1}
+                        step={50}
+                        value={newPromoData.discountAmount}
+                        onChange={(e) =>
+                          setNewPromoData((p) => ({
+                            ...p,
+                            discountAmount: e.target.value,
+                            discountPercent: "",
+                          }))
+                        }
+                        placeholder="Фиксированная скидка (в рублях)"
+                        suffix={<span className="text-xs font-mono text-app-secondary font-medium">₽</span>}
+                        className="w-full bg-app-surface border border-app-border rounded-xl px-3 py-1.5 sm:py-2 text-xs text-app-primary focus:outline-none focus:border-app-primary/50 font-mono placeholder:text-app-muted"
+                      />
                       <div className="flex items-center gap-1 flex-wrap">
                         {["100", "200", "300", "500", "1000", "2000"].map((amt) => (
                           <button
@@ -849,9 +846,9 @@ export function AdminPromocodesTab({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div className="space-y-1">
                     <label className="text-[11px] font-mono font-semibold text-app-primary">Мин. сумма заказа (₽)</label>
-                    <input
-                      type="number"
-                      min="0"
+                    <CustomNumberInput
+                      min={0}
+                      step={50}
                       value={newPromoData.minOrderAmount || ""}
                       onChange={(e) => setNewPromoData((p) => ({ ...p, minOrderAmount: e.target.value }))}
                       placeholder="0 = без ограничений"
@@ -861,9 +858,9 @@ export function AdminPromocodesTab({
 
                   <div className="space-y-1">
                     <label className="text-[11px] font-mono font-semibold text-app-primary">Лимит активаций</label>
-                    <input
-                      type="number"
-                      min="1"
+                    <CustomNumberInput
+                      min={1}
+                      step={10}
                       value={newPromoData.usageLimit}
                       onChange={(e) => setNewPromoData((p) => ({ ...p, usageLimit: e.target.value }))}
                       placeholder="Напр. 100"
