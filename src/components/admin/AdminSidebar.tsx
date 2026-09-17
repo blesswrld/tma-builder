@@ -330,7 +330,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     TMA BUILDER
                   </span>
                   <span className="px-1.5 py-0.2 rounded bg-app-card border border-app-border text-[9px] font-mono text-app-muted shrink-0">
-                    {CHANGELOG_DATA[0]?.version || "v2.8.0"}
+                    {CHANGELOG_DATA[0]?.version || "v2.9.0"}
                   </span>
                 </div>
 
@@ -831,7 +831,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 title={t("admin.changelog", "История обновлений")}
               >
                 <Sparkles size={11} className="text-indigo-500 shrink-0" />
-                <span className="truncate">{CHANGELOG_DATA[0]?.version || "v2.8.0"}</span>
+                <span className="truncate">{CHANGELOG_DATA[0]?.version || "v2.9.0"}</span>
               </button>
 
               <a

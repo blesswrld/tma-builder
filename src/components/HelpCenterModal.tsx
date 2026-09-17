@@ -373,7 +373,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                   Центр помощи & GitBook AI
                 </h3>
                 <span className="hidden xs:inline-flex px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-full shrink-0">
-                  Docs v2.8
+                  Docs v2.9
                 </span>
               </div>
               <p className="text-[10px] sm:text-xs text-app-muted font-sans truncate">
