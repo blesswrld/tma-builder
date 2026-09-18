@@ -104,6 +104,15 @@ npm start
 
 ---
 
+## 🌟 Поддержка проекта (Support)
+
+Если вам понравился **TMA Builder** и проект оказался полезным, лучший способ поддержать его развитие — **поставить звезду ⭐️ репозиторию**!
+
+* ⭐ Поставьте **Star** в правом верхнем углу репозитория [github.com/blesswrld/tma-builder](https://github.com/blesswrld/tma-builder)
+* 💬 Связь с автором и предложения: [@tamerlan_webdev](https://t.me/tamerlan_webdev)
+
+---
+
 ## 📄 Лицензия
 
 MIT License
