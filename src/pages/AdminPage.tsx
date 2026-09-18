@@ -34,6 +34,7 @@ import { InstallButton } from "../components/InstallButton";
 import { updatePageSeo } from "../lib/seo";
 import { playNotificationSound, playToggleOnSound, playToggleOffSound } from "../lib/sound";
 import { AdminSettingsTab } from "../components/admin/AdminSettingsTab";
+import { useWorkerOrdersFilter, useWorkerReviewsFilter } from "../workers/useWorkerComputations";
 import { AdminServicesTab } from "../components/admin/AdminServicesTab";
 import { AdminOrdersTab } from "../components/admin/AdminOrdersTab";
 import { AdminTeamTab } from "../components/admin/AdminTeamTab";
@@ -3152,55 +3153,30 @@ export default function AdminPage() {
     return matchesCategory && matchesSearch;
   });
 
-  const filteredOrders = orders.filter(o => {
-    if (orderStatusFilter !== "ALL" && o.status !== orderStatusFilter) return false;
-    if (orderTypeFilter !== "ALL") {
-      const method = (o as any).fulfillmentMethod || ((o as any).deliveryAddress ? "courier" : "pickup");
-      if (method !== orderTypeFilter) return false;
-    }
-    if (orderSearchQuery.trim()) {
-      const q = orderSearchQuery.toLowerCase().trim();
-      const matchId = (o.id || "").toLowerCase().includes(q);
-      const matchName = (o.customerName || "").toLowerCase().includes(q);
-      const matchPhone = (o.customerPhone || "").toLowerCase().includes(q);
-      const matchAddr = (o.deliveryAddress || "").toLowerCase().includes(q);
-      const matchTable = (o.tableNumber || "").toLowerCase().includes(q);
-      const matchTime = (o.preferredTime || "").toLowerCase().includes(q);
-      const matchNote = (o.note || "").toLowerCase().includes(q);
-      const matchItems = (o.items || "").toLowerCase().includes(q);
-      return matchId || matchName || matchPhone || matchAddr || matchTable || matchTime || matchNote || matchItems;
-    }
-    return true;
+  // Background computation via WebWorker for Orders filtering
+  const workerOrdersResult = useWorkerOrdersFilter({
+    orders: orders as any,
+    statusFilter: orderStatusFilter,
+    typeFilter: orderTypeFilter,
+    searchQuery: orderSearchQuery,
+  });
+  const filteredOrders = workerOrdersResult.filteredOrders as unknown as Order[];
+
+  // Background computation via WebWorker for Reviews stats & query filtering
+  const workerReviewsResult = useWorkerReviewsFilter({
+    reviews: reviews as any,
+    searchQuery: reviewSearchQuery,
   });
 
-  // Reviews Calculations & Filter
-  const totalReviewsCount = reviews.length;
-  const computedAvgRating = totalReviewsCount > 0
-    ? (reviews.reduce((acc, r) => acc + (Number(r.rating) || 0), 0) / totalReviewsCount).toFixed(1)
-    : "5.0";
-  const positiveCount = reviews.filter(r => (Number(r.rating) || 0) >= 4).length;
-  const positivePercentage = totalReviewsCount > 0 ? Math.round((positiveCount / totalReviewsCount) * 100) : 100;
-  const unrepliedCount = reviews.filter(r => !r.reply || r.reply.trim() === "").length;
-  const repliedCount = totalReviewsCount - unrepliedCount;
+  const totalReviewsCount = workerReviewsResult.stats.total;
+  const computedAvgRating = workerReviewsResult.stats.avgRating;
+  const positivePercentage = workerReviewsResult.stats.positivePercentage;
+  const unrepliedCount = workerReviewsResult.stats.unrepliedCount;
+  const repliedCount = workerReviewsResult.stats.repliedCount;
+  const starCounts = workerReviewsResult.stats.starCounts;
 
-  // Rating distribution counts (5, 4, 3, 2, 1)
-  const starCounts = {
-    5: reviews.filter(r => Number(r.rating) === 5).length,
-    4: reviews.filter(r => Number(r.rating) === 4).length,
-    3: reviews.filter(r => Number(r.rating) === 3).length,
-    2: reviews.filter(r => Number(r.rating) === 2).length,
-    1: reviews.filter(r => Number(r.rating) === 1).length,
-  };
-
-  const filteredReviews = reviews.filter(rev => {
-    const query = reviewSearchQuery.trim().toLowerCase();
-    const nameMatch = rev.customerName?.toLowerCase().includes(query);
-    const commentMatch = rev.comment?.toLowerCase().includes(query);
-    const replyMatch = rev.reply?.toLowerCase().includes(query);
-    const matchesSearch = !query || nameMatch || commentMatch || replyMatch;
-
+  const filteredReviews = (workerReviewsResult.filteredReviews as any[]).filter(rev => {
     const matchesStar = reviewStarFilter === "ALL" || Number(rev.rating) === reviewStarFilter;
-
     const hasReply = Boolean(rev.reply && rev.reply.trim() !== "");
     const matchesReply = reviewReplyFilter === "ALL"
       ? true
@@ -3208,7 +3184,7 @@ export default function AdminPage() {
       ? !hasReply
       : hasReply;
 
-    return matchesSearch && matchesStar && matchesReply;
+    return matchesStar && matchesReply;
   }).sort((a, b) => {
     if (reviewSortOrder === "NEWEST") {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -3890,16 +3866,11 @@ export default function AdminPage() {
 
         {/* Tab Views Content Container */}
         <div className="p-4 sm:p-6 flex-1 space-y-6">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 12, scale: 0.995 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.995 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="space-y-6"
-            >
-              {loading && <AdminContentSkeleton />}
+          <div
+            key={activeTab}
+            className="space-y-6 animate-in fade-in duration-75 fast-panel-slide"
+          >
+            {loading && <AdminContentSkeleton />}
 
               {/* PAGE VIEW: PROFILE */}
           {activeTab === "profile" && !loading && (
@@ -4521,8 +4492,7 @@ export default function AdminPage() {
           {activeTab === "devchat" && (
             <AdminDevChatTab />
           )}
-            </motion.div>
-          </AnimatePresence>
+          </div>
         </div>
       </main>
 

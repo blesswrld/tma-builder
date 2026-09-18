@@ -29,6 +29,7 @@ import { ReviewsModal } from "../components/shop/ReviewsModal";
 import { ConfirmModal } from "../components/shop/ConfirmModal";
 import ReportModal from "../components/ReportModal";
 import { PrivacyPolicyModal } from "../components/PrivacyPolicyModal";
+import { useWorkerCatalogFilter, useWorkerCartCalculation } from "../workers/useWorkerComputations";
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   let binary = "";
@@ -422,27 +423,27 @@ export default function ShopPage() {
     }
   });
 
-  // Calculate cart metrics
-  const totalItems = Object.values(cart).reduce<number>((sum, qty) => sum + (Number(qty) || 0), 0);
-  
-  const totalPrice = Object.entries(cart).reduce<number>((sum, [id, qty]) => {
-    const service = shop?.services.find(s => s.id === id);
-    return sum + (service ? service.price * (Number(qty) || 0) : 0);
-  }, 0);
+  // Calculate cart metrics via WebWorker off-thread computation
+  const cartResult = useWorkerCartCalculation({
+    cart,
+    services: (shop?.services || []).map(s => ({ id: s.id, price: s.price })),
+    appliedPromo,
+  });
 
-  // Promocode discount
-  let discountValue = 0;
-  if (appliedPromo) {
-    if (appliedPromo.discountPercent && Number(appliedPromo.discountPercent) > 0) {
-      discountValue = Math.round((totalPrice * Number(appliedPromo.discountPercent)) / 100);
-    } else if (appliedPromo.discountAmount && Number(appliedPromo.discountAmount) > 0) {
-      discountValue = Math.min(totalPrice, Number(appliedPromo.discountAmount));
-    } else if (appliedPromo.discountType === "PERCENT" && appliedPromo.discountValue) {
-      discountValue = Math.round((totalPrice * Number(appliedPromo.discountValue)) / 100);
-    } else if (appliedPromo.discountType === "FIXED" && appliedPromo.discountValue) {
-      discountValue = Math.min(totalPrice, Number(appliedPromo.discountValue));
-    }
-  }
+  const totalItems = cartResult.totalItems;
+  const totalPrice = cartResult.totalPrice;
+  const discountValue = cartResult.discountValue;
+
+  // Filter Categories & Services offloaded to WebWorker
+  const workerCatalogResult = useWorkerCatalogFilter({
+    services: (shop?.services || []) as any,
+    selectedCategory,
+    searchQuery,
+    favorites,
+  });
+
+  const categories = workerCatalogResult.categories;
+  const filteredServices = workerCatalogResult.filteredServices as unknown as Service[];
 
   // Calculate tip amount
   const discountedPrice = Math.max(0, totalPrice - discountValue);
@@ -953,23 +954,6 @@ export default function ShopPage() {
   if (loading) return <ShopPageSkeleton />;
   if (error || !shop) return <NotFoundPage message={error || "Заведение не найдено"} />;
 
-  // Filter Categories
-  const categories = Array.from(new Set((shop.services || []).map(s => s.category).filter(Boolean))) as string[];
-
-  const filteredServices = (shop.services || []).filter(s => {
-    const matchesCategory =
-      selectedCategory === "ALL" ? true :
-      selectedCategory === "FAVORITES" ? favorites.includes(s.id) :
-      s.category === selectedCategory;
-
-    const matchesSearch = searchQuery.trim() === "" ? true :
-      s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.description && s.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (s.tags && s.tags.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    return matchesCategory && matchesSearch;
-  });
-
   return (
     <div className="min-h-screen bg-app-bg text-app-primary selection:bg-app-accent selection:text-app-bg transition-colors duration-200">
       
@@ -1112,17 +1096,16 @@ export default function ShopPage() {
       <AnimatePresence>
         {totalItems > 0 && !isCheckoutOpen && (
           <motion.div
-            initial={{ y: 80, opacity: 0, scale: 0.95 }}
+            initial={{ y: 50, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 80, opacity: 0, scale: 0.95 }}
-            transition={{ type: "spring", damping: 24, stiffness: 300 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4"
+            exit={{ y: 50, opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4 fast-panel-slide"
           >
-            <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
+            <button
+              type="button"
               onClick={() => setIsCheckoutOpen(true)}
-              className="w-full h-13 bg-app-accent text-app-accent-fg rounded-2xl flex items-center justify-between px-5 shadow-2xl transition-shadow hover:shadow-app-accent/20 font-mono border border-app-border cursor-pointer"
+              className="w-full h-13 bg-app-accent text-app-accent-fg rounded-2xl flex items-center justify-between px-5 shadow-2xl transition-all duration-75 active:scale-[0.98] font-mono border border-app-border cursor-pointer"
             >
               <div className="flex items-center gap-3">
                 <span className="w-7 h-7 bg-app-accent-fg/20 text-app-accent-fg rounded-xl flex items-center justify-center text-xs font-bold shrink-0">
@@ -1134,7 +1117,7 @@ export default function ShopPage() {
                 <span className="text-sm font-bold">{totalPrice} ₽</span>
                 <ArrowRight size={16} />
               </div>
-            </motion.button>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

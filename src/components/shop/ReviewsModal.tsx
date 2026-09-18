@@ -73,17 +73,17 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.12 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/75 backdrop-blur-md z-50"
+            className="fixed inset-0 bg-black/70 backdrop-blur-[2px] z-50"
           />
           <motion.div
             key="reviews-panel"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 28, stiffness: 220 }}
-            className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-50 flex flex-col shadow-2xl text-app-primary font-sans"
+            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-50 flex flex-col shadow-2xl text-app-primary font-sans fast-panel-slide"
           >
         {/* Header */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-app-border bg-app-modal-header shrink-0">

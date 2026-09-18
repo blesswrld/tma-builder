@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useWorkerRevenueDynamics } from "../workers/useWorkerComputations";
 import {
   AreaChart,
   Area,
@@ -122,33 +123,17 @@ export default function RevenueDynamicsChart({
     };
   }, []);
 
-  // Filter completed or active orders that generate revenue
-  const validOrders = useMemo(() => {
-    return ordersTimeline.map(o => ({
-      ...o,
-      dateObj: new Date(o.createdAt),
-      isPaid: o.status === "COMPLETED" || o.status === "CONFIRMED"
-    }));
-  }, [ordersTimeline]);
+  // Background computation via WebWorker for chart aggregations
+  const workerResult = useWorkerRevenueDynamics({
+    ordersTimeline,
+    hourlyDistribution,
+    summary,
+    period,
+    metricType,
+    selectedDayKey,
+  });
 
-  // Extract unique available dates from orders
-  const availableDates = useMemo(() => {
-    const map = new Map<string, { key: string; label: string; count: number; revenue: number }>();
-    validOrders.forEach(o => {
-      const key = formatDateKey(o.dateObj);
-      const prev = map.get(key) || {
-        key,
-        label: formatDateRu(o.dateObj),
-        count: 0,
-        revenue: 0
-      };
-      prev.count += 1;
-      if (o.isPaid) prev.revenue += o.totalPrice || 0;
-      map.set(key, prev);
-    });
-
-    return Array.from(map.values()).sort((a, b) => b.key.localeCompare(a.key));
-  }, [validOrders]);
+  const availableDates = workerResult.availableDates;
 
   // Determine active date for day (hourly) breakdown
   const activeDayKey = useMemo(() => {
@@ -164,196 +149,10 @@ export default function RevenueDynamicsChart({
     return formatDateKey(new Date());
   }, [selectedDayKey, availableDates]);
 
-  // 1. Data for "День" (24 hours: 00:00 to 23:00)
-  const dayData = useMemo(() => {
-    const hours = Array.from({ length: 24 }, (_, i) => ({
-      hour: i,
-      label: `${String(i).padStart(2, "0")}:00`,
-      fullLabel: `Время ${String(i).padStart(2, "0")}:00`,
-      revenue: 0,
-      orders: 0,
-      avgCheck: 0
-    }));
-
-    if (validOrders.length > 0) {
-      validOrders.forEach(o => {
-        const orderDayKey = formatDateKey(o.dateObj);
-        if (activeDayKey === "all" || orderDayKey === activeDayKey) {
-          const h = o.dateObj.getHours();
-          if (h >= 0 && h < 24) {
-            hours[h].orders += 1;
-            if (o.isPaid) {
-              hours[h].revenue += o.totalPrice || 0;
-            }
-          }
-        }
-      });
-    } else if (hourlyDistribution.length === 24) {
-      hourlyDistribution.forEach((hd, i) => {
-        if (hours[i]) {
-          hours[i].orders = hd.orders;
-          const avg = summary?.avgCheck || 1500;
-          hours[i].revenue = hd.orders * avg;
-        }
-      });
-    }
-
-    hours.forEach(h => {
-      h.avgCheck = h.orders > 0 ? Math.round(h.revenue / h.orders) : 0;
-    });
-
-    return hours;
-  }, [validOrders, activeDayKey, hourlyDistribution, summary]);
-
-  // 2. Data for "Неделя" (Last 7 continuous calendar days)
-  const weekData = useMemo(() => {
-    const daysCount = 7;
-    let maxTimestamp = Date.now();
-    if (validOrders.length > 0) {
-      const orderTimestamps = validOrders.map(o => o.dateObj.getTime());
-      maxTimestamp = Math.max(...orderTimestamps, Date.now());
-    }
-
-    const endDate = new Date(maxTimestamp);
-    endDate.setHours(23, 59, 59, 999);
-
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - (daysCount - 1));
-    startDate.setHours(0, 0, 0, 0);
-
-    const dailyMap = new Map<string, { revenue: number; orders: number }>();
-    validOrders.forEach(o => {
-      const key = formatDateKey(o.dateObj);
-      const prev = dailyMap.get(key) || { revenue: 0, orders: 0 };
-      prev.orders += 1;
-      if (o.isPaid) prev.revenue += o.totalPrice || 0;
-      dailyMap.set(key, prev);
-    });
-
-    const result: Array<{
-      date: string;
-      label: string;
-      fullLabel: string;
-      revenue: number;
-      orders: number;
-      avgCheck: number;
-    }> = [];
-
-    const curr = new Date(startDate);
-    while (curr <= endDate) {
-      const key = formatDateKey(curr);
-      const dataForDay = dailyMap.get(key) || { revenue: 0, orders: 0 };
-      const weekday = WEEKDAY_NAMES_RU[curr.getDay()];
-      result.push({
-        date: key,
-        label: `${weekday}, ${curr.getDate()} ${MONTH_NAMES_RU[curr.getMonth()]}`,
-        fullLabel: `${weekday}, ${curr.getDate()} ${MONTH_NAMES_FULL_RU[curr.getMonth()]} ${curr.getFullYear()}`,
-        revenue: dataForDay.revenue,
-        orders: dataForDay.orders,
-        avgCheck: dataForDay.orders > 0 ? Math.round(dataForDay.revenue / dataForDay.orders) : 0
-      });
-      curr.setDate(curr.getDate() + 1);
-    }
-
-    return result;
-  }, [validOrders]);
-
-  // 3. Data for "Месяц" (Last 30 continuous calendar days)
-  const monthData = useMemo(() => {
-    const daysCount = 30;
-    let maxTimestamp = Date.now();
-    if (validOrders.length > 0) {
-      const orderTimestamps = validOrders.map(o => o.dateObj.getTime());
-      maxTimestamp = Math.max(...orderTimestamps, Date.now());
-    }
-
-    const endDate = new Date(maxTimestamp);
-    endDate.setHours(23, 59, 59, 999);
-
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - (daysCount - 1));
-    startDate.setHours(0, 0, 0, 0);
-
-    const dailyMap = new Map<string, { revenue: number; orders: number }>();
-    validOrders.forEach(o => {
-      const key = formatDateKey(o.dateObj);
-      const prev = dailyMap.get(key) || { revenue: 0, orders: 0 };
-      prev.orders += 1;
-      if (o.isPaid) prev.revenue += o.totalPrice || 0;
-      dailyMap.set(key, prev);
-    });
-
-    const result: Array<{
-      date: string;
-      label: string;
-      fullLabel: string;
-      revenue: number;
-      orders: number;
-      avgCheck: number;
-    }> = [];
-
-    const curr = new Date(startDate);
-    while (curr <= endDate) {
-      const key = formatDateKey(curr);
-      const dataForDay = dailyMap.get(key) || { revenue: 0, orders: 0 };
-      result.push({
-        date: key,
-        label: `${curr.getDate()} ${MONTH_NAMES_RU[curr.getMonth()]}`,
-        fullLabel: `${curr.getDate()} ${MONTH_NAMES_FULL_RU[curr.getMonth()]} ${curr.getFullYear()}`,
-        revenue: dataForDay.revenue,
-        orders: dataForDay.orders,
-        avgCheck: dataForDay.orders > 0 ? Math.round(dataForDay.revenue / dataForDay.orders) : 0
-      });
-      curr.setDate(curr.getDate() + 1);
-    }
-
-    return result;
-  }, [validOrders]);
-
-  // Active dataset according to selected period
-  const activeDataset = useMemo(() => {
-    switch (period) {
-      case "day":
-        return dayData;
-      case "week":
-        return weekData;
-      case "month":
-        return monthData;
-      default:
-        return weekData;
-    }
-  }, [period, dayData, weekData, monthData]);
-
-  // Aggregate metrics for active slice
-  const viewMetrics = useMemo(() => {
-    let totalRev = 0;
-    let totalOrd = 0;
-    let peakItem: any = null;
-
-    activeDataset.forEach((item: any) => {
-      totalRev += item.revenue || 0;
-      totalOrd += item.orders || 0;
-      if (!peakItem || (metricType === "orders" ? item.orders > peakItem.orders : item.revenue > peakItem.revenue)) {
-        peakItem = item;
-      }
-    });
-
-    const avg = totalOrd > 0 ? Math.round(totalRev / totalOrd) : 0;
-    return {
-      totalRevenue: totalRev,
-      totalOrders: totalOrd,
-      avgCheck: avg,
-      peakItem
-    };
-  }, [activeDataset, metricType]);
-
-  // Tick interval for X-Axis to prevent text collision
-  const xAxisInterval = useMemo(() => {
-    if (period === "day") return 2; // Show every 3rd hour: 00:00, 03:00...
-    if (period === "week") return 0; // 7 days fit well
-    if (period === "month") return 3; // 30 days: show every 4th day
-    return 0;
-  }, [period]);
+  // Active dataset and view metrics computed off-thread
+  const activeDataset = workerResult.activeDataset;
+  const viewMetrics = workerResult.viewMetrics;
+  const xAxisInterval = workerResult.xAxisInterval;
 
   // Export handlers
   const handleExportCSV = () => {

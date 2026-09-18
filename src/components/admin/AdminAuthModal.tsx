@@ -74,8 +74,8 @@ export function AdminAuthModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4 shadow-2xl">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-100 fast-panel-slide">
         <div className="flex justify-between items-center border-b border-app-border pb-3">
           <div className="flex items-center gap-2">
             <ShieldCheck size={18} className="text-app-muted" />

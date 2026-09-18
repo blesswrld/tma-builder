@@ -17,7 +17,7 @@ interface ServiceCardProps {
   onRemoveFromCart: (id: string) => void;
 }
 
-export const ServiceCard: React.FC<ServiceCardProps> = ({
+export const ServiceCard: React.FC<ServiceCardProps> = React.memo(({
   service,
   qty,
   quantity,
@@ -42,11 +42,8 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   const hasPickup = f.includes("pickup");
 
   return (
-    <motion.div 
-      layout
-      whileHover={{ y: -3 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-      className={`rounded-2xl border overflow-hidden transition-all flex flex-col justify-between group font-sans hover:shadow-md ${
+    <div 
+      className={`rounded-2xl border overflow-hidden transition-all duration-150 flex flex-col justify-between group font-sans hover:shadow-md hover:-translate-y-0.5 will-change-transform ${
         isOutOfStock 
           ? "bg-app-card/50 border-app-border/40 opacity-50" 
           : "bg-app-card border-app-border hover:border-app-border hover:bg-app-card-hover"
@@ -206,15 +203,15 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                 <button 
                   type="button"
                   onClick={() => onRemoveFromCart(service.id)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-app-card text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-app-card text-app-primary hover:bg-app-hover active:scale-90 transition-all duration-75 cursor-pointer"
                 >
                   <Minus size={13} />
                 </button>
-                <span className="text-xs font-mono font-bold w-6 text-center text-app-primary">{currentQty}</span>
+                <span className="text-xs font-mono font-bold w-6 text-center text-app-primary select-none">{currentQty}</span>
                 <button 
                   type="button"
                   onClick={() => onAddToCart(service.id)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-app-accent text-app-accent-fg hover:opacity-90 transition-opacity cursor-pointer"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-app-accent text-app-accent-fg hover:opacity-90 active:scale-90 transition-all duration-75 cursor-pointer"
                 >
                   <Plus size={13} />
                 </button>
@@ -223,7 +220,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               <button 
                 type="button"
                 onClick={() => handleOpenDetail(service)}
-                className="h-8 px-4 rounded-xl bg-app-accent text-app-accent-fg font-bold text-xs hover:opacity-90 transition-opacity font-mono cursor-pointer shadow-2xs flex items-center justify-center"
+                className="h-8 px-4 rounded-xl bg-app-accent text-app-accent-fg font-bold text-xs hover:opacity-90 active:scale-95 transition-all duration-75 font-mono cursor-pointer shadow-2xs flex items-center justify-center"
               >
                 {t("shop.choose", "Выбрать")}
               </button>
@@ -231,6 +228,6 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
-};
+});

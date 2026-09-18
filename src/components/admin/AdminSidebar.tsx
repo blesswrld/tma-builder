@@ -302,7 +302,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       className={`
         fixed md:sticky top-0 left-0 z-50 h-[100dvh] md:h-screen max-h-[100dvh] md:max-h-screen bg-app-surface border-r border-app-border
         ${isSidebarCollapsed ? "w-16 md:w-16" : "w-[280px] max-w-[85vw] md:w-[var(--sidebar-w)] md:max-w-none"}
-        shrink-0 transition-[width] duration-200 ease-out
+        shrink-0 transition-transform duration-150 ease-out md:transition-[width] md:duration-150 will-change-transform fast-panel-slide
         ${isResizingSidebar ? "select-none" : ""}
         ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0 shadow-none"}
       `}

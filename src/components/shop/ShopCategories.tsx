@@ -27,27 +27,23 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
       {/* Category Pill Tabs */}
       <div className="relative flex-1 min-w-0">
         <div className="flex items-center gap-1.5 overflow-x-auto touch-scroll-x scrollbar-none py-0.5 w-full pr-8">
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            whileHover={{ scale: 1.02 }}
+          <button
             type="button"
             onClick={() => onSelectCategory("ALL")}
-            className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center justify-center cursor-pointer shadow-2xs ${
+            className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all duration-75 active:scale-95 shrink-0 flex items-center justify-center cursor-pointer shadow-2xs ${
               selectedCategory === "ALL"
                 ? "bg-app-accent text-app-accent-fg font-bold shadow-xs"
                 : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
             }`}
           >
             {t("common.all", "Все")}
-          </motion.button>
+          </button>
           
           {/* Favorites Category Tab */}
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            whileHover={{ scale: 1.02 }}
+          <button
             type="button"
             onClick={() => onSelectCategory("FAVORITES")}
-            className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+            className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all duration-75 active:scale-95 shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs ${
               selectedCategory === "FAVORITES"
                 ? "bg-app-accent text-app-accent-fg font-bold shadow-xs"
                 : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
@@ -55,23 +51,21 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
           >
             <Heart size={13} className={favoritesCount > 0 ? "fill-current text-rose-500" : "text-app-muted"} />
             <span>{t("shop.favorites", "Избранное")} ({favoritesCount})</span>
-          </motion.button>
+          </button>
 
           {categories.map((cat) => (
-            <motion.button
+            <button
               key={cat}
-              whileTap={{ scale: 0.97 }}
-              whileHover={{ scale: 1.02 }}
               type="button"
               onClick={() => onSelectCategory(cat)}
-              className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center justify-center cursor-pointer shadow-2xs ${
+              className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all duration-75 active:scale-95 shrink-0 flex items-center justify-center cursor-pointer shadow-2xs ${
                 selectedCategory === cat
                   ? "bg-app-accent text-app-accent-fg shadow-xs font-bold"
                   : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
               }`}
             >
               {cat}
-            </motion.button>
+            </button>
           ))}
         </div>
         <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-app-bg to-transparent pointer-events-none" />

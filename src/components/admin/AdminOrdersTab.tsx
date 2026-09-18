@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useWorkerOrdersFilter } from "../../workers/useWorkerComputations";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Search,
@@ -251,16 +252,21 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
     document.body.removeChild(link);
   };
 
-  // Quick stats calculations based on ALL orders
+  // Quick stats calculations based on ALL orders via WebWorker
   const sourceOrders = allOrders !== undefined ? allOrders : orders;
-  const totalOrdersCount = sourceOrders.length;
-  const pendingCount = sourceOrders.filter(o => o.status === "PENDING" || o.status === "NEW").length;
-  const inProgressCount = sourceOrders.filter(o => o.status === "CONFIRMED" || o.status === "IN_PROGRESS").length;
-  const completedCount = sourceOrders.filter(o => o.status === "COMPLETED").length;
-  const cancelledCount = sourceOrders.filter(o => o.status === "CANCELLED").length;
-  const totalRevenue = sourceOrders
-    .filter(o => o.status === "COMPLETED")
-    .reduce((acc, o) => acc + (Number(o.totalPrice ?? o.totalAmount) || 0), 0);
+  const workerStatsResult = useWorkerOrdersFilter({
+    orders: sourceOrders as any,
+    statusFilter: "ALL",
+    typeFilter: "ALL",
+    searchQuery: "",
+  });
+
+  const totalOrdersCount = workerStatsResult.counts.total;
+  const pendingCount = workerStatsResult.counts.pending;
+  const inProgressCount = workerStatsResult.counts.inProgress;
+  const completedCount = workerStatsResult.counts.completed;
+  const cancelledCount = workerStatsResult.counts.cancelled;
+  const totalRevenue = workerStatsResult.counts.totalRevenue;
 
   const displayedOrders = orders.slice(0, visibleCount);
   const hasMore = orders.length > visibleCount;
@@ -1095,14 +1101,16 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.12 }}
               onClick={() => setReceiptOrder(null)}
-              className="fixed inset-0 bg-black/75 backdrop-blur-md"
+              className="fixed inset-0 bg-black/75 backdrop-blur-[2px]"
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 12 }}
-              className="relative w-full max-w-md bg-white text-black p-6 rounded-2xl shadow-2xl z-50 font-mono space-y-4 print:shadow-none print:border-0"
+              exit={{ opacity: 0, scale: 0.97, y: 8 }}
+              transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+              className="relative w-full max-w-md bg-white text-black p-6 rounded-2xl shadow-2xl z-50 font-mono space-y-4 print:shadow-none print:border-0 fast-panel-slide"
             >
               {/* Receipt Header */}
               <div className="text-center border-b border-dashed border-gray-400 pb-3 space-y-1">
