@@ -2,6 +2,7 @@
   "name": "react-example",
   "private": true,
   "version": "2.9.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",

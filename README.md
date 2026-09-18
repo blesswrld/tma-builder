@@ -115,4 +115,4 @@ npm start
 
 ## 📄 Лицензия
 
-MIT License
+Проект распространяется под открытой лицензией [MIT License](LICENSE). Подробнее см. в файле [LICENSE](LICENSE).
