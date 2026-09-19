@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Crop,
   RotateCw,
@@ -296,9 +297,9 @@ export default function ImageCropperModal({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-fadeIn select-none">
-      <div className="bg-app-card border border-app-border text-app-primary rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[94vh]">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 animate-fadeIn select-none">
+      <div className="bg-app-card border border-app-border text-app-primary rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[94vh] relative z-[10000]">
         {/* Modal Header */}
         <div className="p-4 border-b border-app-border flex items-center justify-between bg-app-surface">
           <div className="flex items-center gap-3">
@@ -516,4 +517,6 @@ export default function ImageCropperModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 }

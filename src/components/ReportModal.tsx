@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   X,
@@ -223,12 +224,12 @@ export default function ReportModal({
     }
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <div
           key="report-modal-wrapper"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 font-sans"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 font-sans"
         >
           <motion.div
             key="report-backdrop"
@@ -237,7 +238,7 @@ export default function ReportModal({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={handleClose}
-            className="fixed inset-0 bg-black/75 z-50"
+            className="fixed inset-0 bg-black/80 z-[9999]"
           />
           <motion.div
             key="report-panel"
@@ -245,7 +246,7 @@ export default function ReportModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 16 }}
             transition={{ type: "spring", damping: 26, stiffness: 280 }}
-            className="bg-app-surface border border-app-border rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh] relative z-50"
+            className="bg-app-surface border border-app-border rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh] relative z-[10000]"
             onClick={(e) => e.stopPropagation()}
           >
         {/* Header */}
@@ -571,4 +572,6 @@ export default function ReportModal({
     )}
   </AnimatePresence>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 }

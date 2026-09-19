@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { X, Printer, Download, QrCode, Copy, Check } from "lucide-react";
 import { useScrollLock } from "../hooks/useScrollLock";
@@ -97,8 +98,10 @@ export default function QrGeneratorModal({
     document.body.removeChild(a);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 overflow-hidden text-app-primary font-sans">
+  if (!isOpen) return null;
+
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/80 overflow-hidden text-app-primary font-sans">
       <style>{`
         @media print {
           body * {
@@ -351,4 +354,6 @@ export default function QrGeneratorModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 }

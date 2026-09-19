@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ShieldCheck,
@@ -155,17 +156,17 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
     window.print();
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div key="legal-modal-container" className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden font-sans">
+        <div key="legal-modal-container" className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 overflow-hidden font-sans">
           <motion.div
             key="legal-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/80 z-50"
+            className="fixed inset-0 bg-black/80 z-[9999]"
           />
 
           <motion.div
@@ -174,7 +175,7 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: "spring", damping: 26, stiffness: 280 }}
-            className="w-full max-w-5xl h-[94vh] sm:h-[92vh] max-h-[850px] bg-app-modal border border-app-border rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl relative z-50 flex flex-col text-app-primary"
+            className="w-full max-w-5xl h-[94vh] sm:h-[92vh] max-h-[850px] bg-app-modal border border-app-border rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl relative z-[10000] flex flex-col text-app-primary"
           >
             {/* Header */}
             <div className="min-h-[3.75rem] py-2.5 px-3.5 sm:px-6 border-b border-app-border bg-app-modal-header flex items-center justify-between gap-2.5 shrink-0">
@@ -192,7 +193,7 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
                     </span>
                   </h2>
                   <p className="text-[10px] sm:text-[11px] text-app-muted font-mono truncate">
-                    {effectiveShopName自我} • Редакция от {updateDate}
+                    {shopName} • Редакция от {updateDate}
                   </p>
                 </div>
               </div>
@@ -234,7 +235,7 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
               <div className="w-full md:w-72 bg-app-bg/60 border-b md:border-b-0 md:border-r border-app-border p-2 sm:p-3 overflow-x-auto md:overflow-y-auto shrink-0 flex md:flex-col gap-1.5 no-scrollbar scroll-smooth">
                 {docs.map((doc) => {
                   const Icon = doc.icon;
-                  const isActive提高 = activeDoc === doc.id;
+                  const isActive = activeDoc === doc.id;
                   return (
                     <button
                       key={doc.id}
@@ -244,13 +245,13 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
                         contentContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
                       }}
                       className={`text-left p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all flex items-center gap-2.5 sm:gap-3 cursor-pointer shrink-0 md:shrink w-[210px] md:w-full border ${
-                        isActive提高
+                        isActive
                           ? "bg-app-card border-app-border text-app-primary shadow-sm ring-1 ring-emerald-500/20"
                           : "border-transparent text-app-muted hover:text-app-primary hover:bg-app-card/40"
                       }`}
                     >
                       <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 border ${
-                        isActive提高
+                        isActive
                           ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                           : "bg-app-surface text-app-muted border-app-border"
                       }`}>
@@ -705,4 +706,6 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
       )}
     </AnimatePresence>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };

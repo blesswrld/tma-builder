@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, MapPin, Search, Check, Building2, Map, Globe } from 'lucide-react';
 import { InteractiveMap } from '../map/InteractiveMap';
@@ -87,22 +88,22 @@ export const AdminMapPickerModal: React.FC<AdminMapPickerModalProps> = ({
     onClose();
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-black/75"
+          className="fixed inset-0 bg-black/80 z-[9999]"
         />
 
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 12 }}
-          className="relative w-full max-w-3xl bg-app-modal border border-app-border rounded-3xl overflow-hidden shadow-2xl z-10 flex flex-col max-h-[92vh] text-app-primary"
+          className="relative w-full max-w-3xl bg-app-modal border border-app-border rounded-3xl overflow-hidden shadow-2xl z-[10000] flex flex-col max-h-[92vh] text-app-primary"
         >
           {/* Header */}
           <div className="px-5 py-4 bg-app-modal-header border-b border-app-border flex items-center justify-between gap-3 shrink-0">
@@ -260,6 +261,8 @@ export const AdminMapPickerModal: React.FC<AdminMapPickerModalProps> = ({
       </div>
     </AnimatePresence>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };
 
 export default AdminMapPickerModal;

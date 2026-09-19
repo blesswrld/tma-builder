@@ -92,7 +92,8 @@ export function isInvalidAddressText(text: string): { isInvalid: boolean; reason
 }
 
 /**
- * Извлекает город и улицу из строки адреса
+ * Извлекает город и улицу из строки адреса.
+ * Важно: никогда не парсит названия улиц (ул. Ленина, пр-кт Мира и т.д.) в качестве города.
  */
 export function extractCityAndStreet(rawAddress: string | null | undefined): {
   city: string;
@@ -107,14 +108,40 @@ export function extractCityAndStreet(rawAddress: string | null | undefined): {
     .replace(/^Россия,\s*/i, "")
     .replace(/^РФ,\s*/i, "");
 
-  // Проверяем совпадение с известными городами
+  // Если строка явно начинается с указателей улицы / дома, то города здесь нет
+  const isStreetOnly = /^(ул\.?|улица|пр-кт|проспект|пер\.?|переулок|пр-д|проезд|ш\.?|шоссе|б-р|бульвар|наб\.?|набережная|пл\.?|площадь|тупик|мкр\.?|микрорайон|д\.?|дом)\b/i.test(text.trim());
+  if (isStreetOnly && !/^г\.?\s*|^город\s+/i.test(text.trim())) {
+    return {
+      city: "",
+      street: text,
+    };
+  }
+
+  // 1. Проверяем явный префикс "г. <Город>" или "город <Город>"
+  const explicitCityMatch = text.match(/^(?:г\.?|город)\s+([А-Яа-яЁёA-Za-z0-9\s\-]+?)(?:,\s*(.*)|$)/i);
+  if (explicitCityMatch) {
+    const rawFoundCity = explicitCityMatch[1].trim();
+    const remainingStreet = (explicitCityMatch[2] || "").trim();
+
+    // Проверяем, есть ли совпадение среди известных городов
+    const matchedKnown = ALL_CITY_OPTIONS.find(
+      (c) => c.name.toLowerCase() === rawFoundCity.toLowerCase()
+    );
+
+    return {
+      city: matchedKnown ? matchedKnown.name : rawFoundCity,
+      street: remainingStreet,
+    };
+  }
+
+  // 2. Проверяем точное совпадение с базой известных городов РФ и СНГ
   let matchedCity = "";
   let matchedCityOriginal = "";
 
   for (const option of ALL_CITY_OPTIONS) {
     const cityName = option.name;
-    // Регулярка для точного слова города
-    const reg = new RegExp(`(^|[\\s,.;]|^г\\.\\s*|^г\\s*)${cityName}([\\s,.;]|$)`, "i");
+    // Регулярка для точного совпадения города в начале строки или с явным разделителем
+    const reg = new RegExp(`^(?:г\\.?\\s*|город\\s+)?${cityName}(?:[\\s,.;]|$)`, "i");
     if (reg.test(text)) {
       matchedCity = cityName;
       matchedCityOriginal = cityName;
@@ -123,13 +150,10 @@ export function extractCityAndStreet(rawAddress: string | null | undefined): {
   }
 
   if (matchedCity) {
-    // Удаляем название города из строки, чтобы получить улицу
+    // Удаляем название города из начала строки, чтобы получить улицу
     let remaining = text
-      .replace(new RegExp(`(^|[\\s,.;])г\\.\\s*${matchedCity}([\\s,.;]|$)`, "gi"), "$1$2")
-      .replace(new RegExp(`(^|[\\s,.;])город\\s*${matchedCity}([\\s,.;]|$)`, "gi"), "$1$2")
-      .replace(new RegExp(`(^|[\\s,.;])${matchedCity}([\\s,.;]|$)`, "gi"), "$1$2")
+      .replace(new RegExp(`^(?:г\\.?\\s*|город\\s+)?${matchedCity}\\s*[,.;]?\\s*`, "i"), "")
       .replace(/^[,\s.-]+|[,\s.-]+$/g, "")
-      .replace(/\s*,\s*,+/g, ",")
       .trim();
 
     return {
@@ -138,27 +162,7 @@ export function extractCityAndStreet(rawAddress: string | null | undefined): {
     };
   }
 
-  // Если точного города в базе нет, пробуем выделить первую часть до запятой, если это похоже на город
-  const parts = text.split(",").map((p) => p.trim());
-  if (parts.length > 1) {
-    const candidateCity = parts[0].replace(/^г\.\s*/i, "").trim();
-    if (candidateCity.length >= 2 && candidateCity.length <= 35 && !/\d/.test(candidateCity)) {
-      return {
-        city: candidateCity,
-        street: parts.slice(1).join(", ").trim(),
-      };
-    }
-  }
-
-  // Если одна часть без запятых и без цифр — возможно это просто город
-  if (text.length >= 2 && text.length <= 35 && !/\d/.test(text) && !isInvalidAddressText(text).isInvalid) {
-    const cleanCity = text.replace(/^г\.\s*/i, "").trim();
-    return {
-      city: cleanCity,
-      street: "",
-    };
-  }
-
+  // Если явного города нет, считаем всю строку улицей
   return {
     city: "",
     street: text,

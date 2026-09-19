@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, Info, CheckCircle2, X } from "lucide-react";
 import { useScrollLock } from "../hooks/useScrollLock";
 
@@ -49,9 +50,9 @@ export function ConfirmModal({
 
   const IconComponent = variantStyles.icon;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 animate-in fade-in duration-150">
-      <div className="relative w-full max-w-md bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-150">
+      <div className="relative w-full max-w-md bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 z-[10000]">
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -103,4 +104,6 @@ export function ConfirmModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 }

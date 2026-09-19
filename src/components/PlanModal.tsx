@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { 
   X, Check, Crown, CreditCard, QrCode, Ticket, ArrowLeft, 
@@ -384,9 +385,11 @@ export default function PlanModal({
   const discountAmount = promoApplied ? Math.round(basePrice * (promoApplied.discountPercent / 100)) : 0;
   const finalPrice = Math.max(0, basePrice - discountAmount);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 overflow-hidden text-app-primary font-sans transition-all">
-      <div className="bg-app-modal rounded-3xl max-w-4xl w-full border border-app-border flex flex-col max-h-[92vh] shadow-2xl overflow-hidden relative">
+  if (!isOpen) return null;
+
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/80 overflow-hidden text-app-primary font-sans transition-all">
+      <div className="bg-app-modal rounded-3xl max-w-4xl w-full border border-app-border flex flex-col max-h-[92vh] shadow-2xl overflow-hidden relative z-[10000]">
         
         {/* Header */}
         <div className="px-6 py-4 border-b border-app-border flex items-center justify-between bg-app-modal-header rounded-t-3xl">
@@ -1199,4 +1202,6 @@ export default function PlanModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   MapPin,
   Building2,
@@ -286,137 +287,144 @@ export const UnifiedAddressInput: React.FC<UnifiedAddressInputProps> = ({
         </p>
       )}
 
-      {/* Floating Draggable City Selection Widget */}
-      <AnimatePresence>
-        {isDropdownOpen && (
-          <div className="fixed inset-0 pointer-events-none z-[9999] flex items-center justify-center p-4">
-            <motion.div
-              drag
-              dragMomentum={false}
-              dragElastic={0.08}
-              initial={{ opacity: 0, scale: 0.95, y: -10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              transition={{ duration: 0.16, ease: "easeOut" }}
-              className="pointer-events-auto w-[340px] sm:w-[380px] max-w-[95vw] rounded-2xl bg-app-surface border border-app-border shadow-2xl p-3.5 flex flex-col text-app-primary"
-              style={{ touchAction: "none" }}
-            >
-              {/* Drag Handle Bar Header */}
-              <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-app-border select-none cursor-grab active:cursor-grabbing">
-                <div className="flex items-center gap-2">
-                  <div className="p-1 rounded-md bg-app-card border border-app-border text-app-muted">
-                    <GripHorizontal size={14} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-app-primary">Выбор города РФ и СНГ</h4>
-                    <p className="text-[10px] text-app-muted font-mono flex items-center gap-1">
-                      <Move size={9} /> Перетаскивайте плашку по экрану
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsDropdownOpen(false)}
-                  className="p-1.5 hover:bg-app-hover text-app-muted hover:text-app-primary rounded-xl transition-colors cursor-pointer"
-                  title="Закрыть"
+      {/* Floating Draggable City Selection Widget rendered via Portal across the entire screen */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {isDropdownOpen && (
+              <div
+                key="floating-city-wrapper"
+                className="fixed inset-0 pointer-events-none z-[99999] flex items-center justify-center p-4"
+              >
+                <motion.div
+                  drag
+                  dragMomentum={false}
+                  dragElastic={0.05}
+                  initial={{ opacity: 0, scale: 0.95, y: -12 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -12 }}
+                  transition={{ duration: 0.16, ease: "easeOut" }}
+                  className="pointer-events-auto w-[340px] sm:w-[380px] max-w-[95vw] rounded-2xl bg-app-surface border border-app-border shadow-2xl p-3.5 flex flex-col text-app-primary relative z-[99999]"
+                  style={{ touchAction: "none" }}
                 >
-                  <X size={15} />
-                </button>
-              </div>
+                  {/* Drag Handle Bar Header */}
+                  <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-app-border select-none cursor-grab active:cursor-grabbing">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1 rounded-md bg-app-card border border-app-border text-emerald-500">
+                        <GripHorizontal size={14} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-semibold text-app-primary">Выбор города РФ и СНГ</h4>
+                        <p className="text-[10px] text-app-muted font-mono flex items-center gap-1">
+                          <Move size={9} /> Перетаскивайте плашку по экрану
+                        </p>
+                      </div>
+                    </div>
 
-              {/* Search Input Box */}
-              <div className="relative flex items-center px-3 py-2 rounded-xl bg-app-card border border-app-border focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all mb-2.5">
-                <Search size={14} className="text-app-muted shrink-0 mr-2" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Поиск города РФ или СНГ..."
-                  className="w-full bg-transparent text-xs text-app-primary placeholder:text-app-muted focus:outline-none"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="p-1 text-app-muted hover:text-app-primary rounded-md transition-colors cursor-pointer"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-
-              {/* Quick Popular Chips */}
-              {!searchQuery && (
-                <div className="mb-2.5 pb-2.5 border-b border-app-border/60">
-                  <div className="text-[10px] font-mono text-app-muted uppercase tracking-wider mb-1.5 px-0.5 flex items-center gap-1">
-                    <Sparkles size={11} className="text-emerald-500" />
-                    <span>Популярные города:</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsDropdownOpen(false)}
+                      className="p-1.5 hover:bg-app-hover text-app-muted hover:text-app-primary rounded-xl transition-colors cursor-pointer"
+                      title="Закрыть"
+                    >
+                      <X size={15} />
+                    </button>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {popularCities.map((city) => (
+
+                  {/* Search Input Box */}
+                  <div className="relative flex items-center px-3 py-2 rounded-xl bg-app-card border border-app-border focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all mb-2.5">
+                    <Search size={14} className="text-app-muted shrink-0 mr-2" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Поиск города РФ или СНГ..."
+                      className="w-full bg-transparent text-xs text-app-primary placeholder:text-app-muted focus:outline-none"
+                    />
+                    {searchQuery && (
                       <button
-                        key={city.id}
                         type="button"
-                        onClick={() => handleSelectCity(city.name)}
-                        className={`px-2.5 py-1 text-[11px] font-sans rounded-lg transition-all cursor-pointer ${
-                          selectedCity === city.name
-                            ? "bg-emerald-500 text-white font-medium shadow-xs"
-                            : "bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border border-app-border"
-                        }`}
+                        onClick={() => setSearchQuery("")}
+                        className="p-1 text-app-muted hover:text-app-primary rounded-md transition-colors cursor-pointer"
                       >
-                        {city.name}
+                        <X size={12} />
                       </button>
-                    ))}
+                    )}
                   </div>
-                </div>
-              )}
 
-              {/* Cities Scrollable List */}
-              <div className="max-h-60 overflow-y-auto space-y-1 pr-1 select-none text-xs">
-                {filteredCities.length > 0 ? (
-                  filteredCities.map((city) => {
-                    const isSelected = selectedCity === city.name;
-                    return (
-                      <button
-                        key={city.id}
-                        type="button"
-                        onClick={() => handleSelectCity(city.name)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all cursor-pointer text-left ${
-                          isSelected
-                            ? "bg-emerald-500 text-white font-medium shadow-xs"
-                            : "text-app-secondary hover:text-app-primary hover:bg-app-card border border-transparent hover:border-app-border"
-                        }`}
-                        role="option"
-                        aria-selected={isSelected}
-                      >
-                        <div className="truncate pr-2">
-                          <span className="font-medium block truncate text-xs">{city.name}</span>
-                          {city.region && (
-                            <span
-                              className={`text-[10px] block truncate mt-0.5 ${
-                                isSelected ? "text-white/80" : "text-app-muted"
-                              }`}
-                            >
-                              {city.region}
-                            </span>
-                          )}
-                        </div>
-                        {isSelected && <Check size={14} className="shrink-0 stroke-[2.5]" />}
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="py-6 text-center text-xs text-app-muted">
-                    Город не найден
+                  {/* Quick Popular Chips */}
+                  {!searchQuery && (
+                    <div className="mb-2.5 pb-2.5 border-b border-app-border/60">
+                      <div className="text-[10px] font-mono text-app-muted uppercase tracking-wider mb-1.5 px-0.5 flex items-center gap-1">
+                        <Sparkles size={11} className="text-emerald-500" />
+                        <span>Популярные города:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {popularCities.map((city) => (
+                          <button
+                            key={city.id}
+                            type="button"
+                            onClick={() => handleSelectCity(city.name)}
+                            className={`px-2.5 py-1 text-[11px] font-sans rounded-lg transition-all cursor-pointer ${
+                              selectedCity === city.name
+                                ? "bg-emerald-500 text-white font-medium shadow-xs"
+                                : "bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border border-app-border"
+                            }`}
+                          >
+                            {city.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cities Scrollable List */}
+                  <div className="max-h-60 overflow-y-auto space-y-1 pr-1 select-none text-xs">
+                    {filteredCities.length > 0 ? (
+                      filteredCities.map((city) => {
+                        const isSelected = selectedCity === city.name;
+                        return (
+                          <button
+                            key={city.id}
+                            type="button"
+                            onClick={() => handleSelectCity(city.name)}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all cursor-pointer text-left ${
+                              isSelected
+                                ? "bg-emerald-500 text-white font-medium shadow-xs"
+                                : "text-app-secondary hover:text-app-primary hover:bg-app-card border border-transparent hover:border-app-border"
+                            }`}
+                            role="option"
+                            aria-selected={isSelected}
+                          >
+                            <div className="truncate pr-2">
+                              <span className="font-medium block truncate text-xs">{city.name}</span>
+                              {city.region && (
+                                <span
+                                  className={`text-[10px] block truncate mt-0.5 ${
+                                    isSelected ? "text-white/80" : "text-app-muted"
+                                  }`}
+                                >
+                                  {city.region}
+                                </span>
+                              )}
+                            </div>
+                            {isSelected && <Check size={14} className="shrink-0 stroke-[2.5]" />}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="py-6 text-center text-xs text-app-muted">
+                        Город не найден
+                      </div>
+                    )}
                   </div>
-                )}
+                </motion.div>
               </div>
-            </motion.div>
-          </div>
+            )}
+          </AnimatePresence>,
+          document.body
         )}
-      </AnimatePresence>
 
       {/* Interactive RF Map Picker Modal */}
       <AdminMapPickerModal

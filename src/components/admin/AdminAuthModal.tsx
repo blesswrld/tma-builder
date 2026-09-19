@@ -1,4 +1,5 @@
 import React, { FormEvent } from "react";
+import { createPortal } from "react-dom";
 import {
   ShieldCheck,
   X,
@@ -73,9 +74,9 @@ export function AdminAuthModal({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-100 fast-panel-slide">
+  const modalContent = (
+    <div className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-100 relative z-[10000]">
         <div className="flex justify-between items-center border-b border-app-border pb-3">
           <div className="flex items-center gap-2">
             <ShieldCheck size={18} className="text-app-muted" />
@@ -407,4 +408,6 @@ export function AdminAuthModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 }
