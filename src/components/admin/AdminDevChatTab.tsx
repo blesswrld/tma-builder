@@ -25,7 +25,8 @@ import {
   FileQuestion,
   HelpCircle,
   ExternalLink,
-  Trash2
+  Trash2,
+  Pencil
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../../context/RealtimeContext";
@@ -34,6 +35,7 @@ import { ChatMessage, ChatPartner, ChatConversation } from "../../types";
 import ChatMessageItem from "../chat/ChatMessageItem";
 import EmojiPickerPopover, { QUICK_EMOJIS } from "../chat/EmojiPickerPopover";
 import MediaLightboxModal, { formatBytes } from "../chat/MediaLightboxModal";
+import DeleteMessageModal from "../chat/DeleteMessageModal";
 
 const MAX_IMAGE_SIZE_MB = 15;
 const MAX_VIDEO_SIZE_MB = 50;
@@ -45,30 +47,32 @@ const PROMPT_SUGGESTIONS = [
   "🚀 Вопрос по интеграции и подключению бота"
 ];
 
+const DEV_QUICK_REPLIES = [
+  "👋 Здравствуйте! Чем могу вам помочь?",
+  "🚀 Привет! Как продвигается настройка Telegram-бота?",
+  "💳 Подсказать по выбору тарифа или подключению оплаты?",
+  "🔧 Давайте проверим настройки каталога и заведения"
+];
+
 function formatDateGroup(dateString: string): string {
   try {
     const d = new Date(dateString);
     if (isNaN(d.getTime())) return "";
     const now = new Date();
-    const isToday =
-      d.getDate() === now.getDate() &&
-      d.getMonth() === now.getMonth() &&
-      d.getFullYear() === now.getFullYear();
 
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const isYesterday =
-      d.getDate() === yesterday.getDate() &&
-      d.getMonth() === yesterday.getMonth() &&
-      d.getFullYear() === yesterday.getFullYear();
+    const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    if (isToday) return "Сегодня";
-    if (isYesterday) return "Вчера";
+    const diffDays = Math.round((today.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
 
+    if (diffDays === 0) return "Сегодня";
+    if (diffDays === 1) return "Вчера";
+
+    const isCurrentYear = d.getFullYear() === now.getFullYear();
     return d.toLocaleDateString("ru-RU", {
       day: "numeric",
       month: "long",
-      year: d.getFullYear() !== now.getFullYear() ? "numeric" : undefined
+      ...(isCurrentYear ? {} : { year: "numeric" })
     });
   } catch {
     return "";
@@ -97,12 +101,26 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Real-time Typing Indicator State
+  const [partnerTyping, setPartnerTyping] = useState<{ isTyping: boolean; userName?: string }>({ isTyping: false });
+  const partnerTypingTimeoutRef = useRef<any>(null);
+  const myTypingTimeoutRef = useRef<any>(null);
+  const lastTypingSentRef = useRef<number>(0);
+
   // Presence State (Online / Offline in Real Time)
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [devOnline, setDevOnline] = useState<boolean>(false);
 
   // Input & Media
   const [inputText, setInputText] = useState("");
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    message: ChatMessage | null;
+    mode: "for_all" | "for_me" | null;
+  }>({ isOpen: false, message: null, mode: null });
+  const [isDeletingMessage, setIsDeletingMessage] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<{
     file: File;
     url: string;
@@ -263,6 +281,8 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
 
   // Load messages when developer changes active conversation
   useEffect(() => {
+    setPartnerTyping({ isTyping: false });
+    if (partnerTypingTimeoutRef.current) clearTimeout(partnerTypingTimeoutRef.current);
     if (isDev && activeConversationUserId) {
       fetchMessages(activeConversationUserId, true);
     }
@@ -290,6 +310,30 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
       });
       if (isDev && uid === activeConversationUserId) {
         setPartner((prev) => (prev ? { ...prev, isOnline: isUserOnline } : prev));
+      }
+    }
+  });
+
+  // Realtime typing indicator listener
+  useRealtimeEvent("CHAT_TYPING", (event) => {
+    const payload = event.payload;
+    if (!payload) return;
+
+    const currentTargetId = currentTargetIdRef.current || (isDev ? activeConversationUserId : user?.id);
+    const isFromCurrentPartner = isDev
+      ? payload.senderId === currentTargetId || (payload.senderRole === "USER" && payload.senderId === activeConversationUserId)
+      : payload.senderRole === "DEVELOPER";
+
+    if (isFromCurrentPartner) {
+      if (payload.isTyping) {
+        setPartnerTyping({ isTyping: true, userName: payload.userName });
+        if (partnerTypingTimeoutRef.current) clearTimeout(partnerTypingTimeoutRef.current);
+        partnerTypingTimeoutRef.current = setTimeout(() => {
+          setPartnerTyping({ isTyping: false });
+        }, 3500);
+      } else {
+        setPartnerTyping({ isTyping: false });
+        if (partnerTypingTimeoutRef.current) clearTimeout(partnerTypingTimeoutRef.current);
       }
     }
   });
@@ -404,8 +448,50 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
 
   useRealtimeEvent("CHAT_MESSAGE_DELETED", (event) => {
     const deletedId = event.payload?.messageId;
-    if (deletedId) {
+    const mode = event.payload?.mode;
+    const deletedByUserId = event.payload?.deletedByUserId;
+    if (!deletedId) return;
+
+    if (mode === "for_me") {
+      // If deleted "for_me", only remove if this client is the one who deleted it
+      if (deletedByUserId === user?.id) {
+        setMessages((prev) => prev.filter((m) => m.id !== deletedId));
+      }
+    } else {
+      // Deleted for everyone
       setMessages((prev) => prev.filter((m) => m.id !== deletedId));
+    }
+
+    if (isDev) {
+      fetchConversations();
+    }
+  });
+
+  useRealtimeEvent("CHAT_MESSAGE_UPDATED", (event) => {
+    const updated = event.payload?.message;
+    if (!updated || !updated.id) return;
+
+    setMessages((prev) =>
+      prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m))
+    );
+
+    if (isDev) {
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.userId === updated.userId && c.lastMessage?.id === updated.id) {
+            return {
+              ...c,
+              lastMessage: {
+                ...c.lastMessage,
+                text: updated.text,
+                mediaUrl: updated.mediaUrl,
+                mediaType: updated.mediaType
+              }
+            };
+          }
+          return c;
+        })
+      );
     }
   });
 
@@ -453,8 +539,50 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
     e.target.value = "";
   };
 
-  // Handle Send Message
+  // Handle Input Text Change & Broadcast Typing Indicator
+  const handleInputChange = (text: string) => {
+    setInputText(text);
+
+    const now = Date.now();
+    const targetUserId = isDev ? activeConversationUserId : undefined;
+
+    if (text.trim().length > 0) {
+      if (now - lastTypingSentRef.current > 2000) {
+        lastTypingSentRef.current = now;
+        sendEvent({
+          type: "chat_typing",
+          targetUserId,
+          isTyping: true,
+          userName: user?.name || user?.email
+        });
+      }
+
+      if (myTypingTimeoutRef.current) clearTimeout(myTypingTimeoutRef.current);
+      myTypingTimeoutRef.current = setTimeout(() => {
+        sendEvent({
+          type: "chat_typing",
+          targetUserId,
+          isTyping: false,
+          userName: user?.name || user?.email
+        });
+      }, 3000);
+    } else {
+      if (myTypingTimeoutRef.current) clearTimeout(myTypingTimeoutRef.current);
+      sendEvent({
+        type: "chat_typing",
+        targetUserId,
+        isTyping: false,
+        userName: user?.name || user?.email
+      });
+    }
+  };
+
+  // Handle Send Message (or Save Edit)
   const handleSendMessage = async (customText?: string) => {
+    if (editingMessage) {
+      return handleSaveEdit();
+    }
+
     if (isSubmittingRef.current || sending) return;
 
     const textToSend = (customText !== undefined ? customText : inputText).trim();
@@ -469,6 +597,15 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
       setError("Выберите диалог с пользователем");
       return;
     }
+
+    // Stop self typing status immediately on send
+    if (myTypingTimeoutRef.current) clearTimeout(myTypingTimeoutRef.current);
+    sendEvent({
+      type: "chat_typing",
+      targetUserId: isDev ? targetUserId : undefined,
+      isTyping: false,
+      userName: user?.name || user?.email
+    });
 
     isSubmittingRef.current = true;
     setSending(true);
@@ -578,19 +715,131 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
     }
   };
 
-  // Handle Delete Message
-  const handleDeleteMessage = async (messageId: string) => {
-    if (!token || !confirm("Удалить это сообщение?")) return;
+  // Start editing a message
+  const handleStartEdit = useCallback((message: ChatMessage) => {
+    if (!message.text) return;
+    setEditingMessage(message);
+    setInputText(message.text);
+    setSelectedMedia(null);
+    setIsEmojiPickerOpen(false);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, []);
+
+  // Cancel editing
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessage(null);
+    setInputText("");
+  }, []);
+
+  // Save edited message
+  const handleSaveEdit = async () => {
+    if (!editingMessage || !token || isSubmittingRef.current || sending) return;
+
+    const trimmed = inputText.trim();
+    if (!trimmed && !editingMessage.mediaUrl) {
+      setError("Сообщение не может быть пустым");
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setSending(true);
+    setError(null);
+
+    const messageId = editingMessage.id;
+    const oldText = editingMessage.text;
+
+    // Optimistic update
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId
+          ? { ...m, text: trimmed, isEdited: true, editedAt: new Date().toISOString() }
+          : m
+      )
+    );
+
+    setEditingMessage(null);
+    setInputText("");
+
     try {
       const res = await resilientFetch(`/api/chat/messages/${messageId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ text: trimmed })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Ошибка изменения сообщения");
+      }
+
+      const data = await res.json();
+      if (data.message) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, ...data.message } : m))
+        );
+      }
+    } catch (err: any) {
+      console.error("Error editing message:", err);
+      // Rollback on error
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, text: oldText } : m))
+      );
+      setError(err.message || "Не удалось изменить сообщение");
+    } finally {
+      setSending(false);
+      isSubmittingRef.current = false;
+      if (textareaRef.current) textareaRef.current.focus();
+    }
+  };
+
+  // Prompt delete for me confirmation
+  const handleDeleteForMePrompt = useCallback((msg: ChatMessage) => {
+    setDeleteModal({ isOpen: true, message: msg, mode: "for_me" });
+  }, []);
+
+  // Prompt delete for all confirmation
+  const handleDeleteForAllPrompt = useCallback((msg: ChatMessage) => {
+    setDeleteModal({ isOpen: true, message: msg, mode: "for_all" });
+  }, []);
+
+  // Copy text helper
+  const handleCopyText = useCallback((text: string) => {
+    navigator.clipboard.writeText(text);
+    setToastMessage("Текст скопирован");
+    setTimeout(() => setToastMessage(null), 2000);
+  }, []);
+
+  // Confirm delete (for_all or for_me)
+  const handleConfirmDelete = async () => {
+    if (!deleteModal.message || !deleteModal.mode || !token) return;
+    const messageId = deleteModal.message.id;
+    const mode = deleteModal.mode;
+
+    setIsDeletingMessage(true);
+    try {
+      const res = await resilientFetch(`/api/chat/messages/${messageId}?mode=${mode}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.ok) {
-        setMessages((prev) => prev.filter((m) => m.id !== messageId));
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Ошибка удаления сообщения");
       }
-    } catch (err) {
+
+      // Optimistic removal from current user view
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      setDeleteModal({ isOpen: false, message: null, mode: null });
+    } catch (err: any) {
       console.error("Error deleting message:", err);
+      setError(err.message || "Не удалось удалить сообщение");
+    } finally {
+      setIsDeletingMessage(false);
     }
   };
 
@@ -653,14 +902,20 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
       }`}
     >
       {/* DEVELOPER SPLIT VIEW (List on Left, Chat on Right) OR REGULAR DIRECT VIEW */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* ========================================================= */}
         {/* LEFT COLUMN: CONVERSATIONS LIST (DEVELOPER ONLY) */}
         {/* ========================================================= */}
         {isDev && (
           <div
-            className={`w-full md:w-80 lg:w-96 border-r border-app-border flex flex-col bg-app-card/60 ${
-              mobileShowChat ? "hidden md:flex" : "flex"
+            className={`border-r border-app-border flex flex-col bg-app-card/60 shrink-0 ${
+              isFloatingMode
+                ? mobileShowChat && activeConversationUserId
+                  ? "hidden"
+                  : "w-full flex-1"
+                : mobileShowChat
+                ? "hidden md:flex md:w-72 lg:w-80 xl:w-96"
+                : "flex w-full md:w-72 lg:w-80 xl:w-96"
             }`}
           >
             {/* Header / Search */}
@@ -857,20 +1112,32 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
         {/* RIGHT COLUMN / MAIN CHAT WINDOW */}
         {/* ========================================================= */}
         <div
-          className={`flex-1 flex flex-col bg-app-card ${
-            isDev && !mobileShowChat ? "hidden md:flex" : "flex"
+          className={`flex-1 min-w-0 flex flex-col bg-app-card ${
+            isDev
+              ? isFloatingMode
+                ? mobileShowChat && activeConversationUserId
+                  ? "flex w-full"
+                  : "hidden"
+                : !mobileShowChat
+                ? "hidden md:flex"
+                : "flex"
+              : "flex"
           }`}
         >
           {/* Top Header Bar */}
-          <div className="p-3 sm:px-4 border-b border-app-border flex items-center justify-between bg-app-card/95 backdrop-blur-md">
-            <div className="flex items-center gap-3 min-w-0">
-              {/* Back button for mobile view in Dev Mode */}
+          <div className="p-3 sm:px-4 border-b border-app-border flex items-center justify-between bg-app-card/95 backdrop-blur-md shrink-0">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              {/* Back button for mobile / floating view in Dev Mode */}
               {isDev && (
                 <button
                   onClick={() => setMobileShowChat(false)}
-                  className="md:hidden p-1.5 rounded-lg hover:bg-app-hover text-app-muted hover:text-app-primary transition cursor-pointer"
+                  className={`${
+                    isFloatingMode ? "flex" : "md:hidden flex"
+                  } items-center gap-1 p-1.5 rounded-lg hover:bg-app-hover text-app-muted hover:text-app-primary transition cursor-pointer text-xs shrink-0 font-medium`}
+                  title="Вернуться к списку диалогов"
                 >
                   <ArrowLeft size={16} />
+                  <span className="hidden sm:inline">Диалоги</span>
                 </button>
               )}
 
@@ -920,7 +1187,7 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
                         </h2>
                         {isDev && activeConv?.user?.plan && (
                           <span
-                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${
                               activeConv.user.plan === "ENTERPRISE"
                                 ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
                                 : activeConv.user.plan === "PRO"
@@ -932,41 +1199,56 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
                           </span>
                         )}
                         {!isDev && (
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-semibold">
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-semibold shrink-0">
                             PRO DEV
                           </span>
                         )}
                       </div>
 
-                      <p className="text-[10px] sm:text-xs text-app-muted flex items-center gap-1.5 truncate">
-                        {isDev ? (
-                          <>
-                            <span className={`inline-flex items-center gap-1 font-medium ${isPartnerOnline ? "text-emerald-500" : "text-app-muted"}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${isPartnerOnline ? "bg-emerald-500 animate-pulse" : "bg-app-muted"}`} />
-                              {isPartnerOnline ? "В сети" : "Офлайн"}
-                            </span>
-                            <span>•</span>
-                            <span className="truncate">{activeConv?.user?.email}</span>
-                            {activeConv?.user?.shops?.length ? (
-                              <>
-                                <span>•</span>
-                                <span className="text-emerald-500 truncate font-medium">
-                                  🏬 {activeConv.user.shops.map((s) => s.name).join(", ")}
-                                </span>
-                              </>
-                            ) : null}
-                          </>
-                        ) : (
-                          <>
-                            <span className={`flex items-center gap-1 font-medium ${isPartnerOnline ? "text-emerald-500" : "text-app-muted"}`}>
-                              <Radio size={11} className={isPartnerOnline ? "animate-pulse" : ""} />
-                              {isPartnerOnline ? "В сети (Online)" : "Офлайн (Ответит скоро)"}
-                            </span>
-                            <span>•</span>
-                            <span>Прямая поддержка</span>
-                          </>
-                        )}
-                      </p>
+                      {partnerTyping.isTyping ? (
+                        <div className="flex items-center gap-1.5 text-emerald-500 dark:text-emerald-400 font-medium animate-pulse">
+                          <span className="flex items-center gap-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.3s]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.15s]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce" />
+                          </span>
+                          <span className="text-[11px] sm:text-xs">
+                            {isDev
+                              ? `${activeConv?.user?.name || "Пользователь"} печатает...`
+                              : "Разработчик печатает..."}
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] sm:text-xs text-app-muted flex items-center gap-1.5 truncate">
+                          {isDev ? (
+                            <>
+                              <span className={`inline-flex items-center gap-1 font-medium shrink-0 ${isPartnerOnline ? "text-emerald-500" : "text-app-muted"}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${isPartnerOnline ? "bg-emerald-500 animate-pulse" : "bg-app-muted"}`} />
+                                {isPartnerOnline ? "В сети" : "Офлайн"}
+                              </span>
+                              <span>•</span>
+                              <span className="truncate">{activeConv?.user?.email}</span>
+                              {activeConv?.user?.shops?.length ? (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-emerald-500 truncate font-medium">
+                                    🏬 {activeConv.user.shops.map((s) => s.name).join(", ")}
+                                  </span>
+                                </>
+                              ) : null}
+                            </>
+                          ) : (
+                            <>
+                              <span className={`flex items-center gap-1 font-medium shrink-0 ${isPartnerOnline ? "text-emerald-500" : "text-app-muted"}`}>
+                                <Radio size={11} className={isPartnerOnline ? "animate-pulse" : ""} />
+                                {isPartnerOnline ? "В сети (Online)" : "Офлайн (Ответит скоро)"}
+                              </span>
+                              <span>•</span>
+                              <span>Прямая поддержка 24/7</span>
+                            </>
+                          )}
+                        </p>
+                      )}
                     </div>
                   </>
                 );
@@ -974,7 +1256,7 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
             </div>
 
             {/* Header Right Actions */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => fetchMessages(isDev ? activeConversationUserId : null, false)}
                 className="p-2 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary transition cursor-pointer"
@@ -1011,7 +1293,7 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
           {/* MESSAGES STREAM VIEWPORT */}
           {/* ========================================================= */}
           <div
-            className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 custom-scrollbar relative bg-app-bg"
+            className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 custom-scrollbar relative bg-app-bg flex flex-col"
             onScroll={(e) => {
               const el = e.currentTarget;
               const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
@@ -1020,12 +1302,12 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
           >
             {/* Loading Skeleton */}
             {loading && messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full space-y-3 text-app-muted">
+              <div className="flex flex-col items-center justify-center flex-1 space-y-3 text-app-muted my-auto">
                 <RefreshCw size={24} className="animate-spin text-app-primary" />
                 <p className="text-xs">Загрузка переписки...</p>
               </div>
             ) : error ? (
-              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs flex items-center justify-between my-auto">
                 <div className="flex items-center gap-2">
                   <AlertCircle size={16} />
                   <span>{error}</span>
@@ -1037,9 +1319,20 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
                   Повторить
                 </button>
               </div>
+            ) : isDev && !activeConversationUserId ? (
+              /* Dev with no conversation selected */
+              <div className="flex flex-col items-center justify-center flex-1 text-center p-6 space-y-3 my-auto">
+                <div className="w-14 h-14 rounded-2xl bg-app-surface border border-app-border flex items-center justify-center text-app-primary shadow-xs">
+                  <MessageSquare size={28} />
+                </div>
+                <h3 className="text-sm font-semibold text-app-primary">Выберите диалог</h3>
+                <p className="text-xs text-app-muted max-w-xs">
+                  Выберите пользователя из списка слева, чтобы просмотреть переписку и ответить клиенту.
+                </p>
+              </div>
             ) : messages.length === 0 ? (
               /* Empty Chat Prompt */
-              <div className="flex flex-col items-center justify-center min-h-[320px] text-center p-6 space-y-4">
+              <div className="flex flex-col items-center justify-center flex-1 text-center p-6 space-y-4 my-auto">
                 <div className="w-14 h-14 rounded-2xl bg-app-surface border border-app-border flex items-center justify-center text-app-primary shadow-xs">
                   <MessageSquare size={28} />
                 </div>
@@ -1056,7 +1349,27 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
                   </p>
                 </div>
 
-                {!isDev && (
+                {isDev ? (
+                  <div className="w-full max-w-md space-y-2 pt-2">
+                    <p className="text-[11px] font-semibold text-app-muted text-left">
+                      ⚡ Быстрый ответ:
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {DEV_QUICK_REPLIES.map((sug, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setInputText(sug);
+                            if (textareaRef.current) textareaRef.current.focus();
+                          }}
+                          className="p-2.5 rounded-xl bg-app-card hover:bg-app-surface border border-app-border text-left text-xs text-app-primary transition cursor-pointer hover:border-app-secondary group"
+                        >
+                          <span className="group-hover:text-app-primary transition">{sug}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
                   <div className="w-full max-w-md space-y-2 pt-2">
                     <p className="text-[11px] font-semibold text-app-muted text-left">
                       💡 Быстрые вопросы:
@@ -1065,7 +1378,10 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
                       {PROMPT_SUGGESTIONS.map((sug, idx) => (
                         <button
                           key={idx}
-                          onClick={() => handleSendMessage(sug)}
+                          onClick={() => {
+                            setInputText(sug);
+                            if (textareaRef.current) textareaRef.current.focus();
+                          }}
                           className="p-2.5 rounded-xl bg-app-card hover:bg-app-surface border border-app-border text-left text-xs text-app-primary transition cursor-pointer hover:border-app-secondary group"
                         >
                           <span className="group-hover:text-app-primary transition">{sug}</span>
@@ -1112,13 +1428,29 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
                             size
                           })
                         }
-                        onDeleteMessage={handleDeleteMessage}
+                        onEditMessage={handleStartEdit}
+                        onDeleteForMe={handleDeleteForMePrompt}
+                        onDeleteForAll={handleDeleteForAllPrompt}
                         showSenderName={!isMine && isFirstFromSender}
                       />
                     );
                   })}
                 </div>
               ))
+            )}
+
+            {/* Real-time typing bubble in chat stream */}
+            {partnerTyping.isTyping && (
+              <div className="flex items-center gap-2 py-1.5 px-3 my-1 rounded-2xl bg-app-card border border-app-border/60 text-app-muted w-fit animate-in fade-in slide-in-from-bottom-1 duration-150 shadow-2xs select-none">
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-bounce" />
+                </div>
+                <span className="text-[11px] text-app-muted">
+                  {isDev ? (activeConv?.user?.name || "Пользователь") : "Разработчик"} печатает...
+                </span>
+              </div>
             )}
 
             <div ref={messagesEndRef} />
@@ -1153,6 +1485,34 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
                   className="text-rose-500 hover:text-rose-700"
                 >
                   <X size={12} />
+                </button>
+              </div>
+            )}
+
+            {/* Editing Message Banner */}
+            {editingMessage && (
+              <div className="mb-2 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-500 flex items-center justify-center shrink-0">
+                    <Pencil size={14} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 block leading-tight">
+                      Редактирование сообщения
+                    </span>
+                    <p className="text-[10px] text-app-muted truncate max-w-sm">
+                      {editingMessage.text}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="p-1.5 rounded-lg hover:bg-indigo-500/20 text-app-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer shrink-0"
+                  title="Отменить редактирование (Esc)"
+                >
+                  <X size={15} />
                 </button>
               </div>
             )}
@@ -1195,37 +1555,43 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
 
             {/* Input Bar Form */}
             <div className="flex items-end gap-1.5 sm:gap-2">
-              {/* Media File Picker Trigger */}
+              {/* Media File Picker Trigger (disabled when editing) */}
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
                 onChange={handleFileChange}
                 className="hidden"
+                disabled={Boolean(editingMessage)}
               />
 
               <button
                 type="button"
+                disabled={Boolean(editingMessage)}
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2.5 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary transition cursor-pointer shrink-0 shadow-2xs"
-                title="Прикрепить изображение или видео (до 50 МБ)"
+                className={`w-10 h-10 rounded-xl border transition shrink-0 flex items-center justify-center shadow-2xs ${
+                  editingMessage
+                    ? "bg-app-surface border-app-border text-app-muted opacity-40 cursor-not-allowed"
+                    : "bg-app-surface hover:bg-app-hover border-app-border text-app-muted hover:text-app-primary cursor-pointer active:scale-95"
+                }`}
+                title={editingMessage ? "Прикрепление файлов недоступно в режиме редактирования" : "Прикрепить изображение или видео (до 50 МБ)"}
               >
-                <Paperclip size={17} />
+                <Paperclip size={18} />
               </button>
 
               {/* Emoji Picker Trigger */}
-              <div className="relative shrink-0">
+              <div className="relative shrink-0 flex items-center">
                 <button
                   type="button"
                   onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
-                  className={`p-2.5 rounded-xl border transition cursor-pointer shadow-2xs ${
+                  className={`w-10 h-10 rounded-xl border transition cursor-pointer shrink-0 flex items-center justify-center shadow-2xs active:scale-95 ${
                     isEmojiPickerOpen
                       ? "bg-app-accent text-app-accent-fg border-app-accent"
                       : "bg-app-surface hover:bg-app-hover border-app-border text-app-muted hover:text-app-primary"
                   }`}
                   title="Выбрать эмодзи"
                 >
-                  <Smile size={17} />
+                  <Smile size={18} />
                 </button>
 
                 {/* Emoji Popover */}
@@ -1233,19 +1599,24 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
                   isOpen={isEmojiPickerOpen}
                   onClose={() => setIsEmojiPickerOpen(false)}
                   onSelectEmoji={(emoji) => {
-                    setInputText((prev) => prev + emoji);
+                    handleInputChange(inputText + emoji);
                     if (textareaRef.current) textareaRef.current.focus();
                   }}
                 />
               </div>
 
               {/* Textarea */}
-              <div className="flex-1 relative">
+              <div className="flex-1 relative flex items-center">
                 <textarea
                   ref={textareaRef}
                   value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
+                  onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={(e) => {
+                    if (e.key === "Escape" && editingMessage) {
+                      e.preventDefault();
+                      handleCancelEdit();
+                      return;
+                    }
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       if (e.nativeEvent.isComposing) return;
@@ -1255,32 +1626,46 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
                     }
                   }}
                   rows={1}
-                  placeholder={isDev ? "Напишите ответ клиенту... (Enter для отправки)" : "Напишите сообщение разработчику... (Enter)"}
-                  className="w-full px-3.5 py-2.5 text-xs bg-app-input border border-app-border rounded-xl text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-secondary transition resize-none max-h-32 min-h-[38px] shadow-2xs"
+                  placeholder={
+                    editingMessage
+                      ? "Отредактируйте сообщение... (Enter для сохранения, Esc для отмены)"
+                      : isDev
+                      ? "Напишите ответ клиенту... (Enter для отправки)"
+                      : "Напишите сообщение разработчику... (Enter)"
+                  }
+                  className={`w-full min-h-[40px] max-h-32 px-3.5 py-2.5 text-xs bg-app-input border rounded-xl text-app-primary placeholder:text-app-muted focus:outline-none transition resize-none shadow-2xs box-border leading-normal ${
+                    editingMessage
+                      ? "border-indigo-500/50 focus:border-indigo-500"
+                      : "border-app-border focus:border-app-secondary"
+                  }`}
                 />
               </div>
 
-              {/* Send Button */}
+              {/* Send / Save Button */}
               <button
                 type="button"
-                disabled={sending || (!inputText.trim() && !selectedMedia)}
+                disabled={sending || (!inputText.trim() && !selectedMedia && !editingMessage?.mediaUrl)}
                 onClick={(e) => {
                   e.preventDefault();
                   if (!sending && !isSubmittingRef.current) {
                     handleSendMessage();
                   }
                 }}
-                className={`p-2.5 rounded-xl font-bold flex items-center justify-center transition cursor-pointer shrink-0 ${
-                  inputText.trim() || selectedMedia
-                    ? "bg-app-accent text-app-accent-fg shadow-xs hover:opacity-90 active:scale-95"
+                className={`w-10 h-10 rounded-xl font-bold flex items-center justify-center transition cursor-pointer shrink-0 shadow-2xs ${
+                  inputText.trim() || selectedMedia || (editingMessage && editingMessage.mediaUrl)
+                    ? editingMessage
+                      ? "bg-indigo-600 text-white shadow-xs hover:bg-indigo-700 active:scale-95"
+                      : "bg-app-accent text-app-accent-fg shadow-xs hover:opacity-90 active:scale-95"
                     : "bg-app-surface border border-app-border text-app-muted cursor-not-allowed opacity-50"
                 }`}
-                title="Отправить сообщение (Enter)"
+                title={editingMessage ? "Сохранить изменения (Enter)" : "Отправить сообщение (Enter)"}
               >
                 {sending ? (
-                  <RefreshCw size={17} className="animate-spin" />
+                  <RefreshCw size={18} className="animate-spin" />
+                ) : editingMessage ? (
+                  <Check size={18} />
                 ) : (
-                  <Send size={17} />
+                  <Send size={18} />
                 )}
               </button>
             </div>
@@ -1302,6 +1687,16 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
         mediaType={lightboxData.type}
         mediaName={lightboxData.name}
         mediaSize={lightboxData.size}
+      />
+
+      {/* Delete Message Confirmation Modal (for all vs for me) */}
+      <DeleteMessageModal
+        isOpen={deleteModal.isOpen}
+        message={deleteModal.message}
+        mode={deleteModal.mode}
+        onClose={() => setDeleteModal({ isOpen: false, message: null, mode: null })}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeletingMessage}
       />
     </div>
   );

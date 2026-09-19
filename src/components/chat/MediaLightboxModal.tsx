@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Download, ZoomIn, ZoomOut, RotateCcw, Play, Maximize2, FileText, Check } from "lucide-react";
 
@@ -80,16 +81,16 @@ export default function MediaLightboxModal({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md select-none">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 select-none">
         {/* Backdrop click to close */}
         <div className="absolute inset-0" onClick={onClose} />
 
         {/* Top Control Bar */}
         <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-black/80 to-transparent flex items-center justify-between px-4 sm:px-6 z-20 pointer-events-auto">
           <div className="flex items-center gap-3 text-white">
-            <div className="p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10">
+            <div className="p-2 rounded-lg bg-white/10 border border-white/10">
               {mediaType === "video" ? (
                 <Play size={18} className="text-indigo-400" />
               ) : (
@@ -108,7 +109,7 @@ export default function MediaLightboxModal({
 
           <div className="flex items-center gap-2">
             {mediaType === "image" && (
-              <div className="hidden sm:flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-xl p-1 border border-white/10">
+              <div className="hidden sm:flex items-center gap-1 bg-white/10 rounded-xl p-1 border border-white/10">
                 <button
                   onClick={() => setZoomLevel((prev) => Math.max(prev - 0.25, 0.5))}
                   className="p-1.5 hover:bg-white/20 rounded-lg text-slate-300 hover:text-white transition cursor-pointer"
@@ -140,7 +141,7 @@ export default function MediaLightboxModal({
 
             <button
               onClick={handleDownload}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-white text-xs font-medium backdrop-blur-sm transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-white text-xs font-medium transition cursor-pointer"
               title="Скачать файл"
             >
               <Download size={14} />
@@ -149,7 +150,7 @@ export default function MediaLightboxModal({
 
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-white/10 hover:bg-rose-500/80 border border-white/10 text-white hover:text-white transition backdrop-blur-sm cursor-pointer ml-1"
+              className="p-2 rounded-xl bg-white/10 hover:bg-rose-500/80 border border-white/10 text-white hover:text-white transition cursor-pointer ml-1"
               title="Закрыть (Esc)"
             >
               <X size={18} />
@@ -162,7 +163,7 @@ export default function MediaLightboxModal({
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.18 }}
+          transition={{ duration: 0.15 }}
           className="relative z-10 max-w-[95vw] max-h-[85vh] flex items-center justify-center p-2"
           onClick={(e) => e.stopPropagation()}
         >
@@ -208,7 +209,7 @@ export default function MediaLightboxModal({
 
         {/* Bottom Bar Info */}
         <div className="absolute bottom-3 inset-x-0 flex justify-center items-center z-20 pointer-events-none">
-          <div className="px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-slate-300 text-xs flex items-center gap-3 pointer-events-auto">
+          <div className="px-4 py-1.5 rounded-full bg-black/80 border border-white/10 text-slate-300 text-xs flex items-center gap-3 pointer-events-auto">
             <span>{mediaType === "video" ? "🎬 Видеофайл" : "🖼️ Изображение"}</span>
             <span className="text-slate-500">•</span>
             <button
@@ -227,6 +228,7 @@ export default function MediaLightboxModal({
           </div>
         </div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

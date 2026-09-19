@@ -639,7 +639,10 @@ async function ensureOrderSchema(db: PrismaClient) {
         `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaType" TEXT`,
         `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaName" TEXT`,
         `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaSize" INTEGER`,
-        `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaThumbnail" TEXT`
+        `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaThumbnail" TEXT`,
+        `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "isEdited" BOOLEAN NOT NULL DEFAULT false`,
+        `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "editedAt" TIMESTAMP(3)`,
+        `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "deletedForUserIds" TEXT`
       ];
 
       for (const stmt of statements) {
@@ -6464,28 +6467,32 @@ app.post("/api/shops", async (req, res) => {
         take: limit
       });
 
+      // Фильтруем сообщения, удаленные текущим пользователем "для себя"
+      const visibleMessages = messages.filter((m: any) => {
+        if (!m.deletedForUserIds) return true;
+        try {
+          const deletedList = JSON.parse(m.deletedForUserIds);
+          if (Array.isArray(deletedList) && deletedList.includes(authUser.id)) {
+            return false;
+          }
+        } catch {
+          if (typeof m.deletedForUserIds === "string" && m.deletedForUserIds.includes(authUser.id)) {
+            return false;
+          }
+        }
+        return true;
+      });
+
       // Считаем количество непрочитанных для текущего пользователя
       let unreadCount = 0;
       if (isDev) {
-        unreadCount = await db.chatMessage.count({
-          where: {
-            userId: targetUserId,
-            senderRole: "USER",
-            isRead: false
-          }
-        });
+        unreadCount = visibleMessages.filter((m: any) => m.senderRole === "USER" && !m.isRead).length;
       } else {
-        unreadCount = await db.chatMessage.count({
-          where: {
-            userId: authUser.id,
-            senderRole: "DEVELOPER",
-            isRead: false
-          }
-        });
+        unreadCount = visibleMessages.filter((m: any) => m.senderRole === "DEVELOPER" && !m.isRead).length;
       }
 
       res.json({
-        messages: messages.map((m: any) => ({
+        messages: visibleMessages.map((m: any) => ({
           id: m.id,
           userId: m.userId,
           senderRole: m.senderRole,
@@ -6499,6 +6506,8 @@ app.post("/api/shops", async (req, res) => {
           mediaThumbnail: m.mediaThumbnail,
           isRead: Boolean(m.isRead),
           readAt: m.readAt,
+          isEdited: Boolean(m.isEdited),
+          editedAt: m.editedAt,
           createdAt: m.createdAt
         })),
         unreadCount,
@@ -6857,7 +6866,7 @@ app.post("/api/shops", async (req, res) => {
     }
   });
 
-  // 6. Удаление сообщения
+  // 6. Удаление сообщения (для всех или только для себя)
   app.delete("/api/chat/messages/:id", async (req, res) => {
     try {
       const authUser = getAuthUser(req);
@@ -6870,7 +6879,7 @@ app.post("/api/shops", async (req, res) => {
       await ensureOrderSchema(db);
 
       const messageId = req.params.id;
-      const isDev = isDeveloperEmail(authUser.email);
+      const mode = req.query.mode === "for_me" || req.body?.mode === "for_me" ? "for_me" : "for_all";
 
       const msg = await db.chatMessage.findUnique({
         where: { id: messageId }
@@ -6880,25 +6889,145 @@ app.post("/api/shops", async (req, res) => {
         return res.status(404).json({ error: "Сообщение не найдено" });
       }
 
-      // Удалить может разработчик или отправитель
-      if (!isDev && msg.senderId !== authUser.id) {
+      // ТРЕБОВАНИЕ: Пользователь может удалять только свои сообщения
+      if (msg.senderId !== authUser.id) {
         return res.status(403).json({ error: "Вы можете удалять только свои сообщения" });
       }
 
-      await db.chatMessage.delete({
-        where: { id: messageId }
-      });
+      if (mode === "for_me") {
+        // Удалить только у себя (скрыть для текущего пользователя)
+        let deletedList: string[] = [];
+        if (msg.deletedForUserIds) {
+          try {
+            deletedList = JSON.parse(msg.deletedForUserIds);
+            if (!Array.isArray(deletedList)) deletedList = [];
+          } catch {
+            deletedList = [];
+          }
+        }
+        if (!deletedList.includes(authUser.id)) {
+          deletedList.push(authUser.id);
+        }
 
-      broadcastEvent({
-        type: "CHAT_MESSAGE_DELETED",
-        userId: msg.userId,
-        payload: { messageId, targetUserId: msg.userId }
-      });
+        await db.chatMessage.update({
+          where: { id: messageId },
+          data: {
+            deletedForUserIds: JSON.stringify(deletedList)
+          }
+        });
 
-      res.json({ success: true, id: messageId });
+        broadcastEvent({
+          type: "CHAT_MESSAGE_DELETED",
+          userId: msg.userId,
+          payload: {
+            messageId,
+            targetUserId: msg.userId,
+            mode: "for_me",
+            deletedByUserId: authUser.id
+          }
+        });
+
+        return res.json({ success: true, id: messageId, mode: "for_me" });
+      } else {
+        // Удалить для всех (полное удаление из базы данных)
+        await db.chatMessage.delete({
+          where: { id: messageId }
+        });
+
+        broadcastEvent({
+          type: "CHAT_MESSAGE_DELETED",
+          userId: msg.userId,
+          payload: {
+            messageId,
+            targetUserId: msg.userId,
+            mode: "for_all"
+          }
+        });
+
+        return res.json({ success: true, id: messageId, mode: "for_all" });
+      }
     } catch (error: any) {
       console.error("Error deleting chat message:", error);
       res.status(500).json({ error: error.message || "Ошибка удаления сообщения" });
+    }
+  });
+
+  // 7. Редактирование (изменение) сообщения
+  app.put("/api/chat/messages/:id", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        return res.status(401).json({ error: "Необходима авторизация" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const messageId = req.params.id;
+      const { text } = req.body;
+
+      const trimmedText = typeof text === "string" ? text.trim() : "";
+
+      const msg = await db.chatMessage.findUnique({
+        where: { id: messageId }
+      });
+
+      if (!msg) {
+        return res.status(404).json({ error: "Сообщение не найдено" });
+      }
+
+      // ТРЕБОВАНИЕ: Пользователь может редактировать только свои сообщения
+      if (msg.senderId !== authUser.id) {
+        return res.status(403).json({ error: "Вы можете редактировать только свои сообщения" });
+      }
+
+      if (!trimmedText && !msg.mediaUrl) {
+        return res.status(400).json({ error: "Текст сообщения не может быть пустым" });
+      }
+
+      const now = new Date();
+      const updated = await db.chatMessage.update({
+        where: { id: messageId },
+        data: {
+          text: trimmedText || null,
+          isEdited: true,
+          editedAt: now
+        }
+      });
+
+      const formattedMessage = {
+        id: updated.id,
+        userId: updated.userId,
+        senderRole: updated.senderRole,
+        senderId: updated.senderId,
+        senderName: updated.senderName,
+        text: updated.text,
+        mediaUrl: updated.mediaUrl,
+        mediaType: updated.mediaType,
+        mediaName: updated.mediaName,
+        mediaSize: updated.mediaSize,
+        mediaThumbnail: updated.mediaThumbnail,
+        isRead: Boolean(updated.isRead),
+        readAt: updated.readAt,
+        isEdited: true,
+        editedAt: updated.editedAt?.toISOString() || now.toISOString(),
+        createdAt: updated.createdAt
+      };
+
+      broadcastEvent({
+        type: "CHAT_MESSAGE_UPDATED",
+        userId: updated.userId,
+        payload: {
+          message: formattedMessage,
+          targetUserId: updated.userId
+        }
+      });
+
+      res.json({ success: true, message: formattedMessage });
+    } catch (error: any) {
+      console.error("Error editing chat message:", error);
+      res.status(500).json({ error: error.message || "Ошибка редактирования сообщения" });
     }
   });
 
@@ -7433,6 +7562,7 @@ if (!process.env.VERCEL) {
           }
 
           // Handle get presence
+          // Handle get presence
           if (data.type === "get_presence") {
             ws.send(JSON.stringify({
               type: "PRESENCE_STATE",
@@ -7442,6 +7572,24 @@ if (!process.env.VERCEL) {
                 timestamp: Date.now()
               }
             }));
+          }
+
+          // Handle real-time chat typing indicator
+          if (data.type === "chat_typing") {
+            const senderId = clientObj.userId;
+            const senderRole = clientObj.isDeveloper ? "DEVELOPER" : "USER";
+            const targetUserId = data.targetUserId;
+            broadcastEvent({
+              type: "CHAT_TYPING",
+              userId: targetUserId || senderId,
+              payload: {
+                senderId,
+                senderRole,
+                targetUserId,
+                isTyping: data.isTyping !== false,
+                userName: data.userName
+              }
+            });
           }
 
           // Handle subscription

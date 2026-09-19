@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Smile, Flame, Sparkles, Heart, Search, X } from "lucide-react";
 
@@ -71,6 +71,17 @@ export default function EmojiPickerPopover({
   const [activeCategory, setActiveCategory] = useState("popular");
   const [search, setSearch] = useState("");
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   const filteredEmojis = useMemo(() => {
     if (!search.trim()) {
       const cat = EMOJI_CATEGORIES.find((c) => c.id === activeCategory);
@@ -84,7 +95,11 @@ export default function EmojiPickerPopover({
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
+    <>
+      <div
+        className="fixed inset-0 z-30 bg-transparent"
+        onClick={onClose}
+      />
       <div className="absolute bottom-full mb-2 right-0 sm:right-4 z-40 w-80 sm:w-96 bg-app-card border border-app-border rounded-2xl shadow-2xl backdrop-blur-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header with search */}
         <div className="p-2.5 border-b border-app-border flex items-center gap-2 bg-app-bg/50">
@@ -166,6 +181,6 @@ export default function EmojiPickerPopover({
           </button>
         </div>
       </div>
-    </AnimatePresence>
+    </>
   );
 }

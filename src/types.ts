@@ -445,6 +445,9 @@ export interface ChatMessage {
   mediaThumbnail?: string | null;
   isRead: boolean;
   readAt?: string | null;
+  isEdited?: boolean;
+  editedAt?: string | null;
+  deletedForUserIds?: string | null;
   createdAt: string;
   status?: "sending" | "sent" | "error"; // For optimistic UI
 }

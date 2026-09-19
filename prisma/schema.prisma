@@ -260,20 +260,23 @@ model SystemPromocode {
 }
 
 model ChatMessage {
-  id             String    @id @default(cuid())
-  userId         String
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  senderRole     String    @default("USER") // USER, DEVELOPER
-  senderId       String
-  senderName     String?
-  text           String?
-  mediaUrl       String?
-  mediaType      String?   // image, video, file
-  mediaName      String?
-  mediaSize      Int?
-  mediaThumbnail String?
-  isRead         Boolean   @default(false)
-  readAt         DateTime?
-  createdAt      DateTime  @default(now())
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  senderRole        String    @default("USER") // USER, DEVELOPER
+  senderId          String
+  senderName        String?
+  text              String?
+  mediaUrl          String?
+  mediaType         String?   // image, video, file
+  mediaName         String?
+  mediaSize         Int?
+  mediaThumbnail    String?
+  isRead            Boolean   @default(false)
+  readAt            DateTime?
+  isEdited          Boolean   @default(false)
+  editedAt          DateTime?
+  deletedForUserIds String?
+  createdAt         DateTime  @default(now())
 }
 
