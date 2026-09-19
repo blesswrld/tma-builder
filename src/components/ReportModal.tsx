@@ -237,7 +237,7 @@ export default function ReportModal({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={handleClose}
-            className="fixed inset-0 bg-black/75 backdrop-blur-md z-50"
+            className="fixed inset-0 bg-black/75 z-50"
           />
           <motion.div
             key="report-panel"
@@ -499,7 +499,7 @@ export default function ReportModal({
                         <button
                           type="button"
                           onClick={() => removeAttachment(idx)}
-                          className="p-1 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-hover border border-transparent hover:border-app-border transition-all cursor-pointer shrink-0 backdrop-blur-sm"
+                          className="p-1 text-app-muted hover:text-app-primary rounded-lg hover:bg-app-hover border border-transparent hover:border-app-border transition-all cursor-pointer shrink-0"
                           title="Удалить прикрепленный файл"
                         >
                           <Trash2 size={13} />

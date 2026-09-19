@@ -297,7 +297,7 @@ export default function ImageCropperModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-fadeIn select-none">
       <div className="bg-app-card border border-app-border text-app-primary rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[94vh]">
         {/* Modal Header */}
         <div className="p-4 border-b border-app-border flex items-center justify-between bg-app-surface">
@@ -385,7 +385,7 @@ export default function ImageCropperModal({
             )}
 
             {/* Drag Badge */}
-            <div className="absolute top-2.5 left-2.5 z-30 bg-black/75 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-mono text-white/90 border border-white/20 flex items-center gap-1.5 pointer-events-none shadow-md">
+            <div className="absolute top-2.5 left-2.5 z-30 bg-black/85 px-2.5 py-1 rounded-lg text-[10px] font-mono text-white/90 border border-white/20 flex items-center gap-1.5 pointer-events-none shadow-md">
               <Move size={12} /> Зажмите и тяните
             </div>
 
@@ -496,7 +496,7 @@ export default function ImageCropperModal({
               <button
                 type="button"
                 onClick={handleReset}
-                className="px-3 py-1.5 bg-app-card hover:bg-app-hover text-app-muted hover:text-app-primary text-xs font-mono font-medium rounded-xl border border-app-border flex items-center gap-1.5 cursor-pointer transition-all backdrop-blur-sm"
+                className="px-3 py-1.5 bg-app-card hover:bg-app-hover text-app-muted hover:text-app-primary text-xs font-mono font-medium rounded-xl border border-app-border flex items-center gap-1.5 cursor-pointer transition-all"
                 title="Сбросить все изменения к исходному фото"
               >
                 <RefreshCw size={13} /> Сброс

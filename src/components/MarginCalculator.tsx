@@ -18,7 +18,7 @@ interface MarginCalculatorProps {
   currencySymbol?: string;
 }
 
-export default function MarginCalculator({
+function MarginCalculatorComponent({
   topServices = [],
   avgCheck = 0,
   currencySymbol = "₽"
@@ -396,3 +396,5 @@ export default function MarginCalculator({
     </motion.div>
   );
 }
+
+export default React.memo(MarginCalculatorComponent);

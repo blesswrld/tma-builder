@@ -11,7 +11,10 @@ import type {
   WorkerCartCalculationResult,
   WorkerRevenueDynamicsPayload,
   WorkerRevenueDynamicsResult,
+  WorkerFilterPublicShopsPayload,
+  WorkerFilterPublicShopsResult,
 } from "./workerTypes";
+import { filterPublicShops as syncFilterPublicShops } from "./workerCalculations";
 
 class ComputationWorkerManager {
   private worker: Worker | null = null;
@@ -97,6 +100,19 @@ class ComputationWorkerManager {
     payload: WorkerRevenueDynamicsPayload
   ): Promise<WorkerRevenueDynamicsResult> {
     return this.postTask<WorkerRevenueDynamicsResult>("CALCULATE_REVENUE_DYNAMICS", payload);
+  }
+
+  public async filterPublicShops(
+    payload: WorkerFilterPublicShopsPayload
+  ): Promise<WorkerFilterPublicShopsResult> {
+    if (!this.worker) {
+      return syncFilterPublicShops(payload);
+    }
+    try {
+      return await this.postTask<WorkerFilterPublicShopsResult>("FILTER_PUBLIC_SHOPS", payload);
+    } catch {
+      return syncFilterPublicShops(payload);
+    }
   }
 }
 

@@ -34,7 +34,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
             exit={{ opacity: 0 }} 
             transition={{ duration: 0.12 }}
             onClick={onClose} 
-            className="fixed inset-0 bg-black/70 backdrop-blur-[2px] z-50" 
+            className="fixed inset-0 bg-black/70 z-50" 
           />
           <motion.div 
             key="my-orders-panel" 

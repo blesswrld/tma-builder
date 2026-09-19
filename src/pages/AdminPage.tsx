@@ -1,4 +1,4 @@
-import React, { useEffect, useState, FormEvent, useRef, useCallback } from "react";
+import React, { useEffect, useState, FormEvent, useRef, useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -11,7 +11,7 @@ import {
   Grid, X, Menu, SlidersHorizontal, ArrowUpRight, Zap, Sun, Moon, Globe, ArrowLeft,
   ThumbsUp, MessageCircle, BarChart2, Filter, MessageSquare, GripVertical, Keyboard,
   UserPlus, CheckCircle, Key, Loader2, Truck, CreditCard, Github, Bug, ShieldAlert, Info,
-  Server, Activity, PanelLeftOpen, PanelLeftClose
+  Server, Activity, PanelLeftOpen, PanelLeftClose, Compass
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -53,7 +53,7 @@ import SupportChatWidget from "../components/chat/SupportChatWidget";
 import { 
   validateShopName, validateSlug, cleanSlugForSubmit, transliterateToSlug, generateRandomSyllableSlug, validateCisPhone, 
   validateTelegramBotToken, validateTelegramChatId, validateItemTitle, 
-  validatePrice, validatePromoCodeData, validateAddress,
+  validatePrice, validatePromoCodeData, validateAddress, validateShopAddress,
   validateCurrencyCode, validateCurrencySymbol, SUPPORTED_CURRENCIES
 } from "../lib/validation";
 
@@ -388,6 +388,42 @@ export default function AdminPage() {
       return next;
     });
   }, []);
+
+  const unreadNotificationsCount = useMemo(
+    () => inboxNotifications.filter((n) => !n.isRead).length,
+    [inboxNotifications]
+  );
+
+  const handleCloseNotificationBox = useCallback(() => setIsNotificationBoxOpen(false), []);
+  const handleToggleNotificationBox = useCallback(() => setIsNotificationBoxOpen((prev) => !prev), []);
+  const handleMarkAllNotificationsAsRead = useCallback(() => {
+    saveNotifications(inboxNotifications.map((n) => ({ ...n, isRead: true })));
+  }, [inboxNotifications, saveNotifications]);
+  const handleClearAllNotifications = useCallback(() => {
+    saveNotifications([]);
+  }, [saveNotifications]);
+  const handleDeleteNotification = useCallback((id: string) => {
+    saveNotifications(inboxNotifications.filter((n) => n.id !== id));
+  }, [inboxNotifications, saveNotifications]);
+  const handleNotificationClick = useCallback((item: TextNotificationItem) => {
+    saveNotifications(
+      inboxNotifications.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
+    );
+    setIsNotificationBoxOpen(false);
+    if (item.actionTab === "orders") {
+      setActiveTab("orders");
+    } else if (item.actionTab === "reviews") {
+      setActiveTab("reviews");
+    } else if (item.actionTab === "devchat") {
+      setActiveTab("devchat");
+    } else if (item.actionTab === "support" || item.type === "chat") {
+      if (isDeveloperUser) {
+        setActiveTab("devchat");
+      } else {
+        setIsFloatingSupportOpen(true);
+      }
+    }
+  }, [inboxNotifications, saveNotifications, isDeveloperUser]);
 
   useEffect(() => {
     if (shops && shops.length > 0) {
@@ -3040,6 +3076,14 @@ export default function AdminPage() {
       return;
     }
 
+    if (settingsData.address && settingsData.address.trim()) {
+      const addressRes = validateShopAddress(settingsData.address);
+      if (!addressRes.isValid) {
+        setSettingsError(addressRes.error || "Недопустимый физический адрес");
+        return;
+      }
+    }
+
     setIsSavingSettings(true);
     setSettingsError(null);
     setSettingsSuccess(null);
@@ -3233,7 +3277,7 @@ export default function AdminPage() {
           <InstallButton
             variant="icon"
             tooltipText="Установить приложение"
-            className="bg-neutral-900/80 border-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-800 backdrop-blur-md shadow-xl"
+            className="bg-neutral-900 border-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-800 shadow-xl"
           />
         </div>
 
@@ -3242,7 +3286,7 @@ export default function AdminPage() {
           href="https://github.com/blesswrld" 
           target="_blank" 
           rel="noopener noreferrer"
-          className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900/80 hover:bg-neutral-800/90 text-neutral-400 hover:text-neutral-200 border border-neutral-800 hover:border-neutral-700 backdrop-blur-md transition-all text-[11px] font-mono shadow-xl group"
+          className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900/90 hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 border border-neutral-800 hover:border-neutral-700 transition-all text-[11px] font-mono shadow-xl group"
         >
           <Github size={13} className="text-neutral-400 group-hover:text-white transition-colors" />
           <span className="text-[10px] text-neutral-500 font-sans">created by</span>
@@ -3256,7 +3300,7 @@ export default function AdminPage() {
           initial={{ opacity: 0, y: 16, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
-          className="max-w-md w-full bg-neutral-900/90 border border-neutral-800/80 hover:border-neutral-700/80 rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl relative z-10 backdrop-blur-xl transition-colors duration-300"
+          className="max-w-md w-full bg-neutral-900 border border-neutral-800/80 hover:border-neutral-700/80 rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl relative z-10 transition-colors duration-300"
         >
           {/* Top highlight beam */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-44 h-[2px] bg-gradient-to-r from-transparent via-white/40 to-transparent blur-[1px]" />
@@ -3626,13 +3670,13 @@ export default function AdminPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity cursor-pointer"
+            className="fixed inset-0 bg-black/60 z-40 md:hidden transition-opacity cursor-pointer"
           />
         )}
       </AnimatePresence>
 
       {/* Mobile Top Navigation */}
-      <div className="md:hidden sticky top-0 z-40 bg-app-surface/90 backdrop-blur-xl border-b border-app-border px-4 h-14 flex items-center justify-between shadow-sm">
+      <div className="md:hidden sticky top-0 z-40 bg-app-surface border-b border-app-border px-4 h-14 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
           <img src="/favicon.svg" alt="TMA Builder" className="w-6 h-6 rounded-lg shrink-0 object-cover shadow-2xs border border-white/10" />
           <span className="font-semibold text-sm text-app-primary font-mono">TMA BUILDER</span>
@@ -3707,14 +3751,14 @@ export default function AdminPage() {
         setIsHelpCenterOpen={setIsHelpCenterOpen}
         shopFilterMode={shopFilterMode}
         setShopFilterMode={setShopFilterMode}
-        unreadNotificationsCount={inboxNotifications.filter((n) => !n.isRead).length}
-        onOpenNotificationBox={() => setIsNotificationBoxOpen((prev) => !prev)}
+        unreadNotificationsCount={unreadNotificationsCount}
+        onOpenNotificationBox={handleToggleNotificationBox}
       />
 
       {/* Main Content Workspace */}
       <main className="flex-1 min-w-0 flex flex-col min-h-screen">
         {/* Workspace Top Bar Header */}
-        <header className="min-h-[3.5rem] sm:min-h-[4rem] border-b border-app-border px-4 sm:px-6 py-2.5 sm:py-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-app-surface/80 backdrop-blur-md sticky top-14 md:top-0 z-30 shadow-sm">
+        <header className="min-h-[3.5rem] sm:min-h-[4rem] border-b border-app-border px-4 sm:px-6 py-2.5 sm:py-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-app-surface sticky top-14 md:top-0 z-30 shadow-sm">
           <div className="flex items-center gap-3">
             {isSidebarCollapsed && (
               <button
@@ -3798,6 +3842,16 @@ export default function AdminPage() {
               <span className="hidden sm:inline text-[11px] font-semibold">{t("btn.help", "Справка")}</span>
               <kbd className="hidden lg:inline text-[9px] font-bold text-app-muted border border-app-border/80 px-1 py-0.5 rounded bg-app-surface/50">?</kbd>
             </button>
+
+            {/* Explore Public Catalog Link */}
+            <Link
+              to="/explore"
+              className="px-2.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 text-xs font-mono"
+              title="Открыть единый каталог всех заведений"
+            >
+              <Compass size={14} className="text-emerald-500" />
+              <span className="hidden sm:inline text-[11px] font-semibold">Каталог</span>
+            </Link>
 
             {/* Report Bug / Feedback Button */}
             <button
@@ -4533,7 +4587,7 @@ export default function AdminPage() {
       {/* Hotkeys Helper Modal */}
       <AnimatePresence>
         {isHotkeysModalOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -4733,34 +4787,12 @@ export default function AdminPage() {
 
       <NotificationInbox
         isOpen={isNotificationBoxOpen}
-        onClose={() => setIsNotificationBoxOpen(false)}
+        onClose={handleCloseNotificationBox}
         notifications={inboxNotifications}
-        onMarkAllAsRead={() =>
-          saveNotifications(inboxNotifications.map((n) => ({ ...n, isRead: true })))
-        }
-        onClearAll={() => saveNotifications([])}
-        onDeleteNotification={(id) =>
-          saveNotifications(inboxNotifications.filter((n) => n.id !== id))
-        }
-        onNotificationClick={(item) => {
-          saveNotifications(
-            inboxNotifications.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
-          );
-          setIsNotificationBoxOpen(false);
-          if (item.actionTab === "orders") {
-            setActiveTab("orders");
-          } else if (item.actionTab === "reviews") {
-            setActiveTab("reviews");
-          } else if (item.actionTab === "devchat") {
-            setActiveTab("devchat");
-          } else if (item.actionTab === "support" || item.type === "chat") {
-            if (isDeveloperUser) {
-              setActiveTab("devchat");
-            } else {
-              setIsFloatingSupportOpen(true);
-            }
-          }
-        }}
+        onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+        onClearAll={handleClearAllNotifications}
+        onDeleteNotification={handleDeleteNotification}
+        onNotificationClick={handleNotificationClick}
         isAudioEnabled={isAudioEnabled}
         onToggleAudio={handleToggleAdminAudio}
         onSendTestNotification={(category?: "all" | "chat" | "order" | "review") => {
@@ -4851,7 +4883,7 @@ export default function AdminPage() {
       {/* Custom Confirmation Modal */}
       <AnimatePresence>
         {confirmModal.isOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -4905,14 +4937,14 @@ export default function AdminPage() {
               exit={{ opacity: 0, y: -20, scale: 0.95 }}
               transition={{ duration: 0.15 }}
               onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-              className={`p-4 rounded-xl border shadow-lg pointer-events-auto flex items-start gap-3 backdrop-blur-md cursor-pointer hover:opacity-95 transition-opacity ${
+              className={`p-4 rounded-xl border shadow-lg pointer-events-auto flex items-start gap-3 cursor-pointer hover:opacity-95 transition-opacity ${
                 toast.type === "success" 
-                  ? "bg-[#0b2518]/90 text-emerald-200 border-emerald-800/40" 
+                  ? "bg-[#0b2518] text-emerald-200 border-emerald-800/40" 
                   : toast.type === "error" 
-                  ? "bg-[#2d0f13]/90 text-rose-200 border-rose-800/40" 
+                  ? "bg-[#2d0f13] text-rose-200 border-rose-800/40" 
                   : toast.type === "info"
-                  ? "bg-[#0c2333]/90 text-sky-200 border-sky-800/40"
-                  : "bg-[#2d210f]/90 text-amber-200 border-amber-800/40"
+                  ? "bg-[#0c2333] text-sky-200 border-sky-800/40"
+                  : "bg-[#2d210f] text-amber-200 border-amber-800/40"
               }`}
             >
               <div className="mt-0.5 shrink-0">

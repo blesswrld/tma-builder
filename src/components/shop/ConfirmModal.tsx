@@ -44,7 +44,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
             onClick={onCancel}
-            className="fixed inset-0 bg-black/75 backdrop-blur-md z-[70]"
+            className="fixed inset-0 bg-black/75 z-[70]"
           />
           <motion.div
             key="confirm-panel"

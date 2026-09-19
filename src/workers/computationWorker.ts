@@ -5,6 +5,7 @@ import {
   filterCatalog,
   calculateCart,
   calculateRevenueDynamics,
+  filterPublicShops,
 } from "./workerCalculations";
 
 // Global Worker message router
@@ -41,6 +42,12 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
       case "CALCULATE_REVENUE_DYNAMICS": {
         const result = calculateRevenueDynamics(req.payload);
         const res: WorkerResponse = { id: req.id, success: true, type: "CALCULATE_REVENUE_DYNAMICS", result };
+        self.postMessage(res);
+        break;
+      }
+      case "FILTER_PUBLIC_SHOPS": {
+        const result = filterPublicShops(req.payload);
+        const res: WorkerResponse = { id: req.id, success: true, type: "FILTER_PUBLIC_SHOPS", result };
         self.postMessage(res);
         break;
       }

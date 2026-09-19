@@ -145,13 +145,37 @@ export interface WorkerRevenueDynamicsResult {
   xAxisInterval: number;
 }
 
+export interface WorkerFilterPublicShopsPayload {
+  shops: any[];
+  searchQuery: string;
+  category: string;
+  city?: string;
+  onlyOpen: boolean;
+  onlyDelivery: boolean;
+  minRating: number;
+  hasCashback: boolean;
+  favorites: string[];
+  onlyFavorites: boolean;
+  sortBy: "popular" | "rating" | "newest" | "name" | "services";
+  limit: number;
+  offset: number;
+}
+
+export interface WorkerFilterPublicShopsResult {
+  filteredShops: any[];
+  totalFiltered: number;
+  hasMore: boolean;
+  categoryCounts: Record<string, number>;
+}
+
 // Request & Response discriminated unions
 export type WorkerRequest =
   | { id: string; type: "FILTER_ORDERS"; payload: WorkerFilterOrdersPayload }
   | { id: string; type: "FILTER_REVIEWS"; payload: WorkerFilterReviewsPayload }
   | { id: string; type: "FILTER_CATALOG"; payload: WorkerFilterCatalogPayload }
   | { id: string; type: "CALCULATE_CART"; payload: WorkerCartCalculationPayload }
-  | { id: string; type: "CALCULATE_REVENUE_DYNAMICS"; payload: WorkerRevenueDynamicsPayload };
+  | { id: string; type: "CALCULATE_REVENUE_DYNAMICS"; payload: WorkerRevenueDynamicsPayload }
+  | { id: string; type: "FILTER_PUBLIC_SHOPS"; payload: WorkerFilterPublicShopsPayload };
 
 export type WorkerResponse =
   | { id: string; success: true; type: "FILTER_ORDERS"; result: WorkerFilterOrdersResult }
@@ -159,4 +183,6 @@ export type WorkerResponse =
   | { id: string; success: true; type: "FILTER_CATALOG"; result: WorkerFilterCatalogResult }
   | { id: string; success: true; type: "CALCULATE_CART"; result: WorkerCartCalculationResult }
   | { id: string; success: true; type: "CALCULATE_REVENUE_DYNAMICS"; result: WorkerRevenueDynamicsResult }
+  | { id: string; success: true; type: "FILTER_PUBLIC_SHOPS"; result: WorkerFilterPublicShopsResult }
   | { id: string; success: false; error: string };
+

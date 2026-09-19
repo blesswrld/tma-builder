@@ -52,7 +52,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
               onClose();
               setDetailItemNote("");
             }}
-            className="fixed inset-0 bg-black/75 backdrop-blur-[2px] z-50"
+            className="fixed inset-0 bg-black/75 z-50"
           />
           <motion.div
             key="service-detail-panel"

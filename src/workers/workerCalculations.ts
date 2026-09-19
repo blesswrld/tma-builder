@@ -10,6 +10,8 @@ import type {
   WorkerRevenueDynamicsPayload,
   WorkerRevenueDynamicsResult,
   WorkerChartDataPoint,
+  WorkerFilterPublicShopsPayload,
+  WorkerFilterPublicShopsResult,
 } from "./workerTypes";
 
 export const MONTH_NAMES_RU = [
@@ -410,5 +412,133 @@ export function calculateRevenueDynamics(payload: WorkerRevenueDynamicsPayload):
       peakItem,
     },
     xAxisInterval,
+  };
+}
+
+export function filterPublicShops(payload: WorkerFilterPublicShopsPayload): WorkerFilterPublicShopsResult {
+  const {
+    shops = [],
+    searchQuery = "",
+    category = "ALL",
+    city = "ALL",
+    onlyOpen = false,
+    onlyDelivery = false,
+    minRating = 0,
+    hasCashback = false,
+    favorites = [],
+    onlyFavorites = false,
+    sortBy = "popular",
+    limit = 30,
+    offset = 0,
+  } = payload;
+
+  const cleanQuery = searchQuery.trim().toLowerCase();
+  const categoryCounts: Record<string, number> = {};
+
+  // Count categories across all shops
+  for (let i = 0; i < shops.length; i++) {
+    const s = shops[i];
+    if (s.categories && Array.isArray(s.categories)) {
+      for (let j = 0; j < s.categories.length; j++) {
+        const cat = s.categories[j];
+        if (cat) {
+          categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+        }
+      }
+    }
+  }
+
+  let result = [...shops];
+
+  // Filter by favorites
+  if (onlyFavorites) {
+    const favSet = new Set(favorites);
+    result = result.filter((s) => favSet.has(s.id) || favSet.has(s.slug));
+  }
+
+  // Filter by open status
+  if (onlyOpen) {
+    result = result.filter((s) => s.isOpen !== false);
+  }
+
+  // Filter by delivery
+  if (onlyDelivery) {
+    result = result.filter((s) => {
+      const d = s.deliveryOptions;
+      return Boolean(d && (d.enabled || d.courier || d.shipping));
+    });
+  }
+
+  // Filter by min rating
+  if (minRating > 0) {
+    result = result.filter((s) => (Number(s.avgRating) || 5) >= minRating);
+  }
+
+  // Filter by cashback
+  if (hasCashback) {
+    result = result.filter((s) => (Number(s.cashbackPercent) || 0) > 0);
+  }
+
+  // Filter by category
+  if (category && category !== "ALL" && category !== "Все") {
+    const lowerCat = category.toLowerCase();
+    result = result.filter((s) => {
+      const inCats = (s.categories || []).some(
+        (c: string) => c.toLowerCase().includes(lowerCat) || lowerCat.includes(c.toLowerCase())
+      );
+      const inDesc = (s.description || "").toLowerCase().includes(lowerCat);
+      return inCats || inDesc;
+    });
+  }
+
+  // Filter by city
+  if (city && city !== "ALL") {
+    const lowerCity = city.toLowerCase();
+    result = result.filter((s) => {
+      return (s.address || "").toLowerCase().includes(lowerCity);
+    });
+  }
+
+  // Filter by search query
+  if (cleanQuery) {
+    result = result.filter((s) => {
+      const inName = (s.name || "").toLowerCase().includes(cleanQuery);
+      const inDesc = (s.description || "").toLowerCase().includes(cleanQuery);
+      const inAddr = (s.address || "").toLowerCase().includes(cleanQuery);
+      const inCats = (s.categories || []).some((c: string) => c.toLowerCase().includes(cleanQuery));
+      const inFeatured = (s.featuredServices || []).some((srv: any) =>
+        (srv.title || "").toLowerCase().includes(cleanQuery)
+      );
+      return inName || inDesc || inAddr || inCats || inFeatured;
+    });
+  }
+
+  // Sorting
+  if (sortBy === "rating") {
+    result.sort((a, b) => (b.avgRating || 0) - (a.avgRating || 0) || (b.reviewsCount || 0) - (a.reviewsCount || 0));
+  } else if (sortBy === "newest") {
+    result.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  } else if (sortBy === "name") {
+    result.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ru"));
+  } else if (sortBy === "services") {
+    result.sort((a, b) => (b.servicesCount || 0) - (a.servicesCount || 0));
+  } else {
+    // popular default
+    result.sort((a, b) => {
+      const scoreA = (a.ordersCount || 0) * 3 + (a.reviewsCount || 0) * 2 + (a.avgRating || 5) * 5;
+      const scoreB = (b.ordersCount || 0) * 3 + (b.reviewsCount || 0) * 2 + (b.avgRating || 5) * 5;
+      return scoreB - scoreA;
+    });
+  }
+
+  const totalFiltered = result.length;
+  const paged = result.slice(offset, offset + limit);
+  const hasMore = offset + limit < totalFiltered;
+
+  return {
+    filteredShops: paged,
+    totalFiltered,
+    hasMore,
+    categoryCounts,
   };
 }

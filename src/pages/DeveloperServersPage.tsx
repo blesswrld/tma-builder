@@ -45,7 +45,7 @@ export const DeveloperServersPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-app-bg text-app-primary flex flex-col font-sans transition-colors duration-200">
       {/* Developer Header Bar */}
-      <header className="sticky top-0 z-40 bg-app-surface/90 backdrop-blur-md border-b border-app-border px-4 sm:px-6 py-3">
+      <header className="sticky top-0 z-40 bg-app-surface border-b border-app-border px-4 sm:px-6 py-3">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           {/* Left: Brand & Back Navigation */}
           <div className="flex items-center gap-3">
@@ -129,7 +129,7 @@ export const DeveloperServersPage: React.FC = () => {
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
-          className={`fixed bottom-5 right-5 z-50 p-4 rounded-2xl shadow-2xl border backdrop-blur-md flex items-start gap-3 max-w-md bg-app-modal ${
+          className={`fixed bottom-5 right-5 z-50 p-4 rounded-2xl shadow-2xl border flex items-start gap-3 max-w-md bg-app-modal ${
             toast.type === "success"
               ? "border-emerald-500/40 text-app-primary"
               : toast.type === "error"

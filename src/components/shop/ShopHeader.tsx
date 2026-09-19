@@ -1,6 +1,7 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { Sun, Moon, Star, Receipt, Bug } from "lucide-react";
+import { Sun, Moon, Star, Receipt, Bug, Compass } from "lucide-react";
 import { Shop } from "../../types";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -65,6 +66,16 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Explore Catalog link */}
+          <Link
+            to="/explore"
+            className="h-8 px-2.5 rounded-lg text-xs transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0 bg-app-card hover:bg-app-hover text-app-secondary hover:text-emerald-500 border border-app-border shadow-2xs"
+            title="Каталог всех заведений"
+          >
+            <Compass size={13} className="text-emerald-500 shrink-0" />
+            <span className="hidden min-[500px]:inline">Все заведения</span>
+          </Link>
+
           {/* Theme switcher */}
           <motion.button
             whileHover={{ scale: 1.03 }}

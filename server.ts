@@ -14,7 +14,7 @@ import {
   validateShopName, validateSlug, validateCisPhone, 
   validateCustomerName, validateTelegramBotToken, validateTelegramChatId,
   validateEmail, validatePassword, validateItemTitle, validatePrice,
-  validateCurrencyCode, validateCurrencySymbol
+  validateCurrencyCode, validateCurrencySymbol, validateShopAddress
 } from "./src/lib/validation.js";
 import {
   getTelegramMe,
@@ -127,7 +127,12 @@ export function broadcastEvent(event: { type: string; shopId?: string; userId?: 
 
       // 5. Shop-specific event (e.g. ORDER_CREATED, SERVICE_UPDATED, REVIEW_CREATED, etc.)
       if (event.shopId) {
-        if (client.subscribedShopIds.size === 0 || client.subscribedShopIds.has(event.shopId)) {
+        if (
+          client.subscribedShopIds.size === 0 ||
+          client.subscribedShopIds.has(event.shopId) ||
+          client.subscribedShopIds.has("EXPLORE_ALL") ||
+          event.type.startsWith("SHOP_")
+        ) {
           try {
             client.ws.send(message);
           } catch (e) {
@@ -858,9 +863,10 @@ app.get("/sw.js", (req, res) => {
   }
 });
 
-// Middleware: Rewrite /api/public/* to /api/*
+// Middleware: Rewrite /api/public/* to /api/* (keep only the catalog listing endpoint /api/public/shops)
 app.use((req, res, next) => {
-  if (req.url.startsWith("/api/public/")) {
+  const isCatalogListing = req.path === "/api/public/shops";
+  if (req.url.startsWith("/api/public/") && !isCatalogListing) {
     req.url = req.url.replace("/api/public", "/api");
   }
   next();
@@ -2423,6 +2429,287 @@ app.get("/api/shops", async (req, res) => {
   }
 });
 
+// API Route: Публичный каталог всех заведений на платформе с фильтрами, поиском и пагинацией
+app.get(["/api/public/shops", "/api/explore/shops"], async (req, res) => {
+  try {
+    const db = getPrismaClient();
+    if (!db) {
+      return res.status(500).json({ error: "Не удалось подключиться к базе данных." });
+    }
+
+    const page = Math.max(1, parseInt(String(req.query.page || "1"), 10) || 1);
+    const limit = Math.max(1, Math.min(500, parseInt(String(req.query.limit || "60"), 10) || 60));
+    const searchQuery = String(req.query.search || "").trim().toLowerCase();
+    const categoryQuery = String(req.query.category || "").trim();
+    const isOpenQuery = String(req.query.isOpen || "all");
+    const hasDeliveryQuery = String(req.query.delivery || "all");
+    const sortBy = String(req.query.sortBy || "popular"); // popular, rating, newest, name, services
+
+    // Fetch all public shops with services, reviews, and counts
+    const allRawShops = await db.shop.findMany({
+      where: {
+        slug: { not: "tma-builder-developer-page" },
+      },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        description: true,
+        logoUrl: true,
+        bannerUrl: true,
+        workingHours: true,
+        address: true,
+        phone: true,
+        currency: true,
+        currencySymbol: true,
+        deliveryOptions: true,
+        isOpen: true,
+        cashbackPercent: true,
+        createdAt: true,
+        services: {
+          select: {
+            id: true,
+            title: true,
+            price: true,
+            oldPrice: true,
+            category: true,
+            imageUrl: true,
+            badge: true,
+            tags: true,
+            isAvailable: true,
+          },
+          take: 8,
+        },
+        reviews: {
+          select: {
+            rating: true,
+          },
+        },
+        _count: {
+          select: {
+            services: true,
+            reviews: true,
+            orders: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Sets for filter metadata
+    const categorySet = new Set<string>();
+    const citiesMap = new Map<string, number>();
+
+    const extractCity = (address: string | null | undefined): string | null => {
+      if (!address) return null;
+      const knownCities = [
+        "Москва",
+        "Санкт-Петербург",
+        "Грозный",
+        "Казань",
+        "Сочи",
+        "Екатеринбург",
+        "Новосибирск",
+        "Краснодар",
+        "Нижний Новгород",
+        "Самара",
+        "Уфа",
+        "Ростов-на-Дону",
+        "Владивосток",
+        "Махачкала",
+        "Воронеж",
+        "Пермь",
+        "Волгоград",
+        "Тюмень",
+        "Челябинск",
+        "Омск",
+        "Красноярск",
+        "Саратов",
+        "Тольятти",
+        "Ижевск",
+        "Барнаул",
+        "Иркутск",
+        "Хабаровск",
+        "Ярославль",
+        "Владикавказ",
+        "Нальчик",
+      ];
+      for (const city of knownCities) {
+        const reg = new RegExp(`(^|[\\s,.;])${city}([\\s,.;]|$)`, "i");
+        if (reg.test(address)) {
+          return city;
+        }
+      }
+      const streetKeywords = [
+        "ул", "улица", "пр", "проспект", "пер", "переулок", "пл", "площадь", "наб", "набережная", "бул", "бульвар", "шоссе", "д.", "стр", "корп"
+      ];
+      const parts = address.split(",").map((p) => p.trim());
+      for (const part of parts) {
+        const clean = part.replace(/^г\.\s*/i, "").trim();
+        const isStreet = streetKeywords.some((kw) =>
+          new RegExp(`^${kw}\\.?\\s+|\\s+${kw}\\.?$|\\b${kw}\\.`, "i").test(clean)
+        );
+        if (!isStreet && clean.length > 2 && clean.length < 30 && !/\d/.test(clean)) {
+          return clean;
+        }
+      }
+      return null;
+    };
+
+    const transformedShops = allRawShops.map((s) => {
+      const revs = s.reviews || [];
+      const avgRating =
+        revs.length > 0
+          ? Math.round((revs.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / revs.length) * 10) / 10
+          : 5.0;
+
+      // Extract city cleanly
+      const detectedCity = extractCity(s.address);
+      if (detectedCity) {
+        citiesMap.set(detectedCity, (citiesMap.get(detectedCity) || 0) + 1);
+      }
+
+      let parsedDelivery: any = null;
+      try {
+        if (typeof s.deliveryOptions === "string" && s.deliveryOptions) {
+          parsedDelivery = JSON.parse(s.deliveryOptions);
+        } else if (typeof s.deliveryOptions === "object") {
+          parsedDelivery = s.deliveryOptions;
+        }
+      } catch {
+        parsedDelivery = null;
+      }
+
+      const prices = (s.services || []).map((srv) => srv.price).filter((p) => typeof p === "number");
+      const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+      const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+
+      const shopCategories = new Set<string>();
+      (s.services || []).forEach((srv) => {
+        if (srv.category && typeof srv.category === "string" && srv.category.trim()) {
+          const cat = srv.category.trim();
+          shopCategories.add(cat);
+          categorySet.add(cat);
+        }
+      });
+
+      return {
+        id: s.id,
+        slug: s.slug,
+        name: s.name,
+        description: s.description || "",
+        logoUrl: s.logoUrl,
+        bannerUrl: s.bannerUrl,
+        workingHours: s.workingHours || "10:00 – 22:00",
+        address: s.address || "",
+        phone: s.phone || "",
+        currency: s.currency || "RUB",
+        currencySymbol: s.currencySymbol || "₽",
+        deliveryOptions: parsedDelivery,
+        isOpen: s.isOpen !== false,
+        cashbackPercent: s.cashbackPercent || 5,
+        servicesCount: s._count?.services || s.services.length,
+        reviewsCount: s._count?.reviews || revs.length,
+        ordersCount: s._count?.orders || 0,
+        avgRating,
+        categories: Array.from(shopCategories),
+        priceRange: { min: minPrice, max: maxPrice },
+        featuredServices: s.services.slice(0, 3).map((srv) => ({
+          id: srv.id,
+          title: srv.title,
+          price: srv.price,
+          imageUrl: srv.imageUrl,
+          category: srv.category,
+        })),
+        createdAt: s.createdAt,
+      };
+    });
+
+    // Filter by search query
+    let filtered = transformedShops;
+    if (searchQuery) {
+      filtered = filtered.filter((shop) => {
+        const inName = shop.name.toLowerCase().includes(searchQuery);
+        const inDesc = shop.description.toLowerCase().includes(searchQuery);
+        const inAddr = shop.address.toLowerCase().includes(searchQuery);
+        const inCats = shop.categories.some((c) => c.toLowerCase().includes(searchQuery));
+        const inServices = shop.featuredServices.some((srv) =>
+          srv.title.toLowerCase().includes(searchQuery)
+        );
+        return inName || inDesc || inAddr || inCats || inServices;
+      });
+    }
+
+    // Filter by category
+    if (categoryQuery && categoryQuery !== "ALL" && categoryQuery !== "Все") {
+      const lowerCat = categoryQuery.toLowerCase();
+      filtered = filtered.filter((shop) => {
+        return (
+          shop.categories.some((c) => c.toLowerCase().includes(lowerCat) || lowerCat.includes(c.toLowerCase())) ||
+          shop.description.toLowerCase().includes(lowerCat)
+        );
+      });
+    }
+
+    // Filter by open status
+    if (isOpenQuery === "true") {
+      filtered = filtered.filter((shop) => shop.isOpen);
+    } else if (isOpenQuery === "false") {
+      filtered = filtered.filter((shop) => !shop.isOpen);
+    }
+
+    // Filter by delivery
+    if (hasDeliveryQuery === "true") {
+      filtered = filtered.filter((shop) => {
+        const d = shop.deliveryOptions;
+        return Boolean(d && (d.enabled || d.courier || d.shipping));
+      });
+    }
+
+    // Sort
+    if (sortBy === "rating") {
+      filtered.sort((a, b) => b.avgRating - a.avgRating || b.reviewsCount - a.reviewsCount);
+    } else if (sortBy === "newest") {
+      filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else if (sortBy === "name") {
+      filtered.sort((a, b) => a.name.localeCompare(b.name, "ru"));
+    } else if (sortBy === "services") {
+      filtered.sort((a, b) => b.servicesCount - a.servicesCount);
+    } else {
+      // Default: popular (orders + reviews weighted)
+      filtered.sort((a, b) => {
+        const scoreA = a.ordersCount * 3 + a.reviewsCount * 2 + a.avgRating * 5;
+        const scoreB = b.ordersCount * 3 + b.reviewsCount * 2 + b.avgRating * 5;
+        return scoreB - scoreA;
+      });
+    }
+
+    const total = filtered.length;
+    const startIndex = (page - 1) * limit;
+    const pagedShops = filtered.slice(startIndex, startIndex + limit);
+    const hasMore = startIndex + limit < total;
+
+    res.json({
+      shops: pagedShops,
+      total,
+      page,
+      limit,
+      hasMore,
+      allCategories: Array.from(categorySet).sort(),
+      stats: {
+        totalShops: transformedShops.length,
+        openCount: transformedShops.filter((s) => s.isOpen).length,
+        totalServices: transformedShops.reduce((acc, s) => acc + s.servicesCount, 0),
+        cities: Array.from(citiesMap.keys()).sort((a, b) => (citiesMap.get(b) || 0) - (citiesMap.get(a) || 0)),
+        cityCounts: Object.fromEntries(citiesMap.entries()),
+      },
+    });
+  } catch (error: any) {
+    console.error("Ошибка при получении публичного каталога заведений:", error);
+    res.status(500).json({ error: "Внутренняя ошибка сервера: " + (error?.message || String(error)) });
+  }
+});
+
 // API Route: Создать новое приглашение в заведение
 app.post("/api/shops/:shopId/invites", async (req, res) => {
   try {
@@ -2851,6 +3138,13 @@ app.post("/api/shops", async (req, res) => {
       return res.status(400).json({ error: symbolVal.error || "Недопустимый символ валюты." });
     }
 
+    if (address !== undefined && address !== null && String(address).trim() !== "") {
+      const addrVal = validateShopAddress(String(address));
+      if (!addrVal.isValid) {
+        return res.status(400).json({ error: addrVal.error || "Недопустимый адрес заведения." });
+      }
+    }
+
     const newShop = await db.shop.create({
       data: {
         name: name.trim(),
@@ -3145,7 +3439,7 @@ app.post("/api/shops", async (req, res) => {
   });
 
   // API Route: Получить данные заведения по slug (или id)
-  app.get("/api/shops/:slug", async (req, res) => {
+  app.get(["/api/shops/:slug", "/api/public/shops/:slug"], async (req, res) => {
     try {
       if (!process.env.DATABASE_URL) {
         return res.status(503).json({ error: "База данных PostgreSQL не настроена (отсутствует DATABASE_URL)." });
@@ -3283,6 +3577,13 @@ app.post("/api/shops", async (req, res) => {
           return res.status(400).json({ error: sVal.error || "Недопустимый символ валюты. Допустимы только специальные символы валют (₽, $, €, ₸, Br и др.)." });
         }
         nextCurrencySymbol = sVal.sanitized;
+      }
+
+      if (address !== undefined && address !== null && String(address).trim() !== "") {
+        const addrVal = validateShopAddress(String(address));
+        if (!addrVal.isValid) {
+          return res.status(400).json({ error: addrVal.error || "Недопустимый адрес заведения." });
+        }
       }
 
       const updatedShop = await db.shop.update({
@@ -4054,7 +4355,7 @@ app.post("/api/shops", async (req, res) => {
 
   // ==================== REVIEWS API ====================
   // API Route: Получить отзывы заведения
-  app.get("/api/shops/:shopId/reviews", async (req, res) => {
+  app.get(["/api/shops/:shopId/reviews", "/api/public/shops/:shopId/reviews"], async (req, res) => {
     try {
       const { shopId } = req.params;
       const db = getPrismaClient() as any;
@@ -4088,7 +4389,7 @@ app.post("/api/shops", async (req, res) => {
   });
 
   // API Route: Оставить отзыв
-  app.post("/api/shops/:shopId/reviews", async (req, res) => {
+  app.post(["/api/shops/:shopId/reviews", "/api/public/shops/:shopId/reviews"], async (req, res) => {
     try {
       const { shopId } = req.params;
       const { customerName, rating, comment, imageUrl, authorToken: customToken } = req.body;
@@ -4263,7 +4564,7 @@ app.post("/api/shops", async (req, res) => {
   });
 
   // API Route: Получить банеры заведения
-  app.get("/api/shops/:shopId/banners", async (req, res) => {
+  app.get(["/api/shops/:shopId/banners", "/api/public/shops/:shopId/banners"], async (req, res) => {
     try {
       const { shopId } = req.params;
       const db = getPrismaClient() as any;

@@ -165,7 +165,7 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50"
+            className="fixed inset-0 bg-black/80 z-50"
           />
 
           <motion.div

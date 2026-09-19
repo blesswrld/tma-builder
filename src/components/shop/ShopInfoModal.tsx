@@ -93,7 +93,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-black/60"
           />
 
           <motion.div
@@ -106,7 +106,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
             {/* Close Button Top Right */}
             <button
               onClick={onClose}
-              className="absolute top-3.5 right-3.5 z-20 w-8 h-8 rounded-full bg-app-surface/80 hover:bg-app-hover backdrop-blur-md border border-app-border flex items-center justify-center text-app-muted hover:text-app-primary transition-all cursor-pointer shadow-xs"
+              className="absolute top-3.5 right-3.5 z-20 w-8 h-8 rounded-full bg-app-surface/90 hover:bg-app-hover border border-app-border flex items-center justify-center text-app-muted hover:text-app-primary transition-all cursor-pointer shadow-xs"
               title={t("common.close", "Закрыть")}
             >
               <X size={15} />

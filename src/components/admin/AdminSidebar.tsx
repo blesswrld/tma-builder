@@ -133,7 +133,7 @@ interface SidebarNavGroup {
   items: SidebarNavItem[];
 }
 
-export const AdminSidebar: React.FC<AdminSidebarProps> = ({
+export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
   sidebarWidth,
   isResizingSidebar,
   startResizingSidebar,
@@ -880,4 +880,4 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       )}
     </aside>
   );
-};
+});

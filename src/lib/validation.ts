@@ -22,16 +22,22 @@ export function isGibberish(text: string): boolean {
     return true;
   }
 
-  // 2. Стандартные последовательности клавиатурного спама
+  // 2. Повторение слогов 3+ раз подряд (напр. "вфывфывфы", "йцуйцуйцу", "asdfasdfasdf")
+  if (/(.{2,5})\1{2,}/i.test(clean)) {
+    return true;
+  }
+
+  // 3. Стандартные последовательности клавиатурного спама
   const knownSpamSequences = [
     "asdf", "qwer", "zxcv", "йцук", "фыва", "ячсм",
+    "вфы", "фыв", "йцу", "цыв", "вап", "прол",
     "123456", "111111", "000000", "777777", "999999", "qwerty", "123123"
   ];
   if (knownSpamSequences.some(seq => clean.includes(seq))) {
     return true;
   }
 
-  // 3. Строка из одних согласных или без гласных букв длиной более 5 символов
+  // 4. Строка из одних согласных или без гласных букв длиной более 5 символов
   const lettersOnly = clean.replace(/[^a-zа-яёіїєґәғқңөұүhҷ]/g, '');
   if (lettersOnly.length >= 5) {
     const vowelsCount = (lettersOnly.match(/[aeiouyаеёиоуыэюяіїєәөұү]/g) || []).length;
@@ -41,6 +47,43 @@ export function isGibberish(text: string): boolean {
   }
 
   return false;
+}
+
+/**
+ * Валидация адреса заведения (минимум город, защита от спама и недопустимых значений)
+ */
+export function validateShopAddress(
+  addressInput: string | null | undefined,
+  options?: { required?: boolean }
+): { isValid: boolean; address: string; error?: string } {
+  if (!addressInput || !addressInput.trim()) {
+    if (options?.required) {
+      return { isValid: false, address: "", error: "Укажите город или адрес заведения" };
+    }
+    return { isValid: true, address: "" };
+  }
+
+  const raw = addressInput.trim().replace(/\s+/g, " ");
+
+  // 1. Недопустимые спецсимволы
+  if (/[<>{}$^*~=%@;?!\\]/.test(raw)) {
+    return { isValid: false, address: raw, error: "Адрес содержит недопустимые символы" };
+  }
+
+  // 2. Спам и кракозябры
+  if (isGibberish(raw)) {
+    return { isValid: false, address: raw, error: "Укажите реальный город или адрес (обнаружен некорректный ввод)" };
+  }
+
+  if (raw.length < 2) {
+    return { isValid: false, address: raw, error: "Название города или адреса слишком короткое" };
+  }
+
+  if (raw.length > 250) {
+    return { isValid: false, address: raw, error: "Адрес слишком длинный (максимум 250 символов)" };
+  }
+
+  return { isValid: true, address: raw };
 }
 
 /**

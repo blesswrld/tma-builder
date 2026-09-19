@@ -490,4 +490,53 @@ export interface ChatConversation {
   isOnline?: boolean;
 }
 
+export interface PublicShopFeaturedService {
+  id: string;
+  title: string;
+  price: number;
+  imageUrl?: string | null;
+  category?: string | null;
+}
+
+export interface PublicShop {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  workingHours?: string;
+  address?: string;
+  phone?: string;
+  currency?: string;
+  currencySymbol?: string;
+  deliveryOptions?: DeliveryOptions | null;
+  isOpen: boolean;
+  cashbackPercent?: number;
+  servicesCount: number;
+  reviewsCount: number;
+  ordersCount: number;
+  avgRating: number;
+  categories: string[];
+  priceRange?: { min: number; max: number };
+  featuredServices?: PublicShopFeaturedService[];
+  createdAt: string;
+}
+
+export interface PublicShopsResponse {
+  shops: PublicShop[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+  allCategories: string[];
+  stats: {
+    totalShops: number;
+    openCount: number;
+    totalServices: number;
+    cities: string[];
+    cityCounts?: Record<string, number>;
+  };
+}
+
 

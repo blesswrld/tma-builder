@@ -75,7 +75,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/70 backdrop-blur-[2px] z-50"
+            className="fixed inset-0 bg-black/70 z-50"
           />
           <motion.div
             key="reviews-panel"

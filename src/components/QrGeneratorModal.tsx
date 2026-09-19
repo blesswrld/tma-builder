@@ -98,7 +98,7 @@ export default function QrGeneratorModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-hidden text-app-primary font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 overflow-hidden text-app-primary font-sans">
       <style>{`
         @media print {
           body * {

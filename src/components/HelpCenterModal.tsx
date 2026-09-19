@@ -353,7 +353,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 md:p-5 overflow-hidden">
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-2 sm:p-4 md:p-5 overflow-hidden">
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -362,7 +362,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
         className="w-full max-w-4xl bg-app-surface border border-app-border rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[94vh] sm:max-h-[90vh] overflow-hidden text-app-primary"
       >
         {/* Top Header Bar */}
-        <div className="px-3.5 sm:px-5 py-3 sm:py-4 border-b border-app-border flex items-center justify-between gap-2.5 sm:gap-4 bg-app-card/60 backdrop-blur-sm shrink-0">
+        <div className="px-3.5 sm:px-5 py-3 sm:py-4 border-b border-app-border flex items-center justify-between gap-2.5 sm:gap-4 bg-app-card shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-500 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20 shrink-0">
               <Sparkles size={17} className="sm:w-[19px] sm:h-[19px]" />

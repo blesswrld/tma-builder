@@ -9,7 +9,9 @@
   --color-app-bg: var(--background);
   --color-app-surface: var(--surface);
   --color-app-card: var(--surface);
+  --color-app-hover: var(--hover);
   --color-app-border: var(--border);
+  --color-app-border-focus: var(--input-focus-border);
   --color-app-subtle: var(--border-subtle);
   --color-app-input: var(--input-bg);
   --color-app-modal: var(--modal-bg);
@@ -18,6 +20,7 @@
   --color-app-accent-fg: var(--accent-fg);
   --color-app-primary: var(--text-primary);
   --color-app-primary-fg: var(--accent-fg);
+  --color-app-inverse: var(--accent-fg);
   --color-app-secondary: var(--text-secondary);
   --color-app-muted: var(--text-muted);
 }
@@ -439,6 +442,13 @@ html.light .text-zinc-500:not(.keep-white):not(.keep-white *):not(.dark-card):no
 }
 
 /* Cross-Browser Backdrop Filter & Blur Support (Safari, Firefox, Chrome, Edge, Yandex) */
+.transform-gpu {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
 .backdrop-blur-xs {
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);

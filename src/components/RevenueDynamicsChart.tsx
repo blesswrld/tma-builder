@@ -80,7 +80,7 @@ function formatDateKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-export default function RevenueDynamicsChart({
+function RevenueDynamicsChartComponent({
   ordersTimeline = [],
   dailyTrends = [],
   hourlyDistribution = [],
@@ -837,3 +837,5 @@ export default function RevenueDynamicsChart({
     </div>
   );
 }
+
+export default React.memo(RevenueDynamicsChartComponent);

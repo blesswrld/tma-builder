@@ -772,7 +772,7 @@ export default function DeveloperUsersPage() {
   return (
     <div className="min-h-screen bg-app-bg text-app-primary flex flex-col font-sans transition-colors duration-200">
       {/* Top Header */}
-      <header className="sticky top-0 z-30 bg-app-surface/90 backdrop-blur-md border-b border-app-border px-2 sm:px-4 lg:px-8 py-2 sm:py-2.5 flex items-center justify-between shadow-xs gap-1.5 sm:gap-2 select-none">
+      <header className="sticky top-0 z-30 bg-app-surface border-b border-app-border px-2 sm:px-4 lg:px-8 py-2 sm:py-2.5 flex items-center justify-between shadow-xs gap-1.5 sm:gap-2 select-none">
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <button
             onClick={() => navigate("/admin")}
@@ -1683,7 +1683,7 @@ export default function DeveloperUsersPage() {
       {/* ========================================================= */}
       <AnimatePresence>
         {banModalUser && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs font-sans">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 font-sans">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1783,7 +1783,7 @@ export default function DeveloperUsersPage() {
       {/* EDIT USER MODAL */}
       <AnimatePresence>
         {editModalUser && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs font-sans">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 font-sans">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1911,7 +1911,7 @@ export default function DeveloperUsersPage() {
       {/* BATCH BAN MODAL */}
       <AnimatePresence>
         {batchBanModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs font-sans">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 font-sans">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

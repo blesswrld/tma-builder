@@ -606,7 +606,7 @@ export default function DeveloperReportsPage() {
   return (
     <div className="min-h-screen bg-app-bg text-app-primary flex flex-col font-sans transition-colors duration-200">
       {/* Top Navbar */}
-      <header className="sticky top-0 z-30 bg-app-surface/90 backdrop-blur-md border-b border-app-border px-2 sm:px-4 lg:px-8 py-2 sm:py-2.5 flex items-center justify-between shadow-xs gap-1.5 sm:gap-2 select-none">
+      <header className="sticky top-0 z-30 bg-app-surface border-b border-app-border px-2 sm:px-4 lg:px-8 py-2 sm:py-2.5 flex items-center justify-between shadow-xs gap-1.5 sm:gap-2 select-none">
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <button
             onClick={() => navigate("/admin")}
@@ -1312,7 +1312,7 @@ export default function DeveloperReportsPage() {
             exit={{ opacity: 0, y: 40 }}
             className="fixed bottom-6 inset-x-0 z-40 flex justify-center px-4 pointer-events-none"
           >
-            <div className="pointer-events-auto bg-app-surface border border-app-border rounded-2xl shadow-2xl p-2.5 sm:p-3 sm:px-5 flex items-center gap-3 sm:gap-4 font-mono text-xs max-w-xl w-full justify-between backdrop-blur-xl">
+            <div className="pointer-events-auto bg-app-surface border border-app-border rounded-2xl shadow-2xl p-2.5 sm:p-3 sm:px-5 flex items-center gap-3 sm:gap-4 font-mono text-xs max-w-xl w-full justify-between">
               <div className="flex items-center gap-2">
                 <CheckSquare size={15} className="text-app-primary shrink-0" />
                 <span className="font-bold text-app-primary">
@@ -1370,7 +1370,7 @@ export default function DeveloperReportsPage() {
       <AnimatePresence>
         {previewImage && (
           <div
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
             onClick={() => setPreviewImage(null)}
           >
             <motion.div

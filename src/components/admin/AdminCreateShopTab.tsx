@@ -41,9 +41,10 @@ import {
   POPULAR_CURRENCY_SYMBOLS,
   validateCurrencySymbol,
   validateCurrencyCode,
-  sanitizeCurrencySymbolInput
+  sanitizeCurrencySymbolInput,
+  validateShopAddress
 } from "../../lib/validation";
-import { AdminMapPickerModal } from "./AdminMapPickerModal";
+import { UnifiedAddressInput } from "../common/UnifiedAddressInput";
 import { CustomNumberInput } from "../CustomNumberInput";
 
 export interface CreateShopFormData {
@@ -215,7 +216,6 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
 }) => {
   const [formData, setFormData] = useState<CreateShopFormData>(INITIAL_FORM_DATA);
   const [activeTab, setActiveTab] = useState<CreateSectionTab>("general");
-  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [isSlugCustomized, setIsSlugCustomized] = useState(false);
   const [initialAutoSlug, setInitialAutoSlug] = useState("");
@@ -381,10 +381,19 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
       errs.description = "Описание не должно превышать 500 символов";
     }
 
+    if (formData.address && formData.address.trim()) {
+      const addressCheck = validateShopAddress(formData.address);
+      if (!addressCheck.isValid) {
+        errs.address = addressCheck.error || "Недопустимый адрес заведения";
+      }
+    }
+
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0) {
       if (errs.name || errs.slug || errs.description) {
         setActiveTab("general");
+      } else if (errs.address) {
+        setActiveTab("basic");
       }
       return false;
     }
@@ -396,7 +405,7 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
     setError(null);
 
     if (!validate()) {
-      showToast("Пожалуйста, проверьте обязательные поля (Название и URL)", "error");
+      showToast("Пожалуйста, проверьте обязательные поля и корректность адреса", "error");
       return;
     }
 
@@ -805,29 +814,17 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-[11px] font-mono text-app-muted">
-                          Физический адрес / Точка самовывоза
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setIsMapPickerOpen(true)}
-                          className="text-[11px] font-mono text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <MapPin size={12} />
-                          <span>На карте РФ</span>
-                        </button>
-                      </div>
-                      <div className="relative flex items-center">
-                        <MapPin size={14} className="absolute left-3.5 text-app-muted" />
-                        <input
-                          type="text"
-                          value={formData.address}
-                          onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))}
-                          placeholder="г. Санкт-Петербург, Невский пр-т, д. 28"
-                          className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-sans"
-                        />
-                      </div>
+                      <UnifiedAddressInput
+                        value={formData.address}
+                        onChange={(newAddress) => setFormData((p) => ({ ...p, address: newAddress }))}
+                        label="Физический адрес / Точка самовывоза"
+                        subtitle="Актуальный адрес с интерактивной картой городов РФ и навигацией для клиентов"
+                        placeholderStreet="Например: ул. Ленина, д. 10 (или оставьте пустым)"
+                        error={fieldErrors.address}
+                        onMapAddressSelected={() => {
+                          showToast("Адрес заведения выбран на карте", "success");
+                        }}
+                      />
                     </div>
 
                     <div>
@@ -1671,17 +1668,6 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
           </div>
         )}
       </form>
-
-      {/* Interactive Map Picker Modal */}
-      <AdminMapPickerModal
-        isOpen={isMapPickerOpen}
-        onClose={() => setIsMapPickerOpen(false)}
-        currentAddress={formData.address}
-        onSelectAddress={(newAddress) => {
-          setFormData((p) => ({ ...p, address: newAddress }));
-          showToast("Адрес заведения выбран на карте", "success");
-        }}
-      />
     </div>
   );
 };

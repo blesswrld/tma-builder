@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import ShopPage from './pages/ShopPage';
+import { ExplorePage } from './pages/ExplorePage';
 import NotFoundPage from './pages/NotFoundPage';
 import AdminPage from './pages/AdminPage';
 import ReferralPage from './pages/ReferralPage';
@@ -147,6 +148,10 @@ export default function App() {
                   </DeveloperRoute>
                 }
               />
+              <Route path="/explore" element={<ExplorePage />} />
+              <Route path="/catalog" element={<ExplorePage />} />
+              <Route path="/shops" element={<ExplorePage />} />
+              <Route path="/search" element={<ExplorePage />} />
               <Route path="/:slug" element={<ShopPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

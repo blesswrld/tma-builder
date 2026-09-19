@@ -8,6 +8,8 @@ import CityDropdown from "../CityDropdown";
 import { formatPhoneInputLive } from "../../lib/validation";
 import { searchRussianAddressSuggestions, localizeToRussian, AddressSuggestion } from "../../lib/russianGeo";
 import { useLanguage } from "../../context/LanguageContext";
+import { AdminMapPickerModal } from "../admin/AdminMapPickerModal";
+import { extractCityAndStreet } from "../../lib/addressHelper";
 
 interface CheckoutModalProps {
   shop: Shop;
@@ -103,6 +105,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [consentPd, setConsentPd] = React.useState<boolean>(false);
   const [consentAds, setConsentAds] = React.useState<boolean>(false);
   const [consentError, setConsentError] = React.useState<string | null>(null);
+  const [isMapModalOpen, setIsMapModalOpen] = React.useState<boolean>(false);
 
   // Parse delivery options from shop
   const deliveryOpts: any = shop.deliveryOptions
@@ -136,13 +139,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const searchTimeoutRef = React.useRef<any>(null);
 
   const handleAddressInputChange = (val: string) => {
-    setFormData(prev => ({ ...prev, deliveryAddress: val }));
+    // Sanitize forbidden special characters (XSS and corrupt symbols)
+    const sanitized = val.replace(/[<>{}$^*~=%@;?!\\]/g, "");
+    setFormData(prev => ({ ...prev, deliveryAddress: sanitized }));
     
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    if (val.trim().length < 3) {
+    if (sanitized.trim().length < 3) {
       setAddressSuggestions([]);
       setIsSearchingAddress(false);
       return;
@@ -150,7 +155,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     searchTimeoutRef.current = setTimeout(async () => {
       setIsSearchingAddress(true);
-      const query = formData.city ? `${formData.city}, ${val}` : val;
+      const query = formData.city ? `${formData.city}, ${sanitized}` : sanitized;
       const suggestions = await searchRussianAddressSuggestions(query);
       setAddressSuggestions(suggestions);
       setIsSearchingAddress(false);
@@ -178,7 +183,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/70 backdrop-blur-[2px] z-50"
+            className="fixed inset-0 bg-black/70 z-50"
           />
           <motion.div 
             key="checkout-panel"
@@ -455,11 +460,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                       {/* Street & House */}
                       <div className="space-y-1 relative">
-                        <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
-                          <MapPin size={12} className="text-app-muted" />
-                          <span>{t("checkout.street_house", "Улица, номер дома, корпус")}</span>
-                          <span className="text-rose-500 font-bold">*</span>
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
+                            <MapPin size={12} className="text-app-muted" />
+                            <span>{t("checkout.street_house", "Улица, номер дома, корпус")}</span>
+                            <span className="text-rose-500 font-bold">*</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setIsMapModalOpen(true)}
+                            className="text-[11px] font-mono text-emerald-500 hover:text-emerald-400 flex items-center gap-1 transition-colors cursor-pointer select-none"
+                          >
+                            <MapPin size={12} className="text-emerald-500" />
+                            <span>{t("checkout.point_on_map", "Указать на карте РФ")}</span>
+                          </button>
+                        </div>
                         <div className="relative">
                           <input 
                             type="text" 
@@ -578,11 +593,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                       {/* Postal Index or CDEK Address */}
                       <div className="space-y-1">
-                        <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
-                          <MapPin size={12} className="text-app-muted" />
-                          <span>{t("checkout.postal_index_label", "Почтовый индекс (6 цифр) или адрес ПВЗ СДЭК")}</span>
-                          <span className="text-rose-500 font-bold">*</span>
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
+                            <MapPin size={12} className="text-app-muted" />
+                            <span>{t("checkout.postal_index_label", "Почтовый индекс (6 цифр) или адрес ПВЗ СДЭК")}</span>
+                            <span className="text-rose-500 font-bold">*</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setIsMapModalOpen(true)}
+                            className="text-[11px] font-mono text-emerald-500 hover:text-emerald-400 flex items-center gap-1 transition-colors cursor-pointer select-none"
+                          >
+                            <MapPin size={12} className="text-emerald-500" />
+                            <span>{t("checkout.point_on_map", "На карте")}</span>
+                          </button>
+                        </div>
                         <input 
                           type="text" 
                           maxLength={150}
@@ -860,6 +885,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </motion.div>
         </div>
       )}
+
+      {/* Interactive RF Map Picker Modal */}
+      <AdminMapPickerModal
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        currentAddress={formData.city ? (formData.deliveryAddress ? `${formData.city}, ${formData.deliveryAddress}` : formData.city) : formData.deliveryAddress}
+        onSelectAddress={(pickedAddress) => {
+          const { city, street } = extractCityAndStreet(pickedAddress);
+          setFormData(prev => ({
+            ...prev,
+            city: city || prev.city || "",
+            deliveryAddress: street || pickedAddress
+          }));
+        }}
+      />
     </AnimatePresence>
   );
 };

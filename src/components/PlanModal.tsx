@@ -385,7 +385,7 @@ export default function PlanModal({
   const finalPrice = Math.max(0, basePrice - discountAmount);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden text-app-primary font-sans transition-all">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 overflow-hidden text-app-primary font-sans transition-all">
       <div className="bg-app-modal rounded-3xl max-w-4xl w-full border border-app-border flex flex-col max-h-[92vh] shadow-2xl overflow-hidden relative">
         
         {/* Header */}
@@ -470,7 +470,7 @@ export default function PlanModal({
                         alt="QR-код для оплаты через СБП" 
                         className="w-52 h-52 mx-auto"
                       />
-                      <div className="absolute inset-0 bg-slate-900/5 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl flex items-center justify-center">
+                      <div className="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl flex items-center justify-center">
                         <span className="text-[10px] bg-slate-900 text-white px-2.5 py-1 rounded-full font-bold">СБП НСПК</span>
                       </div>
                     </div>

@@ -240,7 +240,7 @@ export function AdminTeamTab({
 
       {/* Invite Modal */}
       {isInviteModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-5 shadow-2xl relative">
             <div className="flex justify-between items-center border-b border-app-border pb-3">
               <div className="flex items-center gap-2">

@@ -41,7 +41,7 @@ export const ShopMapModal: React.FC<ShopMapModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-black/85 backdrop-blur-md"
+          className="fixed inset-0 bg-black/85"
         />
 
         {/* Modal Container */}

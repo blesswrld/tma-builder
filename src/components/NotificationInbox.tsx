@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Bell,
@@ -40,7 +40,7 @@ interface NotificationInboxProps {
   onSendTestNotification?: (category: "all" | "chat" | "order" | "review") => void;
 }
 
-export default function NotificationInbox({
+function NotificationInboxComponent({
   isOpen,
   onClose,
   notifications,
@@ -55,21 +55,33 @@ export default function NotificationInbox({
   const [activeFilter, setActiveFilter] = useState<"all" | "chat" | "order" | "review">("all");
   const [visibleCount, setVisibleCount] = useState<number>(99);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.isRead).length,
+    [notifications]
+  );
 
-  const chatCount = notifications.filter((n) => n.type === "chat").length;
-  const orderCount = notifications.filter((n) => n.type === "order").length;
-  const reviewCount = notifications.filter((n) => n.type === "review").length;
+  const chatCount = useMemo(
+    () => notifications.filter((n) => n.type === "chat").length,
+    [notifications]
+  );
+  const orderCount = useMemo(
+    () => notifications.filter((n) => n.type === "order").length,
+    [notifications]
+  );
+  const reviewCount = useMemo(
+    () => notifications.filter((n) => n.type === "review").length,
+    [notifications]
+  );
 
-  const filteredNotifications = notifications.filter((n) => {
-    if (activeFilter === "all") return true;
-    if (activeFilter === "chat") return n.type === "chat";
-    if (activeFilter === "order") return n.type === "order";
-    if (activeFilter === "review") return n.type === "review";
-    return true;
-  });
+  const filteredNotifications = useMemo(() => {
+    if (activeFilter === "all") return notifications;
+    return notifications.filter((n) => n.type === activeFilter);
+  }, [notifications, activeFilter]);
 
-  const visibleNotifications = filteredNotifications.slice(0, visibleCount);
+  const visibleNotifications = useMemo(
+    () => filteredNotifications.slice(0, visibleCount),
+    [filteredNotifications, visibleCount]
+  );
   const remainingCount = filteredNotifications.length - visibleNotifications.length;
 
   const handleFilterChange = (filter: "all" | "chat" | "order" | "review") => {
@@ -107,36 +119,37 @@ export default function NotificationInbox({
     }
   };
 
-  const filterTabs = [
+  const filterTabs = useMemo(() => [
     { id: "all" as const, label: "Все", count: notifications.length },
     { id: "chat" as const, label: "Чат", count: chatCount },
     { id: "order" as const, label: "Заказы", count: orderCount },
     { id: "review" as const, label: "Отзывы", count: reviewCount },
-  ];
+  ], [notifications.length, chatCount, orderCount, reviewCount]);
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop without expensive full-viewport blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 transition-opacity"
+            className="fixed inset-0 bg-black/40 z-50 transition-opacity"
           />
 
-          {/* Compact Flyout Window positioned right above bottom strip */}
+          {/* Compact Flyout Window with isolated GPU layer */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            initial={{ opacity: 0, scale: 0.97, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 10 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed z-50 bottom-3 left-3 right-3 sm:right-auto sm:left-14 md:left-18 sm:w-[350px] max-h-[78vh] flex flex-col bg-app-surface border border-app-border rounded-2xl shadow-2xl overflow-hidden font-mono text-xs"
+            exit={{ opacity: 0, scale: 0.97, y: 8 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="fixed z-50 bottom-3 left-3 right-3 sm:right-auto sm:left-14 md:left-18 sm:w-[350px] max-h-[78vh] flex flex-col bg-app-surface border border-app-border rounded-2xl shadow-2xl overflow-hidden font-mono text-xs transform-gpu will-change-transform"
           >
             {/* Header: Clean, single-row compact layout */}
-            <div className="px-3 py-2.5 border-b border-app-border flex items-center justify-between bg-app-card/70 backdrop-blur-xs">
+            <div className="px-3 py-2.5 border-b border-app-border flex items-center justify-between bg-app-card">
               <div className="flex items-center gap-2 min-w-0">
                 <div className="w-7 h-7 rounded-lg bg-app-surface border border-app-border flex items-center justify-center shrink-0 text-app-primary shadow-2xs">
                   <Bell size={13} />
@@ -202,8 +215,8 @@ export default function NotificationInbox({
               </div>
             </div>
 
-            {/* Compact Filter Segmented Tabs - 4 parameters grid without bulky spacing */}
-            <div className="p-1.5 border-b border-app-border bg-app-card/40 grid grid-cols-4 gap-1">
+            {/* Compact Filter Segmented Tabs */}
+            <div className="p-1.5 border-b border-app-border bg-app-card/60 grid grid-cols-4 gap-1">
               {filterTabs.map((tab) => {
                 const isCurrent = activeFilter === tab.id;
                 return (
@@ -308,12 +321,11 @@ export default function NotificationInbox({
                           </div>
                         </div>
 
-                        {/* Right column: Glowing red unread indicator & Delete button */}
+                        {/* Right column: Sleek static unread dot without high-CPU continuous ping */}
                         <div className="flex flex-col items-end justify-between self-stretch gap-1 shrink-0">
                           {!item.isRead ? (
                             <span className="relative flex h-2 w-2 shrink-0 my-0.5" title="Новое уведомление">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.95)] ring-1.5 ring-rose-500/40" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.8)] ring-1.5 ring-rose-500/30" />
                             </span>
                           ) : (
                             <span className="w-2 h-2" />
@@ -353,7 +365,7 @@ export default function NotificationInbox({
             </div>
 
             {/* Compact Footer */}
-            <div className="px-2.5 py-1.5 border-t border-app-border bg-app-card/40 flex items-center justify-between text-[9.5px] text-app-muted">
+            <div className="px-2.5 py-1.5 border-t border-app-border bg-app-card/60 flex items-center justify-between text-[9.5px] text-app-muted">
               <span>{isAudioEnabled ? "Звук включен" : "Тихий режим (текст)"}</span>
               {onSendTestNotification && (
                 <button
@@ -381,3 +393,5 @@ export default function NotificationInbox({
     </AnimatePresence>
   );
 }
+
+export default React.memo(NotificationInboxComponent);

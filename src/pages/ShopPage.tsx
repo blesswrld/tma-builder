@@ -1274,12 +1274,12 @@ export default function ShopPage() {
               exit={{ opacity: 0, y: -20, scale: 0.95 }}
               transition={{ duration: 0.15 }}
               onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-              className={`p-3.5 sm:p-4 rounded-2xl border shadow-xl pointer-events-auto flex items-start gap-3 backdrop-blur-md w-full sm:w-auto cursor-pointer hover:opacity-95 transition-opacity ${
+              className={`p-3.5 sm:p-4 rounded-2xl border shadow-xl pointer-events-auto flex items-start gap-3 w-full sm:w-auto cursor-pointer hover:opacity-95 transition-opacity ${
                 toast.type === "success" 
-                  ? "bg-[#0b2518]/95 text-emerald-200 border-emerald-800/50" 
+                  ? "bg-[#0b2518] text-emerald-200 border-emerald-800/50" 
                   : toast.type === "error" 
-                  ? "bg-[#2d0f13]/95 text-rose-200 border-rose-800/50" 
-                  : "bg-[#2d210f]/95 text-amber-200 border-amber-800/50"
+                  ? "bg-[#2d0f13] text-rose-200 border-rose-800/50" 
+                  : "bg-[#2d210f] text-amber-200 border-amber-800/50"
               }`}
             >
               <p className="text-xs font-sans font-medium leading-relaxed">{toast.message}</p>

@@ -86,7 +86,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 md:p-5 overflow-hidden">
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-2 sm:p-4 md:p-5 overflow-hidden">
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -95,7 +95,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
         className="w-full max-w-4xl bg-app-surface border border-app-border rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[94vh] sm:max-h-[92vh] overflow-hidden text-app-primary"
       >
         {/* Header */}
-        <div className="px-3.5 sm:px-5 py-3 sm:py-4 border-b border-app-border flex items-center justify-between gap-2.5 sm:gap-4 bg-app-card/60 backdrop-blur-sm">
+        <div className="px-3.5 sm:px-5 py-3 sm:py-4 border-b border-app-border flex items-center justify-between gap-2.5 sm:gap-4 bg-app-card">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-500 flex items-center justify-center border border-emerald-500/20 shrink-0">
               <History size={17} className="sm:w-[19px] sm:h-[19px]" />

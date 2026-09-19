@@ -37,7 +37,7 @@ interface AnalyticsTabProps {
 
 const MONO_COLORS = ["var(--text-primary)", "var(--text-secondary)", "var(--text-muted)", "var(--border)"];
 
-export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
+function AnalyticsTabComponent({ shopId }: AnalyticsTabProps) {
   const { token } = useAuth();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -355,3 +355,5 @@ export default function AnalyticsTab({ shopId }: AnalyticsTabProps) {
     </div>
   );
 }
+
+export default React.memo(AnalyticsTabComponent);
