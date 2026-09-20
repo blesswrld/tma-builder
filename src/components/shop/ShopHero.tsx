@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Clock, Info, Phone as PhoneIcon, MapPin, Gift, Truck, Store, Send, ExternalLink, MessageCircle, Globe, Music } from "lucide-react";
 import { Shop, parseSocialLinks, parseDeliveryOptions, parseMusicSettings } from "../../types";
 import { useLanguage } from "../../context/LanguageContext";
+import { ResponsiveImage } from "../common/ResponsiveImage";
 
 interface ShopHeroProps {
   shop: Shop;
@@ -50,16 +51,18 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
       {/* Cover Banner Image or Gradient Hero */}
       <div className="relative h-32 xs:h-36 sm:h-52 w-full bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 overflow-hidden">
         {shop.bannerUrl ? (
-          <img
+          <ResponsiveImage
             src={shop.bannerUrl}
             alt={shop.name}
+            preset="hero"
+            priority={true}
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 opacity-70" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
         
         {/* Status Badge in top right corner */}
         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
@@ -79,7 +82,14 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
               shop.logoUrl ? "bg-transparent" : "bg-app-surface"
             }`}>
               {shop.logoUrl ? (
-                <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                <ResponsiveImage
+                  src={shop.logoUrl}
+                  alt={shop.name}
+                  preset="avatar"
+                  priority={true}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
               ) : (
                 shop.name.charAt(0).toUpperCase()
               )}

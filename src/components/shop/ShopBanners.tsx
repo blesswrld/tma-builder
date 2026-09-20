@@ -1,5 +1,6 @@
 import React from "react";
 import { Banner } from "../../types";
+import { ResponsiveImage } from "../common/ResponsiveImage";
 
 interface ShopBannersProps {
   banners: Banner[];
@@ -25,14 +26,12 @@ export const ShopBanners: React.FC<ShopBannersProps> = ({ banners }) => {
             {hasImage ? (
               <>
                 <div className="absolute inset-0 pointer-events-none overflow-hidden transition-transform duration-700 ease-out group-hover:scale-105">
-                  <img
+                  <ResponsiveImage
                     src={banner.imageUrl}
-                    alt=""
+                    alt={banner.title || "Banner"}
+                    preset="banner"
                     className="w-full h-full object-cover opacity-50 group-hover:opacity-60 transition-opacity duration-300"
                     referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
                   />
                 </div>
                 {/* Multi-stop deep gradient overlay guaranteeing crystal-clear white text readability */}

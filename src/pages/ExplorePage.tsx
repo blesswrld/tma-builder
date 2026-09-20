@@ -413,11 +413,10 @@ export const ExplorePage: React.FC = () => {
     }
   }, [totalFiltered, pageSize, currentPage]);
 
-  // Run filtering & slicing in WebWorker
+  // Run filtering & slicing in WebWorker with debouncing
   useEffect(() => {
     let isCancelled = false;
-
-    const runWorkerFilter = async () => {
+    const timer = setTimeout(async () => {
       try {
         const offset = Math.max(0, (currentPage - 1) * pageSize);
         const result = await computationWorker.filterPublicShops({
@@ -446,12 +445,11 @@ export const ExplorePage: React.FC = () => {
         console.error("Worker filtering error, fallback:", e);
         setIsPageTransitioning(false);
       }
-    };
-
-    runWorkerFilter();
+    }, searchQuery ? 120 : 0);
 
     return () => {
       isCancelled = true;
+      clearTimeout(timer);
     };
   }, [
     allLoadedShops,

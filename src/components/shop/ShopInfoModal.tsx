@@ -22,6 +22,7 @@ import {
 import { Shop, parseSocialLinks, parseDeliveryOptions, parseMusicSettings } from "../../types";
 import { useScrollLock } from "../../hooks/useScrollLock";
 import { useLanguage } from "../../context/LanguageContext";
+import { ResponsiveImage } from "../common/ResponsiveImage";
 
 interface ShopInfoModalProps {
   shop: Shop | null;
@@ -115,19 +116,26 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
             {/* Modal Header with Banner */}
             {shop.bannerUrl ? (
               <div className="relative h-28 w-full bg-app-surface shrink-0 overflow-hidden">
-                <img
+                <ResponsiveImage
                   src={shop.bannerUrl}
                   alt={shop.name}
+                  preset="banner"
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                <div className="absolute bottom-3 left-4 right-14 flex items-end gap-3">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+                <div className="absolute bottom-3 left-4 right-14 flex items-end gap-3 pointer-events-none">
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-mono font-bold text-base text-app-primary shrink-0 overflow-hidden shadow-lg border-2 border-app-card ${
                     shop.logoUrl ? "bg-transparent" : "bg-app-card"
                   }`}>
                     {shop.logoUrl ? (
-                      <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <ResponsiveImage
+                        src={shop.logoUrl}
+                        alt={shop.name}
+                        preset="avatar"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
                     ) : (
                       shop.name.charAt(0).toUpperCase()
                     )}
@@ -148,7 +156,13 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
                     shop.logoUrl ? "bg-transparent" : "bg-app-card"
                   }`}>
                     {shop.logoUrl ? (
-                      <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <ResponsiveImage
+                        src={shop.logoUrl}
+                        alt={shop.name}
+                        preset="avatar"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
                     ) : (
                       shop.name.charAt(0).toUpperCase()
                     )}

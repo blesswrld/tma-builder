@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { validateEmail, validatePassword } from "../lib/validation";
 import { useRealtimeEvent } from "./RealtimeContext";
 
@@ -154,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const emailRes = validateEmail(email);
     if (!emailRes.isValid) throw new Error(emailRes.error);
 
@@ -178,9 +178,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
     } catch {}
-  };
+  }, []);
 
-  const register = async (email: string, password: string, name?: string) => {
+  const register = useCallback(async (email: string, password: string, name?: string) => {
     const emailRes = validateEmail(email);
     if (!emailRes.isValid) throw new Error(emailRes.error);
 
@@ -222,9 +222,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
     } catch {}
-  };
+  }, []);
 
-  const sendCode = async (email: string, type: "LOGIN" | "REGISTER" | "RESET_PASSWORD" = "LOGIN") => {
+  const sendCode = useCallback(async (email: string, type: "LOGIN" | "REGISTER" | "RESET_PASSWORD" = "LOGIN") => {
     const emailRes = validateEmail(email);
     if (!emailRes.isValid) throw new Error(emailRes.error);
 
@@ -240,9 +240,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     return { devCode: data.devCode, message: data.message };
-  };
+  }, []);
 
-  const verifyCode = async (params: { email: string; code: string; name?: string; password?: string; referralCode?: string }) => {
+  const verifyCode = useCallback(async (params: { email: string; code: string; name?: string; password?: string; referralCode?: string }) => {
     let pendingRef: string | null = params.referralCode || null;
     if (!pendingRef) {
       try {
@@ -278,9 +278,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
     } catch {}
-  };
+  }, []);
 
-  const resetPassword = async (params: { email: string; code: string; newPassword: string }) => {
+  const resetPassword = useCallback(async (params: { email: string; code: string; newPassword: string }) => {
     const res = await fetch("/api/auth/reset-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -293,9 +293,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     return { message: data.message };
-  };
+  }, []);
 
-  const updateProfile = async (profileData: {
+  const updateProfile = useCallback(async (profileData: {
     name?: string;
     phone?: string;
     avatarUrl?: string;
@@ -324,9 +324,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setUser(data.user);
     return data.user;
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
     setToken(null);
@@ -334,10 +334,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: null } }));
     } catch {}
-  };
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    user,
+    token,
+    isLoading,
+    login,
+    register,
+    sendCode,
+    verifyCode,
+    resetPassword,
+    updateProfile,
+    logout
+  }), [user, token, isLoading, login, register, sendCode, verifyCode, resetPassword, updateProfile, logout]);
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, sendCode, verifyCode, resetPassword, updateProfile, logout }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

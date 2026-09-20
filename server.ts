@@ -1,6 +1,7 @@
 import "dotenv/config";
 import fs from "fs";
 import express from "express";
+import compression from "compression";
 import path from "path";
 import os from "os";
 import https from "https";
@@ -635,6 +636,13 @@ async function ensureOrderSchema(db: PrismaClient) {
         )`,
         `CREATE INDEX IF NOT EXISTS "ChatMessage_userId_idx" ON "ChatMessage"("userId")`,
         `CREATE INDEX IF NOT EXISTS "ChatMessage_createdAt_idx" ON "ChatMessage"("createdAt")`,
+        `CREATE INDEX IF NOT EXISTS "Shop_ownerId_idx" ON "Shop"("ownerId")`,
+        `CREATE INDEX IF NOT EXISTS "Shop_slug_idx" ON "Shop"("slug")`,
+        `CREATE INDEX IF NOT EXISTS "Service_shopId_idx" ON "Service"("shopId")`,
+        `CREATE INDEX IF NOT EXISTS "Order_shopId_idx" ON "Order"("shopId")`,
+        `CREATE INDEX IF NOT EXISTS "Review_shopId_idx" ON "Review"("shopId")`,
+        `CREATE INDEX IF NOT EXISTS "Banner_shopId_idx" ON "Banner"("shopId")`,
+        `CREATE INDEX IF NOT EXISTS "ShopMember_shopId_userId_idx" ON "ShopMember"("shopId", "userId")`,
         `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaUrl" TEXT`,
         `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaType" TEXT`,
         `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaName" TEXT`,
@@ -807,6 +815,9 @@ async function getUserShops(db: PrismaClient, userId: string) {
 export const prisma = getPrismaClient();
 
 export const app = express();
+
+// High-performance gzip/brotli compression for API payloads and assets
+app.use(compression());
 
 // CORS middleware allowing cross-origin requests from Vercel frontend / local / custom domains
 app.use((req, res, next) => {

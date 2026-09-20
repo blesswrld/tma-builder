@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { Sun, Moon, Star, Receipt, Bug, Compass } from "lucide-react";
 import { Shop } from "../../types";
 import { useLanguage } from "../../context/LanguageContext";
+import { ResponsiveImage } from "../common/ResponsiveImage";
 
 interface ShopHeaderProps {
   shop: Shop;
@@ -42,7 +43,12 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
             }`}
           >
             {shop.logoUrl ? (
-              <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" />
+              <ResponsiveImage
+                src={shop.logoUrl}
+                alt={shop.name}
+                preset="avatar"
+                className="w-full h-full object-cover"
+              />
             ) : (
               shop.name.charAt(0).toUpperCase()
             )}

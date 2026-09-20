@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -199,11 +199,14 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const pendingOrdersCount = (orders || []).filter((o) => o.status === "PENDING").length;
+  const pendingOrdersCount = useMemo(() => {
+    return (orders || []).filter((o) => o.status === "PENDING").length;
+  }, [orders]);
 
   // Navigation Items Categorization
-  const navigationGroups: SidebarNavGroup[] = isStaff
-    ? [
+  const navigationGroups: SidebarNavGroup[] = useMemo(() => {
+    if (isStaff) {
+      return [
         {
           title: t("group.staff", "Сотрудник"),
           items: [
@@ -219,67 +222,93 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
             { id: "profile", label: t("nav.profile_staff", "Профиль сотрудника"), icon: User }
           ]
         }
-      ]
-    : [
-        {
-          title: t("group.main", "Основное"),
-          items: [
-            { id: "services", label: t("nav.services", "Меню и услуги"), icon: Layers, badge: (selectedShop?.services || []).length },
-            { id: "orders", label: t("nav.orders", "Заказы"), icon: ShoppingBag, badge: pendingOrdersCount, alert: pendingOrdersCount > 0 },
-            { id: "customers", label: t("nav.customers", "Клиенты CRM"), icon: Users, badge: (customers || []).length }
-          ]
-        },
-        {
-          title: t("group.marketing", "Маркетинг & Продажи"),
-          items: [
-            { id: "promocodes", label: t("nav.promocodes", "Промокоды"), icon: Tag, badge: (promocodes || []).length },
-            { id: "reviews", label: t("nav.reviews", "Отзывы"), icon: Star, badge: (reviews || []).length },
-            { id: "banners", label: t("nav.banners", "Баннеры"), icon: ImageIcon, badge: (banners || []).length },
-            { id: "broadcasts", label: t("nav.broadcasts", "Рассылки"), icon: Send, badge: (broadcasts || []).length },
-            { id: "referrals", label: t("nav.referrals", "Рефералы"), icon: Gift }
-          ]
-        },
-        {
-          title: t("group.management", "Управление & Инструменты"),
-          items: [
-            { id: "analytics", label: t("nav.analytics", "Аналитика"), icon: BarChart3 },
-            { id: "team", label: t("nav.team", "Команда и доступ"), icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
-            { id: "botsim", label: t("nav.botsim", "Симулятор бота"), icon: Smartphone },
-            { id: "payments", label: t("nav.payments", "История оплат"), icon: CreditCard }
-          ]
-        },
-        ...(isDeveloperUser
-          ? [
-              {
-                title: t("group.development", "Разработка (Dev)"),
-                items: [
-                  { id: "devchat", label: t("nav.devchat_support", "Чат поддержки"), icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
-                  { id: "servers", label: t("nav.servers", "Серверы"), icon: Server },
-                  { id: "dev-users", label: t("nav.users", "Пользователи"), icon: ShieldAlert },
-                  { id: "reports", label: t("nav.reports", "Репорты"), icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
-                ]
-              }
-            ]
-          : [])
       ];
+    }
+
+    return [
+      {
+        title: t("group.main", "Основное"),
+        items: [
+          { id: "services", label: t("nav.services", "Меню и услуги"), icon: Layers, badge: (selectedShop?.services || []).length },
+          { id: "orders", label: t("nav.orders", "Заказы"), icon: ShoppingBag, badge: pendingOrdersCount, alert: pendingOrdersCount > 0 },
+          { id: "customers", label: t("nav.customers", "Клиенты CRM"), icon: Users, badge: (customers || []).length }
+        ]
+      },
+      {
+        title: t("group.marketing", "Маркетинг & Продажи"),
+        items: [
+          { id: "promocodes", label: t("nav.promocodes", "Промокоды"), icon: Tag, badge: (promocodes || []).length },
+          { id: "reviews", label: t("nav.reviews", "Отзывы"), icon: Star, badge: (reviews || []).length },
+          { id: "banners", label: t("nav.banners", "Баннеры"), icon: ImageIcon, badge: (banners || []).length },
+          { id: "broadcasts", label: t("nav.broadcasts", "Рассылки"), icon: Send, badge: (broadcasts || []).length },
+          { id: "referrals", label: t("nav.referrals", "Рефералы"), icon: Gift }
+        ]
+      },
+      {
+        title: t("group.management", "Управление & Инструменты"),
+        items: [
+          { id: "analytics", label: t("nav.analytics", "Аналитика"), icon: BarChart3 },
+          { id: "team", label: t("nav.team", "Команда и доступ"), icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
+          { id: "botsim", label: t("nav.botsim", "Симулятор бота"), icon: Smartphone },
+          { id: "payments", label: t("nav.payments", "История оплат"), icon: CreditCard }
+        ]
+      },
+      ...(isDeveloperUser
+        ? [
+            {
+              title: t("group.development", "Разработка (Dev)"),
+              items: [
+                { id: "devchat", label: t("nav.devchat_support", "Чат поддержки"), icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
+                { id: "servers", label: t("nav.servers", "Серверы"), icon: Server },
+                { id: "dev-users", label: t("nav.users", "Пользователи"), icon: ShieldAlert },
+                { id: "reports", label: t("nav.reports", "Репорты"), icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
+              ]
+            }
+          ]
+        : [])
+    ];
+  }, [
+    isStaff,
+    t,
+    pendingOrdersCount,
+    isDeveloperUser,
+    unreadChatCount,
+    unhandledReportsCount,
+    selectedShop?.services?.length,
+    selectedShop?.owner,
+    customers?.length,
+    promocodes?.length,
+    reviews?.length,
+    banners?.length,
+    broadcasts?.length,
+    teamMembers?.length
+  ]);
 
   // Filter items if user typed in sidebar quick filter
-  const filteredNavGroups = navigationGroups
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((item) =>
-        item.label.toLowerCase().includes(sidebarFilterQuery.toLowerCase().trim())
-      )
-    }))
-    .filter((group) => group.items.length > 0);
+  const filteredNavGroups = useMemo(() => {
+    const q = sidebarFilterQuery.toLowerCase().trim();
+    if (!q) return navigationGroups;
+    return navigationGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) =>
+          item.label.toLowerCase().includes(q)
+        )
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [navigationGroups, sidebarFilterQuery]);
 
-  const filteredShopsList = activeShops.filter(
-    (s) =>
-      s.name.toLowerCase().includes(shopSearchInput.toLowerCase().trim()) ||
-      s.slug.toLowerCase().includes(shopSearchInput.toLowerCase().trim())
-  );
+  const filteredShopsList = useMemo(() => {
+    const q = shopSearchInput.toLowerCase().trim();
+    if (!q) return activeShops;
+    return activeShops.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.slug.toLowerCase().includes(q)
+    );
+  }, [activeShops, shopSearchInput]);
 
-  const handleNavClick = (tabId: string) => {
+  const handleNavClick = useCallback((tabId: string) => {
     if (tabId === "dev-users") {
       navigate("/dev-users");
     } else if (tabId === "reports") {
@@ -291,7 +320,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
       setActiveTab(tabId as any);
     }
     setIsSidebarOpen(false);
-  };
+  }, [navigate, handleOpenProfile, closeSubView, setActiveTab, setIsSidebarOpen]);
 
   const effectiveWidth = isSidebarCollapsed ? 64 : sidebarWidth;
 

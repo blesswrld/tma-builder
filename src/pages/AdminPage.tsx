@@ -3265,19 +3265,29 @@ export default function AdminPage() {
     }
   };
 
-  const myShopsList = shops.filter(s => myDeviceShopIds.includes(s.id));
-  const activeShops = shops.length > 3 && shopFilterMode === "my" && myShopsList.length > 0 ? myShopsList : shops;
+  const myShopsList = useMemo(() => {
+    return shops.filter(s => myDeviceShopIds.includes(s.id));
+  }, [shops, myDeviceShopIds]);
 
-  const categories = selectedShop
-    ? Array.from(new Set((selectedShop.services || []).map(s => s.category).filter(Boolean))) as string[]
-    : [];
+  const activeShops = useMemo(() => {
+    return shops.length > 3 && shopFilterMode === "my" && myShopsList.length > 0 ? myShopsList : shops;
+  }, [shops, shopFilterMode, myShopsList]);
 
-  const filteredServices = (selectedShop?.services || []).filter(service => {
-    const matchesCategory = selectedCategoryFilter === "ALL" || service.category === selectedCategoryFilter;
-    const matchesSearch = service.title.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
-      (service.description && service.description.toLowerCase().includes(serviceSearchQuery.toLowerCase()));
-    return matchesCategory && matchesSearch;
-  });
+  const categories = useMemo(() => {
+    return selectedShop
+      ? Array.from(new Set((selectedShop.services || []).map(s => s.category).filter(Boolean))) as string[]
+      : [];
+  }, [selectedShop?.services]);
+
+  const filteredServices = useMemo(() => {
+    const q = serviceSearchQuery.toLowerCase().trim();
+    return (selectedShop?.services || []).filter(service => {
+      const matchesCategory = selectedCategoryFilter === "ALL" || service.category === selectedCategoryFilter;
+      const matchesSearch = !q || service.title.toLowerCase().includes(q) ||
+        (Boolean(service.description) && service.description!.toLowerCase().includes(q));
+      return matchesCategory && matchesSearch;
+    });
+  }, [selectedShop?.services, selectedCategoryFilter, serviceSearchQuery]);
 
   // Background computation via WebWorker for Orders filtering
   const workerOrdersResult = useWorkerOrdersFilter({
@@ -3301,31 +3311,33 @@ export default function AdminPage() {
   const repliedCount = workerReviewsResult.stats.repliedCount;
   const starCounts = workerReviewsResult.stats.starCounts;
 
-  const filteredReviews = (workerReviewsResult.filteredReviews as any[]).filter(rev => {
-    const matchesStar = reviewStarFilter === "ALL" || Number(rev.rating) === reviewStarFilter;
-    const hasReply = Boolean(rev.reply && rev.reply.trim() !== "");
-    const matchesReply = reviewReplyFilter === "ALL"
-      ? true
-      : reviewReplyFilter === "UNREPLIED"
-      ? !hasReply
-      : hasReply;
+  const filteredReviews = useMemo(() => {
+    return (workerReviewsResult.filteredReviews as any[]).filter(rev => {
+      const matchesStar = reviewStarFilter === "ALL" || Number(rev.rating) === reviewStarFilter;
+      const hasReply = Boolean(rev.reply && rev.reply.trim() !== "");
+      const matchesReply = reviewReplyFilter === "ALL"
+        ? true
+        : reviewReplyFilter === "UNREPLIED"
+        ? !hasReply
+        : hasReply;
 
-    return matchesStar && matchesReply;
-  }).sort((a, b) => {
-    if (reviewSortOrder === "NEWEST") {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    }
-    if (reviewSortOrder === "OLDEST") {
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    }
-    if (reviewSortOrder === "RATING_DESC") {
-      return (Number(b.rating) || 0) - (Number(a.rating) || 0);
-    }
-    if (reviewSortOrder === "RATING_ASC") {
-      return (Number(a.rating) || 0) - (Number(b.rating) || 0);
-    }
-    return 0;
-  });
+      return matchesStar && matchesReply;
+    }).sort((a, b) => {
+      if (reviewSortOrder === "NEWEST") {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      if (reviewSortOrder === "OLDEST") {
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      if (reviewSortOrder === "RATING_DESC") {
+        return (Number(b.rating) || 0) - (Number(a.rating) || 0);
+      }
+      if (reviewSortOrder === "RATING_ASC") {
+        return (Number(a.rating) || 0) - (Number(b.rating) || 0);
+      }
+      return 0;
+    });
+  }, [workerReviewsResult.filteredReviews, reviewStarFilter, reviewReplyFilter, reviewSortOrder]);
 
   if (authLoading) {
     return <AdminPageSkeleton />;

@@ -441,7 +441,7 @@ html.light .text-zinc-500:not(.keep-white):not(.keep-white *):not(.dark-card):no
   scrollbar-width: none;
 }
 
-/* Cross-Browser Backdrop Filter & Blur Support (Safari, Firefox, Chrome, Edge, Yandex) */
+/* High-Performance Rendering & Hardware Acceleration */
 .transform-gpu {
   transform: translateZ(0);
   backface-visibility: hidden;
@@ -449,39 +449,30 @@ html.light .text-zinc-500:not(.keep-white):not(.keep-white *):not(.dark-card):no
   will-change: transform, opacity;
 }
 
-.backdrop-blur-xs {
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-}
-
-.backdrop-blur-sm {
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-}
-
-.backdrop-blur-md {
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-}
-
-.backdrop-blur-lg {
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
-}
-
+/* Zero-lag backdrop filters: uses clean composited solid surfaces instead of expensive GPU gaussian blurs */
+.backdrop-blur-xs,
+.backdrop-blur-sm,
+.backdrop-blur-md,
+.backdrop-blur-lg,
 .backdrop-blur-xl {
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
-/* Fallback for browsers without backdrop-filter support */
-@supports not ((-webkit-backdrop-filter: none) or (backdrop-filter: none)) {
-  .bg-black\/80, .bg-black\/60, .bg-black\/70 {
-    background-color: rgba(9, 9, 11, 0.95) !important;
-  }
-  .bg-app-surface\/90, .bg-app-surface\/80 {
-    background-color: var(--surface) !important;
-  }
+/* Content visibility optimization for large lists and offscreen items */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 100px;
+}
+
+.cv-auto-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 240px;
+}
+
+.cv-auto-row {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 64px;
 }
 
 /* Text Wrapping & Hyphenation Cross-Browser Optimization */

@@ -113,8 +113,8 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
         ws.onmessage = (event) => {
           try {
             const data: RealtimeEvent = JSON.parse(event.data);
-            if (data.type !== "pong" && data.type !== "connected" && data.type !== "AUTH_SUCCESS") {
-              setLastEvent(data);
+            if (data.type === "pong" || data.type === "connected" || data.type === "AUTH_SUCCESS") {
+              return;
             }
             listenersRef.current.forEach((listener) => {
               try {
@@ -244,7 +244,7 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
   const value = useMemo(
     () => ({
       isConnected,
-      lastEvent,
+      lastEvent: null,
       subscribeShop,
       subscribeShops,
       unsubscribeShop,
@@ -252,7 +252,7 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
       sendEvent,
       authenticate
     }),
-    [isConnected, lastEvent, subscribeShop, subscribeShops, unsubscribeShop, addListener, sendEvent, authenticate]
+    [isConnected, subscribeShop, subscribeShops, unsubscribeShop, addListener, sendEvent, authenticate]
   );
 
   return (
@@ -272,6 +272,10 @@ export const useRealtimeEvent = (
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 
+  const eventTypesKey = useMemo(() => {
+    return Array.isArray(eventTypes) ? eventTypes.join(",") : eventTypes;
+  }, [Array.isArray(eventTypes) ? eventTypes.join(",") : eventTypes]);
+
   useEffect(() => {
     const types = Array.isArray(eventTypes) ? eventTypes : [eventTypes];
     const remove = addListener((event) => {
@@ -280,7 +284,7 @@ export const useRealtimeEvent = (
       }
     });
     return remove;
-  }, [addListener, JSON.stringify(eventTypes)]);
+  }, [addListener, eventTypesKey]);
 };
 
 

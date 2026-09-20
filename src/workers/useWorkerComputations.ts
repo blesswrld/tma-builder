@@ -24,12 +24,31 @@ import type {
 export function useWorkerOrdersFilter(payload: WorkerFilterOrdersPayload): WorkerFilterOrdersResult {
   const [result, setResult] = useState<WorkerFilterOrdersResult>(() => filterOrders(payload));
   const abortRef = useRef(0);
+  const prevResultRef = useRef(result);
+  prevResultRef.current = result;
 
   useEffect(() => {
     const currentRun = ++abortRef.current;
 
+    const handleUpdate = (next: WorkerFilterOrdersResult) => {
+      const prev = prevResultRef.current;
+      if (
+        prev &&
+        prev.filteredOrders.length === next.filteredOrders.length &&
+        prev.counts?.total === next.counts?.total &&
+        prev.counts?.pending === next.counts?.pending &&
+        prev.counts?.completed === next.counts?.completed &&
+        prev.counts?.cancelled === next.counts?.cancelled &&
+        prev.counts?.totalRevenue === next.counts?.totalRevenue &&
+        (prev.filteredOrders.length === 0 || prev.filteredOrders[0]?.id === next.filteredOrders[0]?.id)
+      ) {
+        return;
+      }
+      setResult(next);
+    };
+
     if (!computationWorker.isAvailable()) {
-      setResult(filterOrders(payload));
+      handleUpdate(filterOrders(payload));
       return;
     }
 
@@ -37,13 +56,13 @@ export function useWorkerOrdersFilter(payload: WorkerFilterOrdersPayload): Worke
       .filterOrders(payload)
       .then((res) => {
         if (currentRun === abortRef.current) {
-          setResult(res);
+          handleUpdate(res);
         }
       })
       .catch((err) => {
         console.error("[useWorkerOrdersFilter] Worker fallback:", err);
         if (currentRun === abortRef.current) {
-          setResult(filterOrders(payload));
+          handleUpdate(filterOrders(payload));
         }
       });
   }, [
@@ -60,12 +79,28 @@ export function useWorkerOrdersFilter(payload: WorkerFilterOrdersPayload): Worke
 export function useWorkerReviewsFilter(payload: WorkerFilterReviewsPayload): WorkerFilterReviewsResult {
   const [result, setResult] = useState<WorkerFilterReviewsResult>(() => filterReviews(payload));
   const abortRef = useRef(0);
+  const prevResultRef = useRef(result);
+  prevResultRef.current = result;
 
   useEffect(() => {
     const currentRun = ++abortRef.current;
 
+    const handleUpdate = (next: WorkerFilterReviewsResult) => {
+      const prev = prevResultRef.current;
+      if (
+        prev &&
+        prev.filteredReviews.length === next.filteredReviews.length &&
+        prev.stats.total === next.stats.total &&
+        prev.stats.avgRating === next.stats.avgRating &&
+        prev.stats.unrepliedCount === next.stats.unrepliedCount
+      ) {
+        return;
+      }
+      setResult(next);
+    };
+
     if (!computationWorker.isAvailable()) {
-      setResult(filterReviews(payload));
+      handleUpdate(filterReviews(payload));
       return;
     }
 
@@ -73,13 +108,13 @@ export function useWorkerReviewsFilter(payload: WorkerFilterReviewsPayload): Wor
       .filterReviews(payload)
       .then((res) => {
         if (currentRun === abortRef.current) {
-          setResult(res);
+          handleUpdate(res);
         }
       })
       .catch((err) => {
         console.error("[useWorkerReviewsFilter] Worker fallback:", err);
         if (currentRun === abortRef.current) {
-          setResult(filterReviews(payload));
+          handleUpdate(filterReviews(payload));
         }
       });
   }, [payload.reviews, payload.searchQuery]);
@@ -91,12 +126,27 @@ export function useWorkerReviewsFilter(payload: WorkerFilterReviewsPayload): Wor
 export function useWorkerCatalogFilter(payload: WorkerFilterCatalogPayload): WorkerFilterCatalogResult {
   const [result, setResult] = useState<WorkerFilterCatalogResult>(() => filterCatalog(payload));
   const abortRef = useRef(0);
+  const prevResultRef = useRef(result);
+  prevResultRef.current = result;
 
   useEffect(() => {
     const currentRun = ++abortRef.current;
 
+    const handleUpdate = (next: WorkerFilterCatalogResult) => {
+      const prev = prevResultRef.current;
+      if (
+        prev &&
+        prev.filteredServices.length === next.filteredServices.length &&
+        prev.categories.length === next.categories.length &&
+        (prev.filteredServices.length === 0 || prev.filteredServices[0]?.id === next.filteredServices[0]?.id)
+      ) {
+        return;
+      }
+      setResult(next);
+    };
+
     if (!computationWorker.isAvailable()) {
-      setResult(filterCatalog(payload));
+      handleUpdate(filterCatalog(payload));
       return;
     }
 
@@ -104,13 +154,13 @@ export function useWorkerCatalogFilter(payload: WorkerFilterCatalogPayload): Wor
       .filterCatalog(payload)
       .then((res) => {
         if (currentRun === abortRef.current) {
-          setResult(res);
+          handleUpdate(res);
         }
       })
       .catch((err) => {
         console.error("[useWorkerCatalogFilter] Worker fallback:", err);
         if (currentRun === abortRef.current) {
-          setResult(filterCatalog(payload));
+          handleUpdate(filterCatalog(payload));
         }
       });
   }, [
@@ -127,12 +177,27 @@ export function useWorkerCatalogFilter(payload: WorkerFilterCatalogPayload): Wor
 export function useWorkerCartCalculation(payload: WorkerCartCalculationPayload): WorkerCartCalculationResult {
   const [result, setResult] = useState<WorkerCartCalculationResult>(() => calculateCart(payload));
   const abortRef = useRef(0);
+  const prevResultRef = useRef(result);
+  prevResultRef.current = result;
 
   useEffect(() => {
     const currentRun = ++abortRef.current;
 
+    const handleUpdate = (next: WorkerCartCalculationResult) => {
+      const prev = prevResultRef.current;
+      if (
+        prev &&
+        prev.totalItems === next.totalItems &&
+        prev.totalPrice === next.totalPrice &&
+        prev.discountValue === next.discountValue
+      ) {
+        return;
+      }
+      setResult(next);
+    };
+
     if (!computationWorker.isAvailable()) {
-      setResult(calculateCart(payload));
+      handleUpdate(calculateCart(payload));
       return;
     }
 
@@ -140,13 +205,13 @@ export function useWorkerCartCalculation(payload: WorkerCartCalculationPayload):
       .calculateCart(payload)
       .then((res) => {
         if (currentRun === abortRef.current) {
-          setResult(res);
+          handleUpdate(res);
         }
       })
       .catch((err) => {
         console.error("[useWorkerCartCalculation] Worker fallback:", err);
         if (currentRun === abortRef.current) {
-          setResult(calculateCart(payload));
+          handleUpdate(calculateCart(payload));
         }
       });
   }, [payload.cart, payload.services, payload.appliedPromo]);

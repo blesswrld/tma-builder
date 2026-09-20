@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Heart, Store, Truck, Clock, Scale, Plus, Minus } from "lucide-react";
 import { Service } from "../../types";
 import { useLanguage } from "../../context/LanguageContext";
+import { ResponsiveImage } from "../common/ResponsiveImage";
 
 interface ServiceCardProps {
   service: Service;
@@ -55,9 +56,10 @@ export const ServiceCard: React.FC<ServiceCardProps> = React.memo(({
             onClick={() => handleOpenDetail(service)}
             className="h-40 sm:h-44 w-full overflow-hidden bg-app-surface border-b border-app-border relative cursor-pointer"
           >
-            <img
+            <ResponsiveImage
               src={service.imageUrl}
               alt={service.title}
+              preset="card"
               className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300"
               referrerPolicy="no-referrer"
             />

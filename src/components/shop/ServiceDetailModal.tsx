@@ -4,6 +4,7 @@ import { X, Store, Truck, Clock, Scale, Heart, Plus } from "lucide-react";
 import { Service } from "../../types";
 import { useScrollLock } from "../../hooks/useScrollLock";
 import { useLanguage } from "../../context/LanguageContext";
+import { ResponsiveImage } from "../common/ResponsiveImage";
 
 interface ServiceDetailModalProps {
   service: Service | null;
@@ -64,17 +65,20 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
           >
           {service.imageUrl ? (
             <div className="relative h-56 w-full shrink-0">
-              <img
+              <ResponsiveImage
                 src={service.imageUrl}
                 alt={service.title}
+                preset="modal"
+                priority={true}
                 className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
               />
               <button
                 onClick={() => {
                   onClose();
                   setDetailItemNote("");
                 }}
-                className="absolute top-3 right-3 p-2 rounded-xl bg-black/60 backdrop-blur-md text-white keep-white hover:bg-black/80 transition-colors cursor-pointer"
+                className="absolute top-3 right-3 p-2 rounded-xl bg-black/60 backdrop-blur-md text-white keep-white hover:bg-black/80 transition-colors cursor-pointer z-10"
               >
                 <X size={18} className="text-white keep-white" />
               </button>
@@ -190,7 +194,13 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                 <div className="grid grid-cols-3 gap-2">
                   {galleryImages.map((imgUrl, idx) => (
                     <div key={idx} className="h-20 rounded-xl overflow-hidden border border-app-border bg-app-card">
-                      <img src={imgUrl} alt={`${t("service.photo", "Фото")} ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <ResponsiveImage
+                        src={imgUrl}
+                        alt={`${t("service.photo", "Фото")} ${idx + 1}`}
+                        preset="thumbnail"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
                   ))}
                 </div>

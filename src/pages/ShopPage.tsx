@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, FormEvent } from "react";
+import React, { useEffect, useState, useCallback, useMemo, FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, ShoppingCart, ShieldCheck } from "lucide-react";
@@ -519,10 +519,15 @@ export default function ShopPage() {
     }
   });
 
+  // Stabilize services price mapping for worker
+  const cartServicePrices = useMemo(() => {
+    return (shop?.services || []).map(s => ({ id: s.id, price: s.price }));
+  }, [shop?.services]);
+
   // Calculate cart metrics via WebWorker off-thread computation
   const cartResult = useWorkerCartCalculation({
     cart,
-    services: (shop?.services || []).map(s => ({ id: s.id, price: s.price })),
+    services: cartServicePrices,
     appliedPromo,
   });
 
@@ -543,15 +548,20 @@ export default function ShopPage() {
 
   // Calculate tip amount
   const discountedPrice = Math.max(0, totalPrice - discountValue);
-  let tipAmount = 0;
-  if (customTip && !isNaN(Number(customTip)) && Number(customTip) > 0) {
-    tipAmount = Math.round(Number(customTip));
-  } else if (tipPercent > 0) {
-    tipAmount = Math.round((discountedPrice * tipPercent) / 100);
-  }
+  const tipAmount = useMemo(() => {
+    if (customTip && !isNaN(Number(customTip)) && Number(customTip) > 0) {
+      return Math.round(Number(customTip));
+    } else if (tipPercent > 0) {
+      return Math.round((discountedPrice * tipPercent) / 100);
+    }
+    return 0;
+  }, [customTip, tipPercent, discountedPrice]);
 
   // Delivery options & costs calculation
-  const deliveryOpts = parseDeliveryOptions(shop?.deliveryOptions);
+  const deliveryOpts = useMemo(() => {
+    return parseDeliveryOptions(shop?.deliveryOptions);
+  }, [shop?.deliveryOptions]);
+
   const deliveryMinOrderVal = Number(deliveryOpts.deliveryMinOrder || deliveryOpts.minOrder || 0);
   const freeDeliveryThreshVal = Number(deliveryOpts.freeDeliveryThreshold || 0);
   const standardDeliveryFee = Number(deliveryOpts.deliveryFee || deliveryOpts.deliveryFeeVal || 0);
@@ -567,37 +577,48 @@ export default function ShopPage() {
   const isShopPickupAvailable = isDeliverySectionEnabled && deliveryOpts.pickup !== false;
   const isShopShippingAvailable = isDeliverySectionEnabled && Boolean(deliveryOpts.shipping);
 
-  const isCourierDisabled = !isShopCourierAvailable || Object.entries(cart).some(([id, qty]) => {
-    if (!qty) return false;
-    const service = shop?.services.find(s => s.id === id);
-    if (!service) return false;
-    const f = service.fulfillment || "courier,pickup";
-    return !f.includes("courier") && f !== "all";
-  });
+  const isCourierDisabled = useMemo(() => {
+    if (!isShopCourierAvailable) return true;
+    return Object.entries(cart).some(([id, qty]) => {
+      if (!qty) return false;
+      const service = shop?.services.find(s => s.id === id);
+      if (!service) return false;
+      const f = service.fulfillment || "courier,pickup";
+      return !f.includes("courier") && f !== "all";
+    });
+  }, [isShopCourierAvailable, cart, shop?.services]);
 
-  const isPickupDisabled = !isShopPickupAvailable || Object.entries(cart).some(([id, qty]) => {
-    if (!qty) return false;
-    const service = shop?.services.find(s => s.id === id);
-    if (!service) return false;
-    const f = service.fulfillment || "courier,pickup";
-    return !f.includes("pickup") && f !== "all";
-  });
+  const isPickupDisabled = useMemo(() => {
+    if (!isShopPickupAvailable) return true;
+    return Object.entries(cart).some(([id, qty]) => {
+      if (!qty) return false;
+      const service = shop?.services.find(s => s.id === id);
+      if (!service) return false;
+      const f = service.fulfillment || "courier,pickup";
+      return !f.includes("pickup") && f !== "all";
+    });
+  }, [isShopPickupAvailable, cart, shop?.services]);
 
-  const isShippingDisabled = !isShopShippingAvailable || Object.entries(cart).some(([id, qty]) => {
-    if (!qty) return false;
-    const service = shop?.services.find(s => s.id === id);
-    if (!service) return false;
-    const f = service.fulfillment || "courier,pickup";
-    return f === "pickup" || f === "online";
-  });
+  const isShippingDisabled = useMemo(() => {
+    if (!isShopShippingAvailable) return true;
+    return Object.entries(cart).some(([id, qty]) => {
+      if (!qty) return false;
+      const service = shop?.services.find(s => s.id === id);
+      if (!service) return false;
+      const f = service.fulfillment || "courier,pickup";
+      return f === "pickup" || f === "online";
+    });
+  }, [isShopShippingAvailable, cart, shop?.services]);
 
-  const isOnlineDisabled = Object.entries(cart).some(([id, qty]) => {
-    if (!qty) return false;
-    const service = shop?.services.find(s => s.id === id);
-    if (!service) return false;
-    const f = service.fulfillment || "courier,pickup";
-    return !f.includes("online");
-  });
+  const isOnlineDisabled = useMemo(() => {
+    return Object.entries(cart).some(([id, qty]) => {
+      if (!qty) return false;
+      const service = shop?.services.find(s => s.id === id);
+      if (!service) return false;
+      const f = service.fulfillment || "courier,pickup";
+      return !f.includes("online");
+    });
+  }, [cart, shop?.services]);
 
   useEffect(() => {
     const isCurrentDisabled = 

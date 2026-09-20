@@ -6,6 +6,7 @@ import { ReviewSkeletonList, SpinnerLoader } from "../Skeleton";
 import ImageUploader from "../ImageUploader";
 import { useScrollLock } from "../../hooks/useScrollLock";
 import { useLanguage } from "../../context/LanguageContext";
+import { ResponsiveImage } from "../common/ResponsiveImage";
 
 interface ReviewsModalProps {
   shop: Shop | null;
@@ -404,9 +405,10 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
                             onClick={() => setLightboxImage(rev.imageUrl || null)}
                             className="relative group w-24 h-24 rounded-xl overflow-hidden border border-app-border cursor-pointer bg-app-card hover:border-app-accent transition-all"
                           >
-                            <img
+                            <ResponsiveImage
                               src={rev.imageUrl}
                               alt={t("reviews.photo_alt", "Фото к отзыву")}
+                              preset="thumbnail"
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                             />
                             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
@@ -477,9 +479,11 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
             >
               <X size={20} />
             </button>
-            <img
+            <ResponsiveImage
               src={lightboxImage}
               alt={t("reviews.fullscreen_photo", "Полноэкранное фото")}
+              preset="modal"
+              priority={true}
               className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             />

@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PublicShop } from "../../types";
+import { ResponsiveImage } from "../common/ResponsiveImage";
 
 interface ShopCardProps {
   shop: PublicShop;
@@ -52,18 +53,23 @@ export const ShopCard: React.FC<ShopCardProps> = ({
       >
         {/* Banner / Avatar Thumbnail */}
         <div className="relative w-full sm:w-36 h-28 sm:h-28 rounded-xl overflow-hidden shrink-0 bg-app-card border border-app-border">
-          <img
+          <ResponsiveImage
             src={bannerImg}
             alt={shop.name}
+            preset="thumbnail"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent sm:hidden" />
           
           {/* Logo badge */}
           <div className="absolute bottom-2 left-2 w-9 h-9 rounded-lg bg-app-surface border border-app-border p-0.5 shadow-sm overflow-hidden flex items-center justify-center font-bold text-xs">
             {shop.logoUrl ? (
-              <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover rounded-md" />
+              <ResponsiveImage
+                src={shop.logoUrl}
+                alt={shop.name}
+                preset="avatar"
+                className="w-full h-full object-cover rounded-md"
+              />
             ) : (
               <Store size={16} className="text-app-muted" />
             )}
@@ -204,13 +210,13 @@ export const ShopCard: React.FC<ShopCardProps> = ({
     >
       {/* Banner & Overlay */}
       <div className="relative h-40 sm:h-44 w-full overflow-hidden bg-app-card">
-        <img
+        <ResponsiveImage
           src={bannerImg}
           alt={shop.name}
+          preset="banner"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
 
         {/* Top bar over banner: Status badge & Favorite heart */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
@@ -248,7 +254,7 @@ export const ShopCard: React.FC<ShopCardProps> = ({
         </div>
 
         {/* Delivery & Cashback tags over banner bottom-left */}
-        <div className="absolute bottom-3 left-3 right-16 flex items-center gap-1.5 flex-wrap">
+        <div className="absolute bottom-3 left-3 right-16 flex items-center gap-1.5 flex-wrap pointer-events-none">
           {hasDelivery && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-black/75 text-emerald-300 border border-emerald-500/30">
               <Truck size={11} />
@@ -266,9 +272,10 @@ export const ShopCard: React.FC<ShopCardProps> = ({
         {/* Logo Avatar floating */}
         <div className="absolute -bottom-4 right-3 w-12 h-12 rounded-xl bg-app-surface p-0.5 border-2 border-app-surface shadow-md overflow-hidden flex items-center justify-center font-bold text-sm">
           {shop.logoUrl ? (
-            <img
+            <ResponsiveImage
               src={shop.logoUrl}
               alt={shop.name}
+              preset="avatar"
               className="w-full h-full object-cover rounded-lg"
             />
           ) : (
