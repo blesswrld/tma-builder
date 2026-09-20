@@ -63,8 +63,34 @@ export const ExplorePage: React.FC = () => {
   const [onlyDelivery, setOnlyDelivery] = useState<boolean>(false);
   const [minRating, setMinRating] = useState<number>(0);
   const [hasCashback, setHasCashback] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<"popular" | "rating" | "newest" | "name" | "services">("popular");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [sortBy, setSortBy] = useState<"popular" | "rating" | "newest" | "name" | "services">(() => {
+    try {
+      const saved = localStorage.getItem("explore_sort_by");
+      if (saved && ["popular", "rating", "newest", "name", "services"].includes(saved)) {
+        return saved as any;
+      }
+    } catch {}
+    return "popular";
+  });
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+    try {
+      const saved = localStorage.getItem("explore_view_mode");
+      if (saved === "grid" || saved === "list") return saved;
+    } catch {}
+    return "grid";
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("explore_sort_by", sortBy);
+    } catch {}
+  }, [sortBy]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("explore_view_mode", viewMode);
+    } catch {}
+  }, [viewMode]);
 
   // Favorites state
   const [favorites, setFavorites] = useState<string[]>(() => {

@@ -671,8 +671,30 @@ export default function AdminPage() {
     }
   });
 
-  // Admin tabs
-  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "payments" | "referrals" | "servers" | "devchat" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">("services");
+  // Admin tabs with persistent memory
+  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "payments" | "referrals" | "servers" | "devchat" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (tabParam && ["services", "orders", "promocodes", "reviews", "banners", "broadcasts", "customers", "analytics", "botsim", "payments", "referrals", "servers", "devchat", "settings", "profile", "team"].includes(tabParam)) {
+        return tabParam as any;
+      }
+      const saved = localStorage.getItem("tma_admin_active_tab");
+      if (saved && ["services", "orders", "promocodes", "reviews", "banners", "broadcasts", "customers", "analytics", "botsim", "payments", "referrals", "servers", "devchat", "settings", "profile", "team"].includes(saved)) {
+        return saved as any;
+      }
+    } catch {}
+    return "services";
+  });
+
+  // Sync activeTab to LocalStorage (excluding transient modal tabs)
+  useEffect(() => {
+    if (activeTab && activeTab !== "addservice" && activeTab !== "editservice" && activeTab !== "createshop") {
+      try {
+        localStorage.setItem("tma_admin_active_tab", activeTab);
+      } catch {}
+    }
+  }, [activeTab]);
 
   // Floating Support Chat Widget state (for regular users)
   const [isFloatingSupportOpen, setIsFloatingSupportOpen] = useState(false);
@@ -852,17 +874,77 @@ export default function AdminPage() {
   const [replyingReviewId, setReplyingReviewId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [reviewSearchQuery, setReviewSearchQuery] = useState("");
-  const [reviewStarFilter, setReviewStarFilter] = useState<number | "ALL">("ALL");
-  const [reviewReplyFilter, setReviewReplyFilter] = useState<"ALL" | "UNREPLIED" | "REPLIED">("ALL");
-  const [reviewSortOrder, setReviewSortOrder] = useState<"NEWEST" | "OLDEST" | "RATING_DESC" | "RATING_ASC">("NEWEST");
+  const [reviewStarFilter, setReviewStarFilter] = useState<number | "ALL">(() => {
+    try {
+      const saved = localStorage.getItem("tma_admin_review_star_filter");
+      if (saved) return saved === "ALL" ? "ALL" : Number(saved);
+    } catch {}
+    return "ALL";
+  });
+  const [reviewReplyFilter, setReviewReplyFilter] = useState<"ALL" | "UNREPLIED" | "REPLIED">(() => {
+    try {
+      const saved = localStorage.getItem("tma_admin_review_reply_filter");
+      if (saved && ["ALL", "UNREPLIED", "REPLIED"].includes(saved)) return saved as any;
+    } catch {}
+    return "ALL";
+  });
+  const [reviewSortOrder, setReviewSortOrder] = useState<"NEWEST" | "OLDEST" | "RATING_DESC" | "RATING_ASC">(() => {
+    try {
+      const saved = localStorage.getItem("tma_admin_review_sort_order");
+      if (saved && ["NEWEST", "OLDEST", "RATING_DESC", "RATING_ASC"].includes(saved)) return saved as any;
+    } catch {}
+    return "NEWEST";
+  });
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tma_admin_review_star_filter", String(reviewStarFilter));
+    } catch {}
+  }, [reviewStarFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tma_admin_review_reply_filter", reviewReplyFilter);
+    } catch {}
+  }, [reviewReplyFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tma_admin_review_sort_order", reviewSortOrder);
+    } catch {}
+  }, [reviewSortOrder]);
 
   // Orders
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
-  const [orderStatusFilter, setOrderStatusFilter] = useState<string>("ALL");
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>(() => {
+    try {
+      return localStorage.getItem("tma_admin_order_status_filter") || "ALL";
+    } catch {
+      return "ALL";
+    }
+  });
   const [orderSearchQuery, setOrderSearchQuery] = useState<string>("");
-  const [orderTypeFilter, setOrderTypeFilter] = useState<string>("ALL");
+  const [orderTypeFilter, setOrderTypeFilter] = useState<string>(() => {
+    try {
+      return localStorage.getItem("tma_admin_order_type_filter") || "ALL";
+    } catch {
+      return "ALL";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tma_admin_order_status_filter", orderStatusFilter);
+    } catch {}
+  }, [orderStatusFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tma_admin_order_type_filter", orderTypeFilter);
+    } catch {}
+  }, [orderTypeFilter]);
 
   // Create Shop
   const [isCreatingShop, setIsCreatingShop] = useState(false);

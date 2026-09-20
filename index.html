@@ -26,6 +26,22 @@
     <meta name="theme-color" content="#08080b" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#08080b" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+
+    <!-- Synchronous Theme Mode Initializer (Prevents Theme Flash on Reload) -->
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem("theme_mode");
+          if (saved === "light") {
+            document.documentElement.classList.remove("dark");
+            document.documentElement.classList.add("light");
+          } else {
+            document.documentElement.classList.remove("light");
+            document.documentElement.classList.add("dark");
+          }
+        } catch (e) {}
+      })();
+    </script>
     
     <!-- Critical DNS Prefetch & Preconnect for Google Fonts to minimize CLS and latency -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

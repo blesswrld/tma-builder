@@ -54,13 +54,45 @@ export default function ShopPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Cart & Catalog filters
-  const [cart, setCart] = useState<{ [key: string]: number }>({});
-  const [cartNotes, setCartNotes] = useState<{ [key: string]: string }>({});
+  // Cart & Catalog filters with local persistence
+  const [cart, setCart] = useState<{ [key: string]: number }>(() => {
+    try {
+      if (typeof window !== "undefined" && slug) {
+        const saved = localStorage.getItem(`tma_cart_${slug}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (typeof parsed === "object" && parsed !== null) return parsed;
+        }
+      }
+    } catch {}
+    return {};
+  });
+
+  const [cartNotes, setCartNotes] = useState<{ [key: string]: string }>(() => {
+    try {
+      if (typeof window !== "undefined" && slug) {
+        const saved = localStorage.getItem(`tma_cart_notes_${slug}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (typeof parsed === "object" && parsed !== null) return parsed;
+        }
+      }
+    } catch {}
+    return {};
+  });
+
   const [favorites, setFavorites] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [fulfillmentMethod, setFulfillmentMethod] = useState<string>("courier");
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<string>(() => {
+    try {
+      if (typeof window !== "undefined" && slug) {
+        const saved = localStorage.getItem(`tma_fulfillment_${slug}`);
+        if (saved) return saved;
+      }
+    } catch {}
+    return "courier";
+  });
 
   // Modals & Drawers state
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -160,18 +192,82 @@ export default function ShopPage() {
     return () => window.removeEventListener("hashchange", handleHash);
   }, []);
 
-  // Checkout form
-  const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    city: "",
-    deliveryAddress: "",
-    tableNumber: "",
-    preferredTime: "",
-    note: "",
+  // Checkout form with persistent customer memory
+  const [formData, setFormData] = useState(() => {
+    let name = "";
+    let phone = "";
+    let city = "";
+    let deliveryAddress = "";
+    try {
+      if (typeof window !== "undefined") {
+        name = localStorage.getItem("tma_customer_name") || "";
+        phone = localStorage.getItem("tma_customer_phone") || "";
+        city = localStorage.getItem("tma_customer_city") || "";
+        deliveryAddress = localStorage.getItem("tma_customer_address") || "";
+      }
+    } catch {}
+    return {
+      name,
+      phone,
+      city,
+      deliveryAddress,
+      tableNumber: "",
+      preferredTime: "",
+      note: "",
+    };
   });
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sync Cart, Notes, and Fulfillment to LocalStorage
+  useEffect(() => {
+    if (!slug) return;
+    try {
+      if (cart && Object.keys(cart).length > 0) {
+        localStorage.setItem(`tma_cart_${slug}`, JSON.stringify(cart));
+      } else {
+        localStorage.removeItem(`tma_cart_${slug}`);
+      }
+    } catch {}
+  }, [cart, slug]);
+
+  useEffect(() => {
+    if (!slug) return;
+    try {
+      if (cartNotes && Object.keys(cartNotes).length > 0) {
+        localStorage.setItem(`tma_cart_notes_${slug}`, JSON.stringify(cartNotes));
+      } else {
+        localStorage.removeItem(`tma_cart_notes_${slug}`);
+      }
+    } catch {}
+  }, [cartNotes, slug]);
+
+  useEffect(() => {
+    if (!slug) return;
+    try {
+      if (fulfillmentMethod) {
+        localStorage.setItem(`tma_fulfillment_${slug}`, fulfillmentMethod);
+      }
+    } catch {}
+  }, [fulfillmentMethod, slug]);
+
+  // Sync Customer Info to LocalStorage for seamless repeat orders
+  useEffect(() => {
+    try {
+      if (formData.name && formData.name.trim()) {
+        localStorage.setItem("tma_customer_name", formData.name.trim());
+      }
+      if (formData.phone && formData.phone.trim()) {
+        localStorage.setItem("tma_customer_phone", formData.phone.trim());
+      }
+      if (formData.city && formData.city.trim()) {
+        localStorage.setItem("tma_customer_city", formData.city.trim());
+      }
+      if (formData.deliveryAddress && formData.deliveryAddress.trim()) {
+        localStorage.setItem("tma_customer_address", formData.deliveryAddress.trim());
+      }
+    } catch {}
+  }, [formData.name, formData.phone, formData.city, formData.deliveryAddress]);
 
   const { theme, toggleTheme } = useTheme();
   const { t } = useLanguage();
@@ -753,6 +849,12 @@ export default function ShopPage() {
 
       setCart({});
       setCartNotes({});
+      try {
+        if (slug) {
+          localStorage.removeItem(`tma_cart_${slug}`);
+          localStorage.removeItem(`tma_cart_notes_${slug}`);
+        }
+      } catch {}
       setAppliedPromo(null);
       setPromocodeInput("");
       setTipPercent(0);

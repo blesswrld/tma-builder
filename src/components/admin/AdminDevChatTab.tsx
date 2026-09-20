@@ -133,11 +133,25 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
 
   // Developer mode conversations state
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
-  const [activeConversationUserId, setActiveConversationUserId] = useState<string | null>(null);
+  const [activeConversationUserId, setActiveConversationUserId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("dev_active_chat_user_id") || null;
+    } catch {
+      return null;
+    }
+  });
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "unread" | "paid">("all");
   const [mobileShowChat, setMobileShowChat] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (activeConversationUserId) {
+        localStorage.setItem("dev_active_chat_user_id", activeConversationUserId);
+      }
+    } catch {}
+  }, [activeConversationUserId]);
 
   // Sync WS authentication and presence
   useEffect(() => {
