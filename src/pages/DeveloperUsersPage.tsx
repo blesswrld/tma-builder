@@ -37,7 +37,8 @@ import {
   AlertCircle,
   Info,
   Sun,
-  Moon
+  Moon,
+  Github
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../context/AuthContext";
@@ -68,6 +69,8 @@ export interface DevUser {
   name: string | null;
   phone: string | null;
   telegramHandle: string | null;
+  githubHandle?: string | null;
+  githubId?: string | null;
   companyName: string | null;
   avatarUrl: string | null;
   plan: "FREE" | "PRO" | "ENTERPRISE";
@@ -173,6 +176,7 @@ export default function DeveloperUsersPage() {
     name: "",
     phone: "",
     telegramHandle: "",
+    githubHandle: "",
     companyName: "",
     plan: "FREE",
     subscriptionDays: 365,
@@ -402,6 +406,7 @@ export default function DeveloperUsersPage() {
           name: editForm.name,
           phone: editForm.phone,
           telegramHandle: editForm.telegramHandle,
+          githubHandle: editForm.githubHandle,
           companyName: editForm.companyName,
           newPassword: editForm.newPassword || undefined
         })
@@ -633,6 +638,7 @@ export default function DeveloperUsersPage() {
         const matchesName = (u.name || "").toLowerCase().includes(q);
         const matchesPhone = (u.phone || "").toLowerCase().includes(q);
         const matchesTg = (u.telegramHandle || "").toLowerCase().includes(q);
+        const matchesGh = (u.githubHandle || "").toLowerCase().includes(q);
         const matchesCompany = (u.companyName || "").toLowerCase().includes(q);
         const matchesId = (u.id || "").toLowerCase().includes(q);
         const matchesShop = (u.shops || []).some(
@@ -645,6 +651,7 @@ export default function DeveloperUsersPage() {
           !matchesName &&
           !matchesPhone &&
           !matchesTg &&
+          !matchesGh &&
           !matchesCompany &&
           !matchesId &&
           !matchesShop
@@ -709,6 +716,7 @@ export default function DeveloperUsersPage() {
       name: targetUser.name || "",
       phone: targetUser.phone || "",
       telegramHandle: targetUser.telegramHandle || "",
+      githubHandle: targetUser.githubHandle || "",
       companyName: targetUser.companyName || "",
       plan: targetUser.plan || "FREE",
       subscriptionDays: 365,
@@ -1340,6 +1348,19 @@ export default function DeveloperUsersPage() {
                             </a>
                           )}
 
+                          {/* GitHub */}
+                          {targetUser.githubHandle && (
+                            <a
+                              href={`https://github.com/${targetUser.githubHandle.replace("@", "")}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-1 text-emerald-400 hover:underline"
+                            >
+                              <Github size={11} />
+                              <span>@{targetUser.githubHandle}</span>
+                            </a>
+                          )}
+
                           {/* Company */}
                           {targetUser.companyName && (
                             <div className="flex items-center gap-1 text-app-secondary">
@@ -1839,6 +1860,17 @@ export default function DeveloperUsersPage() {
                       onChange={(e) => setEditForm({ ...editForm, telegramHandle: e.target.value })}
                       placeholder="@username"
                       className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-app-muted">GitHub Handle:</label>
+                    <input
+                      type="text"
+                      value={editForm.githubHandle}
+                      onChange={(e) => setEditForm({ ...editForm, githubHandle: e.target.value })}
+                      placeholder="octocat"
+                      className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border font-mono text-xs"
                     />
                   </div>
 

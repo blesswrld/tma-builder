@@ -5,6 +5,8 @@ export interface User {
   phone?: string | null;
   avatarUrl?: string | null;
   telegramHandle?: string | null;
+  githubHandle?: string | null;
+  githubId?: string | null;
   companyName?: string | null;
   plan?: "FREE" | "PRO" | "ENTERPRISE";
   subscriptionExpiresAt?: string | null;

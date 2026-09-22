@@ -18,6 +18,8 @@ model User {
   avatarUrl             String?
   phone                 String?
   telegramHandle        String?
+  githubId              String?
+  githubHandle          String?
   companyName           String?
   isBanned              Boolean   @default(false)
   banReason             String?

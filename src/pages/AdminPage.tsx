@@ -30,6 +30,7 @@ import { AdminPageSkeleton, AdminContentSkeleton, ReviewSkeletonList, SpinnerLoa
 import ImageUploader from "../components/ImageUploader";
 import { AdminAuthModal } from "../components/admin/AdminAuthModal";
 import { AdminSidebar } from "../components/admin/AdminSidebar";
+import { GitHubLoginButton } from "../components/auth/GitHubLoginButton";
 import { InstallButton } from "../components/InstallButton";
 import { updatePageSeo } from "../lib/seo";
 import { playNotificationSound, playToggleOnSound, playToggleOffSound } from "../lib/sound";
@@ -960,6 +961,7 @@ export default function AdminPage() {
     phone: "",
     avatarUrl: "",
     telegramHandle: "",
+    githubHandle: "",
     companyName: "",
     currentPassword: "",
     newPassword: "",
@@ -974,6 +976,7 @@ export default function AdminPage() {
         phone: user.phone || "",
         avatarUrl: user.avatarUrl || "",
         telegramHandle: user.telegramHandle || "",
+        githubHandle: (user as any).githubHandle || "",
         companyName: user.companyName || "",
       }));
     }
@@ -2918,6 +2921,7 @@ export default function AdminPage() {
         phone: formattedPhone,
         avatarUrl: profileData.avatarUrl.trim(),
         telegramHandle: profileData.telegramHandle.trim(),
+        githubHandle: profileData.githubHandle.trim(),
         companyName: profileData.companyName.trim(),
         currentPassword: (passwordChangeMethod === "password" && profileData.newPassword.trim()) ? profileData.currentPassword.trim() : undefined,
         newPassword: profileData.newPassword.trim() || undefined,
@@ -3433,6 +3437,21 @@ export default function AdminPage() {
               </p>
             </div>
           )}
+
+          {/* GitHub Fast Auth Button */}
+          <div className="space-y-3">
+            <GitHubLoginButton
+              text="Войти через GitHub"
+              onSuccess={() => {
+                // Success
+              }}
+            />
+            <div className="flex items-center gap-3">
+              <div className="h-[1px] bg-neutral-800 flex-1" />
+              <span className="text-[10px] font-mono uppercase text-neutral-500 tracking-wider">или через почту</span>
+              <div className="h-[1px] bg-neutral-800 flex-1" />
+            </div>
+          </div>
 
           {/* Mode Switcher Tabs */}
           <div className="grid grid-cols-3 gap-1 bg-neutral-950/80 p-1 rounded-2xl border border-neutral-800 text-xs font-mono">
@@ -4138,6 +4157,42 @@ export default function AdminPage() {
                       placeholder="@username"
                       className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
                     />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[11px] font-mono text-app-muted">
+                        GitHub профиль (никнейм)
+                      </label>
+                      {profileData.githubHandle && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const clean = profileData.githubHandle.trim().replace(/^@/, "");
+                            if (clean) {
+                              setProfileData(p => ({
+                                ...p,
+                                avatarUrl: `https://github.com/${clean}.png`
+                              }));
+                              showToast("Аватарка подтянута из GitHub!", "info");
+                            }
+                          }}
+                          className="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer"
+                        >
+                          <RefreshCw size={10} />
+                          <span>Подтянуть аватарку с GitHub</span>
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-app-muted font-mono text-xs">@</span>
+                      <input
+                        type="text"
+                        value={profileData.githubHandle}
+                        onChange={e => setProfileData(p => ({ ...p, githubHandle: e.target.value }))}
+                        placeholder="username (например: octocat)"
+                        className="w-full bg-app-card border border-app-border rounded-xl pl-8 pr-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
+                      />
+                    </div>
                   </div>
                 </div>
 

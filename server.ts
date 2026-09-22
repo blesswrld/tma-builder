@@ -174,6 +174,8 @@ function formatUserResponse(user: any) {
     phone: (user as any).phone || null,
     avatarUrl: (user as any).avatarUrl || null,
     telegramHandle: (user as any).telegramHandle || null,
+    githubHandle: (user as any).githubHandle || null,
+    githubId: (user as any).githubId || null,
     companyName: (user as any).companyName || null,
     plan: user.plan || "FREE",
     subscriptionExpiresAt: user.subscriptionExpiresAt || null,
@@ -185,6 +187,16 @@ function formatUserResponse(user: any) {
     role: isDeveloperEmail((user as any).email) ? "DEVELOPER" : ((user as any).role || "USER"),
     createdAt: (user as any).createdAt || null
   };
+}
+
+function escapeHtml(str: string): string {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function transliterateToSlug(str: string): string {
@@ -261,7 +273,15 @@ async function ensureUserReferralCode(db: PrismaClient, user: any): Promise<stri
 }
 
 function getRequestBaseUrl(req: express.Request): string {
-  // 1. Origin header (sent by browsers in API requests)
+  // 1. Explicit environment variable (canonical container / public URL)
+  if (process.env.APP_URL && !process.env.APP_URL.includes("vercel.app")) {
+    return process.env.APP_URL.replace(/\/$/, "");
+  }
+  if (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes("vercel.app")) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  }
+
+  // 2. Origin header (sent by browsers in API requests)
   const origin = req.headers.origin;
   if (typeof origin === "string" && origin.startsWith("http")) {
     return origin.replace(/\/$/, "");
@@ -520,6 +540,8 @@ async function ensureOrderSchema(db: PrismaClient) {
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarUrl" TEXT`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "phone" TEXT`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegramHandle" TEXT`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "githubHandle" TEXT`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "githubId" TEXT`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "companyName" TEXT`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isBanned" BOOLEAN DEFAULT false`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "banReason" TEXT`,
@@ -1325,6 +1347,639 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
+// ==========================================
+// GITHUB OAUTH & AUTHENTICATION ENDPOINTS
+// ==========================================
+
+// 1. Get GitHub OAuth Authorize URL
+app.get("/api/auth/github/url", (req, res) => {
+  const clientId = process.env.GITHUB_CLIENT_ID || process.env.CLIENT_ID;
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET || process.env.CLIENT_SECRET;
+  const baseUrl = getRequestBaseUrl(req);
+  const redirectUri = (req.query.redirect_uri as string) || `${baseUrl}/auth/callback`;
+  const referralCode = (req.query.referralCode as string) || "";
+  const statePayload = {
+    ref: referralCode,
+    origin: baseUrl,
+    time: Date.now()
+  };
+  const state = Buffer.from(JSON.stringify(statePayload)).toString("base64");
+
+  const isConfigured = Boolean(clientId && clientId.trim() !== "" && clientSecret && clientSecret.trim() !== "");
+  const authUrl = isConfigured
+    ? `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId!)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent("read:user user:email")}&state=${encodeURIComponent(state)}`
+    : null;
+
+  res.json({
+    url: authUrl,
+    isConfigured,
+    clientId: isConfigured ? clientId : null,
+    redirectUri,
+    appUrl: baseUrl,
+    callbacks: [
+      `${baseUrl}/auth/callback`,
+      `${baseUrl}/auth/github/callback`
+    ],
+    message: isConfigured ? "GitHub OAuth configured" : "GITHUB_CLIENT_ID or GITHUB_CLIENT_SECRET is not configured in environment variables"
+  });
+});
+
+// 2. GitHub OAuth Callback (Pop-up bridge or redirect)
+app.get([
+  "/auth/callback",
+  "/auth/callback/",
+  "/auth/github/callback",
+  "/auth/github/callback/",
+  "/api/auth/github/callback",
+  "/api/auth/github/callback/"
+], async (req, res) => {
+  try {
+    const code = req.query.code as string;
+    const errorParam = req.query.error as string;
+    const errorDesc = req.query.error_description as string;
+    const stateStr = req.query.state as string;
+
+    let stateObj: any = {};
+    if (stateStr) {
+      try {
+        stateObj = JSON.parse(Buffer.from(stateStr, "base64").toString("utf-8"));
+      } catch {
+        try {
+          stateObj = JSON.parse(stateStr);
+        } catch {}
+      }
+    }
+
+    if (errorParam || !code) {
+      const msg = errorDesc || errorParam || "Авторизация через GitHub была отменена или не удалась.";
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>Ошибка GitHub</title></head>
+        <body style="background:#09090b;color:#f87171;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:20px;box-sizing:border-box;">
+          <div style="background:#18181b;border:1px solid #27272a;border-radius:20px;padding:32px 24px;max-width:380px;width:100%;">
+            <h2 style="font-size:18px;margin-bottom:8px;color:#f87171;">Ошибка авторизации GitHub</h2>
+            <p style="color:#a1a1aa;font-size:13px;margin-bottom:16px;">${escapeHtml(msg)}</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'OAUTH_AUTH_ERROR', error: ${JSON.stringify(msg)} }, '*');
+              setTimeout(() => window.close(), 1500);
+            } else {
+              window.location.href = '/admin?error=' + encodeURIComponent(${JSON.stringify(msg)});
+            }
+          </script>
+        </body>
+        </html>
+      `);
+    }
+
+    const clientId = process.env.GITHUB_CLIENT_ID || process.env.CLIENT_ID;
+    const clientSecret = process.env.GITHUB_CLIENT_SECRET || process.env.CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      const msg = "GITHUB_CLIENT_ID или GITHUB_CLIENT_SECRET не настроены в переменных окружения.";
+      return res.status(500).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>Ошибка конфигурации</title></head>
+        <body style="background:#09090b;color:#f87171;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:20px;box-sizing:border-box;">
+          <div style="background:#18181b;border:1px solid #27272a;border-radius:20px;padding:32px 24px;max-width:380px;width:100%;">
+            <h2 style="font-size:18px;margin-bottom:8px;color:#f87171;">GitHub OAuth не настроен</h2>
+            <p style="color:#a1a1aa;font-size:13px;margin-bottom:16px;">${escapeHtml(msg)}</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'OAUTH_AUTH_ERROR', error: ${JSON.stringify(msg)} }, '*');
+              setTimeout(() => window.close(), 2000);
+            }
+          </script>
+        </body>
+        </html>
+      `);
+    }
+
+    const baseUrl = stateObj.origin || getRequestBaseUrl(req);
+    // Use the actual pathname hit by the browser to match GitHub redirect_uri strictly
+    const currentPath = req.path.replace(/\/$/, "");
+    const redirectUri = `${baseUrl}${currentPath || "/auth/callback"}`;
+
+    // 1. Обмениваем временный код на GitHub access token
+    const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": "TMA-Builder-App"
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: redirectUri
+      })
+    });
+
+    const tokenData = (await tokenRes.json()) as any;
+    if (tokenData.error || !tokenData.access_token) {
+      const msg = tokenData.error_description || tokenData.error || "Не удалось получить токен доступа GitHub.";
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>Ошибка GitHub</title></head>
+        <body style="background:#09090b;color:#f87171;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:20px;box-sizing:border-box;">
+          <div style="background:#18181b;border:1px solid #27272a;border-radius:20px;padding:32px 24px;max-width:380px;width:100%;">
+            <h2 style="font-size:18px;margin-bottom:8px;color:#f87171;">Ошибка обмена токена</h2>
+            <p style="color:#a1a1aa;font-size:13px;margin-bottom:16px;">${escapeHtml(msg)}</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'OAUTH_AUTH_ERROR', error: ${JSON.stringify(msg)} }, '*');
+              setTimeout(() => window.close(), 1500);
+            }
+          </script>
+        </body>
+        </html>
+      `);
+    }
+
+    const accessToken = tokenData.access_token;
+
+    // 2. Запрашиваем профиль пользователя из GitHub API
+    const userRes = await fetch("https://api.github.com/user", {
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "TMA-Builder-App"
+      }
+    });
+
+    const ghUser = (await userRes.json()) as any;
+    if (!ghUser || !ghUser.login) {
+      const msg = "Не удалось получить профиль пользователя GitHub.";
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>Ошибка GitHub</title></head>
+        <body style="background:#09090b;color:#f87171;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:20px;box-sizing:border-box;">
+          <div style="background:#18181b;border:1px solid #27272a;border-radius:20px;padding:32px 24px;max-width:380px;width:100%;">
+            <h2 style="font-size:18px;margin-bottom:8px;color:#f87171;">Ошибка получения профиля</h2>
+            <p style="color:#a1a1aa;font-size:13px;margin-bottom:16px;">${escapeHtml(msg)}</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'OAUTH_AUTH_ERROR', error: ${JSON.stringify(msg)} }, '*');
+              setTimeout(() => window.close(), 1500);
+            }
+          </script>
+        </body>
+        </html>
+      `);
+    }
+
+    // 3. Получаем основной e-mail
+    let userEmail = ghUser.email;
+    if (!userEmail) {
+      try {
+        const emailsRes = await fetch("https://api.github.com/user/emails", {
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "TMA-Builder-App"
+          }
+        });
+        const emails = (await emailsRes.json()) as any[];
+        if (Array.isArray(emails)) {
+          const primary = emails.find((e: any) => e.primary && e.verified) || emails.find((e: any) => e.verified) || emails[0];
+          if (primary && primary.email) {
+            userEmail = primary.email;
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch GitHub user emails:", e);
+      }
+    }
+
+    if (!userEmail) {
+      userEmail = `${ghUser.login.toLowerCase()}@users.noreply.github.com`;
+    }
+
+    const cleanEmail = userEmail.toLowerCase().trim();
+    const displayName = ghUser.name || ghUser.login || "GitHub User";
+    const avatarUrl = ghUser.avatar_url || null;
+    const githubHandle = ghUser.login || null;
+    const githubId = String(ghUser.id || "");
+
+    const db = getPrismaClient();
+    if (!db) {
+      throw new Error("База данных недоступна");
+    }
+
+    await ensureOrderSchema(db);
+
+    // 1. Поиск пользователя по githubId, email или githubHandle
+    const userByGhId = githubId ? await db.user.findFirst({ where: { githubId } }) : null;
+    const userByEmail = await db.user.findUnique({ where: { email: cleanEmail } });
+    const userByHandle = githubHandle
+      ? await db.user.findFirst({ where: { githubHandle: { equals: githubHandle, mode: "insensitive" } } })
+      : null;
+
+    let user = userByGhId || userByEmail || userByHandle;
+
+    if (user) {
+      // Освобождаем githubId и githubHandle у других записей, если они были случайно привязаны
+      if (githubId) {
+        await db.$executeRawUnsafe(
+          `UPDATE "User" SET "githubId" = NULL WHERE "githubId" = $1 AND "id" != $2;`,
+          githubId,
+          user.id
+        ).catch(() => {});
+      }
+      if (githubHandle) {
+        await db.$executeRawUnsafe(
+          `UPDATE "User" SET "githubHandle" = NULL WHERE LOWER("githubHandle") = LOWER($1) AND "id" != $2;`,
+          githubHandle,
+          user.id
+        ).catch(() => {});
+      }
+
+      // Если аккаунт был создан с временной noreply-почтой, а сейчас пришла реальная
+      const isDummyEmail = user.email.includes("users.noreply.github.com");
+      const shouldUpdateEmail = isDummyEmail && !cleanEmail.includes("noreply.github.com");
+      let emailToSet = user.email;
+      if (shouldUpdateEmail && (!userByEmail || userByEmail.id === user.id)) {
+        emailToSet = cleanEmail;
+      }
+
+      const updateData: any = {};
+      if (emailToSet !== user.email) {
+        updateData.email = emailToSet;
+      }
+      if (avatarUrl && (!user.avatarUrl || user.avatarUrl.includes("github") || user.avatarUrl.includes("avatars.githubusercontent"))) {
+        updateData.avatarUrl = avatarUrl;
+      } else if (!user.avatarUrl && avatarUrl) {
+        updateData.avatarUrl = avatarUrl;
+      }
+      if (!user.name && displayName) {
+        updateData.name = displayName;
+      }
+      if (githubHandle && (user as any).githubHandle !== githubHandle) {
+        updateData.githubHandle = githubHandle;
+      }
+      if (githubId && (user as any).githubId !== githubId) {
+        updateData.githubId = githubId;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        try {
+          user = await db.user.update({
+            where: { id: user.id },
+            data: updateData
+          });
+        } catch (updateErr: any) {
+          console.warn("Soft update warning during GitHub login:", updateErr?.message);
+          // Если возникла коллизия по уникальному полю, очищаем конфликт и повторяем
+          if (githubId) {
+            await db.$executeRawUnsafe(`UPDATE "User" SET "githubId" = NULL WHERE "githubId" = $1 AND "id" != $2;`, githubId, user.id).catch(() => {});
+          }
+          if (githubHandle) {
+            await db.$executeRawUnsafe(`UPDATE "User" SET "githubHandle" = NULL WHERE LOWER("githubHandle") = LOWER($1) AND "id" != $2;`, githubHandle, user.id).catch(() => {});
+          }
+          user = await db.user.update({
+            where: { id: user.id },
+            data: {
+              avatarUrl: updateData.avatarUrl || user.avatarUrl,
+              name: user.name || displayName || null,
+              githubHandle: githubHandle || (user as any).githubHandle || null
+            }
+          }).catch(() => user);
+        }
+      }
+    } else {
+      // Предотвращаем конфликт githubId и githubHandle перед созданием нового пользователя
+      if (githubId) {
+        await db.$executeRawUnsafe(
+          `UPDATE "User" SET "githubId" = NULL WHERE "githubId" = $1;`,
+          githubId
+        ).catch(() => {});
+      }
+      if (githubHandle) {
+        await db.$executeRawUnsafe(
+          `UPDATE "User" SET "githubHandle" = NULL WHERE LOWER("githubHandle") = LOWER($1);`,
+          githubHandle
+        ).catch(() => {});
+      }
+
+      let referredById: string | null = null;
+      if (stateObj.ref) {
+        try {
+          const referrer = await db.user.findFirst({
+            where: {
+              OR: [
+                { referralCode: stateObj.ref },
+                { id: stateObj.ref }
+              ]
+            }
+          });
+          if (referrer && referrer.email.toLowerCase() !== cleanEmail) {
+            referredById = referrer.id;
+          }
+        } catch {}
+      }
+
+      const newRefCode = generateReferralCode();
+      const randomPass = await bcrypt.hash(Math.random().toString(36) + Date.now(), 10);
+
+      user = await db.user.create({
+        data: {
+          email: cleanEmail,
+          password: randomPass,
+          name: displayName,
+          avatarUrl: avatarUrl,
+          githubHandle: githubHandle,
+          githubId: githubId,
+          referralCode: newRefCode,
+          referredById: referredById || undefined
+        }
+      });
+
+      if (referredById) {
+        broadcastEvent({
+          type: "REFERRAL_ACTIVATED",
+          userId: referredById,
+          payload: {
+            referrerId: referredById,
+            newUserId: user.id,
+            userName: user.name || "Пользователь",
+            email: maskEmail(user.email)
+          }
+        });
+      }
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, name: user.name },
+      JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    const formattedUser = formatUserResponse(user);
+
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Авторизация через GitHub</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+      </head>
+      <body style="background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;padding:16px;box-sizing:border-box;text-align:center;">
+        <div style="background:#18181b;border:1px solid #27272a;border-radius:24px;padding:32px 24px;max-width:380px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.7);">
+          <div style="width:56px;height:56px;border-radius:16px;background:#27272a;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #3f3f46;">
+            ${avatarUrl ? `<img src="${escapeHtml(avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;">` : `
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="#ffffff">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+            </svg>`}
+          </div>
+          <h2 style="font-size:18px;margin:0 0 6px;font-weight:700;color:#ffffff;">Успешный вход</h2>
+          <p style="font-size:13px;color:#a1a1aa;margin:0 0 16px;">Добро пожаловать, <strong style="color:#34d399;">@${escapeHtml(githubHandle || displayName)}</strong>!</p>
+          <div style="font-size:11px;color:#71717a;font-family:monospace;">Синхронизация профиля...</div>
+        </div>
+        <script>
+          const authPayload = ${JSON.stringify({
+            type: 'OAUTH_AUTH_SUCCESS',
+            provider: 'github',
+            token,
+            user: formattedUser
+          })};
+          if (window.opener) {
+            window.opener.postMessage(authPayload, '*');
+            setTimeout(() => {
+              window.close();
+            }, 350);
+          } else {
+            try {
+              localStorage.setItem('auth_token', ${JSON.stringify(token)});
+              localStorage.setItem('auth_user', JSON.stringify(authPayload.user));
+            } catch(e) {}
+            window.location.href = '/admin';
+          }
+        </script>
+      </body>
+      </html>
+    `);
+  } catch (err: any) {
+    console.error("GitHub auth callback error:", err);
+    return res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"><title>Ошибка сервера</title></head>
+      <body style="background:#09090b;color:#f87171;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:20px;box-sizing:border-box;">
+        <div style="background:#18181b;border:1px solid #27272a;border-radius:20px;padding:32px 24px;max-width:380px;width:100%;">
+          <h2 style="font-size:18px;margin-bottom:8px;color:#f87171;">Ошибка сервера GitHub</h2>
+          <p style="color:#a1a1aa;font-size:13px;margin-bottom:16px;">${escapeHtml(err.message || "Неизвестная ошибка")}</p>
+        </div>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({ type: 'OAUTH_AUTH_ERROR', error: ${JSON.stringify(err.message || "Ошибка сервера")} }, '*');
+            setTimeout(() => window.close(), 2000);
+          }
+        </script>
+      </body>
+      </html>
+    `);
+  }
+});
+
+// 3. Instant GitHub Profile Sync & Fast Login (handles custom or demo GitHub profiles)
+app.post("/api/auth/github/fast-login", async (req, res) => {
+  try {
+    const { username, referralCode } = req.body;
+    const cleanUsername = String(username || "blesswrld").trim().replace(/^@/, "");
+    if (!cleanUsername) {
+      return res.status(400).json({ error: "Укажите никнейм GitHub" });
+    }
+
+    // Запрашиваем публичные данные профиля GitHub
+    let ghName = cleanUsername;
+    let ghAvatar = `https://github.com/${cleanUsername}.png`;
+    let ghEmail = `${cleanUsername.toLowerCase()}@users.noreply.github.com`;
+    let ghId = `gh_${cleanUsername}`;
+
+    try {
+      const ghRes = await fetch(`https://api.github.com/users/${encodeURIComponent(cleanUsername)}`, {
+        headers: {
+          "User-Agent": "TMA-Builder-App",
+          "Accept": "application/vnd.github.v3+json"
+        }
+      });
+      if (ghRes.ok) {
+        const ghData = (await ghRes.json()) as any;
+        ghName = ghData.name || ghData.login || cleanUsername;
+        ghAvatar = ghData.avatar_url || ghAvatar;
+        if (ghData.email) ghEmail = ghData.email.toLowerCase();
+        if (ghData.id) ghId = String(ghData.id);
+      }
+    } catch (e) {
+      console.warn("Could not fetch public github user data:", e);
+    }
+
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const userByGhId = ghId ? await db.user.findFirst({ where: { githubId: ghId } }) : null;
+    const userByEmail = await db.user.findUnique({ where: { email: ghEmail } });
+    const userByHandle = await db.user.findFirst({ where: { githubHandle: { equals: cleanUsername, mode: "insensitive" } } });
+
+    let user = userByGhId || userByEmail || userByHandle;
+
+    if (user) {
+      if (ghId) {
+        await db.$executeRawUnsafe(
+          `UPDATE "User" SET "githubId" = NULL WHERE "githubId" = $1 AND "id" != $2;`,
+          ghId,
+          user.id
+        ).catch(() => {});
+      }
+      user = await db.user.update({
+        where: { id: user.id },
+        data: {
+          avatarUrl: ghAvatar,
+          name: ghName || user.name,
+          githubHandle: cleanUsername,
+          githubId: ghId
+        }
+      });
+    } else {
+      if (ghId) {
+        await db.$executeRawUnsafe(
+          `UPDATE "User" SET "githubId" = NULL WHERE "githubId" = $1;`,
+          ghId
+        ).catch(() => {});
+      }
+
+      let referredById: string | null = null;
+      if (referralCode) {
+        try {
+          const referrer = await db.user.findFirst({
+            where: {
+              OR: [
+                { referralCode: referralCode },
+                { id: referralCode }
+              ]
+            }
+          });
+          if (referrer) referredById = referrer.id;
+        } catch {}
+      }
+
+      const randomPass = await bcrypt.hash(Math.random().toString(36) + Date.now(), 10);
+      user = await db.user.create({
+        data: {
+          email: ghEmail,
+          password: randomPass,
+          name: ghName,
+          avatarUrl: ghAvatar,
+          githubHandle: cleanUsername,
+          githubId: ghId,
+          referralCode: generateReferralCode(),
+          referredById: referredById || undefined
+        }
+      });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, name: user.name },
+      JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    res.json({
+      token,
+      user: formatUserResponse(user),
+      message: `Успешный вход через GitHub (@${cleanUsername})!`
+    });
+  } catch (error: any) {
+    console.error("GitHub fast login error:", error);
+    res.status(500).json({ error: error.message || "Ошибка авторизации через GitHub" });
+  }
+});
+
+// 4. Sync / Refresh GitHub Profile (Avatar, Nickname, ID) for authenticated user
+app.post("/api/user/github/sync", async (req, res) => {
+  try {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: "Сначала войдите в аккаунт." });
+    }
+
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const user = await db.user.findUnique({ where: { id: authUser.id } });
+    if (!user) return res.status(404).json({ error: "Пользователь не найден." });
+
+    const targetHandle = (req.body.username || (user as any).githubHandle || "").trim().replace(/^@/, "");
+    if (!targetHandle) {
+      return res.status(400).json({ error: "GitHub никнейм не указан." });
+    }
+
+    let ghName = targetHandle;
+    let ghAvatar = `https://github.com/${targetHandle}.png`;
+    let ghId = (user as any).githubId || `gh_${targetHandle}`;
+
+    try {
+      const ghRes = await fetch(`https://api.github.com/users/${encodeURIComponent(targetHandle)}`, {
+        headers: {
+          "User-Agent": "TMA-Builder-App",
+          "Accept": "application/vnd.github.v3+json"
+        }
+      });
+      if (ghRes.ok) {
+        const ghData = (await ghRes.json()) as any;
+        ghName = ghData.name || ghData.login || targetHandle;
+        ghAvatar = ghData.avatar_url || ghAvatar;
+        if (ghData.id) ghId = String(ghData.id);
+      }
+    } catch (e) {
+      console.warn("Could not fetch github user info:", e);
+    }
+
+    if (ghId) {
+      await db.$executeRawUnsafe(
+        `UPDATE "User" SET "githubId" = NULL WHERE "githubId" = $1 AND "id" != $2;`,
+        ghId,
+        user.id
+      ).catch(() => {});
+    }
+
+    const updated = await db.user.update({
+      where: { id: user.id },
+      data: {
+        avatarUrl: ghAvatar,
+        name: user.name || ghName,
+        githubHandle: targetHandle,
+        githubId: ghId
+      }
+    });
+
+    const formatted = formatUserResponse(updated);
+    broadcastEvent({ type: "USER_UPDATED", payload: formatted });
+
+    res.json({
+      success: true,
+      user: formatted,
+      message: `Профиль и аватарка успешно синхронизированы с GitHub (@${targetHandle})!`
+    });
+  } catch (error: any) {
+    console.error("GitHub sync error:", error);
+    res.status(500).json({ error: error.message || "Не удалось синхронизировать GitHub профиль." });
+  }
+});
+
+
 app.get("/favicon.ico", (_req, res) => {
   res.status(204).end();
 });
@@ -1488,7 +2143,7 @@ app.put("/api/user/profile", async (req, res) => {
       return res.status(401).json({ error: "Сначала войдите в аккаунт." });
     }
 
-    const { name, phone, avatarUrl, telegramHandle, companyName, currentPassword, newPassword, emailCode } = req.body;
+    const { name, phone, avatarUrl, telegramHandle, githubHandle, githubId, companyName, currentPassword, newPassword, emailCode } = req.body;
 
     const db = getPrismaClient();
     if (!db) return res.status(500).json({ error: "Ошибка базы данных." });
@@ -1542,6 +2197,14 @@ app.put("/api/user/profile", async (req, res) => {
       }
     }
 
+    if (githubId) {
+      await db.$executeRawUnsafe(
+        `UPDATE "User" SET "githubId" = NULL WHERE "githubId" = $1 AND "id" != $2;`,
+        String(githubId).trim(),
+        authUser.id
+      ).catch(() => {});
+    }
+
     const updated = await db.user.update({
       where: { id: authUser.id },
       data: {
@@ -1549,6 +2212,8 @@ app.put("/api/user/profile", async (req, res) => {
         phone: phone !== undefined ? (phone ? String(phone).trim() : null) : (user as any).phone,
         avatarUrl: avatarUrl !== undefined ? (avatarUrl ? String(avatarUrl).trim() : null) : (user as any).avatarUrl,
         telegramHandle: telegramHandle !== undefined ? (telegramHandle ? String(telegramHandle).trim() : null) : (user as any).telegramHandle,
+        githubHandle: githubHandle !== undefined ? (githubHandle ? String(githubHandle).trim().replace(/^@/, "") : null) : (user as any).githubHandle,
+        githubId: githubId !== undefined ? (githubId ? String(githubId).trim() : null) : (user as any).githubId,
         companyName: companyName !== undefined ? (companyName ? String(companyName).trim() : null) : (user as any).companyName,
         password: updatedPassword
       } as any

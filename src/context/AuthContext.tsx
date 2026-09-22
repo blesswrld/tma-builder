@@ -9,6 +9,8 @@ export interface User {
   phone?: string | null;
   avatarUrl?: string | null;
   telegramHandle?: string | null;
+  githubHandle?: string | null;
+  githubId?: string | null;
   companyName?: string | null;
   plan?: string;
   subscriptionExpiresAt?: string | null;
@@ -21,6 +23,8 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGitHub: (referralCode?: string) => Promise<{ user: User; token: string }>;
+  fastLoginWithGitHub: (username: string, referralCode?: string) => Promise<{ user: User; token: string }>;
   register: (email: string, password: string, name?: string) => Promise<void>;
   sendCode: (email: string, type?: "LOGIN" | "REGISTER" | "RESET_PASSWORD") => Promise<{ devCode?: string; message: string }>;
   verifyCode: (params: { email: string; code: string; name?: string; password?: string }) => Promise<void>;
@@ -30,6 +34,7 @@ interface AuthContextType {
     phone?: string;
     avatarUrl?: string;
     telegramHandle?: string;
+    githubHandle?: string;
     companyName?: string;
     currentPassword?: string;
     newPassword?: string;
@@ -326,6 +331,131 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return data.user;
   }, []);
 
+  const loginWithGitHub = useCallback(async (referralCode?: string): Promise<{ user: User; token: string }> => {
+    let pendingRef: string | null = referralCode || null;
+    if (!pendingRef) {
+      try {
+        pendingRef = localStorage.getItem("pending_referral_code");
+      } catch {}
+    }
+
+    const res = await fetch(`/api/auth/github/url?referralCode=${encodeURIComponent(pendingRef || "")}`);
+    const data = await res.json();
+
+    if (!data.url) {
+      throw new Error(data.message || "GITHUB_CLIENT_ID не настроен на сервере");
+    }
+
+    const width = 600;
+    const height = 720;
+    const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
+    const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
+
+    const popup = window.open(
+      data.url,
+      "github_oauth_popup",
+      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+    );
+
+    if (!popup) {
+      window.location.href = data.url;
+      return new Promise(() => {});
+    }
+
+    return new Promise<{ user: User; token: string }>((resolve, reject) => {
+      let isCompleted = false;
+
+      const handleMessage = (event: MessageEvent) => {
+        if (!event.data || typeof event.data !== "object") return;
+        if (event.data.type === "OAUTH_AUTH_SUCCESS" && event.data.provider === "github") {
+          isCompleted = true;
+          window.removeEventListener("message", handleMessage);
+          clearInterval(checkClosedInterval);
+
+          const authUser = event.data.user;
+          const authToken = event.data.token;
+
+          localStorage.setItem("auth_token", authToken);
+          localStorage.setItem("auth_user", JSON.stringify(authUser));
+          setToken(authToken);
+          setUser(authUser);
+
+          try {
+            localStorage.removeItem("pending_referral_code");
+            window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: authToken } }));
+          } catch {}
+
+          resolve({ user: authUser, token: authToken });
+        } else if (event.data.type === "OAUTH_AUTH_ERROR") {
+          isCompleted = true;
+          window.removeEventListener("message", handleMessage);
+          clearInterval(checkClosedInterval);
+          reject(new Error(event.data.error || "Ошибка авторизации через GitHub"));
+        }
+      };
+
+      window.addEventListener("message", handleMessage);
+
+      const checkClosedInterval = setInterval(() => {
+        if (popup.closed && !isCompleted) {
+          clearInterval(checkClosedInterval);
+          window.removeEventListener("message", handleMessage);
+
+          const currentToken = localStorage.getItem("auth_token");
+          const currentUserStr = localStorage.getItem("auth_user");
+          if (currentToken && currentUserStr) {
+            try {
+              const parsedUser = JSON.parse(currentUserStr);
+              setToken(currentToken);
+              setUser(parsedUser);
+              resolve({ user: parsedUser, token: currentToken });
+              return;
+            } catch {}
+          }
+          reject(new Error("Окно авторизации GitHub было закрыто"));
+        }
+      }, 500);
+    });
+  }, []);
+
+  const fastLoginWithGitHub = useCallback(async (username: string, referralCode?: string): Promise<{ user: User; token: string }> => {
+    let pendingRef: string | null = referralCode || null;
+    if (!pendingRef) {
+      try {
+        pendingRef = localStorage.getItem("pending_referral_code");
+      } catch {}
+    }
+
+    const res = await fetch("/api/auth/github/fast-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username,
+        referralCode: pendingRef || undefined
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Не удалось войти через GitHub");
+    }
+
+    try {
+      localStorage.removeItem("pending_referral_code");
+    } catch {}
+
+    localStorage.setItem("auth_token", data.token);
+    localStorage.setItem("auth_user", JSON.stringify(data.user));
+    setToken(data.token);
+    setUser(data.user);
+
+    try {
+      window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
+    } catch {}
+
+    return { user: data.user, token: data.token };
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
@@ -341,13 +471,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     token,
     isLoading,
     login,
+    loginWithGitHub,
+    fastLoginWithGitHub,
     register,
     sendCode,
     verifyCode,
     resetPassword,
     updateProfile,
     logout
-  }), [user, token, isLoading, login, register, sendCode, verifyCode, resetPassword, updateProfile, logout]);
+  }), [user, token, isLoading, login, loginWithGitHub, fastLoginWithGitHub, register, sendCode, verifyCode, resetPassword, updateProfile, logout]);
 
   return (
     <AuthContext.Provider value={contextValue}>

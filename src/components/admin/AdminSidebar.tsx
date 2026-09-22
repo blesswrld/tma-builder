@@ -794,12 +794,21 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold text-app-primary truncate group-hover:text-app-accent transition-colors leading-tight">
-                    {user?.name || user?.email || t("admin.role_admin", "Администратор")}
-                  </p>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <p className="text-[11px] font-semibold text-app-primary truncate group-hover:text-app-accent transition-colors leading-tight">
+                      {user?.name || (user?.githubHandle ? `@${user.githubHandle}` : user?.email) || t("admin.role_admin", "Администратор")}
+                    </p>
+                    {user?.githubHandle && (
+                      <span className="inline-flex items-center text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 p-0.5 rounded shrink-0" title={`GitHub: @${user.githubHandle}`}>
+                        <Github size={9} />
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1 text-[9.5px] text-app-muted truncate font-mono mt-0.5">
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${token ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-                    <span className="truncate">{user?.companyName || (token ? t("admin.status_online", "Онлайн") : t("admin.status_guest", "Гость"))}</span>
+                    <span className="truncate">
+                      {user?.githubHandle ? `@${user.githubHandle}` : (user?.companyName || (token ? t("admin.status_online", "Онлайн") : t("admin.status_guest", "Гость")))}
+                    </span>
                   </div>
                 </div>
               </button>
