@@ -237,13 +237,13 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
             onClick={onToggleOnlyOpen}
             className={`px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer shadow-2xs ${
               onlyOpen
-                ? "bg-emerald-500 text-white border-emerald-500 shadow-emerald-500/20"
+                ? "bg-app-accent text-app-accent-fg border-transparent shadow-xs font-semibold"
                 : "bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
             }`}
           >
             <span
               className={`w-2 h-2 rounded-full ${
-                onlyOpen ? "bg-white" : "bg-emerald-500"
+                onlyOpen ? "bg-app-accent-fg" : "bg-app-muted"
               }`}
             />
             <span>Сейчас открыто</span>
@@ -255,11 +255,11 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
             onClick={onToggleOnlyDelivery}
             className={`px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer shadow-2xs ${
               onlyDelivery
-                ? "bg-blue-600 text-white border-blue-600 shadow-blue-600/20"
+                ? "bg-app-accent text-app-accent-fg border-transparent shadow-xs font-semibold"
                 : "bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
             }`}
           >
-            <Truck size={13} className={onlyDelivery ? "text-white" : "text-blue-500"} />
+            <Truck size={13} className={onlyDelivery ? "text-app-accent-fg" : "text-app-muted"} />
             <span>Доставка</span>
           </button>
 
@@ -269,13 +269,13 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
             onClick={() => onSetMinRating(minRating === 4.5 ? 0 : 4.5)}
             className={`px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer shadow-2xs ${
               minRating >= 4.5
-                ? "bg-amber-500 text-white border-amber-500 shadow-amber-500/20"
+                ? "bg-app-accent text-app-accent-fg border-transparent shadow-xs font-semibold"
                 : "bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
             }`}
           >
             <Star
               size={13}
-              className={minRating >= 4.5 ? "fill-white text-white" : "fill-amber-400 text-amber-400"}
+              className={minRating >= 4.5 ? "fill-app-accent-fg text-app-accent-fg" : "fill-app-muted text-app-muted"}
             />
             <span>4.5+</span>
           </button>
@@ -286,11 +286,11 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
             onClick={onToggleHasCashback}
             className={`px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer shadow-2xs ${
               hasCashback
-                ? "bg-emerald-600 text-white border-emerald-600 shadow-emerald-600/20"
+                ? "bg-app-accent text-app-accent-fg border-transparent shadow-xs font-semibold"
                 : "bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
             }`}
           >
-            <Percent size={12} className={hasCashback ? "text-white" : "text-emerald-500"} />
+            <Percent size={12} className={hasCashback ? "text-app-accent-fg" : "text-app-muted"} />
             <span>Кэшбэк</span>
           </button>
 

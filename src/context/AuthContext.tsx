@@ -9,11 +9,16 @@ export interface User {
   phone?: string | null;
   avatarUrl?: string | null;
   telegramHandle?: string | null;
+  telegramId?: string | null;
   githubHandle?: string | null;
   githubId?: string | null;
   companyName?: string | null;
   plan?: string;
   subscriptionExpiresAt?: string | null;
+  role?: "USER" | "SELLER" | "MODERATOR" | "ADMIN" | "DEVELOPER";
+  balance?: number;
+  city?: string | null;
+  isVerified?: boolean;
   referralCode?: string | null;
   referredById?: string | null;
 }
@@ -25,6 +30,13 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   loginWithGitHub: (referralCode?: string) => Promise<{ user: User; token: string }>;
   fastLoginWithGitHub: (username: string, referralCode?: string) => Promise<{ user: User; token: string }>;
+  loginWithTelegram: (customInitData?: string, referralCode?: string) => Promise<{ user: User; token: string }>;
+  fastLoginWithTelegram: (username: string, referralCode?: string) => Promise<{ user: User; token: string }>;
+  loginWithTelegramWidget: (widgetData: any, referralCode?: string) => Promise<{ user: User; token: string }>;
+  createTelegramSession: (params?: { referralCode?: string; phone?: string }) => Promise<{ sessionId: string; deepLink: string; botUsername: string; expiresAt: number }>;
+  pollTelegramSession: (sessionId: string) => Promise<{ status: "PENDING" | "CONFIRMED" | "EXPIRED" | "CANCELLED"; user?: User; token?: string }>;
+  sendTelegramCode: (params: { phone?: string; handle?: string; referralCode?: string }) => Promise<{ success: boolean; sessionId?: string; botUrl?: string; botUsername?: string; sentDirectly?: boolean; message?: string; devCode?: string }>;
+  verifyTelegramCode: (params: { phone?: string; handle?: string; code: string; sessionId?: string; referralCode?: string }) => Promise<{ user: User; token: string }>;
   register: (email: string, password: string, name?: string) => Promise<void>;
   sendCode: (email: string, type?: "LOGIN" | "REGISTER" | "RESET_PASSWORD") => Promise<{ devCode?: string; message: string }>;
   verifyCode: (params: { email: string; code: string; name?: string; password?: string }) => Promise<void>;
@@ -36,6 +48,7 @@ interface AuthContextType {
     telegramHandle?: string;
     githubHandle?: string;
     companyName?: string;
+    city?: string;
     currentPassword?: string;
     newPassword?: string;
   }) => Promise<User>;
@@ -119,6 +132,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkAuth = async () => {
       const storedToken = localStorage.getItem("auth_token");
       if (!storedToken) {
+        // Auto-login with Telegram WebApp if running inside Telegram
+        const tg = (window as any).Telegram?.WebApp;
+        if (tg?.initData) {
+          try {
+            const tgRes = await fetch("/api/auth/telegram/webapp", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ initData: tg.initData })
+            });
+            if (tgRes.ok) {
+              const tgData = await tgRes.json();
+              localStorage.setItem("auth_token", tgData.token);
+              localStorage.setItem("auth_user", JSON.stringify(tgData.user));
+              setUser(tgData.user);
+              setToken(tgData.token);
+              setIsLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.warn("Telegram WebApp auto-auth error:", e);
+          }
+        }
         setUser(null);
         setIsLoading(false);
         return;
@@ -456,6 +491,238 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { user: data.user, token: data.token };
   }, []);
 
+  const loginWithTelegram = useCallback(async (customInitData?: string, referralCode?: string): Promise<{ user: User; token: string }> => {
+    let pendingRef: string | null = referralCode || null;
+    if (!pendingRef) {
+      try {
+        pendingRef = localStorage.getItem("pending_referral_code");
+      } catch {}
+    }
+
+    const initData = customInitData || (window as any).Telegram?.WebApp?.initData;
+    if (!initData) {
+      throw new Error("Telegram WebApp данные не обнаружены. Пожалуйста, откройте приложение внутри Telegram.");
+    }
+
+    const res = await fetch("/api/auth/telegram/webapp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        initData,
+        referralCode: pendingRef || undefined
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Ошибка авторизации через Telegram WebApp");
+    }
+
+    try {
+      localStorage.removeItem("pending_referral_code");
+    } catch {}
+
+    localStorage.setItem("auth_token", data.token);
+    localStorage.setItem("auth_user", JSON.stringify(data.user));
+    setToken(data.token);
+    setUser(data.user);
+
+    try {
+      window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
+    } catch {}
+
+    return { user: data.user, token: data.token };
+  }, []);
+
+  const fastLoginWithTelegram = useCallback(async (username: string, referralCode?: string): Promise<{ user: User; token: string }> => {
+    let pendingRef: string | null = referralCode || null;
+    if (!pendingRef) {
+      try {
+        pendingRef = localStorage.getItem("pending_referral_code");
+      } catch {}
+    }
+
+    const res = await fetch("/api/auth/telegram/fast-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username,
+        referralCode: pendingRef || undefined
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Не удалось войти через Telegram");
+    }
+
+    try {
+      localStorage.removeItem("pending_referral_code");
+    } catch {}
+
+    localStorage.setItem("auth_token", data.token);
+    localStorage.setItem("auth_user", JSON.stringify(data.user));
+    setToken(data.token);
+    setUser(data.user);
+
+    try {
+      window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
+    } catch {}
+
+    return { user: data.user, token: data.token };
+  }, []);
+
+  const loginWithTelegramWidget = useCallback(async (widgetData: any, referralCode?: string): Promise<{ user: User; token: string }> => {
+    let pendingRef: string | null = referralCode || null;
+    if (!pendingRef) {
+      try {
+        pendingRef = localStorage.getItem("pending_referral_code");
+      } catch {}
+    }
+
+    const res = await fetch("/api/auth/telegram/widget", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...widgetData,
+        referralCode: pendingRef || undefined
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Не удалось авторизоваться через Telegram");
+    }
+
+    try {
+      localStorage.removeItem("pending_referral_code");
+    } catch {}
+
+    localStorage.setItem("auth_token", data.token);
+    localStorage.setItem("auth_user", JSON.stringify(data.user));
+    setToken(data.token);
+    setUser(data.user);
+
+    try {
+      window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
+    } catch {}
+
+    return { user: data.user, token: data.token };
+  }, []);
+
+  const createTelegramSession = useCallback(async (params?: { referralCode?: string; phone?: string }) => {
+    let pendingRef: string | null = params?.referralCode || null;
+    if (!pendingRef) {
+      try {
+        pendingRef = localStorage.getItem("pending_referral_code");
+      } catch {}
+    }
+
+    const res = await fetch("/api/auth/telegram/session/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        referralCode: pendingRef || undefined,
+        phone: params?.phone || undefined
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Не удалось создать сессию Telegram авторизации");
+    }
+
+    return data as { sessionId: string; deepLink: string; botUsername: string; expiresAt: number };
+  }, []);
+
+  const pollTelegramSession = useCallback(async (sessionId: string) => {
+    const res = await fetch(`/api/auth/telegram/session/status?sessionId=${encodeURIComponent(sessionId)}`);
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Ошибка проверки статуса сессии");
+    }
+
+    if (data.status === "CONFIRMED" && data.token && data.user) {
+      try {
+        localStorage.removeItem("pending_referral_code");
+      } catch {}
+      localStorage.setItem("auth_token", data.token);
+      localStorage.setItem("auth_user", JSON.stringify(data.user));
+      setToken(data.token);
+      setUser(data.user);
+
+      try {
+        window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
+      } catch {}
+    }
+
+    return data;
+  }, []);
+
+  const sendTelegramCode = useCallback(async (params: { phone?: string; handle?: string; referralCode?: string }) => {
+    let pendingRef: string | null = params.referralCode || null;
+    if (!pendingRef) {
+      try {
+        pendingRef = localStorage.getItem("pending_referral_code");
+      } catch {}
+    }
+
+    const res = await fetch("/api/auth/telegram/send-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: params.phone,
+        handle: params.handle,
+        referralCode: pendingRef || undefined
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Не удалось отправить код в Telegram");
+    }
+
+    return data;
+  }, []);
+
+  const verifyTelegramCode = useCallback(async (params: { phone?: string; handle?: string; code: string; sessionId?: string; referralCode?: string }) => {
+    let pendingRef: string | null = params.referralCode || null;
+    if (!pendingRef) {
+      try {
+        pendingRef = localStorage.getItem("pending_referral_code");
+      } catch {}
+    }
+
+    const res = await fetch("/api/auth/telegram/verify-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...params,
+        referralCode: pendingRef || undefined
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Неверный код подтверждения");
+    }
+
+    try {
+      localStorage.removeItem("pending_referral_code");
+    } catch {}
+
+    localStorage.setItem("auth_token", data.token);
+    localStorage.setItem("auth_user", JSON.stringify(data.user));
+    setToken(data.token);
+    setUser(data.user);
+
+    try {
+      window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
+    } catch {}
+
+    return { user: data.user, token: data.token };
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
@@ -473,13 +740,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     loginWithGitHub,
     fastLoginWithGitHub,
+    loginWithTelegram,
+    fastLoginWithTelegram,
+    loginWithTelegramWidget,
+    createTelegramSession,
+    pollTelegramSession,
+    sendTelegramCode,
+    verifyTelegramCode,
     register,
     sendCode,
     verifyCode,
     resetPassword,
     updateProfile,
     logout
-  }), [user, token, isLoading, login, loginWithGitHub, fastLoginWithGitHub, register, sendCode, verifyCode, resetPassword, updateProfile, logout]);
+  }), [user, token, isLoading, login, loginWithGitHub, fastLoginWithGitHub, loginWithTelegram, fastLoginWithTelegram, loginWithTelegramWidget, createTelegramSession, pollTelegramSession, sendTelegramCode, verifyTelegramCode, register, sendCode, verifyCode, resetPassword, updateProfile, logout]);
 
   return (
     <AuthContext.Provider value={contextValue}>

@@ -870,6 +870,7 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
         }
       } catch {}
       window.dispatchEvent(new CustomEvent("chat-message-deleted", { detail: { messageId, mode } }));
+      window.dispatchEvent(new CustomEvent("chat_message_deleted", { detail: { messageId, mode } }));
     } catch (err: any) {
       console.error("Error deleting message:", err);
       setError(err.message || "Не удалось удалить сообщение");

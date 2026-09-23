@@ -8,6 +8,7 @@ import ReferralPage from './pages/ReferralPage';
 import DeveloperReportsPage from './pages/DeveloperReportsPage';
 import DeveloperUsersPage from './pages/DeveloperUsersPage';
 import { DeveloperServersPage } from './pages/DeveloperServersPage';
+import ModerationPage from './pages/ModerationPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -152,6 +153,8 @@ export default function App() {
               <Route path="/catalog" element={<ExplorePage />} />
               <Route path="/shops" element={<ExplorePage />} />
               <Route path="/search" element={<ExplorePage />} />
+              <Route path="/moderation" element={<ModerationPage />} />
+              <Route path="/admin/moderation" element={<ModerationPage />} />
               <Route path="/:slug" element={<ShopPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

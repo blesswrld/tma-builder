@@ -724,6 +724,7 @@ export default function PlanModal({
                           <label className="block text-[11px] text-app-muted mb-1 font-medium">CVC / CVV код</label>
                           <input
                             type="password"
+                            autoComplete="cc-csc"
                             maxLength={3}
                             placeholder="•••"
                             value={cardCvc}

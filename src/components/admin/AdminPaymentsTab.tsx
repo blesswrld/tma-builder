@@ -492,7 +492,7 @@ export default function AdminPaymentsTab({
           <div className="overflow-x-auto">
             <table className="w-full text-xs font-mono text-left border-collapse">
               <thead>
-                <tr className="border-b border-app-border bg-app-card/60 text-app-muted uppercase text-[10px] tracking-wider">
+                <tr className="border-b border-app-border bg-app-surface text-app-muted uppercase text-[10px] tracking-wider">
                   <th className="py-3 px-4">ID и Дата</th>
                   <th className="py-3 px-4">Тариф</th>
                   <th className="py-3 px-4">Сумма</th>
@@ -510,7 +510,7 @@ export default function AdminPaymentsTab({
                   return (
                     <tr 
                       key={p.id}
-                      className="hover:bg-app-card/40 transition-colors group cursor-pointer"
+                      className="hover:bg-app-hover transition-colors group cursor-pointer"
                       onClick={() => setSelectedPaymentDetails(p)}
                     >
                       {/* ID & Date */}

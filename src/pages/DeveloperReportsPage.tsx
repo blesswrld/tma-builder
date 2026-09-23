@@ -42,6 +42,7 @@ import {
   FileCode,
   Users
 } from "lucide-react";
+import { CustomCheckbox } from "../components/ui/CustomCheckbox";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useRealtime } from "../context/RealtimeContext";
@@ -502,6 +503,8 @@ export default function DeveloperReportsPage() {
   const isAllSelected =
     filteredReports.length > 0 &&
     filteredReports.every((r) => r.id && selectedIds.includes(r.id));
+  const isPartiallySelected =
+    !isAllSelected && filteredReports.some((r) => r.id && selectedIds.includes(r.id));
 
   const toggleSelectAll = () => {
     if (isAllSelected) {
@@ -667,15 +670,15 @@ export default function DeveloperReportsPage() {
             className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 bg-app-card border border-app-border rounded-xl text-[11px] font-mono transition-all duration-150 select-none shrink-0 flex-none ${
               isConnected
                 ? "text-app-primary"
-                : "text-amber-400 animate-pulse"
+                : "text-app-muted animate-pulse"
             }`}
             title={isConnected ? "WebSocket соединение активно (Realtime)" : "Переподключение WebSocket..."}
           >
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${
                 isConnected
-                  ? "bg-emerald-500"
-                  : "bg-amber-500"
+                  ? "bg-app-primary"
+                  : "bg-app-muted"
               }`}
             />
             <span className="hidden sm:inline font-bold tracking-tight whitespace-nowrap">
@@ -797,10 +800,10 @@ export default function DeveloperReportsPage() {
             <span className="text-[11px] font-mono text-app-muted uppercase tracking-wider block font-medium">
               Новые
             </span>
-            <div className="text-xl font-bold font-mono text-rose-600 dark:text-rose-300 flex items-center gap-1.5">
+            <div className="text-xl font-bold font-mono text-app-primary flex items-center gap-1.5">
               <span>{stats.newCount}</span>
               {stats.newCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                <span className="w-2 h-2 rounded-full bg-app-primary" />
               )}
             </div>
             <div className="text-[10px] font-mono text-app-muted">Требуют внимания</div>
@@ -810,7 +813,7 @@ export default function DeveloperReportsPage() {
             <span className="text-[11px] font-mono text-app-muted uppercase tracking-wider block font-medium">
               В работе
             </span>
-            <div className="text-xl font-bold font-mono text-amber-600 dark:text-amber-300">{stats.inProgressCount}</div>
+            <div className="text-xl font-bold font-mono text-app-primary">{stats.inProgressCount}</div>
             <div className="text-[10px] font-mono text-app-muted">В процессе исправления</div>
           </div>
 
@@ -818,7 +821,7 @@ export default function DeveloperReportsPage() {
             <span className="text-[11px] font-mono text-app-muted uppercase tracking-wider block font-medium">
               Решено / Закрыто
             </span>
-            <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-300">{stats.resolvedCount}</div>
+            <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{stats.resolvedCount}</div>
             <div className="text-[10px] font-mono text-app-muted">Успешно закрыто</div>
           </div>
         </div>
@@ -863,7 +866,7 @@ export default function DeveloperReportsPage() {
                     className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                       active
                         ? "bg-app-card text-app-primary border-app-border font-medium"
-                        : "bg-app-card/50 text-app-muted hover:text-app-primary border-transparent hover:border-app-border"
+                        : "bg-transparent text-app-muted hover:text-app-primary border-transparent hover:bg-app-hover"
                     }`}
                   >
                     {Icon && <Icon size={12} />}
@@ -874,7 +877,7 @@ export default function DeveloperReportsPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-app-border/50 text-xs font-mono">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-app-border text-xs font-mono">
             {/* Status Filter */}
             <div className="flex items-center gap-1 flex-wrap">
               <span className="text-app-muted text-[11px] mr-1">Статус:</span>
@@ -892,7 +895,7 @@ export default function DeveloperReportsPage() {
                     className={`px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
                       active
                         ? "bg-app-card text-app-primary border-app-border font-medium"
-                        : "bg-app-card/30 text-app-muted hover:text-app-primary border-transparent"
+                        : "bg-transparent text-app-muted hover:text-app-primary hover:bg-app-hover border-transparent"
                     }`}
                   >
                     {s.label}
@@ -905,17 +908,16 @@ export default function DeveloperReportsPage() {
             <div className="flex items-center gap-2 flex-wrap">
               {/* Select All checkbox */}
               {filteredReports.length > 0 && (
-                <button
-                  onClick={toggleSelectAll}
-                  className="px-2.5 py-1 bg-app-card border border-app-border text-app-muted hover:text-app-primary rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
-                >
-                  {isAllSelected ? (
-                    <CheckSquare size={13} className="text-app-primary" />
-                  ) : (
-                    <Square size={13} />
-                  )}
-                  <span>Выбрать все ({filteredReports.length})</span>
-                </button>
+                <div className="px-2.5 py-1 bg-app-card border border-app-border rounded-lg flex items-center gap-1.5 transition-colors">
+                  <CustomCheckbox
+                    checked={isAllSelected}
+                    indeterminate={isPartiallySelected}
+                    onChange={toggleSelectAll}
+                    size="sm"
+                    variant="default"
+                    label={`Выбрать все (${filteredReports.length})`}
+                  />
+                </div>
               )}
 
               {/* Shop Filter */}
@@ -1098,23 +1100,20 @@ export default function DeveloperReportsPage() {
                     isNewlyArrived
                       ? "border-emerald-500/40 bg-emerald-500/[0.02]"
                       : isSelected
-                      ? "border-app-border bg-app-card/30"
-                      : "border-app-border hover:border-app-border/80"
+                      ? "border-app-border bg-app-card"
+                      : "border-app-border hover:border-app-border-focus"
                   }`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-start gap-3 min-w-0">
                       {/* Selection checkbox */}
-                      <button
-                        onClick={() => report.id && toggleSelectOne(report.id)}
-                        className="mt-1 text-app-muted hover:text-app-primary cursor-pointer transition-colors"
-                      >
-                        {isSelected ? (
-                          <CheckSquare size={16} className="text-app-primary" />
-                        ) : (
-                          <Square size={16} />
-                        )}
-                      </button>
+                      <CustomCheckbox
+                        checked={isSelected}
+                        onChange={() => report.id && toggleSelectOne(report.id)}
+                        size="sm"
+                        variant="default"
+                        className="mt-1"
+                      />
 
                       <div className="space-y-1.5 min-w-0">
                         {/* Badges row */}

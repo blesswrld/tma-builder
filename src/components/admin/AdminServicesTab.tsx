@@ -19,9 +19,17 @@ import {
   ChevronDown,
   Check,
   Layers,
+  Flame,
+  Sparkles,
+  ShieldCheck,
+  ShieldAlert,
+  Wallet,
 } from "lucide-react";
 import ImageUploader from "../ImageUploader";
 import { CustomNumberInput } from "../CustomNumberInput";
+import { CustomToggle } from "../ui/CustomToggle";
+import { BoostServiceModal } from "../services/BoostServiceModal";
+import { BalanceModal } from "../profile/BalanceModal";
 
 const FULFILLMENT_OPTIONS = [
   { value: "courier,pickup", label: "В заведении и Доставка", icon: Store, color: "text-app-muted" },
@@ -173,6 +181,8 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
   handleToggleAvailability,
 }) => {
   const [newGalleryInput, setNewGalleryInput] = useState("");
+  const [boostingService, setBoostingService] = useState<{ id: string; title: string } | null>(null);
+  const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
 
   const handleAddGalleryImage = (url: string) => {
     if (!url.trim()) return;
@@ -509,17 +519,13 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                   Если отключить, услуга будет скрыта из клиентского каталога
                 </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                <input
-                  type="checkbox"
-                  checked={newServiceData.isAvailable !== false}
-                  onChange={(e) =>
-                    setNewServiceData((s: any) => ({ ...s, isAvailable: e.target.checked }))
-                  }
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-zinc-300 dark:bg-zinc-800 border border-black/10 dark:border-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-zinc-900 dark:peer-checked:bg-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:after:bg-zinc-400 peer-checked:after:bg-white dark:peer-checked:after:bg-black after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-sm"></div>
-              </label>
+              <CustomToggle
+                checked={newServiceData.isAvailable !== false}
+                onChange={(checked) =>
+                  setNewServiceData((s: any) => ({ ...s, isAvailable: checked }))
+                }
+                variant="success"
+              />
             </div>
 
             {/* Buttons */}
@@ -710,6 +716,33 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                       ))}
                     </div>
                   )}
+                  {/* Moderation & VIP Status */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    {service.isVip && (
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold flex items-center gap-1">
+                        <Sparkles size={10} />
+                        <span>VIP / ТОП</span>
+                      </span>
+                    )}
+                    {service.moderationStatus === "APPROVED" && (
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-semibold flex items-center gap-1">
+                        <ShieldCheck size={10} />
+                        <span>Одобрено</span>
+                      </span>
+                    )}
+                    {service.moderationStatus === "PENDING" && (
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-mono font-semibold flex items-center gap-1">
+                        <Clock size={10} />
+                        <span>На модерации</span>
+                      </span>
+                    )}
+                    {service.moderationStatus === "REJECTED" && (
+                      <span className="px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/30 text-[10px] font-mono font-semibold flex items-center gap-1" title={service.moderationReason || ""}>
+                        <ShieldAlert size={10} />
+                        <span>Отклонено</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Footer Controls */}
@@ -748,6 +781,17 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                       >
                         <Copy size={13} />
                       </button>
+                      {/* Boost to Top / VIP */}
+                      <button
+                        type="button"
+                        onClick={() => setBoostingService({ id: service.id, title: service.title })}
+                        className="px-2 py-1 text-amber-400 hover:text-amber-300 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all cursor-pointer active:scale-95 flex items-center gap-1"
+                        title="Поднять в ТОП / VIP"
+                      >
+                        <Flame size={12} />
+                        <span className="text-[10px] font-mono font-bold">В ТОП</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => {
@@ -800,6 +844,21 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
           })}
         </div>
       )}
+
+      {/* Boost Modal */}
+      <BoostServiceModal
+        isOpen={Boolean(boostingService)}
+        onClose={() => setBoostingService(null)}
+        serviceId={boostingService?.id || ""}
+        serviceTitle={boostingService?.title || ""}
+        onOpenDeposit={() => setIsBalanceModalOpen(true)}
+      />
+
+      {/* Balance Modal */}
+      <BalanceModal
+        isOpen={isBalanceModalOpen}
+        onClose={() => setIsBalanceModalOpen(false)}
+      />
     </div>
   );
 };

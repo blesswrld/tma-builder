@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { Sun, Moon, Star, Receipt, Bug, Compass } from "lucide-react";
+import { Sun, Moon, Star, Receipt, Bug, Compass, MessageSquare } from "lucide-react";
 import { Shop } from "../../types";
 import { useLanguage } from "../../context/LanguageContext";
 import { ResponsiveImage } from "../common/ResponsiveImage";
@@ -17,6 +17,7 @@ interface ShopHeaderProps {
   onOpenMyOrders: () => void;
   onOpenReport?: () => void;
   onOpenMusic?: () => void;
+  onOpenChat?: () => void;
 }
 
 export const ShopHeader: React.FC<ShopHeaderProps> = ({
@@ -27,6 +28,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
   onOpenReviews,
   onOpenMyOrders,
   onOpenReport,
+  onOpenChat,
 }) => {
   const { t } = useLanguage();
   const handleToggleTheme = onToggleTheme || toggleTheme || (() => {});
@@ -106,6 +108,21 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
             <Star size={13} className="text-amber-400 shrink-0" />
             <span className="hidden min-[440px]:inline">{t("shop.reviews", "Отзывы")}</span>
           </motion.button>
+
+          {/* Peer Chat button */}
+          {onOpenChat && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="button"
+              onClick={onOpenChat}
+              className="h-8 px-2.5 rounded-lg text-xs transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0 bg-app-accent text-app-accent-fg hover:opacity-90 shadow-2xs"
+              title="Чат с заведением"
+            >
+              <MessageSquare size={13} className="shrink-0" />
+              <span className="hidden min-[440px]:inline">Чат</span>
+            </motion.button>
+          )}
 
           {/* Orders History button */}
           <motion.button

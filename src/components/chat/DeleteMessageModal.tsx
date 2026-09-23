@@ -44,7 +44,7 @@ export const DeleteMessageModal: React.FC<DeleteMessageModalProps> = ({
       {/* Modal Dialog Card */}
       <div className="relative w-full max-w-sm bg-app-card border border-app-border rounded-2xl shadow-2xl overflow-hidden z-10 flex flex-col animate-in fade-in zoom-in-95 duration-100">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3.5 border-b border-app-border bg-app-surface/50">
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-app-border bg-app-surface">
           <div className="flex items-center gap-2.5">
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
               isForAll 
@@ -88,7 +88,7 @@ export const DeleteMessageModal: React.FC<DeleteMessageModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-app-border bg-app-surface/30">
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-app-border bg-app-surface">
           <button
             type="button"
             disabled={isDeleting}

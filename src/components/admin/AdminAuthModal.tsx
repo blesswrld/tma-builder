@@ -15,6 +15,7 @@ import {
 import { SpinnerLoader } from "../Skeleton";
 import { useScrollLock } from "../../hooks/useScrollLock";
 import { GitHubLoginButton } from "../auth/GitHubLoginButton";
+import { TelegramLoginButton } from "../auth/TelegramLoginButton";
 
 interface AdminAuthModalProps {
   isOpen: boolean;
@@ -100,15 +101,20 @@ export function AdminAuthModal({
           </button>
         </div>
 
-        {/* GitHub OAuth Fast Login */}
-        <div className="space-y-2.5">
+        {/* Quick Social & WebApp Auth */}
+        <div className="space-y-2">
+          <TelegramLoginButton
+            onSuccess={() => {
+              onClose();
+            }}
+          />
           <GitHubLoginButton
             text="Войти через GitHub"
             onSuccess={() => {
               onClose();
             }}
           />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 pt-1">
             <div className="h-[1px] bg-app-border flex-1" />
             <span className="text-[10px] font-mono uppercase text-app-muted tracking-wider">или через почту</span>
             <div className="h-[1px] bg-app-border flex-1" />

@@ -247,7 +247,7 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
                       className={`text-left p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all flex items-center gap-2.5 sm:gap-3 cursor-pointer shrink-0 md:shrink w-[210px] md:w-full border ${
                         isActive
                           ? "bg-app-card border-app-border text-app-primary shadow-sm ring-1 ring-emerald-500/20"
-                          : "border-transparent text-app-muted hover:text-app-primary hover:bg-app-card/40"
+                          : "border-transparent text-app-muted hover:text-app-primary hover:bg-app-hover"
                       }`}
                     >
                       <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 border ${
@@ -272,7 +272,7 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
                 })}
 
                 {/* РФ Compliance badge box */}
-                <div className="hidden md:block mt-auto pt-3 border-t border-app-border/60 p-3 bg-app-surface/40 rounded-2xl text-[11px] space-y-1.5 font-mono text-app-muted">
+                <div className="hidden md:block mt-auto pt-3 border-t border-app-border p-3 bg-app-surface rounded-2xl text-[11px] space-y-1.5 font-mono text-app-muted">
                   <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
                     <ShieldCheck size={14} />
                     <span>Защита данных РФ</span>

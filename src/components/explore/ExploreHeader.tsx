@@ -52,7 +52,7 @@ export const ExploreHeader: React.FC<ExploreHeaderProps> = ({
             to="/explore"
             className="flex items-center gap-2.5 shrink-0 group focus:outline-hidden"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-sm shadow-emerald-500/20 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-app-accent flex items-center justify-center text-app-accent-fg shadow-xs group-hover:scale-105 transition-transform">
               <Compass size={20} className="stroke-[2.2]" />
             </div>
             <div className="hidden min-[480px]:block">
@@ -60,17 +60,17 @@ export const ExploreHeader: React.FC<ExploreHeaderProps> = ({
                 <span className="font-extrabold text-sm sm:text-base text-app-primary tracking-tight">
                   Каталог заведений
                 </span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-semibold bg-app-card text-app-muted border border-app-border">
                   TMA
                 </span>
                 {/* Live Realtime Indicator */}
                 <span
-                  className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-medium bg-app-card text-app-muted border border-app-border"
                   title={isRealtimeConnected ? "Realtime синхронизация активна" : "Подключение к Realtime..."}
                 >
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
-                      isRealtimeConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                      isRealtimeConnected ? "bg-app-primary animate-pulse" : "bg-app-muted"
                     }`}
                   />
                   <span className="text-[10px] hidden min-[680px]:inline">

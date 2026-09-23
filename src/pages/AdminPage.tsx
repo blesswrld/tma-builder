@@ -31,6 +31,8 @@ import ImageUploader from "../components/ImageUploader";
 import { AdminAuthModal } from "../components/admin/AdminAuthModal";
 import { AdminSidebar } from "../components/admin/AdminSidebar";
 import { GitHubLoginButton } from "../components/auth/GitHubLoginButton";
+import { TelegramLoginButton } from "../components/auth/TelegramLoginButton";
+import { CustomCheckbox } from "../components/ui/CustomCheckbox";
 import { InstallButton } from "../components/InstallButton";
 import { updatePageSeo } from "../lib/seo";
 import { playNotificationSound, playToggleOnSound, playToggleOffSound } from "../lib/sound";
@@ -50,6 +52,7 @@ import { AdminServersTab } from "../components/admin/AdminServersTab";
 import { AdminReferralTab } from "../components/admin/AdminReferralTab";
 import { AdminCreateShopTab } from "../components/admin/AdminCreateShopTab";
 import AdminDevChatTab from "../components/admin/AdminDevChatTab";
+import { AdminShopChatTab } from "../components/admin/AdminShopChatTab";
 import SupportChatWidget from "../components/chat/SupportChatWidget";
 import { 
   validateShopName, validateSlug, cleanSlugForSubmit, transliterateToSlug, generateRandomSyllableSlug, validateCisPhone, 
@@ -518,7 +521,13 @@ export default function AdminPage() {
     };
 
     window.addEventListener("chat-message-deleted", handleLocalDelete);
-    return () => window.removeEventListener("chat-message-deleted", handleLocalDelete);
+    window.addEventListener("chat_message_deleted", handleLocalDelete);
+    window.addEventListener("tma:chat_message_deleted", handleLocalDelete);
+    return () => {
+      window.removeEventListener("chat-message-deleted", handleLocalDelete);
+      window.removeEventListener("chat_message_deleted", handleLocalDelete);
+      window.removeEventListener("tma:chat_message_deleted", handleLocalDelete);
+    };
   }, [fetchChatUnreadCount]);
 
   // Validate active chat messages when token is available or inbox opens
@@ -818,19 +827,51 @@ export default function AdminPage() {
   });
 
   // Admin tabs with persistent memory
-  const [activeTab, setActiveTab] = useState<"services" | "orders" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "payments" | "referrals" | "servers" | "devchat" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">(() => {
+  const [activeTab, setActiveTab] = useState<"services" | "orders" | "shopchat" | "promocodes" | "reviews" | "banners" | "broadcasts" | "customers" | "analytics" | "botsim" | "payments" | "referrals" | "servers" | "devchat" | "settings" | "profile" | "createshop" | "addservice" | "editservice" | "team">(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
-      if (tabParam && ["services", "orders", "promocodes", "reviews", "banners", "broadcasts", "customers", "analytics", "botsim", "payments", "referrals", "servers", "devchat", "settings", "profile", "team"].includes(tabParam)) {
+      if (tabParam && ["services", "orders", "shopchat", "promocodes", "reviews", "banners", "broadcasts", "customers", "analytics", "botsim", "payments", "referrals", "servers", "devchat", "settings", "profile", "team"].includes(tabParam)) {
         return tabParam as any;
       }
       const saved = localStorage.getItem("tma_admin_active_tab");
-      if (saved && ["services", "orders", "promocodes", "reviews", "banners", "broadcasts", "customers", "analytics", "botsim", "payments", "referrals", "servers", "devchat", "settings", "profile", "team"].includes(saved)) {
+      if (saved && ["services", "orders", "shopchat", "promocodes", "reviews", "banners", "broadcasts", "customers", "analytics", "botsim", "payments", "referrals", "servers", "devchat", "settings", "profile", "team"].includes(saved)) {
         return saved as any;
       }
     } catch {}
     return "services";
+  });
+
+  // Shop Peer Chat Unread Count
+  const [unreadPeerChatCount, setUnreadPeerChatCount] = useState<number>(0);
+
+  const fetchUnreadPeerCount = useCallback(async () => {
+    if (!selectedShop?.id) {
+      setUnreadPeerChatCount(0);
+      return;
+    }
+    try {
+      const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+      const res = await fetch(`/api/chat/peer/conversations?shopId=${selectedShop.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const convs = data.conversations || [];
+        const unread = convs.reduce((acc: number, c: any) => acc + (c.unreadCount || 0), 0);
+        setUnreadPeerChatCount(unread);
+      }
+    } catch {}
+  }, [selectedShop?.id]);
+
+  useEffect(() => {
+    fetchUnreadPeerCount();
+  }, [fetchUnreadPeerCount]);
+
+  useRealtimeEvent(["PEER_CHAT_MESSAGE_CREATED", "PEER_CHAT_MESSAGES_READ", "PEER_CHAT_MESSAGE_DELETED"], (event) => {
+    if (event.shopId === selectedShop?.id) {
+      fetchUnreadPeerCount();
+    }
   });
 
   // Sync activeTab to LocalStorage (excluding transient modal tabs)
@@ -993,7 +1034,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (loading || authLoading || !selectedShop) return;
     if (isStaff) {
-      const allowed = ["orders", "botsim", "profile"];
+      const allowed = ["orders", "shopchat", "botsim", "profile"];
       if (isDeveloperUser) allowed.push("reports", "devchat");
       if (!allowed.includes(activeTab)) {
         setActiveTab("orders");
@@ -3092,12 +3133,13 @@ export default function AdminPage() {
 
     let formattedPhone = profileData.phone.trim();
     if (formattedPhone) {
-      const phoneRes = validateCisPhone(formattedPhone);
-      if (!phoneRes.isValid) {
-        setProfileError(phoneRes.error || "Укажите корректный номер телефона");
-        return;
+      const digits = formattedPhone.replace(/\D/g, "");
+      if (digits.length >= 7) {
+        const phoneRes = validateCisPhone(formattedPhone);
+        if (phoneRes.isValid) {
+          formattedPhone = phoneRes.formatted;
+        }
       }
-      formattedPhone = phoneRes.formatted;
     }
 
     if (profileData.newPassword.trim() || profileData.currentPassword.trim() || profileData.emailCode.trim()) {
@@ -3126,7 +3168,7 @@ export default function AdminPage() {
     setIsSavingProfile(true);
 
     try {
-      await updateProfile({
+      const updatedUser = await updateProfile({
         name: profileData.name.trim(),
         phone: formattedPhone,
         avatarUrl: profileData.avatarUrl.trim(),
@@ -3138,13 +3180,24 @@ export default function AdminPage() {
         emailCode: (passwordChangeMethod === "code" && profileData.newPassword.trim()) ? profileData.emailCode.trim() : undefined
       });
 
-      setProfileSuccess("Ваш профиль и пароль успешно обновлены!");
+      if (updatedUser?.name) {
+        setProfileData(p => ({
+          ...p,
+          name: updatedUser.name,
+          phone: updatedUser.phone || "",
+          avatarUrl: updatedUser.avatarUrl || "",
+          currentPassword: "",
+          newPassword: "",
+          emailCode: ""
+        }));
+      }
+
+      setProfileSuccess("Ваш профиль успешно сохранен!");
       showToast("Профиль успешно обновлен", "success");
-      setProfileData(p => ({ ...p, currentPassword: "", newPassword: "", emailCode: "" }));
       setProfileCodeSentMsg(null);
       setTimeout(() => {
         setIsProfileOpen(false);
-      }, 1200);
+      }, 1000);
     } catch (err: any) {
       setProfileError(err.message || "Не удалось обновить профиль");
     } finally {
@@ -3585,7 +3638,7 @@ export default function AdminPage() {
           <InstallButton
             variant="icon"
             tooltipText="Установить приложение"
-            className="bg-neutral-900 border-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-800 shadow-xl"
+            className="bg-app-surface border-app-border text-app-muted hover:text-app-primary hover:bg-app-hover shadow-xl"
           />
         </div>
 
@@ -3594,42 +3647,41 @@ export default function AdminPage() {
           href="https://github.com/blesswrld" 
           target="_blank" 
           rel="noopener noreferrer"
-          className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900/90 hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 border border-neutral-800 hover:border-neutral-700 transition-all text-[11px] font-mono shadow-xl group"
+          className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-app-surface hover:bg-app-card text-app-muted hover:text-app-primary border border-app-border hover:border-app-border-focus transition-all text-[11px] font-mono shadow-xl group"
         >
-          <Github size={13} className="text-neutral-400 group-hover:text-white transition-colors" />
-          <span className="text-[10px] text-neutral-500 font-sans">created by</span>
-          <span className="font-semibold text-neutral-300 group-hover:text-emerald-400 transition-colors">@blesswrld</span>
-          <ExternalLink size={10} className="text-neutral-500 group-hover:text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Github size={13} className="text-app-muted group-hover:text-app-primary transition-colors" />
+          <span className="text-[10px] text-app-muted font-sans">created by</span>
+          <span className="font-semibold text-app-primary group-hover:text-emerald-400 transition-colors">@blesswrld</span>
+          <ExternalLink size={10} className="text-app-muted group-hover:text-app-primary opacity-0 group-hover:opacity-100 transition-opacity" />
         </a>
 
-
-        {/* Central Auth Container with Gradient Glassmorphism Card */}
+        {/* Central Auth Container with Unified App Tokens Card */}
         <motion.div 
           initial={{ opacity: 0, y: 16, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
-          className="max-w-md w-full bg-neutral-900 border border-neutral-800/80 hover:border-neutral-700/80 rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl relative z-10 transition-colors duration-300"
+          className="max-w-md w-full bg-app-card border border-app-border hover:border-app-border-focus rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl relative z-10 transition-colors duration-300"
         >
           {/* Top highlight beam */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-44 h-[2px] bg-gradient-to-r from-transparent via-white/40 to-transparent blur-[1px]" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-44 h-[2px] bg-gradient-to-r from-transparent via-app-primary/20 to-transparent blur-[1px]" />
 
           <div className="text-center space-y-2.5">
             <div className="relative inline-block mx-auto">
               <img 
                 src="/logo.svg" 
                 alt="TMA Builder" 
-                className="w-13 h-13 rounded-2xl object-cover shadow-[0_0_30px_rgba(255,255,255,0.2)] border border-white/20" 
+                className="w-13 h-13 rounded-2xl object-cover shadow-[0_0_30px_rgba(255,255,255,0.1)] border border-app-border" 
               />
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-neutral-900 flex items-center justify-center">
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-app-card flex items-center justify-center">
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
               </div>
             </div>
 
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-white flex items-center justify-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-app-primary flex items-center justify-center gap-2">
                 <span>Панель управления</span>
               </h1>
-              <p className="text-xs text-neutral-400 mt-1 max-w-xs mx-auto">
+              <p className="text-xs text-app-muted mt-1 max-w-xs mx-auto">
                 Авторизуйтесь для управления заведениями, каталогом и заказами
               </p>
             </div>
@@ -3641,35 +3693,39 @@ export default function AdminPage() {
                 <Mail size={13} />
                 <span>Приглашение в команду</span>
               </div>
-              <p className="text-sm font-bold text-white">Заведение «{inviteInfo.shop.name}»</p>
-              <p className="text-[11px] text-neutral-400 leading-relaxed">
+              <p className="text-sm font-bold text-app-primary">Заведение «{inviteInfo.shop.name}»</p>
+              <p className="text-[11px] text-app-muted leading-relaxed">
                 Войдите или зарегистрируйтесь, чтобы автоматически принять приглашение и получить доступ к заведению.
               </p>
             </div>
           )}
 
-          {/* GitHub Fast Auth Button */}
-          <div className="space-y-3">
-            <GitHubLoginButton
-              text="Войти через GitHub"
-              onSuccess={() => {
-                // Success
-              }}
+          {/* Quick Social & WebApp Auth: Telegram & GitHub */}
+          <div className="space-y-2">
+            <TelegramLoginButton
+              mode={authMode === "register" ? "register" : "login"}
+              text={authMode === "register" ? "Зарегистрироваться через Telegram" : "Войти через Telegram"}
+              onSuccess={() => {}}
             />
-            <div className="flex items-center gap-3">
-              <div className="h-[1px] bg-neutral-800 flex-1" />
-              <span className="text-[10px] font-mono uppercase text-neutral-500 tracking-wider">или через почту</span>
-              <div className="h-[1px] bg-neutral-800 flex-1" />
+            <GitHubLoginButton
+              mode={authMode === "register" ? "register" : "login"}
+              text={authMode === "register" ? "Зарегистрироваться через GitHub" : "Войти через GitHub"}
+              onSuccess={() => {}}
+            />
+            <div className="flex items-center gap-3 pt-1">
+              <div className="h-[1px] bg-app-border flex-1" />
+              <span className="text-[10px] font-mono uppercase text-app-muted tracking-wider">или через почту</span>
+              <div className="h-[1px] bg-app-border flex-1" />
             </div>
           </div>
 
           {/* Mode Switcher Tabs */}
-          <div className="grid grid-cols-3 gap-1 bg-neutral-950/80 p-1 rounded-2xl border border-neutral-800 text-xs font-mono">
+          <div className="grid grid-cols-3 gap-1 bg-app-surface p-1 rounded-2xl border border-app-border text-xs font-mono">
             <button
               type="button"
               onClick={() => { setAuthMode("otp"); setOtpStep("email"); setAuthError(null); setAuthSuccessMsg(null); }}
-              className={`py-2 px-2 rounded-xl transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
-                authMode === "otp" ? "bg-neutral-800 text-white font-bold border border-neutral-700 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+              className={`py-2 px-2 rounded-xl transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer border ${
+                authMode === "otp" ? "bg-app-card text-app-primary font-bold border-app-border shadow-xs" : "border-transparent text-app-muted hover:text-app-primary"
               }`}
             >
               <Mail size={12} />
@@ -3679,7 +3735,7 @@ export default function AdminPage() {
               type="button"
               onClick={() => { setAuthMode("login"); setAuthError(null); setAuthSuccessMsg(null); }}
               className={`py-2 px-2 rounded-xl transition-all text-center flex items-center justify-center gap-1.5 border cursor-pointer ${
-                authMode === "login" ? "bg-neutral-100 text-neutral-950 border-neutral-200 font-bold shadow-md" : "border-transparent text-neutral-400 hover:text-neutral-200"
+                authMode === "login" ? "bg-app-card text-app-primary font-bold border-app-border shadow-xs" : "border-transparent text-app-muted hover:text-app-primary"
               }`}
             >
               <Lock size={12} />
@@ -3689,7 +3745,7 @@ export default function AdminPage() {
               type="button"
               onClick={() => { setAuthMode("register"); setAuthError(null); setAuthSuccessMsg(null); }}
               className={`py-2 px-2 rounded-xl transition-all text-center flex items-center justify-center gap-1.5 border cursor-pointer ${
-                authMode === "register" ? "bg-neutral-100 text-neutral-950 border-neutral-200 font-bold shadow-md" : "border-transparent text-neutral-400 hover:text-neutral-200"
+                authMode === "register" ? "bg-app-card text-app-primary font-bold border-app-border shadow-xs" : "border-transparent text-app-muted hover:text-app-primary"
               }`}
             >
               <User size={12} />
@@ -3714,51 +3770,51 @@ export default function AdminPage() {
           {/* Form rendering */}
           {otpStep === "code" ? (
             <form onSubmit={handleVerifyOtpCode} noValidate className="space-y-3.5 font-sans">
-              <p className="text-xs text-neutral-400">
+              <p className="text-xs text-app-muted">
                 {authMode === "register" && (
-                  <>Код подтверждения отправлен на <strong className="text-neutral-200">{authEmail}</strong> для завершения регистрации.</>
+                  <>Код подтверждения отправлен на <strong className="text-app-primary">{authEmail}</strong> для завершения регистрации.</>
                 )}
                 {authMode === "reset" && (
-                  <>Код подтверждения отправлен на <strong className="text-neutral-200">{authEmail}</strong> для сброса пароля.</>
+                  <>Код подтверждения отправлен на <strong className="text-app-primary">{authEmail}</strong> для сброса пароля.</>
                 )}
                 {authMode === "otp" && (
-                  <>Код отправлен на <strong className="text-neutral-200">{authEmail}</strong> для входа в аккаунт.</>
+                  <>Код отправлен на <strong className="text-app-primary">{authEmail}</strong> для входа в аккаунт.</>
                 )}
               </p>
 
               {authDevCode ? (
-                <div className="p-3 bg-neutral-950 border border-neutral-800 rounded-2xl text-neutral-200 text-xs space-y-2 font-mono">
+                <div className="p-3 bg-app-surface border border-app-border rounded-2xl text-app-primary text-xs space-y-2 font-mono">
                   <div className="flex items-start gap-2">
                     <AlertCircle size={15} className="text-amber-400 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-semibold text-white">
+                      <p className="font-semibold text-app-primary">
                         Тестовый режим отправки кода
                       </p>
-                      <p className="text-[11px] text-neutral-400 mt-0.5">
+                      <p className="text-[11px] text-app-muted mt-0.5">
                         Код сгенерирован для быстрой авторизации:
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between bg-neutral-900 p-2 rounded-xl border border-neutral-800 font-mono">
+                  <div className="flex items-center justify-between bg-app-card p-2 rounded-xl border border-app-border font-mono">
                     <span className="text-sm font-bold text-emerald-400 tracking-widest">{authDevCode}</span>
                     <button
                       type="button"
                       onClick={() => setAuthOtpCode(authDevCode)}
-                      className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
+                      className="px-2.5 py-1 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
                     >
                       Вставить код
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="p-2.5 bg-neutral-950 border border-neutral-800 rounded-2xl text-neutral-200 text-[11px] flex items-center gap-2 font-mono">
+                <div className="p-2.5 bg-app-surface border border-app-border rounded-2xl text-app-primary text-[11px] flex items-center gap-2 font-mono">
                   <CheckCircle2 size={15} className="shrink-0 text-emerald-400" />
                   <span>Письмо отправлено на {authEmail}. Проверьте папку «Входящие» или «Спам».</span>
                 </div>
               )}
 
               <div>
-                <label className="text-[11px] text-neutral-400 font-mono mb-1.5 block">6-значный код подтверждения</label>
+                <label className="text-[11px] text-app-muted font-mono mb-1.5 block">6-значный код подтверждения</label>
                 <input
                   type="text"
                   maxLength={6}
@@ -3766,20 +3822,20 @@ export default function AdminPage() {
                   value={authOtpCode}
                   onChange={e => setAuthOtpCode(e.target.value)}
                   placeholder="123456"
-                  className="w-full bg-neutral-950 border border-neutral-800 focus:border-white/60 rounded-2xl px-3.5 py-3 text-center text-lg font-mono font-bold tracking-[8px] text-white focus:outline-none transition-all"
+                  className="w-full bg-app-surface border border-app-border focus:border-app-border-focus rounded-2xl px-3.5 py-3 text-center text-lg font-mono font-bold tracking-[8px] text-app-primary focus:outline-none transition-all"
                 />
               </div>
 
               {authMode === "reset" && (
                 <div>
-                  <label className="text-[11px] text-neutral-400 font-mono mb-1.5 block">Новый пароль (не менее 6 символов)</label>
+                  <label className="text-[11px] text-app-muted font-mono mb-1.5 block">Новый пароль (не менее 6 символов)</label>
                   <input
                     type="password"
                     autoComplete="new-password"
                     value={authPassword}
                     onChange={e => setAuthPassword(e.target.value)}
                     placeholder="Новый пароль"
-                    className="w-full bg-neutral-950 border border-neutral-800 focus:border-white/60 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-all"
+                    className="w-full bg-app-surface border border-app-border focus:border-app-border-focus rounded-2xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none transition-all"
                   />
                 </div>
               )}
@@ -3787,7 +3843,7 @@ export default function AdminPage() {
               <button
                 type="submit"
                 disabled={isSubmittingAuth || authOtpCode.length !== 6 || (authMode === "reset" && authPassword.length < 6)}
-                className="w-full py-3 bg-white hover:bg-neutral-200 text-neutral-950 font-mono font-bold text-xs rounded-2xl transition-all uppercase flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-lg hover:shadow-white/10 active:scale-[0.99]"
+                className="w-full py-3 bg-app-accent hover:opacity-90 text-app-accent-fg font-mono font-bold text-xs rounded-2xl transition-all uppercase flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-lg active:scale-[0.99]"
               >
                 {isSubmittingAuth ? <SpinnerLoader size={14} /> : <ShieldCheck size={14} />}
                 {isSubmittingAuth
@@ -3804,7 +3860,7 @@ export default function AdminPage() {
                   type="button"
                   disabled={resendTimer > 0 || isSubmittingAuth}
                   onClick={() => handleSendOtpCode(authMode === "register" ? "REGISTER" : authMode === "reset" ? "RESET_PASSWORD" : "LOGIN")}
-                  className="text-neutral-400 hover:text-white font-mono text-[11px] flex items-center gap-1 disabled:opacity-50 cursor-pointer transition-colors"
+                  className="text-app-muted hover:text-app-primary font-mono text-[11px] flex items-center gap-1 disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   <RefreshCw size={12} className={isSubmittingAuth ? "animate-spin" : ""} />
                   {resendTimer > 0 ? `Повтор через ${resendTimer}с` : "Отправить код повторно"}
@@ -3812,7 +3868,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => { setOtpStep("email"); setAuthOtpCode(""); setAuthError(null); setAuthSuccessMsg(null); }}
-                  className="text-neutral-400 hover:text-white font-mono text-[11px] underline cursor-pointer transition-colors"
+                  className="text-app-muted hover:text-app-primary font-mono text-[11px] underline cursor-pointer transition-colors"
                 >
                   Изменить данные
                 </button>
@@ -3822,7 +3878,7 @@ export default function AdminPage() {
             <>
               {authMode === "otp" && (
                 <div className="space-y-3 font-sans">
-                  <p className="text-xs text-neutral-400">
+                  <p className="text-xs text-app-muted">
                     Вход по одноразовому коду из E-mail доступен только для существующих аккаунтов. Если у вас еще нет аккаунта, перейдите в «Создать».
                   </p>
                   <input
@@ -3830,13 +3886,13 @@ export default function AdminPage() {
                     value={authEmail}
                     onChange={e => setAuthEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full bg-neutral-950 border border-neutral-800 focus:border-white/60 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-all"
+                    className="w-full bg-app-surface border border-app-border focus:border-app-border-focus rounded-2xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none transition-all font-sans"
                   />
                   <button
                     type="button"
                     disabled={isSubmittingAuth}
                     onClick={() => handleSendOtpCode("LOGIN")}
-                    className="w-full py-3 bg-white hover:bg-neutral-200 text-neutral-950 font-mono font-bold text-xs rounded-2xl transition-all uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-white/10 active:scale-[0.99]"
+                    className="w-full py-3 bg-app-accent hover:opacity-90 text-app-accent-fg font-mono font-bold text-xs rounded-2xl transition-all uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-[0.99]"
                   >
                     {isSubmittingAuth ? <SpinnerLoader size={14} /> : <Mail size={14} />}
                     {isSubmittingAuth ? "Отправка..." : "Получить код на E-mail"}
@@ -3853,7 +3909,7 @@ export default function AdminPage() {
                       value={authName}
                       onChange={e => setAuthName(e.target.value)}
                       placeholder="ФИО / Название организации"
-                      className="w-full bg-neutral-950 border border-neutral-800 focus:border-white/60 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-all"
+                      className="w-full bg-app-surface border border-app-border focus:border-app-border-focus rounded-2xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none transition-all font-sans"
                     />
                   )}
                   <input
@@ -3862,7 +3918,7 @@ export default function AdminPage() {
                     value={authEmail}
                     onChange={e => setAuthEmail(e.target.value)}
                     placeholder="Электронная почта"
-                    className="w-full bg-neutral-950 border border-neutral-800 focus:border-white/60 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-all"
+                    className="w-full bg-app-surface border border-app-border focus:border-app-border-focus rounded-2xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none transition-all font-sans"
                   />
                   {authMode !== "reset" && (
                     <input
@@ -3871,25 +3927,26 @@ export default function AdminPage() {
                       value={authPassword}
                       onChange={e => setAuthPassword(e.target.value)}
                       placeholder={authMode === "register" ? "Пароль (не менее 6 символов)" : "Пароль"}
-                      className="w-full bg-neutral-950 border border-neutral-800 focus:border-white/60 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-all"
+                      className="w-full bg-app-surface border border-app-border focus:border-app-border-focus rounded-2xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none transition-all font-sans"
                     />
                   )}
                   {authMode === "register" && (
-                    <div className="space-y-2 p-3 bg-neutral-950/80 border border-neutral-800 rounded-2xl text-left font-sans">
+                    <div className="space-y-2.5 p-3 bg-app-surface border border-app-border rounded-2xl text-left font-sans">
                       <div className="flex items-start gap-2">
-                        <input
+                        <CustomCheckbox
                           id="admin-consent-pd"
-                          type="checkbox"
                           checked={authConsentPd}
-                          onChange={(e) => setAuthConsentPd(e.target.checked)}
-                          className="w-4 h-4 mt-0.5 rounded border-neutral-700 bg-neutral-900 accent-emerald-500 cursor-pointer shrink-0"
+                          onChange={(c) => setAuthConsentPd(c)}
+                          variant="success"
+                          size="sm"
+                          className="mt-0.5"
                         />
-                        <label htmlFor="admin-consent-pd" className="text-[11px] text-neutral-400 cursor-pointer leading-tight select-none">
+                        <label htmlFor="admin-consent-pd" className="text-[11px] text-app-muted cursor-pointer leading-tight select-none">
                           <span>Я даю </span>
                           <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); setIsPrivacyModalOpen(true); }}
-                            className="underline text-neutral-200 hover:text-emerald-400 font-medium"
+                            className="underline text-app-primary hover:text-emerald-400 font-medium cursor-pointer"
                           >
                             согласие на обработку персональных данных (152-ФЗ)
                           </button>
@@ -3897,7 +3954,7 @@ export default function AdminPage() {
                           <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); setIsPrivacyModalOpen(true); }}
-                            className="underline text-neutral-200 hover:text-emerald-400 font-medium"
+                            className="underline text-app-primary hover:text-emerald-400 font-medium cursor-pointer"
                           >
                             Пользовательское соглашение
                           </button>
@@ -3905,15 +3962,16 @@ export default function AdminPage() {
                         </label>
                       </div>
 
-                      <div className="flex items-start gap-2 pt-1 border-t border-neutral-800/60">
-                        <input
+                      <div className="flex items-start gap-2 pt-1 border-t border-app-border">
+                        <CustomCheckbox
                           id="admin-consent-ads"
-                          type="checkbox"
                           checked={authConsentAds}
-                          onChange={(e) => setAuthConsentAds(e.target.checked)}
-                          className="w-4 h-4 mt-0.5 rounded border-neutral-700 bg-neutral-900 accent-emerald-500 cursor-pointer shrink-0"
+                          onChange={(c) => setAuthConsentAds(c)}
+                          variant="success"
+                          size="sm"
+                          className="mt-0.5"
                         />
-                        <label htmlFor="admin-consent-ads" className="text-[10px] text-neutral-500 cursor-pointer leading-tight select-none">
+                        <label htmlFor="admin-consent-ads" className="text-[10px] text-app-muted cursor-pointer leading-tight select-none">
                           Согласен получать информационные и сервисные уведомления платформы (38-ФЗ)
                         </label>
                       </div>
@@ -3923,7 +3981,7 @@ export default function AdminPage() {
                   <button
                     type="submit"
                     disabled={isSubmittingAuth}
-                    className="w-full py-3 bg-white hover:bg-neutral-200 text-neutral-950 font-mono font-bold text-xs rounded-2xl transition-all uppercase cursor-pointer flex items-center justify-center gap-2 shadow-lg hover:shadow-white/10 active:scale-[0.99]"
+                    className="w-full py-3 bg-app-accent hover:opacity-90 text-app-accent-fg font-mono font-bold text-xs rounded-2xl transition-all uppercase cursor-pointer flex items-center justify-center gap-2 shadow-lg active:scale-[0.99]"
                   >
                     {isSubmittingAuth ? <SpinnerLoader size={14} /> : <ShieldCheck size={14} />}
                     <span>
@@ -3933,12 +3991,12 @@ export default function AdminPage() {
                     </span>
                   </button>
 
-                  <div className="text-center pt-1.5 flex items-center justify-center gap-4 text-xs font-mono text-neutral-400">
+                  <div className="text-center pt-1.5 flex items-center justify-center gap-4 text-xs font-mono text-app-muted">
                     {authMode === "login" && (
                       <button
                         type="button"
                         onClick={() => { setAuthMode("reset"); setOtpStep("email"); setAuthError(null); setAuthSuccessMsg(null); }}
-                        className="hover:text-white underline cursor-pointer transition-colors"
+                        className="hover:text-app-primary underline cursor-pointer transition-colors"
                       >
                         Забыли пароль?
                       </button>
@@ -3947,7 +4005,7 @@ export default function AdminPage() {
                       <button
                         type="button"
                         onClick={() => { setAuthMode("login"); setOtpStep("email"); setAuthError(null); setAuthSuccessMsg(null); }}
-                        className="hover:text-white underline cursor-pointer transition-colors"
+                        className="hover:text-app-primary underline cursor-pointer transition-colors"
                       >
                         ← Вернуться ко входу
                       </button>
@@ -3959,11 +4017,11 @@ export default function AdminPage() {
           )}
 
           {/* Legal / Privacy Policy footer link */}
-          <div className="text-center pt-2 text-[11px] font-mono text-neutral-500 border-t border-neutral-800/80 flex items-center justify-center gap-2">
+          <div className="text-center pt-2 text-[11px] font-mono text-app-muted border-t border-app-border flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => setIsPrivacyModalOpen(true)}
-              className="underline hover:text-neutral-300 text-neutral-400 cursor-pointer transition-colors"
+              className="underline hover:text-app-primary text-app-muted cursor-pointer transition-colors"
             >
               Правовой центр (152-ФЗ / 54-ФЗ РФ)
             </button>
@@ -4047,6 +4105,7 @@ export default function AdminPage() {
         isOwner={isOwner}
         isDeveloperUser={isDeveloperUser}
         unreadChatCount={unreadChatCount}
+        unreadPeerChatCount={unreadPeerChatCount}
         unhandledReportsCount={unhandledReportsCount}
         orders={orders}
         promocodes={promocodes}
@@ -4101,6 +4160,7 @@ export default function AdminPage() {
                 <h2 className="text-sm font-semibold tracking-tight text-app-primary font-mono">
                   {activeTab === "services" && t("nav.services", "Меню и услуги")}
                   {activeTab === "orders" && t("nav.orders", "Заказы")}
+                  {activeTab === "shopchat" && "Чат заведения (Диалоги с клиентами)"}
                   {activeTab === "promocodes" && t("nav.promocodes", "Промокоды")}
                   {activeTab === "reviews" && t("nav.reviews", "Отзывы")}
                   {activeTab === "banners" && t("nav.banners", "Баннеры")}
@@ -4123,6 +4183,8 @@ export default function AdminPage() {
               <p className="text-[11px] text-app-muted font-sans truncate max-w-[200px] sm:max-w-xs">
                 {activeTab === "profile"
                   ? (user?.email || t("sub.manage_account", "Управление аккаунтом"))
+                  : activeTab === "shopchat"
+                  ? "Прямая связь и оперативная поддержка клиентов заведения"
                   : activeTab === "servers"
                   ? t("sub.servers_desc", "Телеметрия и статус инфраструктуры")
                   : activeTab === "devchat"
@@ -4268,7 +4330,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {profileError && (
+              {profileError && !profileError.toLowerCase().includes("ник") && !profileError.toLowerCase().includes("им") && (
                 <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-xs flex items-center gap-2.5 font-mono">
                   <AlertCircle size={16} className="shrink-0" />
                   <span>{profileError}</span>
@@ -4284,7 +4346,7 @@ export default function AdminPage() {
 
               <form onSubmit={handleSaveProfile} noValidate className="space-y-6 font-sans text-xs">
                 {/* Avatar Section */}
-                <div className="p-5 bg-app-card/60 border border-app-border rounded-2xl space-y-3">
+                <div className="p-5 bg-app-surface border border-app-border rounded-2xl space-y-3">
                   <label className="block text-xs font-mono font-semibold text-app-secondary">
                     Аватар профиля
                   </label>
@@ -4299,17 +4361,78 @@ export default function AdminPage() {
                     <div className="flex-1 w-full space-y-2">
                       <input
                         type="text"
-                        value={profileData.avatarUrl}
+                        value={profileData.avatarUrl ?? ""}
                         onChange={e => setProfileData(p => ({ ...p, avatarUrl: e.target.value }))}
                         placeholder="https://example.com/avatar.png"
                         className="w-full bg-app-surface border border-app-border rounded-xl px-3.5 py-2 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
                       />
                       <ImageUploader 
-                        value={profileData.avatarUrl}
+                        value={profileData.avatarUrl ?? ""}
                         onChange={(url) => setProfileData(p => ({ ...p, avatarUrl: url }))} 
                         type="avatar"
                         label="Загрузить изображение аватара"
                       />
+                    </div>
+                  </div>
+
+                  {/* Robot Avatar Presets Quick Gallery */}
+                  <div className="pt-3 border-t border-app-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-mono text-app-muted flex items-center gap-1.5">
+                        <span>🤖</span>
+                        <span>Пресеты робо-аватаров:</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const randomSeed = Math.random().toString(36).substring(2, 9);
+                          const colors = ["0284c7", "10b981", "8b5cf6", "f97316", "ef4444", "06b6d4", "27272a", "eab308", "ec4899", "14b8a6"];
+                          const randomBg = colors[Math.floor(Math.random() * colors.length)];
+                          const newAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${randomSeed}&backgroundColor=${randomBg}`;
+                          setProfileData(p => ({ ...p, avatarUrl: newAvatar }));
+                        }}
+                        className="text-[11px] font-mono text-app-accent hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Случайный робот 🎲</span>
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                      {[
+                        { name: "Синий", seed: "Cyber", bg: "0284c7" },
+                        { name: "Зеленый", seed: "Nova", bg: "10b981" },
+                        { name: "Фиолет", seed: "Aneka", bg: "8b5cf6" },
+                        { name: "Оранж", seed: "Spark", bg: "f97316" },
+                        { name: "Красный", seed: "Ruby", bg: "ef4444" },
+                        { name: "Голубой", seed: "Felix", bg: "06b6d4" },
+                        { name: "Графит", seed: "Shadow", bg: "27272a" },
+                        { name: "Янтарь", seed: "Volt", bg: "eab308" }
+                      ].map(preset => {
+                        const url = `https://api.dicebear.com/7.x/bottts/svg?seed=${preset.seed}&backgroundColor=${preset.bg}`;
+                        const isSelected = profileData.avatarUrl === url;
+                        return (
+                          <button
+                            key={preset.seed}
+                            type="button"
+                            onClick={() => setProfileData(p => ({ ...p, avatarUrl: url }))}
+                            title={`Выбрать аватар: ${preset.name}`}
+                            className={`rounded-xl p-1.5 transition-all border cursor-pointer flex flex-col items-center gap-1 ${
+                              isSelected
+                                ? "bg-app-hover border-app-accent ring-2 ring-app-accent/30 shadow-xs"
+                                : "border-app-border hover:border-app-border-focus hover:bg-app-card"
+                            }`}
+                          >
+                            <img
+                              src={url}
+                              alt={preset.name}
+                              className="w-10 h-10 rounded-lg object-cover"
+                              loading="lazy"
+                            />
+                            <span className="text-[10px] font-mono text-app-muted truncate w-full text-center">
+                              {preset.name}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -4317,16 +4440,71 @@ export default function AdminPage() {
                 {/* Personal Info */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] font-mono text-app-muted mb-1.5">
-                      Имя / Отображаемый ник
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className={`block text-[11px] font-mono ${
+                        profileError && (profileError.toLowerCase().includes("ник") || profileError.toLowerCase().includes("им"))
+                          ? "text-rose-400 font-semibold"
+                          : "text-app-muted"
+                      }`}>
+                        Имя / Уникальный ник
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const adjectives = ["Cyber", "Neon", "Quantum", "Hyper", "Pixel", "Cosmic", "Solar", "Turbo", "Aero", "Pulse", "Nova", "Apex", "Vortex", "Echo", "Atlas", "Titan", "Shadow", "Vector", "Matrix", "Zenith", "Prime", "Flash", "Swift", "Astra", "Orbit", "Lumen", "Flux", "Nano", "Alpha", "Stellar", "Atomic", "Sonic"];
+                          const nouns = ["Pilot", "Falcon", "Runner", "Fox", "Builder", "Coder", "Dev", "Knight", "Hunter", "Spark", "Rider", "Ghost", "Hawk", "Crafter", "Node", "Wave", "Pioneer", "Creator", "Nexus", "Eagle", "Wolf", "Lynx", "Architect", "Master"];
+                          const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+                          const noun = nouns[Math.floor(Math.random() * nouns.length)];
+                          const num = Math.floor(100 + Math.random() * 900);
+                          setProfileData(p => ({ ...p, name: `${adj}${noun}_${num}` }));
+                          setProfileError(null);
+                        }}
+                        className="text-[10px] font-mono text-app-accent hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Случайный 🎲</span>
+                      </button>
+                    </div>
                     <input
                       type="text"
-                      value={profileData.name}
-                      onChange={e => setProfileData(p => ({ ...p, name: e.target.value }))}
-                      placeholder="Например, Тамерлан"
-                      className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
+                      value={profileData.name ?? ""}
+                      onChange={e => {
+                        setProfileData(p => ({ ...p, name: e.target.value }));
+                        if (profileError && (profileError.toLowerCase().includes("ник") || profileError.toLowerCase().includes("им"))) {
+                          setProfileError(null);
+                        }
+                      }}
+                      placeholder="Например, CyberBuilder_742"
+                      className="w-full bg-app-card border border-app-border focus:border-app-accent rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none font-mono transition-all"
                     />
+
+                    {/* Prominent Warning Directly Under Nickname Field */}
+                    {profileError && (profileError.toLowerCase().includes("ник") || profileError.toLowerCase().includes("им")) ? (
+                      <div className="mt-2 p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs font-mono flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle size={14} className="text-rose-400 shrink-0" />
+                          <span className="leading-snug text-[11px]">{profileError}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const adjectives = ["Cyber", "Neon", "Quantum", "Hyper", "Pixel", "Cosmic", "Solar", "Turbo", "Aero", "Pulse", "Nova", "Apex", "Vortex", "Echo", "Atlas", "Titan", "Shadow", "Vector", "Matrix", "Zenith", "Prime", "Flash", "Swift", "Astra", "Orbit", "Lumen", "Flux", "Nano", "Alpha", "Stellar", "Atomic", "Sonic"];
+                            const nouns = ["Pilot", "Falcon", "Runner", "Fox", "Builder", "Coder", "Dev", "Knight", "Hunter", "Spark", "Rider", "Ghost", "Hawk", "Crafter", "Node", "Wave", "Pioneer", "Creator", "Nexus", "Eagle", "Wolf", "Lynx", "Architect", "Master"];
+                            const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+                            const noun = nouns[Math.floor(Math.random() * nouns.length)];
+                            const num = Math.floor(100 + Math.random() * 900);
+                            setProfileData(p => ({ ...p, name: `${adj}${noun}_${num}` }));
+                            setProfileError(null);
+                          }}
+                          className="px-2 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 rounded-lg text-[10px] text-rose-300 font-bold shrink-0 cursor-pointer transition-all"
+                        >
+                          Сгенерировать 🎲
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-app-muted mt-1 font-mono">
+                        Отображается в системе. Никнейм уникален для каждого пользователя.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-[11px] font-mono text-app-muted mb-1.5">
@@ -4334,7 +4512,7 @@ export default function AdminPage() {
                     </label>
                     <input
                       type="text"
-                      value={profileData.companyName}
+                      value={profileData.companyName ?? ""}
                       onChange={e => setProfileData(p => ({ ...p, companyName: e.target.value }))}
                       placeholder="ООО Кофе и Сласти"
                       className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
@@ -4350,7 +4528,7 @@ export default function AdminPage() {
                     </label>
                     <input
                       type="text"
-                      value={profileData.phone}
+                      value={profileData.phone ?? ""}
                       onChange={e => setProfileData(p => ({ ...p, phone: e.target.value }))}
                       placeholder="+7 (999) 000-00-00"
                       className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
@@ -4362,7 +4540,7 @@ export default function AdminPage() {
                     </label>
                     <input
                       type="text"
-                      value={profileData.telegramHandle}
+                      value={profileData.telegramHandle ?? ""}
                       onChange={e => setProfileData(p => ({ ...p, telegramHandle: e.target.value }))}
                       placeholder="@username"
                       className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
@@ -4397,7 +4575,7 @@ export default function AdminPage() {
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-app-muted font-mono text-xs">@</span>
                       <input
                         type="text"
-                        value={profileData.githubHandle}
+                        value={profileData.githubHandle ?? ""}
                         onChange={e => setProfileData(p => ({ ...p, githubHandle: e.target.value }))}
                         placeholder="username (например: octocat)"
                         className="w-full bg-app-card border border-app-border rounded-xl pl-8 pr-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono"
@@ -4439,14 +4617,15 @@ export default function AdminPage() {
                   </div>
 
                   {passwordChangeMethod === "password" ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-app-card/50 border border-app-border rounded-2xl">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-app-surface border border-app-border rounded-2xl">
                       <div>
                         <label className="block text-[11px] font-mono text-app-muted mb-1.5">
                           Текущий пароль
                         </label>
                         <input
                           type="password"
-                          value={profileData.currentPassword}
+                          autoComplete="current-password"
+                          value={profileData.currentPassword ?? ""}
                           onChange={e => setProfileData(p => ({ ...p, currentPassword: e.target.value }))}
                           placeholder="••••••••"
                           className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
@@ -4458,7 +4637,8 @@ export default function AdminPage() {
                         </label>
                         <input
                           type="password"
-                          value={profileData.newPassword}
+                          autoComplete="new-password"
+                          value={profileData.newPassword ?? ""}
                           onChange={e => setProfileData(p => ({ ...p, newPassword: e.target.value }))}
                           placeholder="Мин. 6 символов"
                           className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
@@ -4466,7 +4646,7 @@ export default function AdminPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-4 p-4 bg-app-card/50 border border-app-border rounded-2xl">
+                    <div className="space-y-4 p-4 bg-app-surface border border-app-border rounded-2xl">
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                         <span className="text-[11px] font-mono text-app-muted">
                           Нажмите кнопку для отправки кода на {user?.email}
@@ -4498,7 +4678,7 @@ export default function AdminPage() {
                           <input
                             type="text"
                             maxLength={6}
-                            value={profileData.emailCode}
+                            value={profileData.emailCode ?? ""}
                             onChange={e => setProfileData(p => ({ ...p, emailCode: e.target.value }))}
                             placeholder="123456"
                             className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent font-mono tracking-widest text-center"
@@ -4510,7 +4690,8 @@ export default function AdminPage() {
                           </label>
                           <input
                             type="password"
-                            value={profileData.newPassword}
+                            autoComplete="new-password"
+                            value={profileData.newPassword ?? ""}
                             onChange={e => setProfileData(p => ({ ...p, newPassword: e.target.value }))}
                             placeholder="Мин. 6 символов"
                             className="w-full bg-app-card border border-app-border rounded-xl px-3.5 py-2.5 text-xs text-app-primary focus:outline-none focus:border-app-accent"
@@ -4897,6 +5078,14 @@ export default function AdminPage() {
             <AdminServersTab
               token={token}
               user={user}
+              showToast={showToast}
+            />
+          )}
+
+          {/* TAB: SHOP PEER CHAT («ЧАТ ЗАВЕДЕНИЯ / КЛИЕНТЫ») */}
+          {activeTab === "shopchat" && (
+            <AdminShopChatTab
+              selectedShop={selectedShop}
               showToast={showToast}
             />
           )}

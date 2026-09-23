@@ -10,6 +10,7 @@ import { searchRussianAddressSuggestions, localizeToRussian, AddressSuggestion }
 import { useLanguage } from "../../context/LanguageContext";
 import { AdminMapPickerModal } from "../admin/AdminMapPickerModal";
 import { extractCityAndStreet } from "../../lib/addressHelper";
+import { CustomCheckbox } from "../ui/CustomCheckbox";
 
 interface CheckoutModalProps {
   shop: Shop;
@@ -378,7 +379,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       onClick={() => !isPickupDisabled && setFulfillmentMethod("pickup")}
                       className={`p-2.5 rounded-xl border font-bold flex items-center justify-center gap-1.5 transition-all ${
                         isPickupDisabled
-                          ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
+                          ? "bg-app-surface text-app-muted border-app-border cursor-not-allowed opacity-40 select-none"
                           : fulfillmentMethod === "pickup"
                           ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
                           : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
@@ -397,7 +398,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       onClick={() => !isShippingDisabled && setFulfillmentMethod("shipping")}
                       className={`p-2.5 rounded-xl border font-bold flex items-center justify-center gap-1.5 transition-all ${
                         isShippingDisabled
-                          ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
+                          ? "bg-app-surface text-app-muted border-app-border cursor-not-allowed opacity-40 select-none"
                           : fulfillmentMethod === "shipping"
                           ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
                           : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
@@ -416,7 +417,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       onClick={() => !isOnlineDisabled && setFulfillmentMethod("online")}
                       className={`p-2.5 rounded-xl border font-bold flex items-center justify-center gap-1.5 transition-all ${
                         isOnlineDisabled
-                          ? "bg-app-card/30 text-app-muted/40 border-app-border/40 cursor-not-allowed opacity-40 select-none"
+                          ? "bg-app-surface text-app-muted border-app-border cursor-not-allowed opacity-40 select-none"
                           : fulfillmentMethod === "online"
                           ? "bg-app-accent text-app-accent-fg border-app-accent shadow-sm cursor-pointer"
                           : "bg-app-card text-app-muted border-app-border hover:bg-app-hover hover:text-app-primary cursor-pointer"
@@ -440,7 +441,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <form id="checkout-form" onSubmit={handleSubmitOrder} noValidate className="space-y-4">
                   {/* COURIER DELIVERY FIELDS */}
                   {fulfillmentMethod === "courier" && (
-                    <div className="space-y-3 p-3.5 bg-app-card/50 border border-app-border rounded-2xl">
+                    <div className="space-y-3 p-3.5 bg-app-surface border border-app-border rounded-2xl">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-app-primary font-mono">
                         <Truck size={14} className="text-app-muted" />
                         <span>{t("checkout.courier_address", "Адрес курьерской доставки")}</span>
@@ -573,7 +574,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                   {/* SHIPPING / CDEK / RUSSIAN POST FIELDS */}
                   {fulfillmentMethod === "shipping" && (
-                    <div className="space-y-3 p-3.5 bg-app-card/50 border border-app-border rounded-2xl">
+                    <div className="space-y-3 p-3.5 bg-app-surface border border-app-border rounded-2xl">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-app-primary font-mono">
                         <Package size={14} className="text-app-muted" />
                         <span>{t("checkout.shipping_title", "Доставка Почтой России / СДЭК")}</span>
@@ -635,7 +636,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                   {/* PICKUP FIELDS */}
                   {fulfillmentMethod === "pickup" && (
-                    <div className="space-y-3 p-3.5 bg-app-card/50 border border-app-border rounded-2xl">
+                    <div className="space-y-3 p-3.5 bg-app-surface border border-app-border rounded-2xl">
                       <div className="p-3 bg-app-surface border border-app-border rounded-xl text-xs space-y-1 font-sans">
                         <span className="font-bold text-app-primary font-mono block flex items-center gap-1.5">
                           <Store size={14} className="text-app-muted" />
@@ -680,7 +681,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   )}
 
                   {/* CUSTOMER CONTACT FIELDS */}
-                  <div className="space-y-3 p-3.5 bg-app-card/50 border border-app-border rounded-2xl">
+                  <div className="space-y-3 p-3.5 bg-app-surface border border-app-border rounded-2xl">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-app-primary font-mono">
                       <User size={14} className="text-app-muted" />
                       <span>{fulfillmentMethod === "shipping" ? t("checkout.recipient_data", "Данные получателя (по паспорту)") : t("checkout.contact_data", "Контактные данные")}</span>
@@ -742,7 +743,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
 
                   {/* Order Note */}
-                  <div className="space-y-1 p-3.5 bg-app-card/50 border border-app-border rounded-2xl">
+                  <div className="space-y-1 p-3.5 bg-app-surface border border-app-border rounded-2xl">
                     <label className="text-[11px] font-mono text-app-muted flex items-center gap-1">
                       <FileText size={12} className="text-app-muted" />
                       <span>{t("checkout.order_comment", "Комментарий к заказу")}</span>
@@ -763,18 +764,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
 
                   {/* Legal Compliance Block: 152-FZ, 54-FZ, 38-FZ */}
-                  <div className="space-y-3 p-3.5 bg-app-surface/60 border border-app-border rounded-2xl text-xs font-sans">
+                  <div className="space-y-3 p-3.5 bg-app-surface border border-app-border rounded-2xl text-xs font-sans">
                     {/* Mandatory 152-FZ Consent */}
                     <div className="flex items-start gap-2.5">
-                      <input
+                      <CustomCheckbox
                         id="consent-pd"
-                        type="checkbox"
                         checked={consentPd}
-                        onChange={(e) => {
-                          setConsentPd(e.target.checked);
-                          if (e.target.checked) setConsentError(null);
+                        onChange={(c) => {
+                          setConsentPd(c);
+                          if (c) setConsentError(null);
                         }}
-                        className="w-4 h-4 mt-0.5 rounded border-app-border accent-emerald-500 cursor-pointer shrink-0"
+                        variant="success"
+                        size="sm"
+                        className="mt-0.5"
                       />
                       <label htmlFor="consent-pd" className="text-[11px] text-app-secondary cursor-pointer leading-tight select-none">
                         <span>{t("checkout.consent_agree", "Я даю согласие на")} </span>
@@ -811,13 +813,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     )}
 
                     {/* Optional 38-FZ Marketing Consent */}
-                    <div className="flex items-start gap-2.5 pt-1 border-t border-app-border/40">
-                      <input
+                    <div className="flex items-start gap-2.5 pt-2 border-t border-app-border">
+                      <CustomCheckbox
                         id="consent-ads"
-                        type="checkbox"
                         checked={consentAds}
-                        onChange={(e) => setConsentAds(e.target.checked)}
-                        className="w-4 h-4 mt-0.5 rounded border-app-border accent-emerald-500 cursor-pointer shrink-0"
+                        onChange={(c) => setConsentAds(c)}
+                        variant="success"
+                        size="sm"
+                        className="mt-0.5"
                       />
                       <label htmlFor="consent-ads" className="text-[11px] text-app-muted cursor-pointer leading-tight select-none">
                         {t("checkout.consent_ads", "Получать персональные скидки, промокоды и уведомления об акциях (38-ФЗ «О рекламе»)")}
@@ -825,7 +828,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </div>
 
                     {/* 54-FZ Fiscal Receipt Notice */}
-                    <div className="pt-1.5 flex items-center gap-1.5 text-[10px] font-mono text-app-muted border-t border-app-border/40">
+                    <div className="pt-2 flex items-center gap-1.5 text-[10px] font-mono text-app-muted border-t border-app-border">
                       <CreditCard size={12} className="text-emerald-400 shrink-0" />
                       <span>{t("checkout.receipt_notice", "Электронный чек (54-ФЗ) будет отправлен по номеру телефона")}</span>
                     </div>

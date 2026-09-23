@@ -488,7 +488,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
         <div className="space-y-4">
           <div className="overflow-x-auto rounded-2xl border border-app-border bg-app-surface shadow-xs">
             <table className="w-full text-left text-xs font-mono divide-y divide-app-border">
-              <thead className="bg-app-card/70 text-app-muted font-bold uppercase tracking-wider text-[10px]">
+              <thead className="bg-app-surface text-app-muted font-bold uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="px-4 py-3">№ и Дата</th>
                   <th className="px-4 py-3">Клиент</th>
@@ -517,7 +517,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                   const rawDigitsPhone = (order.customerPhone || "").replace(/[^0-9]/g, "");
 
                   return (
-                    <tr key={order.id} className="hover:bg-app-card/60 transition-colors">
+                    <tr key={order.id} className="hover:bg-app-hover transition-colors">
                       {/* 1. ID & Date */}
                       <td className="px-4 py-3.5 align-top space-y-1">
                         <div className="flex items-center gap-1.5 font-bold text-app-primary">
@@ -805,7 +805,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                 {/* Main Information Grid - Strict Clean Palette */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs font-mono">
                   {/* Card 1: Customer Contact Info */}
-                  <div className="p-3.5 bg-app-card/60 border border-app-border rounded-xl space-y-2.5 flex flex-col justify-between">
+                  <div className="p-3.5 bg-app-surface border border-app-border rounded-xl space-y-2.5 flex flex-col justify-between">
                     <div className="space-y-1.5">
                       <p className="text-app-muted text-[10px] uppercase font-bold tracking-wider flex items-center gap-1">
                         <User size={11} className="text-app-muted" />
@@ -857,7 +857,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                   </div>
 
                   {/* Card 2: Parameters Filled by Customer (READY TIME, TABLE #, ADDRESS, COMMENT) */}
-                  <div className="p-3.5 bg-app-card/60 border border-app-border rounded-xl space-y-2.5">
+                  <div className="p-3.5 bg-app-surface border border-app-border rounded-xl space-y-2.5">
                     <p className="text-app-muted text-[10px] uppercase font-bold tracking-wider flex items-center gap-1">
                       <Sparkles size={11} className="text-app-muted" />
                       <span>Параметры выполнения</span>
@@ -936,7 +936,7 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
                   </div>
 
                   {/* Card 3: Items in Order */}
-                  <div className="p-3.5 bg-app-card/60 border border-app-border rounded-xl space-y-2 flex flex-col justify-between">
+                  <div className="p-3.5 bg-app-surface border border-app-border rounded-xl space-y-2 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between text-app-muted text-[10px] uppercase font-bold tracking-wider pb-1.5 border-b border-app-border/40">
                         <span>Состав заказа</span>

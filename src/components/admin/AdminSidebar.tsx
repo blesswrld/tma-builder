@@ -41,7 +41,9 @@ import {
   Search,
   PanelLeftClose,
   PanelLeftOpen,
-  GripVertical
+  GripVertical,
+  Compass,
+  Wallet
 } from "lucide-react";
 import { CHANGELOG_DATA } from "../../data/changelogData";
 import { useLanguage } from "../../context/LanguageContext";
@@ -89,6 +91,7 @@ interface AdminSidebarProps {
   isOwner: boolean;
   isDeveloperUser: boolean;
   unreadChatCount: number;
+  unreadPeerChatCount?: number;
   unhandledReportsCount: number;
   orders: Order[];
   promocodes: any[];
@@ -154,6 +157,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
   isOwner,
   isDeveloperUser,
   unreadChatCount,
+  unreadPeerChatCount = 0,
   unhandledReportsCount,
   orders,
   promocodes,
@@ -211,6 +215,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
           title: t("group.staff", "Сотрудник"),
           items: [
             { id: "orders", label: t("nav.orders", "Заказы"), icon: ShoppingBag, badge: pendingOrdersCount, alert: pendingOrdersCount > 0 },
+            { id: "shopchat", label: "Чат заведения", icon: MessageSquare, badge: unreadPeerChatCount, alert: unreadPeerChatCount > 0 },
             { id: "botsim", label: t("nav.botsim", "Симулятор бота"), icon: Smartphone },
             ...(isDeveloperUser
               ? [
@@ -231,7 +236,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
         items: [
           { id: "services", label: t("nav.services", "Меню и услуги"), icon: Layers, badge: (selectedShop?.services || []).length },
           { id: "orders", label: t("nav.orders", "Заказы"), icon: ShoppingBag, badge: pendingOrdersCount, alert: pendingOrdersCount > 0 },
-          { id: "customers", label: t("nav.customers", "Клиенты CRM"), icon: Users, badge: (customers || []).length }
+          { id: "shopchat", label: "Чат заведения", icon: MessageSquare, badge: unreadPeerChatCount, alert: unreadPeerChatCount > 0 },
+          { id: "customers", label: t("nav.customers", "Клиенты CRM"), icon: Users, badge: (customers || []).length },
+          { id: "explore", label: "Витрина платформы", icon: Compass }
         ]
       },
       {
@@ -259,6 +266,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
               title: t("group.development", "Разработка (Dev)"),
               items: [
                 { id: "devchat", label: t("nav.devchat_support", "Чат поддержки"), icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
+                { id: "moderation", label: "Модерация", icon: ShieldCheck },
                 { id: "servers", label: t("nav.servers", "Серверы"), icon: Server },
                 { id: "dev-users", label: t("nav.users", "Пользователи"), icon: ShieldAlert },
                 { id: "reports", label: t("nav.reports", "Репорты"), icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
@@ -309,7 +317,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
   }, [activeShops, shopSearchInput]);
 
   const handleNavClick = useCallback((tabId: string) => {
-    if (tabId === "dev-users") {
+    if (tabId === "moderation") {
+      navigate("/moderation");
+    } else if (tabId === "explore") {
+      navigate("/explore");
+    } else if (tabId === "dev-users") {
       navigate("/dev-users");
     } else if (tabId === "reports") {
       navigate("/reports");

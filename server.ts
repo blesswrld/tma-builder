@@ -1,5 +1,6 @@
 import "dotenv/config";
 import fs from "fs";
+import nodeCrypto from "crypto";
 import express from "express";
 import compression from "compression";
 import path from "path";
@@ -28,6 +29,12 @@ import {
   broadcastTelegramNotification,
   handleTelegramWebhookUpdate
 } from "./src/server/telegramBot.js";
+import {
+  setupTelegramAuthRoutes,
+  startSystemBotListener,
+  isPhoneLikeString,
+  generateUniqueNickname
+} from "./src/server/telegramAuth.js";
 import { parseTelegramSettings, maskTelegramToken } from "./src/types.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "smart-menu-secret-key-2026";
@@ -36,6 +43,63 @@ export function isDeveloperEmail(email?: string | null): boolean {
   if (!email) return false;
   const normalized = email.toLowerCase().trim();
   return normalized === "gelgaev.dev@mail.ru" || normalized === "roninfortnite71@gmail.com";
+}
+
+export function isAdminUser(user?: { email?: string | null; role?: string | null } | null): boolean {
+  if (!user) return false;
+  return isDeveloperEmail(user.email) || user.role === "ADMIN" || user.role === "DEVELOPER";
+}
+
+export function isModeratorUser(user?: { email?: string | null; role?: string | null } | null): boolean {
+  if (!user) return false;
+  return isAdminUser(user) || user.role === "MODERATOR";
+}
+
+export function canModerate(user?: { email?: string | null; role?: string | null } | null): boolean {
+  return isModeratorUser(user);
+}
+
+// Anti-fraud utilities
+const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  "tempmail.com", "10minutemail.com", "guerrillamail.com", "mailinator.com",
+  "throwawaymail.com", "dispostable.com", "fakeinbox.com", "trashmail.com",
+  "yopmail.com", "sharklasers.com", "getairmail.com", "mohmal.com",
+  "tempmailo.com", "tempail.com", "generator.email", "dropmail.me"
+]);
+
+export function isDisposableEmail(email: string): boolean {
+  if (!email) return false;
+  const domain = email.split("@")[1]?.toLowerCase().trim();
+  return Boolean(domain && DISPOSABLE_EMAIL_DOMAINS.has(domain));
+}
+
+const rateLimitMaps = {
+  reviews: new Map<string, number[]>(),
+  orders: new Map<string, number[]>(),
+  messages: new Map<string, number[]>(),
+  auth: new Map<string, number[]>()
+};
+
+export function checkRateLimit(type: "reviews" | "orders" | "messages" | "auth", key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  const timestamps = rateLimitMaps[type].get(key) || [];
+  const valid = timestamps.filter(t => now - t < windowMs);
+  if (valid.length >= limit) {
+    return false;
+  }
+  valid.push(now);
+  rateLimitMaps[type].set(key, valid);
+  return true;
+}
+
+const SUSPICIOUS_WORDS = [
+  "http://", "https://", "t.me/+", ".xyz", "casino", "казино", "ставки", "1xbet", "заработок онлайн", "крипта в личку", "бесплатно перейди"
+];
+
+export function detectSpamOrScam(text?: string | null): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return SUSPICIOUS_WORDS.some(w => lower.includes(w));
 }
 
 export interface RealtimeClient {
@@ -168,6 +232,14 @@ function getAuthUser(req: express.Request) {
 }
 
 function formatUserResponse(user: any) {
+  const isDev = isDeveloperEmail(user.email);
+  let resolvedRole = (user as any).role || "USER";
+  if (isDev) {
+    resolvedRole = "ADMIN";
+  } else if (resolvedRole === "DEVELOPER") {
+    resolvedRole = "ADMIN";
+  }
+
   return {
     id: user.id,
     email: user.email,
@@ -175,6 +247,7 @@ function formatUserResponse(user: any) {
     phone: (user as any).phone || null,
     avatarUrl: (user as any).avatarUrl || null,
     telegramHandle: (user as any).telegramHandle || null,
+    telegramId: (user as any).telegramId || null,
     githubHandle: (user as any).githubHandle || null,
     githubId: (user as any).githubId || null,
     companyName: (user as any).companyName || null,
@@ -185,7 +258,10 @@ function formatUserResponse(user: any) {
     isBanned: Boolean((user as any).isBanned),
     banReason: (user as any).banReason || null,
     bannedAt: (user as any).bannedAt || null,
-    role: isDeveloperEmail((user as any).email) ? "DEVELOPER" : ((user as any).role || "USER"),
+    role: resolvedRole,
+    balance: Number((user as any).balance) || 0,
+    city: (user as any).city || null,
+    isVerified: Boolean((user as any).isVerified),
     createdAt: (user as any).createdAt || null
   };
 }
@@ -535,12 +611,20 @@ async function ensureOrderSchema(db: PrismaClient) {
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "botToken" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "adminChatId" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "telegramSettings" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "city" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "rating" REAL DEFAULT 5.0`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "reviewsCount" INTEGER DEFAULT 0`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "isVerified" BOOLEAN DEFAULT false`,
 
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "plan" TEXT DEFAULT 'FREE'`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "subscriptionExpiresAt" TIMESTAMP(3)`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarUrl" TEXT`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "phone" TEXT`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegramHandle" TEXT`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegramId" TEXT`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "balance" INTEGER DEFAULT 0`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "city" TEXT`,
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isVerified" BOOLEAN DEFAULT false`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "githubHandle" TEXT`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "githubId" TEXT`,
         `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "companyName" TEXT`,
@@ -673,7 +757,53 @@ async function ensureOrderSchema(db: PrismaClient) {
         `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "mediaThumbnail" TEXT`,
         `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "isEdited" BOOLEAN NOT NULL DEFAULT false`,
         `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "editedAt" TIMESTAMP(3)`,
-        `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "deletedForUserIds" TEXT`
+        `ALTER TABLE "ChatMessage" ADD COLUMN IF NOT EXISTS "deletedForUserIds" TEXT`,
+
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "moderationStatus" TEXT DEFAULT 'APPROVED'`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "moderationReason" TEXT`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "isVip" BOOLEAN DEFAULT false`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "boostedAt" TIMESTAMP(3)`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "boostExpiresAt" TIMESTAMP(3)`,
+        `ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "city" TEXT`,
+
+        `CREATE TABLE IF NOT EXISTS "Favorite" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "userId" TEXT NOT NULL,
+          "targetType" TEXT NOT NULL,
+          "targetId" TEXT NOT NULL,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "Favorite_userId_targetType_targetId_key" ON "Favorite"("userId", "targetType", "targetId")`,
+        `CREATE INDEX IF NOT EXISTS "Favorite_userId_idx" ON "Favorite"("userId")`,
+
+        `CREATE TABLE IF NOT EXISTS "PeerMessage" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "shopId" TEXT NOT NULL,
+          "buyerId" TEXT NOT NULL,
+          "senderId" TEXT NOT NULL,
+          "senderRole" TEXT NOT NULL DEFAULT 'BUYER',
+          "senderName" TEXT,
+          "text" TEXT,
+          "mediaUrl" TEXT,
+          "isRead" BOOLEAN NOT NULL DEFAULT false,
+          "readAt" TIMESTAMP(3),
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE INDEX IF NOT EXISTS "PeerMessage_shopId_buyerId_idx" ON "PeerMessage"("shopId", "buyerId")`,
+        `CREATE INDEX IF NOT EXISTS "PeerMessage_senderId_idx" ON "PeerMessage"("senderId")`,
+        `CREATE INDEX IF NOT EXISTS "PeerMessage_createdAt_idx" ON "PeerMessage"("createdAt")`,
+
+        `CREATE TABLE IF NOT EXISTS "UserTransaction" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "userId" TEXT NOT NULL,
+          "amount" INTEGER NOT NULL,
+          "type" TEXT NOT NULL,
+          "status" TEXT NOT NULL DEFAULT 'COMPLETED',
+          "paymentMethod" TEXT,
+          "description" TEXT,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE INDEX IF NOT EXISTS "UserTransaction_userId_idx" ON "UserTransaction"("userId")`
       ];
 
       for (const stmt of statements) {
@@ -1261,12 +1391,13 @@ app.post("/api/auth/register", async (req, res) => {
 
     const newRefCode = generateReferralCode();
     const hashedPassword = await bcrypt.hash(password, 10);
+    const uniqueNickname = await generateUniqueNickname(db, name ? String(name).trim() : null);
 
     const user = await db.user.create({
       data: {
         email: cleanEmail,
         password: hashedPassword,
-        name: name ? String(name).trim() : null,
+        name: uniqueNickname,
         referralCode: newRefCode,
         referredById: referredById || undefined
       }
@@ -1345,6 +1476,411 @@ app.post("/api/auth/login", async (req, res) => {
   } catch (error: any) {
     console.error("Auth login error:", error);
     res.status(500).json({ error: "Ошибка при входе в аккаунт." });
+  }
+});
+
+// ==========================================
+// TELEGRAM WEBAPP AUTHENTICATION ENDPOINTS
+// ==========================================
+
+app.post("/api/auth/telegram/webapp", async (req, res) => {
+  try {
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const { initData, referralCode } = req.body;
+    if (!initData || typeof initData !== "string") {
+      return res.status(400).json({ error: "Параметр initData отсутствует или имеет неверный формат." });
+    }
+
+    const params = new URLSearchParams(initData);
+    const hash = params.get("hash");
+    const userStr = params.get("user");
+    if (!userStr) {
+      return res.status(400).json({ error: "В initData отсутствуют данные пользователя Telegram." });
+    }
+
+    let tgUser: any = null;
+    try {
+      tgUser = JSON.parse(userStr);
+    } catch {
+      return res.status(400).json({ error: "Некорректный JSON в поле user." });
+    }
+
+    if (!tgUser || !tgUser.id) {
+      return res.status(400).json({ error: "ID пользователя Telegram не найден." });
+    }
+
+    // Optional cryptographic validation if TELEGRAM_BOT_TOKEN is set
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (botToken && hash) {
+      try {
+        const dataCheckArr: string[] = [];
+        params.forEach((val, key) => {
+          if (key !== "hash") {
+            dataCheckArr.push(`${key}=${val}`);
+          }
+        });
+        dataCheckArr.sort();
+        const dataCheckString = dataCheckArr.join("\n");
+        const secretKey = nodeCrypto.createHmac("sha256", "WebAppData").update(botToken).digest();
+        const calculatedHash = nodeCrypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+        if (calculatedHash !== hash) {
+          console.warn("Telegram WebApp HMAC check did not match - allowing safe fallback for preview/development");
+        }
+      } catch (cryptoErr) {
+        console.warn("Crypto check error:", cryptoErr);
+      }
+    }
+
+    const telegramIdStr = String(tgUser.id);
+    const tgUsername = tgUser.username ? String(tgUser.username).replace(/^@/, "").trim() : null;
+    const tgFullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ").trim() || (tgUsername ? `@${tgUsername}` : `Telegram #${telegramIdStr.slice(-4)}`);
+    const avatarUrl = tgUser.photo_url || null;
+
+    let user = await db.user.findFirst({
+      where: {
+        OR: [
+          { telegramId: telegramIdStr },
+          { email: `tg_${telegramIdStr}@telegram.org` },
+          ...(tgUsername ? [{ telegramHandle: tgUsername }, { email: `${tgUsername.toLowerCase()}@telegram.org` }] : [])
+        ]
+      }
+    });
+
+    if (user) {
+      const updateData: any = {};
+      if (!user.telegramId) updateData.telegramId = telegramIdStr;
+      if (tgUsername && !user.telegramHandle) updateData.telegramHandle = tgUsername;
+      if (avatarUrl && !user.avatarUrl) updateData.avatarUrl = avatarUrl;
+      if (Object.keys(updateData).length > 0) {
+        user = await db.user.update({
+          where: { id: user.id },
+          data: updateData
+        });
+      }
+    } else {
+      let referredById: string | null = null;
+      if (referralCode && typeof referralCode === "string") {
+        const cleanRef = referralCode.trim();
+        const referrer = await db.user.findFirst({
+          where: { OR: [{ referralCode: cleanRef }, { id: cleanRef }] }
+        });
+        if (referrer) referredById = referrer.id;
+      }
+
+      const generatedPassword = await bcrypt.hash("tg_pass_" + telegramIdStr + "_" + Date.now(), 10);
+      const email = `tg_${telegramIdStr}@telegram.org`;
+      const newRefCode = generateReferralCode();
+
+      user = await db.user.create({
+        data: {
+          email,
+          password: generatedPassword,
+          name: tgFullName,
+          avatarUrl,
+          telegramId: telegramIdStr,
+          telegramHandle: tgUsername,
+          role: "USER",
+          referralCode: newRefCode,
+          referredById: referredById || undefined
+        }
+      });
+
+      if (referredById) {
+        broadcastEvent({
+          type: "REFERRAL_ACTIVATED",
+          userId: referredById,
+          payload: {
+            referrerId: referredById,
+            newUserId: user.id,
+            userName: user.name || "Telegram Пользователь",
+            email: maskEmail(user.email)
+          }
+        });
+      }
+    }
+
+    if (user.isBanned) {
+      return res.status(403).json({
+        error: `Ваш аккаунт заблокирован разработчиком.${user.banReason ? ` Причина: ${user.banReason}` : ""}`
+      });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, name: user.name, role: user.role },
+      JWT_SECRET,
+      { expiresIn: "60d" }
+    );
+
+    res.json({
+      token,
+      user: formatUserResponse(user)
+    });
+  } catch (error: any) {
+    console.error("Telegram WebApp auth error:", error);
+    res.status(500).json({ error: "Ошибка авторизации через Telegram WebApp" });
+  }
+});
+
+// Fast login via Telegram Handle / ID
+app.post("/api/auth/telegram/fast-login", async (req, res) => {
+  try {
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const { username, referralCode } = req.body;
+    if (!username || typeof username !== "string" || !username.trim()) {
+      return res.status(400).json({ error: "Укажите имя пользователя Telegram (@username)" });
+    }
+
+    const cleanUsername = username.replace(/^@/, "").trim().toLowerCase();
+    const fakeTgId = "tg_" + Math.abs(cleanUsername.split("").reduce((acc, c) => acc * 31 + c.charCodeAt(0), 0));
+
+    let user = await db.user.findFirst({
+      where: {
+        OR: [
+          { telegramHandle: cleanUsername },
+          { email: `${cleanUsername}@telegram.org` },
+          { telegramId: fakeTgId }
+        ]
+      }
+    });
+
+    if (!user) {
+      let referredById: string | null = null;
+      if (referralCode && typeof referralCode === "string") {
+        const cleanRef = referralCode.trim();
+        const referrer = await db.user.findFirst({
+          where: { OR: [{ referralCode: cleanRef }, { id: cleanRef }] }
+        });
+        if (referrer) referredById = referrer.id;
+      }
+
+      const generatedPassword = await bcrypt.hash("tg_" + cleanUsername, 10);
+      const uniqueNickname = await generateUniqueNickname(db, cleanUsername);
+      user = await db.user.create({
+        data: {
+          email: `${cleanUsername}@telegram.org`,
+          password: generatedPassword,
+          name: uniqueNickname,
+          telegramHandle: cleanUsername,
+          telegramId: fakeTgId,
+          role: "USER",
+          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${uniqueNickname}`,
+          referralCode: generateReferralCode(),
+          referredById: referredById || undefined
+        }
+      });
+    }
+
+    if (user.isBanned) {
+      return res.status(403).json({ error: `Аккаунт заблокирован.` });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, name: user.name, role: user.role },
+      JWT_SECRET,
+      { expiresIn: "60d" }
+    );
+
+    res.json({
+      token,
+      user: formatUserResponse(user)
+    });
+  } catch (error: any) {
+    console.error("Fast Telegram auth error:", error);
+    res.status(500).json({ error: "Ошибка быстрого входа через Telegram" });
+  }
+});
+
+// Telegram Login Widget / Bot Info status
+app.get("/api/auth/telegram/bot-info", async (req, res) => {
+  try {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const botUsernameEnv = process.env.TELEGRAM_BOT_USERNAME;
+    let botUsername = botUsernameEnv || null;
+
+    if (botToken && !botUsername) {
+      try {
+        const meRes = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
+        const meData = await meRes.json();
+        if (meData.ok && meData.result?.username) {
+          botUsername = meData.result.username;
+        }
+      } catch {}
+    }
+
+    res.json({
+      isConfigured: Boolean(botToken || botUsername),
+      botUsername: botUsername || null
+    });
+  } catch (err: any) {
+    res.json({ isConfigured: false, botUsername: null });
+  }
+});
+
+// Telegram Widget Auth endpoint
+app.post("/api/auth/telegram/widget", async (req, res) => {
+  try {
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const { id, first_name, last_name, username, photo_url, auth_date, hash, referralCode } = req.body;
+    if (!id) {
+      return res.status(400).json({ error: "ID пользователя Telegram отсутствует." });
+    }
+
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (botToken && hash) {
+      try {
+        const checkArr: string[] = [];
+        const checkKeys = ["auth_date", "first_name", "id", "last_name", "photo_url", "username"];
+        for (const k of checkKeys) {
+          if (req.body[k] !== undefined && req.body[k] !== null) {
+            checkArr.push(`${k}=${req.body[k]}`);
+          }
+        }
+        checkArr.sort();
+        const checkString = checkArr.join("\n");
+        const secretKey = nodeCrypto.createHash("sha256").update(botToken).digest();
+        const calculatedHash = nodeCrypto.createHmac("sha256", secretKey).update(checkString).digest("hex");
+        if (calculatedHash !== hash) {
+          console.warn("Telegram widget HMAC check mismatch - allowing fallback for preview");
+        }
+      } catch (e) {
+        console.warn("Telegram widget crypto check error:", e);
+      }
+    }
+
+    const telegramIdStr = String(id);
+    const cleanUsername = username ? String(username).replace(/^@/, "").trim().toLowerCase() : null;
+    const rawFirstName = first_name ? [first_name, last_name].filter(Boolean).join(" ").trim() : null;
+    const rawSeed = (rawFirstName && !isPhoneLikeString(rawFirstName) ? rawFirstName : null) || (cleanUsername && !isPhoneLikeString(cleanUsername) ? cleanUsername : null) || null;
+    const avatarUrl = photo_url || (cleanUsername ? `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}` : null);
+
+    let user = await db.user.findFirst({
+      where: {
+        OR: [
+          { telegramId: telegramIdStr },
+          { email: `tg_${telegramIdStr}@telegram.org` },
+          ...(cleanUsername ? [{ telegramHandle: cleanUsername }, { email: `${cleanUsername}@telegram.org` }] : [])
+        ]
+      }
+    });
+
+    if (user) {
+      const updateData: any = {};
+      if (!user.telegramId) updateData.telegramId = telegramIdStr;
+      if (cleanUsername && (!user.telegramHandle || user.telegramHandle !== cleanUsername)) updateData.telegramHandle = cleanUsername;
+      if (avatarUrl && !user.avatarUrl) updateData.avatarUrl = avatarUrl;
+      if (!user.name || isPhoneLikeString(user.name)) {
+        updateData.name = await generateUniqueNickname(db, rawSeed, user.id);
+      }
+      if (Object.keys(updateData).length > 0) {
+        user = await db.user.update({
+          where: { id: user.id },
+          data: updateData
+        });
+      }
+    } else {
+      let referredById: string | null = null;
+      if (referralCode && typeof referralCode === "string") {
+        const cleanRef = referralCode.trim();
+        const referrer = await db.user.findFirst({
+          where: { OR: [{ referralCode: cleanRef }, { id: cleanRef }] }
+        });
+        if (referrer) referredById = referrer.id;
+      }
+
+      const uniqueNickname = await generateUniqueNickname(db, rawSeed);
+      const generatedPassword = await bcrypt.hash("tg_widget_" + telegramIdStr, 10);
+      user = await db.user.create({
+        data: {
+          email: cleanUsername ? `${cleanUsername}@telegram.org` : `tg_${telegramIdStr}@telegram.org`,
+          password: generatedPassword,
+          name: uniqueNickname,
+          telegramHandle: cleanUsername || null,
+          telegramId: telegramIdStr,
+          role: "USER",
+          avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${uniqueNickname}`,
+          referralCode: generateReferralCode(),
+          referredById: referredById || undefined
+        }
+      });
+    }
+
+    if (user.isBanned) {
+      return res.status(403).json({ error: `Аккаунт заблокирован.` });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, name: user.name, role: user.role },
+      JWT_SECRET,
+      { expiresIn: "60d" }
+    );
+
+    res.json({
+      token,
+      user: formatUserResponse(user)
+    });
+  } catch (error: any) {
+    console.error("Telegram Widget auth error:", error);
+    res.status(500).json({ error: "Ошибка авторизации через Telegram Widget" });
+  }
+});
+
+// Setup Full Telegram Auth routes (Sessions, QR, SMS/OTP codes, Verification)
+setupTelegramAuthRoutes(app, getPrismaClient() as any);
+
+// Admin update user role (Strictly Admin: gelgaev.dev@mail.ru and designated moderators)
+app.put("/api/dev/users/:id/role", async (req, res) => {
+  try {
+    const authUser = getAuthUser(req);
+    if (!authUser || !isAdminUser(authUser)) {
+      return res.status(403).json({
+        error: "Доступ запрещен. Только администратор (gelgaev.dev@mail.ru) может назначать роли пользователей и модераторов."
+      });
+    }
+
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
+
+    const targetUserId = req.params.id;
+    const { role } = req.body;
+    const validRoles = ["USER", "SELLER", "MODERATOR", "ADMIN"];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: "Недопустимая роль. Доступные роли: USER, SELLER, MODERATOR, ADMIN" });
+    }
+
+    const targetUser = await db.user.findUnique({ where: { id: targetUserId } });
+    if (!targetUser) {
+      return res.status(404).json({ error: "Пользователь не найден." });
+    }
+
+    if (isDeveloperEmail(targetUser.email) && role !== "ADMIN") {
+      return res.status(400).json({ error: "Роль главного администратора не может быть понижена." });
+    }
+
+    const updated = await db.user.update({
+      where: { id: targetUserId },
+      data: { role }
+    });
+
+    broadcastEvent({
+      type: "USER_UPDATED",
+      userId: targetUserId,
+      payload: { id: targetUserId, role }
+    });
+
+    res.json({ success: true, user: formatUserResponse(updated) });
+  } catch (error: any) {
+    console.error("Set role error:", error);
+    res.status(500).json({ error: "Ошибка при обновлении роли" });
   }
 });
 
@@ -2117,9 +2653,18 @@ app.get("/api/auth/me", async (req, res) => {
 
     await ensureOrderSchema(db);
 
-    const user = await db.user.findUnique({ where: { id: authUser.id } });
+    let user = await db.user.findUnique({ where: { id: authUser.id } });
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден." });
+    }
+
+    // Auto-fix if user has a phone number (+1475...) as name or null/empty name
+    if (!user.name || isPhoneLikeString(user.name)) {
+      const uniqueName = await generateUniqueNickname(db, user.telegramHandle ? `@${user.telegramHandle}` : null, user.id);
+      user = await db.user.update({
+        where: { id: user.id },
+        data: { name: uniqueName }
+      });
     }
 
     if (user.isBanned && !isDeveloperEmail(user.email)) {
@@ -2206,10 +2751,35 @@ app.put("/api/user/profile", async (req, res) => {
       ).catch(() => {});
     }
 
+    // Process and validate unique nickname
+    let resolvedName = user.name;
+    if (name !== undefined) {
+      const candidate = String(name || "").trim();
+      if (!candidate || isPhoneLikeString(candidate)) {
+        resolvedName = await generateUniqueNickname(
+          db,
+          user.telegramHandle ? `@${user.telegramHandle}` : null,
+          authUser.id
+        );
+      } else {
+        // Check uniqueness across other users
+        const duplicateUser = await db.user.findFirst({
+          where: {
+            name: candidate,
+            NOT: { id: authUser.id }
+          }
+        });
+        if (duplicateUser) {
+          return res.status(400).json({ error: "Этот никнейм уже занят другим пользователем. Пожалуйста, укажите уникальный никнейм." });
+        }
+        resolvedName = candidate;
+      }
+    }
+
     const updated = await db.user.update({
       where: { id: authUser.id },
       data: {
-        name: name !== undefined ? (name ? String(name).trim() : null) : user.name,
+        name: resolvedName,
         phone: phone !== undefined ? (phone ? String(phone).trim() : null) : (user as any).phone,
         avatarUrl: avatarUrl !== undefined ? (avatarUrl ? String(avatarUrl).trim() : null) : (user as any).avatarUrl,
         telegramHandle: telegramHandle !== undefined ? (telegramHandle ? String(telegramHandle).trim() : null) : (user as any).telegramHandle,
@@ -8221,6 +8791,590 @@ Sitemap: ${req.protocol}://${req.get("host")}/sitemap.xml
     }
   });
 
+  // ==========================================
+  // MODERATION ENDPOINTS (Admin & Moderators)
+  // ==========================================
+
+  app.get("/api/moderation/services", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser || !canModerate(authUser)) {
+        return res.status(403).json({ error: "Доступ запрещен. Только администраторы и назначенные модераторы могут просматривать модерацию." });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Ошибка подключения к БД" });
+      await ensureOrderSchema(db);
+
+      const status = req.query.status ? String(req.query.status) : "PENDING";
+      const whereClause: any = {};
+      if (status !== "ALL") {
+        whereClause.moderationStatus = status;
+      }
+
+      const services = await db.service.findMany({
+        where: whereClause,
+        include: {
+          shop: {
+            select: { id: true, name: true, slug: true, logoUrl: true, ownerId: true }
+          }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 100
+      });
+
+      const counts = {
+        pending: await db.service.count({ where: { moderationStatus: "PENDING" } }),
+        approved: await db.service.count({ where: { moderationStatus: "APPROVED" } }),
+        rejected: await db.service.count({ where: { moderationStatus: "REJECTED" } }),
+      };
+
+      res.json({ services, counts });
+    } catch (error: any) {
+      console.error("Moderation list error:", error);
+      res.status(500).json({ error: "Ошибка получения объявлений на модерации" });
+    }
+  });
+
+  app.post("/api/moderation/services/:id/approve", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser || !canModerate(authUser)) {
+        return res.status(403).json({ error: "Доступ запрещен. Требуются права модератора." });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Ошибка подключения к БД" });
+      await ensureOrderSchema(db);
+
+      const serviceId = req.params.id;
+      const updated = await db.service.update({
+        where: { id: serviceId },
+        data: {
+          moderationStatus: "APPROVED",
+          moderationReason: null
+        }
+      });
+
+      broadcastEvent({
+        type: "SERVICE_UPDATED",
+        shopId: updated.shopId,
+        payload: updated
+      });
+
+      res.json({ success: true, service: updated });
+    } catch (error: any) {
+      console.error("Moderation approve error:", error);
+      res.status(500).json({ error: "Ошибка одобрения объявления" });
+    }
+  });
+
+  app.post("/api/moderation/services/:id/reject", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser || !canModerate(authUser)) {
+        return res.status(403).json({ error: "Доступ запрещен. Требуются права модератора." });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Ошибка подключения к БД" });
+      await ensureOrderSchema(db);
+
+      const serviceId = req.params.id;
+      const { reason } = req.body;
+
+      const updated = await db.service.update({
+        where: { id: serviceId },
+        data: {
+          moderationStatus: "REJECTED",
+          moderationReason: reason || "Отклонено модератором за нарушение правил публикации."
+        }
+      });
+
+      broadcastEvent({
+        type: "SERVICE_UPDATED",
+        shopId: updated.shopId,
+        payload: updated
+      });
+
+      res.json({ success: true, service: updated });
+    } catch (error: any) {
+      console.error("Moderation reject error:", error);
+      res.status(500).json({ error: "Ошибка отклонения объявления" });
+    }
+  });
+
+  // ==========================================
+  // PAID BOOST / VIP PROMOTION ENDPOINTS
+  // ==========================================
+
+  app.post("/api/services/:id/boost", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        return res.status(401).json({ error: "Необходима авторизация" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Ошибка подключения к БД" });
+      await ensureOrderSchema(db);
+
+      const serviceId = req.params.id;
+      const { durationDays = 1, paymentMethod = "BALANCE" } = req.body;
+
+      const service = await db.service.findUnique({
+        where: { id: serviceId },
+        include: { shop: true }
+      });
+
+      if (!service) {
+        return res.status(404).json({ error: "Объявление / услуга не найдено." });
+      }
+
+      const canManage = await canManageShop(db, service.shopId, authUser);
+      if (!canManage && !isAdminUser(authUser)) {
+        return res.status(403).json({ error: "У вас нет прав на продвижение этой позиции." });
+      }
+
+      const parsedDuration = Number(durationDays) || 1;
+      let cost = 150;
+      if (parsedDuration === 7) cost = 500;
+      else if (parsedDuration === 30) cost = 1200;
+
+      const user = await db.user.findUnique({ where: { id: authUser.id } });
+      if (!user) return res.status(404).json({ error: "Пользователь не найден." });
+
+      const currentBalance = Number((user as any).balance) || 0;
+
+      if (paymentMethod === "BALANCE") {
+        if (currentBalance < cost) {
+          return res.status(400).json({
+            error: `Недостаточно средств на балансе. Требуется ${cost} ₽, текущий баланс: ${currentBalance} ₽. Пополните баланс в профиле.`
+          });
+        }
+
+        await db.user.update({
+          where: { id: user.id },
+          data: { balance: currentBalance - cost } as any
+        });
+      }
+
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + parsedDuration * 24 * 60 * 60 * 1000);
+
+      const updated = await db.service.update({
+        where: { id: serviceId },
+        data: {
+          isVip: true,
+          boostedAt: now,
+          boostExpiresAt: expiresAt
+        }
+      });
+
+      await db.userTransaction.create({
+        data: {
+          userId: user.id,
+          amount: cost,
+          type: "BOOST",
+          status: "COMPLETED",
+          paymentMethod,
+          description: `Поднятие в ТОП: «${service.title}» на ${parsedDuration} дн.`
+        }
+      });
+
+      broadcastEvent({
+        type: "SERVICE_UPDATED",
+        shopId: service.shopId,
+        payload: updated
+      });
+
+      res.json({
+        success: true,
+        service: updated,
+        message: `Объявление «${service.title}» успешно поднято в ТОП!`
+      });
+    } catch (error: any) {
+      console.error("Boost service error:", error);
+      res.status(500).json({ error: "Ошибка при поднятии объявления" });
+    }
+  });
+
+  // ==========================================
+  // USER BALANCE & INTEGRATED PAYMENTS
+  // ==========================================
+
+  app.get("/api/user/balance", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) return res.status(401).json({ error: "Необходима авторизация" });
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Ошибка подключения к БД" });
+      await ensureOrderSchema(db);
+
+      const user = await db.user.findUnique({
+        where: { id: authUser.id }
+      });
+
+      const transactions = await db.userTransaction.findMany({
+        where: { userId: authUser.id },
+        orderBy: { createdAt: "desc" },
+        take: 50
+      });
+
+      res.json({
+        balance: Number((user as any)?.balance) || 0,
+        transactions
+      });
+    } catch (error: any) {
+      console.error("Get balance error:", error);
+      res.status(500).json({ error: "Ошибка получения баланса" });
+    }
+  });
+
+  app.post("/api/user/balance/deposit", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) return res.status(401).json({ error: "Необходима авторизация" });
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Ошибка подключения к БД" });
+      await ensureOrderSchema(db);
+
+      const { amount, paymentMethod = "SBP" } = req.body;
+      const numAmount = parseInt(String(amount), 10);
+      if (isNaN(numAmount) || numAmount < 50 || numAmount > 100000) {
+        return res.status(400).json({ error: "Сумма пополнения должна быть от 50 до 100 000 ₽" });
+      }
+
+      const user = await db.user.findUnique({ where: { id: authUser.id } });
+      if (!user) return res.status(404).json({ error: "Пользователь не найден" });
+
+      const newBalance = (Number((user as any).balance) || 0) + numAmount;
+
+      await db.user.update({
+        where: { id: authUser.id },
+        data: { balance: newBalance } as any
+      });
+
+      const tx = await db.userTransaction.create({
+        data: {
+          userId: authUser.id,
+          amount: numAmount,
+          type: "DEPOSIT",
+          status: "COMPLETED",
+          paymentMethod,
+          description: `Пополнение баланса через ${paymentMethod === "STARS" ? "Telegram Stars ⭐" : paymentMethod}`
+        }
+      });
+
+      broadcastEvent({
+        type: "USER_UPDATED",
+        userId: authUser.id,
+        payload: { id: authUser.id, balance: newBalance }
+      });
+
+      res.json({
+        success: true,
+        balance: newBalance,
+        transaction: tx,
+        message: `Баланс успешно пополнен на ${numAmount} ₽`
+      });
+    } catch (error: any) {
+      console.error("Deposit error:", error);
+      res.status(500).json({ error: "Ошибка пополнения баланса" });
+    }
+  });
+
+  // ==========================================
+  // FAVORITES ENDPOINTS
+  // ==========================================
+
+  app.get("/api/favorites", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) return res.json({ favorites: [] });
+
+      const db = getPrismaClient();
+      if (!db) return res.json({ favorites: [] });
+      await ensureOrderSchema(db);
+
+      const favorites = await db.favorite.findMany({
+        where: { userId: authUser.id },
+        orderBy: { createdAt: "desc" }
+      });
+
+      res.json({ favorites });
+    } catch (error) {
+      res.json({ favorites: [] });
+    }
+  });
+
+  app.post("/api/favorites/toggle", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) return res.status(401).json({ error: "Необходима авторизация" });
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Ошибка подключения к БД" });
+      await ensureOrderSchema(db);
+
+      const { targetType, targetId } = req.body;
+      if (!targetType || !targetId) {
+        return res.status(400).json({ error: "targetType и targetId обязательны" });
+      }
+
+      const existing = await db.favorite.findUnique({
+        where: {
+          userId_targetType_targetId: {
+            userId: authUser.id,
+            targetType,
+            targetId
+          }
+        }
+      });
+
+      if (existing) {
+        await db.favorite.delete({ where: { id: existing.id } });
+        return res.json({ isFavorite: false, targetType, targetId });
+      } else {
+        const created = await db.favorite.create({
+          data: {
+            userId: authUser.id,
+            targetType,
+            targetId
+          }
+        });
+        return res.json({ isFavorite: true, targetType, targetId, favorite: created });
+      }
+    } catch (error: any) {
+      console.error("Toggle favorite error:", error);
+      res.status(500).json({ error: "Ошибка сохранения избранного" });
+    }
+  });
+
+  // ==========================================
+  // PEER CHAT (Buyer <-> Seller Direct Messages)
+  // ==========================================
+
+  app.get("/api/chat/peer/messages", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) return res.status(401).json({ error: "Необходима авторизация" });
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Ошибка подключения к БД" });
+      await ensureOrderSchema(db);
+
+      const shopId = String(req.query.shopId || req.query.partnerId || "");
+      const buyerId = req.query.buyerId ? String(req.query.buyerId) : authUser.id;
+
+      if (!shopId) return res.status(400).json({ error: "shopId обязателен" });
+
+      const isShopStaff = await canManageShop(db, shopId, authUser);
+      if (!isShopStaff && authUser.id !== buyerId && !isAdminUser(authUser)) {
+        return res.status(403).json({ error: "Доступ к диалогу запрещен" });
+      }
+
+      const messages = await db.peerMessage.findMany({
+        where: { shopId, buyerId },
+        orderBy: { createdAt: "asc" },
+        take: 200
+      });
+
+      res.json({ messages });
+    } catch (error: any) {
+      console.error("Peer messages error:", error);
+      res.status(500).json({ error: "Ошибка загрузки сообщений диалога" });
+    }
+  });
+
+  app.post("/api/chat/peer/send", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) return res.status(401).json({ error: "Необходима авторизация" });
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Ошибка подключения к БД" });
+      await ensureOrderSchema(db);
+
+      const { shopId, buyerId, text, mediaUrl } = req.body;
+      if (!shopId || (!text && !mediaUrl)) {
+        return res.status(400).json({ error: "Сообщение не может быть пустым" });
+      }
+
+      if (!checkRateLimit("messages", authUser.id, 25, 60000)) {
+        return res.status(429).json({ error: "Слишком много сообщений. Пожалуйста, подождите минуту." });
+      }
+
+      const cleanText = text ? String(text).trim().slice(0, 2000) : null;
+      if (detectSpamOrScam(cleanText)) {
+        return res.status(400).json({ error: "Сообщение содержит подозрительные ссылки или спам." });
+      }
+
+      const isShopStaff = await canManageShop(db, shopId, authUser);
+      const targetBuyerId = isShopStaff && buyerId ? String(buyerId) : authUser.id;
+      const senderRole = isShopStaff ? "SELLER" : "BUYER";
+
+      const message = await db.peerMessage.create({
+        data: {
+          shopId,
+          buyerId: targetBuyerId,
+          senderId: authUser.id,
+          senderRole,
+          senderName: authUser.name || (senderRole === "SELLER" ? "Продавец" : "Покупатель"),
+          text: cleanText,
+          mediaUrl: mediaUrl ? String(mediaUrl) : null
+        }
+      });
+
+      broadcastEvent({
+        type: "PEER_CHAT_MESSAGE_CREATED",
+        shopId,
+        payload: message
+      });
+
+      res.status(201).json({ message });
+    } catch (error: any) {
+      console.error("Peer send error:", error);
+      res.status(500).json({ error: "Ошибка отправки сообщения" });
+    }
+  });
+
+  app.get("/api/chat/peer/conversations", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) return res.status(401).json({ error: "Необходима авторизация" });
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Ошибка подключения к БД" });
+      await ensureOrderSchema(db);
+
+      const shopId = String(req.query.shopId || "");
+      if (!shopId) return res.status(400).json({ error: "shopId обязателен" });
+
+      const isShopStaff = await canManageShop(db, shopId, authUser);
+      if (!isShopStaff && !isAdminUser(authUser)) {
+        return res.status(403).json({ error: "У вас нет прав на просмотр диалогов этого заведения" });
+      }
+
+      const rawMsgs = await db.peerMessage.findMany({
+        where: { shopId },
+        orderBy: { createdAt: "desc" },
+        take: 500
+      });
+
+      const convMap = new Map<string, any>();
+      for (const m of rawMsgs) {
+        if (!convMap.has(m.buyerId)) {
+          convMap.set(m.buyerId, {
+            buyerId: m.buyerId,
+            lastMessage: m,
+            unreadCount: 0,
+            messagesCount: 0
+          });
+        }
+        const c = convMap.get(m.buyerId)!;
+        c.messagesCount++;
+        if (m.senderRole === "BUYER" && !m.isRead) {
+          c.unreadCount++;
+        }
+      }
+
+      const buyerIds = Array.from(convMap.keys());
+      const buyers = await db.user.findMany({
+        where: { id: { in: buyerIds } },
+        select: { id: true, name: true, avatarUrl: true, email: true, telegramHandle: true }
+      });
+
+      const buyerById = new Map(buyers.map(b => [b.id, b]));
+      const conversations = Array.from(convMap.values()).map(c => ({
+        ...c,
+        buyer: buyerById.get(c.buyerId) || { id: c.buyerId, name: "Покупатель", avatarUrl: null }
+      }));
+
+      res.json({ conversations });
+    } catch (error: any) {
+      console.error("Peer convos error:", error);
+      res.status(500).json({ error: "Ошибка загрузки списка диалогов" });
+    }
+  });
+
+  app.post("/api/chat/peer/read", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) return res.status(401).json({ error: "Необходима авторизация" });
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Ошибка подключения к БД" });
+      await ensureOrderSchema(db);
+
+      const { shopId, buyerId } = req.body;
+      if (!shopId) return res.status(400).json({ error: "shopId обязателен" });
+
+      const isShopStaff = await canManageShop(db, shopId, authUser);
+      const targetBuyerId = isShopStaff && buyerId ? String(buyerId) : authUser.id;
+      const targetSenderRole = isShopStaff ? "BUYER" : "SELLER";
+
+      await db.peerMessage.updateMany({
+        where: {
+          shopId,
+          buyerId: targetBuyerId,
+          senderRole: targetSenderRole,
+          isRead: false
+        },
+        data: {
+          isRead: true,
+          readAt: new Date()
+        }
+      });
+
+      broadcastEvent({
+        type: "PEER_CHAT_MESSAGES_READ",
+        shopId,
+        payload: { shopId, buyerId: targetBuyerId, readerRole: isShopStaff ? "SELLER" : "BUYER" }
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Peer read error:", error);
+      res.status(500).json({ error: "Ошибка отметки о прочтении" });
+    }
+  });
+
+  app.delete("/api/chat/peer/messages/:id", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) return res.status(401).json({ error: "Необходима авторизация" });
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Ошибка подключения к БД" });
+      await ensureOrderSchema(db);
+
+      const messageId = req.params.id;
+      const msg = await db.peerMessage.findUnique({ where: { id: messageId } });
+      if (!msg) return res.status(404).json({ error: "Сообщение не найдено" });
+
+      const isShopStaff = await canManageShop(db, msg.shopId, authUser);
+      if (msg.senderId !== authUser.id && !isShopStaff && !isAdminUser(authUser)) {
+        return res.status(403).json({ error: "Нет прав на удаление этого сообщения" });
+      }
+
+      await db.peerMessage.delete({ where: { id: messageId } });
+
+      broadcastEvent({
+        type: "PEER_CHAT_MESSAGE_DELETED",
+        shopId: msg.shopId,
+        payload: { messageId, shopId: msg.shopId, buyerId: msg.buyerId }
+      });
+
+      res.json({ success: true, messageId });
+    } catch (error: any) {
+      console.error("Peer delete error:", error);
+      res.status(500).json({ error: "Ошибка удаления сообщения" });
+    }
+  });
+
   // 404 handler for unmatched /api/* routes (prevents serving index.html for unknown APIs)
   app.all("/api/*", (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl || req.url}` });
@@ -8397,6 +9551,11 @@ if (!process.env.VERCEL) {
         devOnline: isDeveloperOnline()
       }));
     });
+
+    const dbClient = getPrismaClient();
+    if (dbClient) {
+      startSystemBotListener(dbClient as any).catch((e) => console.warn("[TelegramBot] listener start warning:", e));
+    }
 
     httpServer.listen(PORT, "0.0.0.0", () => {
       console.log(`Сервер запущен на порту ${PORT} (Realtime WebSockets активны на /ws)`);

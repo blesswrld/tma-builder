@@ -5,6 +5,7 @@ export interface User {
   phone?: string | null;
   avatarUrl?: string | null;
   telegramHandle?: string | null;
+  telegramId?: string | null;
   githubHandle?: string | null;
   githubId?: string | null;
   companyName?: string | null;
@@ -13,7 +14,12 @@ export interface User {
   isBanned?: boolean;
   banReason?: string | null;
   bannedAt?: string | null;
-  role?: "USER" | "DEVELOPER" | "ADMIN";
+  role?: "USER" | "SELLER" | "MODERATOR" | "ADMIN" | "DEVELOPER";
+  balance?: number;
+  city?: string | null;
+  isVerified?: boolean;
+  referralCode?: string | null;
+  referredById?: string | null;
   createdAt?: string;
 }
 
@@ -65,6 +71,12 @@ export interface Service {
   isAvailable?: boolean;
   position?: number;
   fulfillment?: string | null;
+  moderationStatus?: "APPROVED" | "PENDING" | "REJECTED";
+  moderationReason?: string | null;
+  isVip?: boolean;
+  boostedAt?: string | null;
+  boostExpiresAt?: string | null;
+  city?: string | null;
   createdAt?: string;
 }
 
@@ -523,8 +535,43 @@ export interface PublicShop {
   ordersCount: number;
   avgRating: number;
   categories: string[];
+  city?: string | null;
+  isVerified?: boolean;
   priceRange?: { min: number; max: number };
   featuredServices?: PublicShopFeaturedService[];
+  createdAt: string;
+}
+
+export interface FavoriteItem {
+  id: string;
+  userId: string;
+  targetType: "shop" | "service";
+  targetId: string;
+  createdAt: string;
+}
+
+export interface PeerMessage {
+  id: string;
+  shopId: string;
+  buyerId: string;
+  senderId: string;
+  senderRole: "BUYER" | "SELLER";
+  senderName?: string | null;
+  text?: string | null;
+  mediaUrl?: string | null;
+  isRead: boolean;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface UserTransaction {
+  id: string;
+  userId: string;
+  amount: number;
+  type: "DEPOSIT" | "BOOST" | "ORDER_PAYMENT" | "REFUND";
+  status: "COMPLETED" | "PENDING" | "FAILED";
+  paymentMethod?: string | null;
+  description?: string | null;
   createdAt: string;
 }
 

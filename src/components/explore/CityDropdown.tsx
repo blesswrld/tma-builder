@@ -101,7 +101,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        <MapPin size={12} className={isSelectedNonPrimary ? "text-app-accent-fg" : "text-emerald-500"} />
+        <MapPin size={12} className={isSelectedNonPrimary ? "text-app-accent-fg" : "text-app-muted"} />
         <span>
           {isSelectedNonPrimary
             ? `${selectedCity}${cityCounts[selectedCity] ? ` (${cityCounts[selectedCity]})` : ""}`
@@ -189,7 +189,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
                   aria-selected={selectedCity === "ALL"}
                 >
                   <div className="flex items-center gap-2 truncate">
-                    <Globe size={13} className={selectedCity === "ALL" ? "text-app-accent-fg" : "text-emerald-500"} />
+                    <Globe size={13} className={selectedCity === "ALL" ? "text-app-accent-fg" : "text-app-muted"} />
                     <span className="font-semibold">Все города платформы</span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -257,7 +257,7 @@ export const CityDropdown: React.FC<CityDropdownProps> = ({
                   <button
                     type="button"
                     onClick={() => setSearchQuery("")}
-                    className="text-[11px] text-emerald-500 hover:underline cursor-pointer"
+                    className="text-[11px] text-app-primary hover:underline cursor-pointer"
                   >
                     Сбросить поиск
                   </button>

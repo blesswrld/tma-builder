@@ -40,6 +40,7 @@ import {
   Moon,
   Github
 } from "lucide-react";
+import { CustomCheckbox } from "../components/ui/CustomCheckbox";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -75,6 +76,10 @@ export interface DevUser {
   avatarUrl: string | null;
   plan: "FREE" | "PRO" | "ENTERPRISE";
   subscriptionExpiresAt: string | null;
+  role?: "USER" | "SELLER" | "MODERATOR" | "ADMIN" | "DEVELOPER";
+  balance?: number;
+  city?: string | null;
+  isVerified?: boolean;
   isBanned: boolean;
   banReason: string | null;
   bannedAt: string | null;
@@ -390,6 +395,28 @@ export default function DeveloperUsersPage() {
     }
   };
 
+  // Quick Role Change (strictly for Admin)
+  const handleQuickRoleChange = async (userId: string, role: "USER" | "SELLER" | "MODERATOR" | "ADMIN") => {
+    try {
+      const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+      const res = await fetch(`/api/dev/users/${userId}/role`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ role })
+      });
+      if (!res.ok) {
+        const msg = await getErrorMessage(res, "Ошибка изменения роли");
+        throw new Error(msg);
+      }
+      fetchUsers(false);
+    } catch (err: any) {
+      setAlertModal({ isOpen: true, title: "Ошибка назначения роли", message: err.message });
+    }
+  };
+
   // Save edited user
   const handleSaveUser = async () => {
     if (!editModalUser) return;
@@ -691,6 +718,8 @@ export default function DeveloperUsersPage() {
   const isAllSelected =
     filteredUsers.length > 0 &&
     filteredUsers.every((u) => selectedUserIds.has(u.id));
+  const isPartiallySelected =
+    !isAllSelected && filteredUsers.some((u) => selectedUserIds.has(u.id));
 
   const toggleSelectAll = () => {
     if (isAllSelected) {
@@ -814,7 +843,7 @@ export default function DeveloperUsersPage() {
 
           <div className="hidden xl:flex items-center gap-2">
             <span className="px-2.5 py-1 rounded-lg text-[11px] font-mono text-app-text-secondary bg-app-card border border-app-border flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-app-primary shrink-0" />
               <span>DEV ACCESS</span>
               <span className="text-app-muted">•</span>
               <span className="text-app-text-primary font-medium">{user?.email}</span>
@@ -917,7 +946,7 @@ export default function DeveloperUsersPage() {
           <div className="p-3.5 sm:p-4 bg-app-surface border border-app-border rounded-2xl flex flex-col justify-between shadow-2xs">
             <div className="flex items-center justify-between text-app-muted">
               <span className="text-[11px] font-mono uppercase tracking-wider font-medium">Активные</span>
-              <ShieldCheck size={16} className="text-emerald-400/90" />
+              <ShieldCheck size={16} className="text-app-text-secondary" />
             </div>
             <div className="mt-2 text-2xl sm:text-3xl font-bold font-mono text-app-primary tracking-tight">
               {stats ? stats.activeUsers : users.filter((u) => !u.isBanned).length}
@@ -941,7 +970,7 @@ export default function DeveloperUsersPage() {
           <div className="p-3.5 sm:p-4 bg-app-surface border border-app-border rounded-2xl flex flex-col justify-between shadow-2xs">
             <div className="flex items-center justify-between text-app-muted">
               <span className="text-[11px] font-mono uppercase tracking-wider font-medium">Платные PRO</span>
-              <Crown size={16} className="text-amber-400/80" />
+              <Crown size={16} className="text-app-text-secondary" />
             </div>
             <div className="mt-2 text-2xl sm:text-3xl font-bold font-mono text-app-primary tracking-tight">
               {stats ? stats.paidUsers : users.filter((u) => u.plan && u.plan !== "FREE").length}
@@ -953,7 +982,7 @@ export default function DeveloperUsersPage() {
           <div className="p-3.5 sm:p-4 bg-app-surface border border-app-border rounded-2xl flex flex-col justify-between shadow-2xs">
             <div className="flex items-center justify-between text-app-muted">
               <span className="text-[11px] font-mono uppercase tracking-wider font-medium">Заведений</span>
-              <Store size={16} className="text-indigo-400/80" />
+              <Store size={16} className="text-app-text-secondary" />
             </div>
             <div className="mt-2 text-2xl sm:text-3xl font-bold font-mono text-app-primary tracking-tight">
               {stats ? stats.totalShops : users.reduce((acc, u) => acc + (u.shopsCount || 0), 0)}
@@ -1199,13 +1228,14 @@ export default function DeveloperUsersPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between text-xs font-mono text-app-muted px-1">
               <div className="flex items-center gap-2">
-                <button
-                  onClick={toggleSelectAll}
-                  className="flex items-center gap-1.5 hover:text-app-primary cursor-pointer"
-                >
-                  {isAllSelected ? <CheckSquare size={14} className="text-app-primary" /> : <Square size={14} />}
-                  <span>Выбрать всех ({filteredUsers.length})</span>
-                </button>
+                <CustomCheckbox
+                  checked={isAllSelected}
+                  indeterminate={isPartiallySelected}
+                  onChange={toggleSelectAll}
+                  size="sm"
+                  variant="default"
+                  label={`Выбрать всех (${filteredUsers.length})`}
+                />
               </div>
               <div>Показано: {filteredUsers.length} из {users.length}</div>
             </div>
@@ -1224,27 +1254,22 @@ export default function DeveloperUsersPage() {
                     targetUser.isBanned
                       ? "border-rose-500/20 bg-rose-500/[0.02]"
                       : isSelected
-                      ? "border-app-border bg-app-card/30"
-                      : "border-app-border hover:border-app-border/80"
+                      ? "border-app-border bg-app-card"
+                      : "border-app-border hover:border-app-border-focus"
                   }`}
                 >
                   {/* Card Header */}
                   <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
                     <div className="flex items-start gap-3 min-w-0">
                       {/* Checkbox */}
-                      <button
-                        onClick={() => toggleSelectUser(targetUser.id)}
+                      <CustomCheckbox
+                        checked={isSelected}
+                        onChange={() => toggleSelectUser(targetUser.id)}
                         disabled={isDev}
-                        className={`mt-1.5 p-1 rounded-md cursor-pointer transition-colors ${
-                          isDev ? "opacity-30 cursor-not-allowed" : "hover:text-app-primary text-app-muted"
-                        }`}
-                      >
-                        {isSelected ? (
-                          <CheckSquare size={16} className="text-app-primary" />
-                        ) : (
-                          <Square size={16} />
-                        )}
-                      </button>
+                        size="sm"
+                        variant="default"
+                        className="mt-1"
+                      />
 
                       {/* Avatar */}
                       <div className="relative shrink-0">
@@ -1418,6 +1443,26 @@ export default function DeveloperUsersPage() {
                         align="right"
                       />
 
+                      {/* QUICK ROLE SWITCH */}
+                      <CustomDropdown
+                        value={targetUser.role || (isDev ? "ADMIN" : "USER")}
+                        onChange={(newRole) =>
+                          handleQuickRoleChange(
+                            targetUser.id,
+                            newRole as "USER" | "SELLER" | "MODERATOR" | "ADMIN"
+                          )
+                        }
+                        options={[
+                          { value: "USER", label: "👤 Пользователь" },
+                          { value: "SELLER", label: "🏪 Продавец" },
+                          { value: "MODERATOR", label: "🛡️ Модератор" },
+                          { value: "ADMIN", label: "👑 Админ" }
+                        ]}
+                        disabled={isDev}
+                        size="sm"
+                        align="right"
+                      />
+
                       {/* EDIT USER */}
                       <button
                         onClick={() => openEditModal(targetUser)}
@@ -1467,11 +1512,11 @@ export default function DeveloperUsersPage() {
                       className={`p-2 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-left ${
                         isExpanded
                           ? "bg-app-card border-app-border text-app-primary font-medium"
-                          : "bg-app-card/60 border-app-border/80 text-app-secondary hover:text-app-primary hover:bg-app-card"
+                          : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-hover"
                       }`}
                     >
                       <div className="flex items-center gap-1.5 truncate">
-                        <Store size={13} className="text-indigo-400 shrink-0" />
+                        <Store size={13} className="text-app-primary shrink-0" />
                         <span>Заведений: <strong>{targetUser.shopsCount || 0}</strong></span>
                       </div>
                       {targetUser.shopsCount > 0 && (
@@ -1480,19 +1525,19 @@ export default function DeveloperUsersPage() {
                     </button>
 
                     {/* Orders count */}
-                    <div className="p-2 bg-app-card/60 border border-app-border/80 rounded-xl flex items-center gap-1.5 text-app-secondary">
-                      <ShoppingBag size={13} className="text-amber-400 shrink-0" />
+                    <div className="p-2 bg-app-card border border-app-border rounded-xl flex items-center gap-1.5 text-app-secondary">
+                      <ShoppingBag size={13} className="text-app-muted shrink-0" />
                       <span>Заказов: <strong className="text-app-primary">{targetUser.totalOrdersCount || 0}</strong></span>
                     </div>
 
                     {/* Revenue */}
-                    <div className="p-2 bg-app-card/60 border border-app-border/80 rounded-xl flex items-center gap-1.5 text-app-secondary">
-                      <Coins size={13} className="text-emerald-400 shrink-0" />
+                    <div className="p-2 bg-app-card border border-app-border rounded-xl flex items-center gap-1.5 text-app-secondary">
+                      <Coins size={13} className="text-emerald-500 shrink-0" />
                       <span>Выручка: <strong className="text-app-primary">{formatMoney(targetUser.totalRevenue || 0)}</strong></span>
                     </div>
 
                     {/* Reg Date */}
-                    <div className="p-2 bg-app-card/60 border border-app-border/80 rounded-xl flex items-center gap-1.5 text-app-muted truncate">
+                    <div className="p-2 bg-app-card border border-app-border rounded-xl flex items-center gap-1.5 text-app-muted truncate">
                       <span>Рег: {new Date(targetUser.createdAt).toLocaleDateString("ru-RU")}</span>
                     </div>
                   </div>
@@ -1564,15 +1609,20 @@ export default function DeveloperUsersPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs font-mono">
                 <thead>
-                  <tr className="bg-app-card/60 border-b border-app-border text-app-muted uppercase tracking-wider text-[10px]">
+                  <tr className="bg-app-card border-b border-app-border text-app-muted uppercase tracking-wider text-[10px]">
                     <th className="p-3 w-8">
-                      <button onClick={toggleSelectAll} className="cursor-pointer">
-                        {isAllSelected ? <CheckSquare size={14} className="text-app-primary" /> : <Square size={14} />}
-                      </button>
+                      <CustomCheckbox
+                        checked={isAllSelected}
+                        indeterminate={isPartiallySelected}
+                        onChange={toggleSelectAll}
+                        size="sm"
+                        variant="default"
+                      />
                     </th>
                     <th className="p-3">Пользователь</th>
                     <th className="p-3">E-mail</th>
                     <th className="p-3">Тариф</th>
+                    <th className="p-3">Роль</th>
                     <th className="p-3">Статус</th>
                     <th className="p-3">Заведений</th>
                     <th className="p-3">Заказов</th>
@@ -1581,7 +1631,7 @@ export default function DeveloperUsersPage() {
                     <th className="p-3 text-right">Действия</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-app-border/50">
+                <tbody className="divide-y divide-app-border">
                   {filteredUsers.map((targetUser) => {
                     const isSelected = selectedUserIds.has(targetUser.id);
                     const isDev =
@@ -1591,22 +1641,18 @@ export default function DeveloperUsersPage() {
                     return (
                       <tr
                         key={targetUser.id}
-                        className={`hover:bg-app-card/30 transition-colors ${
+                        className={`hover:bg-app-hover transition-colors ${
                           targetUser.isBanned ? "bg-rose-500/[0.02]" : ""
                         }`}
                       >
                         <td className="p-3">
-                          <button
-                            onClick={() => toggleSelectUser(targetUser.id)}
+                          <CustomCheckbox
+                            checked={isSelected}
+                            onChange={() => toggleSelectUser(targetUser.id)}
                             disabled={isDev}
-                            className="cursor-pointer disabled:opacity-30"
-                          >
-                            {isSelected ? (
-                              <CheckSquare size={14} className="text-app-primary" />
-                            ) : (
-                              <Square size={14} />
-                            )}
-                          </button>
+                            size="sm"
+                            variant="default"
+                          />
                         </td>
                         <td className="p-3">
                           <div className="font-bold text-app-primary truncate max-w-[150px]">
@@ -1631,6 +1677,26 @@ export default function DeveloperUsersPage() {
                               { value: "PRO", label: "PRO" },
                               { value: "ENTERPRISE", label: "ENTERPRISE" }
                             ]}
+                            size="sm"
+                            align="left"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <CustomDropdown
+                            value={targetUser.role || (isDev ? "ADMIN" : "USER")}
+                            onChange={(newRole) =>
+                              handleQuickRoleChange(
+                                targetUser.id,
+                                newRole as "USER" | "SELLER" | "MODERATOR" | "ADMIN"
+                              )
+                            }
+                            options={[
+                              { value: "USER", label: "Пользователь" },
+                              { value: "SELLER", label: "Продавец" },
+                              { value: "MODERATOR", label: "Модератор" },
+                              { value: "ADMIN", label: "Админ" }
+                            ]}
+                            disabled={isDev}
                             size="sm"
                             align="left"
                           />
@@ -1767,15 +1833,18 @@ export default function DeveloperUsersPage() {
                   />
                 </div>
 
-                <label className="flex items-center gap-2 p-2.5 bg-app-card border border-app-border rounded-xl cursor-pointer text-app-primary">
-                  <input
-                    type="checkbox"
+                <div
+                  onClick={() => setDisableShopsOnBan(!disableShopsOnBan)}
+                  className="flex items-center gap-2.5 p-2.5 bg-app-card border border-app-border rounded-xl cursor-pointer text-app-primary select-none"
+                >
+                  <CustomCheckbox
                     checked={disableShopsOnBan}
-                    onChange={(e) => setDisableShopsOnBan(e.target.checked)}
-                    className="w-4 h-4 rounded"
+                    onChange={(c) => setDisableShopsOnBan(c)}
+                    size="sm"
+                    variant="default"
                   />
-                  <span>Также немедленно деактивировать все заведения этого пользователя</span>
-                </label>
+                  <span className="text-xs font-mono">Также немедленно деактивировать все заведения этого пользователя</span>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-border">
@@ -1909,6 +1978,7 @@ export default function DeveloperUsersPage() {
                   </label>
                   <input
                     type="password"
+                    autoComplete="new-password"
                     value={editForm.newPassword}
                     onChange={(e) => setEditForm({ ...editForm, newPassword: e.target.value })}
                     placeholder="Оставьте пустым, если не нужно менять"

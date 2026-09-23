@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
+import { CustomCheckbox } from "./ui/CustomCheckbox";
 import {
   X,
   Search,
@@ -407,7 +408,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
         </div>
 
         {/* View Navigation Tabs */}
-        <div className="px-3 sm:px-5 py-2.5 border-b border-app-border bg-app-card/30 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth shrink-0 min-h-[48px]">
+        <div className="px-3 sm:px-5 py-2.5 border-b border-app-border bg-app-surface flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth shrink-0 min-h-[48px]">
           <button
             type="button"
             onClick={() => {
@@ -867,24 +868,21 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                       key={step.id}
                       className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 ${
                         step.isDone
-                          ? "bg-app-card/60 border-emerald-500/20 shadow-2xs"
-                          : "bg-app-card border-app-border hover:border-app-primary/40 shadow-2xs"
+                          ? "bg-app-card border-emerald-500/20 shadow-2xs"
+                          : "bg-app-card border-app-border hover:border-app-border-focus shadow-2xs"
                       }`}
                     >
                       <div
                         onClick={() => toggleStep(step.id)}
                         className="flex items-start gap-3 flex-1 cursor-pointer select-none"
                       >
-                        <button
-                          type="button"
-                          className="mt-0.5 text-app-primary shrink-0 transition-transform active:scale-90"
-                        >
-                          {step.isDone ? (
-                            <CheckCircle2 size={20} className="text-emerald-500 fill-emerald-500/20" />
-                          ) : (
-                            <Circle size={20} className="text-app-muted" />
-                          )}
-                        </button>
+                        <CustomCheckbox
+                          checked={step.isDone}
+                          onChange={() => toggleStep(step.id)}
+                          variant="success"
+                          size="md"
+                          className="mt-0.5 shrink-0"
+                        />
 
                         <div className="space-y-1 flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
@@ -1046,7 +1044,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
         </div>
 
         {/* Modal Bottom Status Bar */}
-        <div className="px-3.5 sm:px-5 py-2.5 sm:py-3 border-t border-app-border bg-app-card/40 flex items-center justify-between gap-2.5 text-[11px] font-mono text-app-muted shrink-0 min-h-[44px]">
+        <div className="px-3.5 sm:px-5 py-2.5 sm:py-3 border-t border-app-border bg-app-surface flex items-center justify-between gap-2.5 text-[11px] font-mono text-app-muted shrink-0 min-h-[44px]">
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             <span className="truncate">GitBook Knowledge Base</span>

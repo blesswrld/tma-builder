@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ShieldCheck, X, Settings, Check, Lock } from "lucide-react";
+import { CustomCheckbox } from "./ui/CustomCheckbox";
 
 interface ComplianceNoticeProps {
   onOpenPrivacyPolicy?: () => void;
@@ -185,11 +186,11 @@ export const ComplianceNotice: React.FC<ComplianceNoticeProps> = ({ onOpenPrivac
                       <span className="font-bold text-[11px] text-app-primary block font-mono">Аналитические</span>
                       <span className="text-[10px] text-app-muted">Счетчик просмотров, статистика</span>
                     </div>
-                    <input
-                      type="checkbox"
+                    <CustomCheckbox
                       checked={analyticsEnabled}
-                      onChange={(e) => setAnalyticsEnabled(e.target.checked)}
-                      className="w-4 h-4 accent-app-accent cursor-pointer"
+                      onChange={(c) => setAnalyticsEnabled(c)}
+                      variant="default"
+                      size="sm"
                     />
                   </div>
 
@@ -198,11 +199,11 @@ export const ComplianceNotice: React.FC<ComplianceNoticeProps> = ({ onOpenPrivac
                       <span className="font-bold text-[11px] text-app-primary block font-mono">Маркетинговые (38-ФЗ)</span>
                       <span className="text-[10px] text-app-muted">Персональные скидки и промо-акции</span>
                     </div>
-                    <input
-                      type="checkbox"
+                    <CustomCheckbox
                       checked={marketingEnabled}
-                      onChange={(e) => setMarketingEnabled(e.target.checked)}
-                      className="w-4 h-4 accent-app-accent cursor-pointer"
+                      onChange={(c) => setMarketingEnabled(c)}
+                      variant="default"
+                      size="sm"
                     />
                   </div>
                 </div>

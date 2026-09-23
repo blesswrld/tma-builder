@@ -42,6 +42,7 @@ import {
 import { AdminMusicSettingsSection } from "./AdminMusicSettingsSection";
 import { AdminTelegramIntegrationTab } from "./AdminTelegramIntegrationTab";
 import { CustomCheckbox } from "../CustomCheckbox";
+import { CustomToggle } from "../ui/CustomToggle";
 import { CustomNumberInput } from "../CustomNumberInput";
 import { parseMusicSettings } from "../../types";
 import { UnifiedAddressInput } from "../common/UnifiedAddressInput";
@@ -497,17 +498,13 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                   При отключении клиенты увидят предупреждение о временно приостановленном приеме
                 </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                <input
-                  type="checkbox"
-                  checked={settingsData.isOpen !== false}
-                  onChange={(e) =>
-                    setSettingsData((s: any) => ({ ...s, isOpen: e.target.checked }))
-                  }
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-zinc-300 dark:bg-zinc-800 border border-black/10 dark:border-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-zinc-900 dark:peer-checked:bg-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:after:bg-zinc-400 peer-checked:after:bg-white dark:peer-checked:after:bg-black after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-sm"></div>
-              </label>
+              <CustomToggle
+                checked={settingsData.isOpen !== false}
+                onChange={(checked) =>
+                  setSettingsData((s: any) => ({ ...s, isOpen: checked }))
+                }
+                variant="success"
+              />
             </div>
           </div>
         )}
@@ -860,41 +857,38 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                   Возможность клиентам выбирать доставку курьером или самовывоз
                 </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settingsData.deliveryOptions?.enabled !== false && (settingsData.deliveryOptions?.pickup !== false || settingsData.deliveryOptions?.courier !== false || Boolean(settingsData.deliveryOptions?.shipping))}
-                  onChange={(e) => {
-                    const enabled = e.target.checked;
-                    setSettingsData((s: any) => {
-                      const prev = s.deliveryOptions || {};
-                      if (enabled) {
-                        return {
-                          ...s,
-                          deliveryOptions: {
-                            ...prev,
-                            enabled: true,
-                            pickup: true,
-                            courier: true,
-                          },
-                        };
-                      } else {
-                        return {
-                          ...s,
-                          deliveryOptions: {
-                            ...prev,
-                            enabled: false,
-                            pickup: false,
-                            courier: false,
-                            shipping: false,
-                          },
-                        };
-                      }
-                    });
-                  }}
-                  className="w-4 h-4 accent-app-primary cursor-pointer"
-                />
-              </label>
+              <CustomCheckbox
+                checked={settingsData.deliveryOptions?.enabled !== false && (settingsData.deliveryOptions?.pickup !== false || settingsData.deliveryOptions?.courier !== false || Boolean(settingsData.deliveryOptions?.shipping))}
+                onChange={(enabled) => {
+                  setSettingsData((s: any) => {
+                    const prev = s.deliveryOptions || {};
+                    if (enabled) {
+                      return {
+                        ...s,
+                        deliveryOptions: {
+                          ...prev,
+                          enabled: true,
+                          pickup: true,
+                          courier: true,
+                        },
+                      };
+                    } else {
+                      return {
+                        ...s,
+                        deliveryOptions: {
+                          ...prev,
+                          enabled: false,
+                          pickup: false,
+                          courier: false,
+                          shipping: false,
+                        },
+                      };
+                    }
+                  });
+                }}
+                size="md"
+                variant="default"
+              />
             </div>
 
             {settingsData.deliveryOptions?.enabled !== false && (settingsData.deliveryOptions?.pickup !== false || settingsData.deliveryOptions?.courier !== false || Boolean(settingsData.deliveryOptions?.shipping)) ? (
@@ -918,8 +912,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                     }}
                     className={`p-4 border rounded-2xl flex items-center justify-between cursor-pointer select-none transition-all duration-150 ${
                       settingsData.deliveryOptions?.pickup !== false
-                        ? "bg-app-card border-app-border hover:border-app-primary/40"
-                        : "bg-app-card/40 border-app-border opacity-70 hover:opacity-100"
+                        ? "bg-app-card border-app-border hover:border-app-border-focus"
+                        : "bg-app-surface border-app-border opacity-70 hover:opacity-100"
                     }`}
                   >
                     <div>
@@ -964,8 +958,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                     }}
                     className={`p-4 border rounded-2xl flex items-center justify-between cursor-pointer select-none transition-all duration-150 ${
                       settingsData.deliveryOptions?.courier !== false
-                        ? "bg-app-card border-app-border hover:border-app-primary/40"
-                        : "bg-app-card/40 border-app-border opacity-70 hover:opacity-100"
+                        ? "bg-app-card border-app-border hover:border-app-border-focus"
+                        : "bg-app-surface border-app-border opacity-70 hover:opacity-100"
                     }`}
                   >
                     <div>
@@ -1010,8 +1004,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                     }}
                     className={`p-4 border rounded-2xl flex items-center justify-between cursor-pointer select-none transition-all duration-150 ${
                       Boolean(settingsData.deliveryOptions?.shipping)
-                        ? "bg-app-card border-app-border hover:border-app-primary/40"
-                        : "bg-app-card/40 border-app-border opacity-70 hover:opacity-100"
+                        ? "bg-app-card border-app-border hover:border-app-border-focus"
+                        : "bg-app-surface border-app-border opacity-70 hover:opacity-100"
                     }`}
                   >
                     <div>

@@ -13,12 +13,14 @@ interface ImageUploaderProps {
 }
 
 const DEFAULT_AVATAR_PRESETS = [
-  { label: "Бизнес 👨‍💼", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300" },
-  { label: "Креатив 👩‍🎨", url: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=300" },
-  { label: "Кофейня ☕", url: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=300" },
-  { label: "Барбер 💈", url: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=300" },
-  { label: "Ресторан 🍷", url: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=300" },
-  { label: "Цветы 🌸", url: "https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&q=80&w=300" }
+  { label: "Кибер Синий 🤖", url: "https://api.dicebear.com/7.x/bottts/svg?seed=Cyber&backgroundColor=0284c7" },
+  { label: "Изумруд 🟢", url: "https://api.dicebear.com/7.x/bottts/svg?seed=Nova&backgroundColor=10b981" },
+  { label: "Лаванда 🟣", url: "https://api.dicebear.com/7.x/bottts/svg?seed=Aneka&backgroundColor=8b5cf6" },
+  { label: "Оранжевый 🟠", url: "https://api.dicebear.com/7.x/bottts/svg?seed=Spark&backgroundColor=f97316" },
+  { label: "Рубин 🔴", url: "https://api.dicebear.com/7.x/bottts/svg?seed=Ruby&backgroundColor=ef4444" },
+  { label: "Неон Голубой 🩵", url: "https://api.dicebear.com/7.x/bottts/svg?seed=Felix&backgroundColor=06b6d4" },
+  { label: "Темный Графит ⚫", url: "https://api.dicebear.com/7.x/bottts/svg?seed=Shadow&backgroundColor=27272a" },
+  { label: "Янтарь 🟡", url: "https://api.dicebear.com/7.x/bottts/svg?seed=Volt&backgroundColor=eab308" }
 ];
 
 const DEFAULT_PHOTO_PRESETS = [

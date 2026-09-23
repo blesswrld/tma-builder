@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Store,
   Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import { PublicShop } from "../../types";
 import { ResponsiveImage } from "../common/ResponsiveImage";
@@ -20,6 +21,7 @@ interface ShopCardProps {
   shop: PublicShop;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
+  onOpenChat?: (shop: PublicShop) => void;
   viewMode?: "grid" | "list";
 }
 
@@ -27,6 +29,7 @@ export const ShopCard: React.FC<ShopCardProps> = ({
   shop,
   isFavorite,
   onToggleFavorite,
+  onOpenChat,
   viewMode = "grid",
 }) => {
   const hasDelivery = Boolean(
@@ -96,12 +99,12 @@ export const ShopCard: React.FC<ShopCardProps> = ({
             <div className="flex items-center gap-2 flex-wrap">
               <Link
                 to={`/${shop.slug}`}
-                className="font-bold text-sm sm:text-base text-app-primary hover:text-emerald-500 transition-colors truncate group-hover:underline"
+                className="font-bold text-sm sm:text-base text-app-primary hover:opacity-80 transition-opacity truncate group-hover:underline"
               >
                 {shop.name}
               </Link>
               {shop.cashbackPercent && shop.cashbackPercent > 0 ? (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-app-card text-app-primary border border-app-border">
                   <Percent size={10} />
                   {shop.cashbackPercent}% кэшбэк
                 </span>
@@ -117,8 +120,8 @@ export const ShopCard: React.FC<ShopCardProps> = ({
 
           {/* Meta specs */}
           <div className="flex items-center gap-3 text-xs text-app-muted flex-wrap pt-0.5">
-            <div className="flex items-center gap-1 font-mono font-semibold text-amber-500">
-              <Star size={13} className="fill-amber-400 text-amber-400" />
+            <div className="flex items-center gap-1 font-mono font-semibold text-app-primary">
+              <Star size={13} className="fill-app-primary text-app-primary" />
               <span>{shop.avgRating.toFixed(1)}</span>
               <span className="text-app-muted font-normal text-[11px]">
                 ({shop.reviewsCount})
@@ -138,7 +141,7 @@ export const ShopCard: React.FC<ShopCardProps> = ({
             </div>
 
             {hasDelivery && (
-              <div className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+              <div className="flex items-center gap-1 text-[11px] text-app-muted font-medium">
                 <Truck size={12} className="shrink-0" />
                 <span>Доставка</span>
               </div>
@@ -167,6 +170,22 @@ export const ShopCard: React.FC<ShopCardProps> = ({
 
         {/* Right Actions Column: Favorite and Action button unified and aligned */}
         <div className="w-full sm:w-auto shrink-0 flex items-center justify-end gap-2 pt-2 sm:pt-0 sm:self-center">
+          {/* Chat button */}
+          {onOpenChat && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onOpenChat(shop);
+              }}
+              className="h-9 w-9 rounded-xl border border-app-border bg-app-card hover:bg-app-hover text-app-muted hover:text-app-primary flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-2xs"
+              title="Написать продавцу"
+            >
+              <MessageSquare size={16} />
+            </button>
+          )}
+
           {/* Favorite button */}
           <button
             type="button"
@@ -256,13 +275,13 @@ export const ShopCard: React.FC<ShopCardProps> = ({
         {/* Delivery & Cashback tags over banner bottom-left */}
         <div className="absolute bottom-3 left-3 right-16 flex items-center gap-1.5 flex-wrap pointer-events-none">
           {hasDelivery && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-black/75 text-emerald-300 border border-emerald-500/30">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-black/80 text-white border border-white/20">
               <Truck size={11} />
               Доставка
             </span>
           )}
           {shop.cashbackPercent && shop.cashbackPercent > 0 ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-black/75 text-amber-300 border border-amber-500/30">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-black/80 text-white border border-white/20">
               <Percent size={11} />
               {shop.cashbackPercent}% кэшбэк
             </span>
@@ -291,14 +310,14 @@ export const ShopCard: React.FC<ShopCardProps> = ({
           <div className="flex items-start justify-between gap-2 min-h-[1.5rem]">
             <Link
               to={`/${shop.slug}`}
-              className="font-bold text-sm sm:text-base text-app-primary hover:text-emerald-500 transition-colors line-clamp-1 group-hover:underline"
+              className="font-bold text-sm sm:text-base text-app-primary hover:opacity-80 transition-opacity line-clamp-1 group-hover:underline"
               title={shop.name}
             >
               {shop.name}
             </Link>
 
-            <div className="flex items-center gap-1 font-mono font-bold text-xs text-amber-500 shrink-0 bg-amber-500/10 px-1.5 py-0.5 rounded-md border border-amber-500/20">
-              <Star size={12} className="fill-amber-400 text-amber-400" />
+            <div className="flex items-center gap-1 font-mono font-bold text-xs text-app-primary shrink-0 bg-app-card px-1.5 py-0.5 rounded-md border border-app-border">
+              <Star size={12} className="fill-app-primary text-app-primary" />
               <span>{shop.avgRating.toFixed(1)}</span>
               <span className="text-app-muted font-normal text-[10px]">
                 ({shop.reviewsCount})
@@ -329,7 +348,7 @@ export const ShopCard: React.FC<ShopCardProps> = ({
           <div className="pt-2">
             <div className="text-[10px] font-mono text-app-muted uppercase tracking-wider mb-1.5 flex items-center justify-between">
               <div className="flex items-center gap-1">
-                <Sparkles size={10} className="text-amber-500" />
+                <Sparkles size={10} className="text-app-muted" />
                 <span>Популярные позиции:</span>
               </div>
               <span className="text-[10px] font-mono text-app-muted">
@@ -348,7 +367,7 @@ export const ShopCard: React.FC<ShopCardProps> = ({
                       <span className="truncate text-app-primary font-medium text-[11px]">
                         {srv.title}
                       </span>
-                      <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400 text-[11px] shrink-0 ml-2">
+                      <span className="font-mono font-semibold text-app-primary text-[11px] shrink-0 ml-2">
                         {srv.price} {shop.currencySymbol || "₽"}
                       </span>
                     </div>
@@ -364,7 +383,7 @@ export const ShopCard: React.FC<ShopCardProps> = ({
                 <>
                   <div className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-app-card/60 border border-app-border/40 text-app-muted">
                     <span className="truncate text-[11px]">Фирменное меню заведения</span>
-                    <span className="text-[11px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                    <span className="text-[11px] font-mono font-semibold text-app-primary">
                       В меню
                     </span>
                   </div>
@@ -384,13 +403,30 @@ export const ShopCard: React.FC<ShopCardProps> = ({
             Позиций в меню: <span className="font-bold text-app-primary">{shop.servicesCount}</span>
           </div>
 
-          <Link
-            to={`/${shop.slug}`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-app-accent text-app-accent-fg hover:opacity-90 active:scale-[0.98] transition-all shadow-xs"
-          >
-            <span>В меню</span>
-            <ExternalLink size={12} />
-          </Link>
+          <div className="flex items-center gap-1.5">
+            {onOpenChat && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onOpenChat(shop);
+                }}
+                className="p-1.5 rounded-xl border border-app-border bg-app-card hover:bg-app-hover text-app-muted hover:text-app-primary transition-colors cursor-pointer"
+                title="Написать продавцу"
+              >
+                <MessageSquare size={14} />
+              </button>
+            )}
+
+            <Link
+              to={`/${shop.slug}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-app-accent text-app-accent-fg hover:opacity-90 active:scale-[0.98] transition-all shadow-xs"
+            >
+              <span>В меню</span>
+              <ExternalLink size={12} />
+            </Link>
+          </div>
         </div>
       </div>
     </motion.div>

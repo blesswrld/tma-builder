@@ -878,7 +878,7 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                     {/* Logo Uploader */}
-                    <div className="p-3.5 bg-app-card/30 border border-app-border rounded-xl space-y-2">
+                    <div className="p-3.5 bg-app-surface border border-app-border rounded-xl space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-[11px] font-mono text-app-primary font-semibold flex items-center gap-1.5">
                           <span>Логотип заведения</span>
@@ -897,7 +897,7 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                     </div>
 
                     {/* Banner Uploader */}
-                    <div className="p-3.5 bg-app-card/30 border border-app-border rounded-xl space-y-2">
+                    <div className="p-3.5 bg-app-surface border border-app-border rounded-xl space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-[11px] font-mono text-app-primary font-semibold flex items-center gap-1.5">
                           <span>Баннер-обложка витрины</span>
@@ -1459,7 +1459,7 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                   </div>
 
                   <div className="space-y-4">
-                    <div className="p-3.5 bg-app-card/60 border border-app-border rounded-xl text-xs space-y-1.5 font-sans">
+                    <div className="p-3.5 bg-app-surface border border-app-border rounded-xl text-xs space-y-1.5 font-sans">
                       <div className="font-bold text-app-primary flex items-center gap-1.5">
                         <Info size={14} className="text-app-accent shrink-0" />
                         <span>Как подключить Telegram-бота:</span>
@@ -1480,6 +1480,7 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                         <Bot size={14} className="absolute left-3.5 text-app-muted" />
                         <input
                           type="password"
+                          autoComplete="off"
                           value={formData.botToken}
                           onChange={(e) => setFormData((p) => ({ ...p, botToken: e.target.value }))}
                           placeholder="1234567890:ABCDefGhIjKlmnOpQrStUvWxYz..."

@@ -24,7 +24,11 @@ model User {
   isBanned              Boolean   @default(false)
   banReason             String?
   bannedAt              DateTime?
-  role                  String    @default("USER") // USER, DEVELOPER
+  role                  String    @default("USER") // USER, SELLER, MODERATOR, ADMIN
+  telegramId            String?   @unique
+  balance               Int       @default(0)
+  city                  String?
+  isVerified            Boolean   @default(false)
   referralCode          String?   @unique
   referredById          String?
   referredBy            User?     @relation("UserReferrals", fields: [referredById], references: [id], onDelete: SetNull)
@@ -75,6 +79,10 @@ model Shop {
   paymentInstructions String?
   musicSettings       String?
   isOpen              Boolean     @default(true)
+  city                String?
+  rating              Float       @default(5.0)
+  reviewsCount        Int         @default(0)
+  isVerified          Boolean     @default(false)
   ownerId             String?
   maxServices         Int         @default(15)
   cashbackPercent     Int         @default(5)
@@ -146,6 +154,12 @@ model Service {
   weight      String?
   isAvailable Boolean  @default(true)
   fulfillment String?  @default("pickup")
+  moderationStatus String @default("APPROVED") // APPROVED, PENDING, REJECTED
+  moderationReason String?
+  isVip       Boolean  @default(false)
+  boostedAt   DateTime?
+  boostExpiresAt DateTime?
+  city        String?
   createdAt   DateTime @default(now())
 }
 
@@ -281,4 +295,47 @@ model ChatMessage {
   deletedForUserIds String?
   createdAt         DateTime  @default(now())
 }
+
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String
+  targetType String   // "shop" | "service"
+  targetId   String
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, targetType, targetId])
+  @@index([userId])
+}
+
+model PeerMessage {
+  id         String    @id @default(cuid())
+  shopId     String
+  buyerId    String
+  senderId   String
+  senderRole String    @default("BUYER") // BUYER, SELLER
+  senderName String?
+  text       String?
+  mediaUrl   String?
+  isRead     Boolean   @default(false)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([shopId, buyerId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model UserTransaction {
+  id            String   @id @default(cuid())
+  userId        String
+  amount        Int
+  type          String   // DEPOSIT, BOOST, ORDER_PAYMENT, REFUND
+  status        String   @default("COMPLETED") // COMPLETED, PENDING, FAILED
+  paymentMethod String?  // STARS, CARD, SBP, BALANCE
+  description   String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+}
+
 

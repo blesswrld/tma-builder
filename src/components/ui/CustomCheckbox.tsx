@@ -1,12 +1,14 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Check } from "lucide-react";
+import { Check, Minus } from "lucide-react";
 
 export interface CustomCheckboxProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
   size?: "sm" | "md" | "lg";
+  variant?: "default" | "success";
+  indeterminate?: boolean;
   label?: React.ReactNode;
   description?: React.ReactNode;
   className?: string;
@@ -18,6 +20,8 @@ export const CustomCheckbox: React.FC<CustomCheckboxProps> = ({
   onChange,
   disabled = false,
   size = "md",
+  variant = "default",
+  indeterminate = false,
   label,
   description,
   className = "",
@@ -25,14 +29,14 @@ export const CustomCheckbox: React.FC<CustomCheckboxProps> = ({
 }) => {
   const sizeClasses = {
     sm: "w-4 h-4 rounded-md text-[10px]",
-    md: "w-5 h-5 rounded-lg text-xs",
-    lg: "w-6 h-6 rounded-lg text-sm",
+    md: "w-[18px] h-[18px] rounded-lg text-xs",
+    lg: "w-5 h-5 rounded-lg text-sm",
   };
 
   const iconSizes = {
     sm: 11,
-    md: 13,
-    lg: 15,
+    md: 12,
+    lg: 14,
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -50,6 +54,30 @@ export const CustomCheckbox: React.FC<CustomCheckboxProps> = ({
     }
   };
 
+  const isCheckedOrIndeterminate = checked || indeterminate;
+
+  // Variant styling
+  const getCheckedClasses = () => {
+    if (variant === "success") {
+      return "bg-emerald-600 border-emerald-600 text-white shadow-xs";
+    }
+    return "bg-app-accent border-app-accent text-app-accent-fg shadow-xs";
+  };
+
+  const getUncheckedClasses = () => {
+    if (variant === "success") {
+      return "bg-app-card border-app-border hover:border-emerald-500/50 text-transparent";
+    }
+    return "bg-app-card border-app-border hover:border-app-border-focus text-transparent";
+  };
+
+  const getFocusRing = () => {
+    if (variant === "success") {
+      return "focus-visible:ring-2 focus-visible:ring-emerald-500/30";
+    }
+    return "focus-visible:ring-2 focus-visible:ring-app-primary/30";
+  };
+
   return (
     <div
       className={`inline-flex items-center gap-2.5 select-none ${
@@ -60,22 +88,34 @@ export const CustomCheckbox: React.FC<CustomCheckboxProps> = ({
     >
       <div
         role="checkbox"
-        aria-checked={checked}
+        aria-checked={indeterminate ? "mixed" : checked}
         tabIndex={disabled ? -1 : 0}
         onKeyDown={handleKeyDown}
         className={`relative flex items-center justify-center transition-all duration-150 shrink-0 border ${
           sizeClasses[size]
         } ${
-          checked
-            ? "bg-app-primary border-app-primary text-app-surface shadow-xs"
-            : "bg-app-surface border-app-border hover:border-app-primary/60 text-transparent"
-        } ${
-          disabled ? "" : "active:scale-90"
-        } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-primary/30`}
+          isCheckedOrIndeterminate ? getCheckedClasses() : getUncheckedClasses()
+        } ${disabled ? "" : "active:scale-95"} focus-visible:outline-none ${getFocusRing()}`}
       >
         <AnimatePresence initial={false}>
-          {checked && (
+          {indeterminate ? (
             <motion.div
+              key="indeterminate"
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.5, opacity: 0 }}
+              transition={{ duration: 0.1 }}
+              className="flex items-center justify-center pointer-events-none"
+            >
+              <Minus
+                size={iconSizes[size]}
+                strokeWidth={3}
+                className={variant === "success" ? "text-white" : "text-app-accent-fg"}
+              />
+            </motion.div>
+          ) : checked ? (
+            <motion.div
+              key="checked"
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.5, opacity: 0 }}
@@ -85,10 +125,10 @@ export const CustomCheckbox: React.FC<CustomCheckboxProps> = ({
               <Check
                 size={iconSizes[size]}
                 strokeWidth={3}
-                className="text-app-surface"
+                className={variant === "success" ? "text-white" : "text-app-accent-fg"}
               />
             </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </div>
 

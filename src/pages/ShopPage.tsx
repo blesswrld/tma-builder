@@ -29,6 +29,7 @@ import { ReviewsModal } from "../components/shop/ReviewsModal";
 import { ConfirmModal } from "../components/shop/ConfirmModal";
 import ReportModal from "../components/ReportModal";
 import { PrivacyPolicyModal } from "../components/PrivacyPolicyModal";
+import { PeerChatModal } from "../components/chat/PeerChatModal";
 import { useWorkerCatalogFilter, useWorkerCartCalculation } from "../workers/useWorkerComputations";
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
@@ -100,6 +101,7 @@ export default function ShopPage() {
   const [isMusicModalOpen, setIsMusicModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isPeerChatOpen, setIsPeerChatOpen] = useState(false);
   const [selectedServiceDetail, setSelectedServiceDetail] = useState<Service | null>(null);
   const [detailItemNote, setDetailItemNote] = useState<string>("");
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -1091,6 +1093,7 @@ export default function ShopPage() {
         onOpenReviews={handleOpenReviews}
         onOpenReport={() => setIsReportOpen(true)}
         onOpenMusic={() => setIsMusicModalOpen(true)}
+        onOpenChat={() => setIsPeerChatOpen(true)}
       />
 
       {/* Main Container */}
@@ -1384,6 +1387,16 @@ export default function ShopPage() {
         shopName={shop?.name}
         shopSlug={shop?.slug}
         source="shop"
+      />
+
+      {/* Peer Chat Modal with Establishment */}
+      <PeerChatModal
+        isOpen={isPeerChatOpen}
+        onClose={() => setIsPeerChatOpen(false)}
+        receiverId={shop?.ownerId || shop?.id}
+        receiverName={shop?.name}
+        shopId={shop?.id}
+        shopName={shop?.name}
       />
 
       {/* Toast Notifications System - Positioned at top to never overlap checkout bar */}

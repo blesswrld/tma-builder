@@ -22,6 +22,8 @@ import { ShopCard } from "../components/explore/ShopCard";
 import { ExplorePagination } from "../components/explore/ExplorePagination";
 import { ExploreSkeleton } from "../components/explore/ExploreSkeleton";
 import { computationWorker } from "../workers/workerManager";
+import { PeerChatModal } from "../components/chat/PeerChatModal";
+import { MobileNavBar } from "../components/navigation/MobileNavBar";
 
 export const ExplorePage: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
@@ -101,6 +103,7 @@ export const ExplorePage: React.FC = () => {
     }
   });
   const [onlyFavorites, setOnlyFavorites] = useState<boolean>(false);
+  const [chatShop, setChatShop] = useState<PublicShop | null>(null);
 
   // Worker-filtered shops
   const [filteredShops, setFilteredShops] = useState<PublicShop[]>([]);
@@ -682,6 +685,7 @@ export const ExplorePage: React.FC = () => {
                   shop={shop}
                   isFavorite={favorites.includes(shop.id) || favorites.includes(shop.slug)}
                   onToggleFavorite={handleToggleFavorite}
+                  onOpenChat={(targetShop) => setChatShop(targetShop)}
                   viewMode={viewMode}
                 />
               ))}
@@ -729,6 +733,27 @@ export const ExplorePage: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {/* Peer-to-peer Chat Modal */}
+      <PeerChatModal
+        isOpen={Boolean(chatShop)}
+        onClose={() => setChatShop(null)}
+        receiverId={chatShop?.ownerId || chatShop?.id}
+        receiverName={chatShop?.name}
+        shopId={chatShop?.id}
+        shopName={chatShop?.name}
+      />
+
+      {/* Mobile Bottom Navigation Bar */}
+      <MobileNavBar
+        favoritesCount={favorites.length}
+        onOpenFavorites={() => setOnlyFavorites(true)}
+        onOpenChat={() => {
+          if (filteredShops.length > 0) {
+            setChatShop(filteredShops[0]);
+          }
+        }}
+      />
     </div>
   );
 };

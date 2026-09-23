@@ -291,7 +291,7 @@ function NotificationInboxComponent({
                       className={`p-2.5 rounded-xl border transition-all cursor-pointer group relative ${
                         !item.isRead
                           ? "bg-app-card border-app-border hover:border-app-secondary/60 shadow-xs"
-                          : "bg-app-surface/50 border-app-border/50 hover:bg-app-card hover:border-app-border opacity-80"
+                          : "bg-app-surface border-app-border hover:bg-app-card hover:border-app-border opacity-75"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -366,7 +366,7 @@ function NotificationInboxComponent({
             </div>
 
             {/* Compact Footer */}
-            <div className="px-2.5 py-1.5 border-t border-app-border bg-app-card/60 flex items-center justify-between text-[9.5px] text-app-muted">
+            <div className="px-2.5 py-1.5 border-t border-app-border bg-app-surface flex items-center justify-between text-[9.5px] text-app-muted">
               <span>{isAudioEnabled ? "Звук включен" : "Тихий режим (текст)"}</span>
               {onSendTestNotification && (
                 <button
