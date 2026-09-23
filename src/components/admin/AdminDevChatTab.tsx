@@ -849,6 +849,27 @@ export default function AdminDevChatTab({ isFloatingMode = false, onClose }: Adm
       // Optimistic removal from current user view
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
       setDeleteModal({ isOpen: false, message: null, mode: null });
+
+      // Immediate trace-free removal from Notification Inbox
+      try {
+        const raw = localStorage.getItem("admin_notifications_inbox");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const next = parsed.filter((item: any) => {
+              if (item.type === "chat") {
+                if (item.chatMessageId === messageId) return false;
+                if (item.payload?.messageId === messageId) return false;
+                if (item.id === `chat_msg_${messageId}`) return false;
+                if (typeof item.id === "string" && item.id.includes(messageId)) return false;
+              }
+              return true;
+            });
+            localStorage.setItem("admin_notifications_inbox", JSON.stringify(next));
+          }
+        }
+      } catch {}
+      window.dispatchEvent(new CustomEvent("chat-message-deleted", { detail: { messageId, mode } }));
     } catch (err: any) {
       console.error("Error deleting message:", err);
       setError(err.message || "Не удалось удалить сообщение");

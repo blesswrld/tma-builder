@@ -374,21 +374,165 @@ export default function AdminPage() {
     } catch {}
   }, []);
 
-  const addInboxNotification = useCallback((item: Omit<TextNotificationItem, "id" | "timestamp" | "isRead">) => {
+  const addInboxNotification = useCallback((item: Omit<TextNotificationItem, "id" | "timestamp" | "isRead"> & { id?: string; chatMessageId?: string }) => {
     const newItem: TextNotificationItem = {
       ...item,
-      id: "notif_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
+      id: item.id || ("notif_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7)),
+      chatMessageId: item.chatMessageId,
       timestamp: Date.now(),
       isRead: false
     };
     setInboxNotifications((prev) => {
-      const next = [newItem, ...prev.filter((n) => n.id !== newItem.id)].slice(0, 300);
+      // Deduplicate: avoid double notification for the same chat message or identical id
+      const filtered = prev.filter((n) => {
+        if (n.id === newItem.id) return false;
+        if (newItem.chatMessageId && (n.chatMessageId === newItem.chatMessageId || n.payload?.messageId === newItem.chatMessageId || n.id === `chat_msg_${newItem.chatMessageId}`)) {
+          return false;
+        }
+        return true;
+      });
+      const next = [newItem, ...filtered].slice(0, 300);
       try {
         localStorage.setItem("admin_notifications_inbox", JSON.stringify(next));
       } catch {}
       return next;
     });
   }, []);
+
+  // Unread chat messages counter
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+  const fetchChatUnreadCount = useCallback(async () => {
+    if (!token) {
+      setUnreadChatCount(0);
+      return;
+    }
+    try {
+      const res = await fetch("/api/chat/unread-count", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUnreadChatCount(data.unreadCount || 0);
+      }
+    } catch {
+      // silent
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchChatUnreadCount();
+    const interval = setInterval(fetchChatUnreadCount, 25000);
+    return () => clearInterval(interval);
+  }, [fetchChatUnreadCount]);
+
+  const validateInboxChatMessages = useCallback(async () => {
+    if (!token) return;
+
+    setInboxNotifications((currentNotifications) => {
+      const chatItems = currentNotifications.filter((n) => n.type === "chat");
+      const messageIds = chatItems
+        .map((item) => {
+          if (item.chatMessageId) return item.chatMessageId;
+          if (item.payload?.messageId) return item.payload.messageId;
+          if (typeof item.id === "string" && item.id.startsWith("chat_msg_")) {
+            return item.id.replace("chat_msg_", "");
+          }
+          return null;
+        })
+        .filter(Boolean) as string[];
+
+      if (messageIds.length === 0) return currentNotifications;
+
+      fetch("/api/chat/messages/validate-active", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ messageIds })
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!data || !Array.isArray(data.deletedIds) || data.deletedIds.length === 0) return;
+          const deletedSet = new Set(data.deletedIds);
+          setInboxNotifications((prev) => {
+            const purged = prev.filter((item) => {
+              if (item.type === "chat") {
+                const mid = item.chatMessageId || item.payload?.messageId || (typeof item.id === "string" && item.id.startsWith("chat_msg_") ? item.id.replace("chat_msg_", "") : null);
+                if (mid && deletedSet.has(mid)) return false;
+              }
+              return true;
+            });
+            try {
+              localStorage.setItem("admin_notifications_inbox", JSON.stringify(purged));
+            } catch {}
+            return purged;
+          });
+        })
+        .catch(() => {});
+
+      return currentNotifications;
+    });
+  }, [token]);
+
+  // Sync cross-tab changes for notification inbox
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "admin_notifications_inbox" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setInboxNotifications(parsed);
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  // Sync with local deletion events
+  useEffect(() => {
+    const handleLocalDelete = (e: Event) => {
+      const customEvent = e as CustomEvent<{ messageId?: string; mode?: string }>;
+      const deletedId = customEvent.detail?.messageId;
+      if (!deletedId) return;
+
+      setInboxNotifications((prev) => {
+        const purged = prev.filter((item) => {
+          if (item.type === "chat") {
+            if (item.chatMessageId === deletedId) return false;
+            if (item.payload?.messageId === deletedId) return false;
+            if (item.id === `chat_msg_${deletedId}`) return false;
+            if (typeof item.id === "string" && item.id.includes(deletedId)) return false;
+          }
+          return true;
+        });
+        try {
+          localStorage.setItem("admin_notifications_inbox", JSON.stringify(purged));
+        } catch {}
+        return purged;
+      });
+      fetchChatUnreadCount();
+    };
+
+    window.addEventListener("chat-message-deleted", handleLocalDelete);
+    return () => window.removeEventListener("chat-message-deleted", handleLocalDelete);
+  }, [fetchChatUnreadCount]);
+
+  // Validate active chat messages when token is available or inbox opens
+  useEffect(() => {
+    if (token) {
+      validateInboxChatMessages();
+    }
+  }, [token, validateInboxChatMessages]);
+
+  useEffect(() => {
+    if (isNotificationBoxOpen) {
+      validateInboxChatMessages();
+    }
+  }, [isNotificationBoxOpen, validateInboxChatMessages]);
 
   const unreadNotificationsCount = useMemo(
     () => inboxNotifications.filter((n) => !n.isRead).length,
@@ -443,6 +587,7 @@ export default function AdminPage() {
     if (selectedShop?.id) {
       fetchOrders(selectedShop.id, true);
     }
+    validateInboxChatMessages();
   });
 
   useRealtimeEvent("ORDER_CREATED", (event) => {
@@ -703,52 +848,117 @@ export default function AdminPage() {
     return localStorage.getItem("tma_support_badge_dismissed") === "1";
   });
 
-  // Unread chat messages counter
-  const [unreadChatCount, setUnreadChatCount] = useState(0);
-
-  const fetchChatUnreadCount = useCallback(async () => {
-    if (!token) {
-      setUnreadChatCount(0);
-      return;
-    }
-    try {
-      const res = await fetch("/api/chat/unread-count", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUnreadChatCount(data.unreadCount || 0);
-      }
-    } catch {
-      // silent
-    }
-  }, [token]);
-
-  useEffect(() => {
-    fetchChatUnreadCount();
-    const interval = setInterval(fetchChatUnreadCount, 25000);
-    return () => clearInterval(interval);
-  }, [fetchChatUnreadCount]);
-
   useRealtimeEvent(["CHAT_MESSAGE_CREATED", "CHAT_MESSAGES_READ"], (event) => {
     fetchChatUnreadCount();
     if (event.type === "CHAT_MESSAGE_CREATED" && event.payload) {
       const msg = event.payload.message;
       const isFromMe = event.payload.senderId === user?.id;
-      if (!isFromMe && msg && msg.text) {
+      if (!isFromMe && msg && (msg.text || msg.mediaUrl)) {
         const isFromDev = event.payload.senderRole === "DEVELOPER";
+        const textPreview =
+          msg.text ||
+          (msg.mediaType === "video" ? "📹 Видео" : msg.mediaUrl ? "🖼️ Изображение" : "Новое сообщение");
+
         addInboxNotification({
+          id: `chat_msg_${msg.id}`,
+          chatMessageId: msg.id,
           type: "chat",
           title: isFromDev ? "Сообщение от разработчика" : "Новое сообщение в чате",
-          sender: isFromDev ? "Команда платформы" : (msg.userName || "Пользователь"),
-          message: msg.text,
-          actionTab: isDeveloperUser ? "devchat" : "support"
+          sender: isFromDev ? "Команда платформы" : (msg.senderName || msg.userName || "Пользователь"),
+          message: textPreview,
+          actionTab: isDeveloperUser ? "devchat" : "support",
+          payload: {
+            messageId: msg.id,
+            senderId: event.payload.senderId,
+            targetUserId: event.payload.targetUserId
+          }
         });
         if (isAudioEnabled) {
           playNotificationSound();
         }
       }
+    } else if (event.type === "CHAT_MESSAGES_READ" && event.payload) {
+      const targetUserId = event.payload.targetUserId;
+      if (targetUserId === user?.id || isDeveloperUser) {
+        setInboxNotifications((prev) => {
+          let hasChanges = false;
+          const next = prev.map((item) => {
+            if (item.type === "chat" && !item.isRead) {
+              hasChanges = true;
+              return { ...item, isRead: true };
+            }
+            return item;
+          });
+          if (hasChanges) {
+            try {
+              localStorage.setItem("admin_notifications_inbox", JSON.stringify(next));
+            } catch {}
+          }
+          return next;
+        });
+      }
     }
+  });
+
+  // Seamless real-time synchronization: when a message is deleted from chat, remove it from inbox without leaving a trace
+  useRealtimeEvent("CHAT_MESSAGE_DELETED", (event) => {
+    const deletedId = event.payload?.messageId;
+    const mode = event.payload?.mode;
+    const deletedByUserId = event.payload?.deletedByUserId;
+    if (!deletedId) return;
+
+    if (mode === "for_me" && deletedByUserId !== user?.id) {
+      return;
+    }
+
+    setInboxNotifications((prev) => {
+      const purged = prev.filter((item) => {
+        if (item.type === "chat") {
+          if (item.chatMessageId === deletedId) return false;
+          if (item.payload?.messageId === deletedId) return false;
+          if (item.id === `chat_msg_${deletedId}`) return false;
+          if (typeof item.id === "string" && item.id.includes(deletedId)) return false;
+        }
+        return true;
+      });
+      try {
+        localStorage.setItem("admin_notifications_inbox", JSON.stringify(purged));
+      } catch {}
+      return purged;
+    });
+
+    fetchChatUnreadCount();
+  });
+
+  // Real-time synchronization for message edits in chat
+  useRealtimeEvent("CHAT_MESSAGE_UPDATED", (event) => {
+    const updated = event.payload?.message;
+    if (!updated || !updated.id) return;
+
+    setInboxNotifications((prev) => {
+      let hasChanges = false;
+      const next = prev.map((item) => {
+        if (
+          item.type === "chat" &&
+          (item.chatMessageId === updated.id ||
+            item.id === `chat_msg_${updated.id}` ||
+            item.payload?.messageId === updated.id)
+        ) {
+          hasChanges = true;
+          return {
+            ...item,
+            message: updated.text || item.message
+          };
+        }
+        return item;
+      });
+      if (hasChanges) {
+        try {
+          localStorage.setItem("admin_notifications_inbox", JSON.stringify(next));
+        } catch {}
+      }
+      return next;
+    });
   });
 
   // Auto switch tab based on URL query or hash

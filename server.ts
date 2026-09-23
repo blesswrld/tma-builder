@@ -96,7 +96,8 @@ export function broadcastEvent(event: { type: string; shopId?: string; userId?: 
       // 2. Chat messages & chat read/delete events
       if (event.type.startsWith("CHAT_")) {
         const chatTargetUserId = event.userId || event.payload?.targetUserId || event.payload?.message?.userId;
-        if (client.userId && chatTargetUserId && client.userId === chatTargetUserId) {
+        const chatSenderId = event.payload?.senderId || event.payload?.deletedByUserId || event.payload?.message?.senderId;
+        if (client.userId && (client.userId === chatTargetUserId || client.userId === chatSenderId)) {
           try {
             client.ws.send(message);
           } catch (e) {
@@ -7565,8 +7566,9 @@ app.post("/api/shops", async (req, res) => {
         return res.status(404).json({ error: "Сообщение не найдено" });
       }
 
-      // ТРЕБОВАНИЕ: Пользователь может удалять только свои сообщения
-      if (msg.senderId !== authUser.id) {
+      // ТРЕБОВАНИЕ: Пользователь может удалять только свои сообщения (разработчик также может модерировать)
+      const isDev = isDeveloperEmail(authUser.email);
+      if (msg.senderId !== authUser.id && !isDev) {
         return res.status(403).json({ error: "Вы можете удалять только свои сообщения" });
       }
 
@@ -7598,6 +7600,7 @@ app.post("/api/shops", async (req, res) => {
           payload: {
             messageId,
             targetUserId: msg.userId,
+            senderId: msg.senderId,
             mode: "for_me",
             deletedByUserId: authUser.id
           }
@@ -7616,7 +7619,9 @@ app.post("/api/shops", async (req, res) => {
           payload: {
             messageId,
             targetUserId: msg.userId,
-            mode: "for_all"
+            senderId: msg.senderId,
+            mode: "for_all",
+            deletedByUserId: authUser.id
           }
         });
 
@@ -7625,6 +7630,78 @@ app.post("/api/shops", async (req, res) => {
     } catch (error: any) {
       console.error("Error deleting chat message:", error);
       res.status(500).json({ error: error.message || "Ошибка удаления сообщения" });
+    }
+  });
+
+  // 6.5. Валидация активных сообщений для синхронизации ящика уведомлений без следов
+  app.post("/api/chat/messages/validate-active", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        return res.status(401).json({ error: "Необходима авторизация" });
+      }
+
+      const db = getPrismaClient();
+      if (!db) return res.status(500).json({ error: "Database not connected" });
+      await ensureOrderSchema(db);
+
+      const rawIds = Array.isArray(req.body?.messageIds) ? req.body.messageIds : [];
+      const messageIds: string[] = rawIds
+        .filter((id: any) => typeof id === "string" && id.trim().length > 0)
+        .slice(0, 300);
+
+      if (messageIds.length === 0) {
+        return res.json({ validIds: [], deletedIds: [] });
+      }
+
+      const foundMessages = await db.chatMessage.findMany({
+        where: {
+          id: { in: messageIds }
+        },
+        select: {
+          id: true,
+          deletedForUserIds: true
+        }
+      });
+
+      const validIds: string[] = [];
+      const deletedIds: string[] = [];
+
+      const foundMap = new Map<string, any>();
+      foundMessages.forEach((m) => foundMap.set(m.id, m));
+
+      for (const id of messageIds) {
+        const found = foundMap.get(id);
+        if (!found) {
+          deletedIds.push(id);
+          continue;
+        }
+
+        let isDeletedForMe = false;
+        if (found.deletedForUserIds) {
+          try {
+            const list = JSON.parse(found.deletedForUserIds);
+            if (Array.isArray(list) && list.includes(authUser.id)) {
+              isDeletedForMe = true;
+            }
+          } catch {
+            if (typeof found.deletedForUserIds === "string" && found.deletedForUserIds.includes(authUser.id)) {
+              isDeletedForMe = true;
+            }
+          }
+        }
+
+        if (isDeletedForMe) {
+          deletedIds.push(id);
+        } else {
+          validIds.push(id);
+        }
+      }
+
+      return res.json({ validIds, deletedIds });
+    } catch (error: any) {
+      console.error("Error validating active chat messages:", error);
+      res.status(500).json({ error: "Ошибка проверки сообщений" });
     }
   });
 

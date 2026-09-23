@@ -25,6 +25,7 @@ export interface TextNotificationItem {
   isRead: boolean;
   actionTab?: string;
   payload?: any;
+  chatMessageId?: string;
 }
 
 interface NotificationInboxProps {

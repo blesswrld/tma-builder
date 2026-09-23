@@ -116,10 +116,8 @@ export default function SupportChatWidget({
   }, [isOpen]);
 
   // Realtime events
-  useRealtimeEvent(["CHAT_MESSAGE_CREATED", "CHAT_MESSAGES_READ"], () => {
-    if (!isOpen) {
-      fetchUnreadCount();
-    }
+  useRealtimeEvent(["CHAT_MESSAGE_CREATED", "CHAT_MESSAGES_READ", "CHAT_MESSAGE_DELETED"], () => {
+    fetchUnreadCount();
   });
 
   useRealtimeEvent(["PRESENCE_STATE", "PRESENCE_CHANGED"], (event) => {
