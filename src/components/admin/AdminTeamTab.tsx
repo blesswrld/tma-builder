@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
+import { useScrollLock } from "../../hooks/useScrollLock";
 import { CustomNumberInput } from "../CustomNumberInput";
 import {
   Users,
@@ -60,6 +62,19 @@ export function AdminTeamTab({
   requestConfirm,
   showToast,
 }: AdminTeamTabProps) {
+  useScrollLock(isInviteModalOpen);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isInviteModalOpen) {
+        setIsInviteModalOpen(false);
+        setCreatedInviteUrl(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isInviteModalOpen, setIsInviteModalOpen, setCreatedInviteUrl]);
+
   return (
     <>
       <div className="max-w-4xl mx-auto bg-app-surface border border-app-border rounded-3xl p-6 sm:p-8 text-app-primary space-y-6 shadow-sm font-sans">
@@ -239,129 +254,155 @@ export function AdminTeamTab({
       </div>
 
       {/* Invite Modal */}
-      {isInviteModalOpen && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-5 shadow-2xl relative">
-            <div className="flex justify-between items-center border-b border-app-border pb-3">
-              <div className="flex items-center gap-2">
-                <UserPlus size={18} className="text-app-muted" />
-                <h3 className="text-sm font-semibold tracking-tight uppercase font-mono">Пригласить сотрудника</h3>
-              </div>
-              <button onClick={() => setIsInviteModalOpen(false)} className="text-app-muted hover:text-app-primary p-1 rounded-lg cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-
-            {!createdInviteUrl ? (
-              <div className="space-y-4 font-mono text-xs">
-                <div>
-                  <label className="block text-app-muted mb-2">Роль для приглашаемого</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setInviteRole("STAFF")}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        inviteRole === "STAFF"
-                          ? "bg-app-accent text-app-accent-fg border-transparent font-semibold shadow-xs"
-                          : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-hover"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-xs">Сотрудник</span>
-                        {inviteRole === "STAFF" && <Check size={14} />}
-                      </div>
-                      <p className="text-[10px] opacity-80 leading-tight">Просмотр и обработка заказов</p>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={selectedShop?.ownerId !== user?.id && selectedShop?.currentUserRole !== "OWNER"}
-                      onClick={() => {
-                        if (selectedShop?.ownerId === user?.id || selectedShop?.currentUserRole === "OWNER") {
-                          setInviteRole("MANAGER");
-                        } else {
-                          showToast("Назначать менеджеров может только владелец заведения.", "warning");
-                        }
-                      }}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        selectedShop?.ownerId !== user?.id && selectedShop?.currentUserRole !== "OWNER"
-                          ? "bg-app-card/40 border-app-border/40 text-app-muted cursor-not-allowed opacity-60"
-                          : inviteRole === "MANAGER"
-                          ? "bg-app-accent text-app-accent-fg border-transparent font-semibold shadow-xs cursor-pointer"
-                          : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-hover cursor-pointer"
-                      }`}
-                      title={selectedShop?.ownerId !== user?.id && selectedShop?.currentUserRole !== "OWNER" ? "Только владелец заведения может назначать менеджеров" : ""}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-xs">Менеджер</span>
-                        {inviteRole === "MANAGER" && <Check size={14} />}
-                      </div>
-                      <p className="text-[10px] opacity-80 leading-tight">
-                        {selectedShop?.ownerId !== user?.id && selectedShop?.currentUserRole !== "OWNER"
-                          ? "Только для владельца"
-                          : "Полное управление заведением"}
-                      </p>
-                    </button>
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {isInviteModalOpen && (
+            <div 
+              className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+              onClick={() => {
+                setIsInviteModalOpen(false);
+                setCreatedInviteUrl(null);
+              }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.15 }}
+                className="max-w-md w-full bg-app-surface border border-app-border rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-app-primary space-y-5 shadow-2xl relative z-[10000]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex justify-between items-center border-b border-app-border pb-3">
+                  <div className="flex items-center gap-2">
+                    <UserPlus size={18} className="text-app-muted" />
+                    <h3 className="text-sm font-semibold tracking-tight font-mono">Пригласить сотрудника</h3>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-app-muted mb-1.5">Лимит активаций ссылки</label>
-                  <CustomNumberInput
-                    min={1}
-                    max={100}
-                    step={1}
-                    value={inviteMaxUses}
-                    onChange={e => setInviteMaxUses(Number(e.target.value))}
-                    className="w-full bg-app-card border border-app-border rounded-xl p-2.5 text-app-primary focus:outline-none focus:border-app-accent"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCreateInvite}
-                  className="w-full py-3 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-bold rounded-xl shadow-sm transition-all cursor-pointer uppercase tracking-wider"
-                >
-                  Сгенерировать ссылку
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4 font-mono text-xs text-center">
-                <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-2">
-                  <CheckCircle size={28} className="text-app-primary mx-auto" />
-                  <p className="font-bold text-sm text-app-primary">Ссылка создана!</p>
-                  <p className="text-app-muted text-[11px]">
-                    Отправьте эту ссылку сотруднику. Перейдя по ней, он сможет войти или зарегистрироваться и автоматически получит доступ к заведению.
-                  </p>
-                </div>
-                <div className="p-3 bg-app-surface border border-app-border rounded-xl break-all text-[11px] text-app-primary font-mono select-all">
-                  {createdInviteUrl}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(createdInviteUrl);
-                      showToast("Ссылка скопирована в буфер!", "success");
-                    }}
-                    className="flex-1 py-2.5 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                  >
-                    <Copy size={14} className="text-app-muted" />
-                    <span>Скопировать</span>
-                  </button>
-                  <button
+                  <button 
                     type="button"
                     onClick={() => {
                       setIsInviteModalOpen(false);
                       setCreatedInviteUrl(null);
-                    }}
-                    className="py-2.5 px-4 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-bold rounded-xl cursor-pointer transition-all"
+                    }} 
+                    className="text-app-muted hover:text-app-primary p-1 rounded-lg cursor-pointer"
+                    title="Закрыть (Esc)"
                   >
-                    Закрыть
+                    <X size={18} />
                   </button>
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
+
+                {!createdInviteUrl ? (
+                  <div className="space-y-4 font-mono text-xs">
+                    <div>
+                      <label className="block text-app-muted mb-2 font-medium">Роль для приглашаемого</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setInviteRole("STAFF")}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                            inviteRole === "STAFF"
+                              ? "bg-app-accent text-app-accent-fg border-transparent font-medium shadow-xs"
+                              : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-hover"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-xs">Сотрудник</span>
+                            {inviteRole === "STAFF" && <Check size={14} />}
+                          </div>
+                          <p className="text-[10px] opacity-80 leading-tight">Просмотр и обработка заказов</p>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={selectedShop?.ownerId !== user?.id && selectedShop?.currentUserRole !== "OWNER"}
+                          onClick={() => {
+                            if (selectedShop?.ownerId === user?.id || selectedShop?.currentUserRole === "OWNER") {
+                              setInviteRole("MANAGER");
+                            } else {
+                              showToast("Назначать менеджеров может только владелец заведения.", "warning");
+                            }
+                          }}
+                          className={`p-3 rounded-xl border text-left transition-all ${
+                            selectedShop?.ownerId !== user?.id && selectedShop?.currentUserRole !== "OWNER"
+                              ? "bg-app-card/40 border-app-border/40 text-app-muted cursor-not-allowed opacity-60"
+                              : inviteRole === "MANAGER"
+                              ? "bg-app-accent text-app-accent-fg border-transparent font-medium shadow-xs cursor-pointer"
+                              : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-hover cursor-pointer"
+                          }`}
+                          title={selectedShop?.ownerId !== user?.id && selectedShop?.currentUserRole !== "OWNER" ? "Только владелец заведения может назначать менеджеров" : ""}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-xs">Менеджер</span>
+                            {inviteRole === "MANAGER" && <Check size={14} />}
+                          </div>
+                          <p className="text-[10px] opacity-80 leading-tight">
+                            {selectedShop?.ownerId !== user?.id && selectedShop?.currentUserRole !== "OWNER"
+                              ? "Только для владельца"
+                              : "Полное управление заведением"}
+                          </p>
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-app-muted mb-1.5 font-medium">Лимит активаций ссылки</label>
+                      <CustomNumberInput
+                        min={1}
+                        max={100}
+                        step={1}
+                        value={inviteMaxUses}
+                        onChange={e => setInviteMaxUses(Number(e.target.value))}
+                        className="w-full bg-app-card border border-app-border rounded-xl p-2.5 text-app-primary focus:outline-none focus:border-app-accent"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCreateInvite}
+                      className="w-full py-2.5 bg-app-accent text-app-accent-fg hover:opacity-90 font-medium rounded-xl shadow-xs transition-all cursor-pointer"
+                    >
+                      Сгенерировать ссылку
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4 font-mono text-xs text-center">
+                    <div className="p-4 bg-app-card border border-app-border rounded-2xl space-y-2">
+                      <CheckCircle size={28} className="text-emerald-500 mx-auto" />
+                      <p className="font-medium text-sm text-app-primary">Ссылка создана!</p>
+                      <p className="text-app-muted text-[11px] leading-relaxed">
+                        Отправьте эту ссылку сотруднику. Перейдя по ней, он сможет войти или зарегистрироваться и автоматически получит доступ к заведению.
+                      </p>
+                    </div>
+                    <div className="p-3 bg-app-card border border-app-border rounded-xl break-all text-[11px] text-app-primary font-mono select-all">
+                      {createdInviteUrl}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(createdInviteUrl);
+                          showToast("Ссылка скопирована в буфер!", "success");
+                        }}
+                        className="flex-1 py-2 bg-app-accent text-app-accent-fg hover:opacity-90 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all font-medium"
+                      >
+                        <Copy size={14} />
+                        <span>Скопировать</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsInviteModalOpen(false);
+                          setCreatedInviteUrl(null);
+                        }}
+                        className="py-2 px-4 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary hover:text-app-primary rounded-xl cursor-pointer transition-all font-medium"
+                      >
+                        Закрыть
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
       )}
     </>
   );

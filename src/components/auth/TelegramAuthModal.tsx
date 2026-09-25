@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Loader2,
   AlertCircle,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import QRCode from "qrcode";
 import { useAuth } from "../../context/AuthContext";
+import { useScrollLock } from "../../hooks/useScrollLock";
 import { TelegramIcon } from "../icons/TelegramIcon";
 
 interface TelegramAuthModalProps {
@@ -293,9 +295,29 @@ export const TelegramAuthModal: React.FC<TelegramAuthModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/80 z-[10000] flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs">
-      <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-5 sm:p-6 text-app-primary space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-100 relative">
+  useScrollLock(isOpen);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const modalContent = (
+    <div 
+      className="fixed inset-0 bg-black/80 z-[10000] flex items-center justify-center p-3 sm:p-4 overflow-y-auto backdrop-blur-xs"
+      onClick={onClose}
+    >
+      <div 
+        className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-5 sm:p-6 text-app-primary space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-100 relative z-[10001]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-app-border pb-3.5">
           <div className="flex items-center gap-2.5">
@@ -594,4 +616,6 @@ export const TelegramAuthModal: React.FC<TelegramAuthModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };

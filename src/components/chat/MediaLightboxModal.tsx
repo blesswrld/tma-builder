@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Download, ZoomIn, ZoomOut, RotateCcw, Play, Maximize2, FileText, Check } from "lucide-react";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface MediaLightboxModalProps {
   isOpen: boolean;
@@ -41,6 +42,8 @@ export default function MediaLightboxModal({
       setZoomLevel(1);
     }
   }, [isOpen, mediaUrl]);
+
+  useScrollLock(isOpen);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -83,7 +86,7 @@ export default function MediaLightboxModal({
 
   return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 select-none">
+      <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/90 backdrop-blur-xs select-none">
         {/* Backdrop click to close */}
         <div className="absolute inset-0" onClick={onClose} />
 

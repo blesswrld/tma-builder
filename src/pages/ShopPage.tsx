@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, ShoppingCart, ShieldCheck } from "lucide-react";
+import { ArrowRight, ShoppingCart, ShieldCheck, Check, AlertCircle } from "lucide-react";
 import NotFoundPage from "./NotFoundPage";
 import { ShopPageSkeleton } from "../components/Skeleton";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -1138,7 +1138,7 @@ export default function ShopPage() {
                 <ShoppingCart size={22} className="text-app-muted" />
               </div>
               <div className="space-y-1 max-w-sm mx-auto">
-                <h4 className="text-xs font-bold text-app-primary font-mono">
+                <h4 className="text-xs font-medium text-app-primary font-mono">
                   {(shop.services || []).length === 0
                     ? t("shop.empty_catalog", "В этой категории пока нет позиций")
                     : t("shop.empty_search", "Ничего не найдено по вашему запросу")}
@@ -1234,13 +1234,13 @@ export default function ShopPage() {
               className="w-full h-13 bg-app-accent text-app-accent-fg rounded-2xl flex items-center justify-between px-5 shadow-2xl transition-all duration-75 active:scale-[0.98] font-mono border border-app-border cursor-pointer"
             >
               <div className="flex items-center gap-3">
-                <span className="w-7 h-7 bg-app-accent-fg/20 text-app-accent-fg rounded-xl flex items-center justify-center text-xs font-bold shrink-0">
+                <span className="w-7 h-7 bg-app-accent-fg/20 text-app-accent-fg rounded-xl flex items-center justify-center text-xs font-medium shrink-0">
                   {totalItems}
                 </span>
-                <span className="text-xs font-bold uppercase tracking-wider text-app-accent-fg">{t("shop.checkout", "Оформить заказ")}</span>
+                <span className="text-xs font-medium uppercase tracking-wider text-app-accent-fg">{t("shop.checkout", "Оформить заказ")}</span>
               </div>
               <div className="flex items-center gap-2 text-app-accent-fg">
-                <span className="text-sm font-bold">{totalPrice} ₽</span>
+                <span className="text-sm font-medium">{totalPrice} ₽</span>
                 <ArrowRight size={16} />
               </div>
             </button>
@@ -1405,20 +1405,23 @@ export default function ShopPage() {
           {toasts.map(toast => (
             <motion.div
               key={toast.id}
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              initial={{ opacity: 0, y: -10, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              exit={{ opacity: 0, y: -10, scale: 0.98 }}
               transition={{ duration: 0.15 }}
               onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-              className={`p-3.5 sm:p-4 rounded-2xl border shadow-xl pointer-events-auto flex items-start gap-3 w-full sm:w-auto cursor-pointer hover:opacity-95 transition-opacity ${
-                toast.type === "success" 
-                  ? "bg-[#0b2518] text-emerald-200 border-emerald-800/50" 
-                  : toast.type === "error" 
-                  ? "bg-[#2d0f13] text-rose-200 border-rose-800/50" 
-                  : "bg-[#2d210f] text-amber-200 border-amber-800/50"
-              }`}
+              className="px-3.5 py-2.5 rounded-xl border border-app-border bg-app-card/95 text-app-primary shadow-lg pointer-events-auto flex items-center gap-2.5 w-full sm:w-auto cursor-pointer hover:opacity-90 transition-opacity backdrop-blur-sm"
             >
-              <p className="text-xs font-sans font-medium leading-relaxed">{toast.message}</p>
+              <div className="shrink-0">
+                {toast.type === "success" ? (
+                  <Check size={14} className="text-emerald-500" />
+                ) : toast.type === "error" ? (
+                  <AlertCircle size={14} className="text-rose-500" />
+                ) : (
+                  <AlertCircle size={14} className="text-amber-500" />
+                )}
+              </div>
+              <p className="text-xs font-sans font-medium leading-relaxed text-app-primary">{toast.message}</p>
             </motion.div>
           ))}
         </AnimatePresence>

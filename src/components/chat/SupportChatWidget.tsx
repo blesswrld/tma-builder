@@ -144,6 +144,19 @@ export default function SupportChatWidget({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
+  // Lock body scroll on mobile when chat is open to prevent page scrolling
+  useEffect(() => {
+    if (!isOpen) return;
+    const isMobile = window.innerWidth < 640;
+    if (isMobile) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
+
   if (!user) return null;
 
   return (
@@ -303,14 +316,14 @@ export default function SupportChatWidget({
           {/* Mobile Backdrop */}
           <div
             onClick={() => handleSetOpen(false)}
-            className={`sm:hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-50 transition-opacity duration-200 ${
+            className={`sm:hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-50 transition-opacity duration-200 touch-none ${
               isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
             }`}
           />
 
           {/* Floating Chat Container */}
           <div
-            className={`fixed inset-x-2 bottom-20 top-16 sm:inset-auto sm:bottom-22 sm:right-6 sm:w-[460px] sm:h-[640px] sm:max-h-[85vh] z-50 bg-app-card border border-app-border rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-200 ease-out origin-bottom-right ${
+            className={`fixed inset-x-2 bottom-20 top-16 sm:inset-auto sm:bottom-22 sm:right-6 sm:w-[460px] sm:h-[640px] sm:max-h-[85vh] z-50 bg-app-card border border-app-border rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-200 ease-out origin-bottom-right overscroll-contain ${
               isOpen
                 ? "opacity-100 scale-100 pointer-events-auto translate-y-0"
                 : "opacity-0 scale-95 pointer-events-none translate-y-3"

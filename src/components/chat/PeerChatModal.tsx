@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   MessageSquare,
   X,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useRealtimeEvent } from "../../context/RealtimeContext";
+import { useScrollLock } from "../../hooks/useScrollLock";
 import { PeerMessage } from "../../types";
 
 interface PeerChatModalProps {
@@ -94,6 +96,20 @@ export const PeerChatModal: React.FC<PeerChatModalProps> = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useScrollLock(isOpen);
+
+  // Escape key handler
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   // Real-time events
   useRealtimeEvent("PEER_CHAT_MESSAGE_CREATED", (event) => {
@@ -185,40 +201,50 @@ export const PeerChatModal: React.FC<PeerChatModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2 sm:p-4">
-      <div className="w-full max-w-lg h-[92vh] sm:h-[600px] bg-app-surface border border-app-border rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-100">
+  const modalContent = (
+    <div 
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden touch-none"
+      onClick={onClose}
+    >
+      <div 
+        className="w-full max-w-lg h-[92vh] sm:h-[620px] max-h-[92vh] my-auto bg-app-surface border border-app-border rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-100 touch-auto relative z-[10000]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="p-4 border-b border-app-border flex items-center justify-between bg-app-card/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-app-card border border-app-border flex items-center justify-center text-app-primary">
+        <div className="p-4 border-b border-app-border flex items-center justify-between bg-app-card/90 dark:bg-zinc-900/90 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-app-surface dark:bg-zinc-800 border border-app-border dark:border-zinc-700 flex items-center justify-center text-app-primary dark:text-white shrink-0 shadow-xs">
               <MessageSquare size={18} />
             </div>
-            <div>
-              <div className="text-sm font-bold text-app-primary flex items-center gap-1.5">
-                <span>{receiverName || shopName || "Продавец"}</span>
-                {shopName && (
-                  <span className="text-[10px] px-1.5 py-0.2 bg-app-surface rounded border border-app-border font-mono text-app-muted">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <h3 className="text-sm sm:text-base font-extrabold text-app-primary dark:text-white truncate">
+                  {receiverName || shopName || "Заведение"}
+                </h3>
+                {shopName && receiverName && shopName !== receiverName && (
+                  <span className="text-[10px] px-2 py-0.5 bg-app-surface dark:bg-zinc-800 rounded-md border border-app-border dark:border-zinc-700 font-mono font-medium text-app-primary dark:text-zinc-200 shrink-0">
                     {shopName}
                   </span>
                 )}
               </div>
-              <div className="text-[11px] text-app-muted font-mono flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-app-primary animate-pulse" />
-                <span>Чат защищен антифродом</span>
+              <div className="text-[11px] text-app-muted dark:text-zinc-400 font-mono flex items-center gap-1 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span className="truncate">Чат защищен антифродом</span>
               </div>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 text-app-muted hover:text-app-primary rounded-xl transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full bg-app-surface/90 hover:bg-app-hover border border-app-border flex items-center justify-center text-app-muted hover:text-app-primary dark:hover:text-white transition-all cursor-pointer shadow-xs shrink-0"
+            title="Закрыть"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
         {/* Messages Body */}
-        <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-app-bg/50">
+        <div className="flex-1 p-4 overflow-y-auto overscroll-contain space-y-3 bg-app-bg/50">
           {loading ? (
             <div className="h-full flex items-center justify-center text-app-muted text-xs font-mono">
               <Loader2 size={20} className="animate-spin text-app-primary mr-2" />
@@ -312,4 +338,6 @@ export const PeerChatModal: React.FC<PeerChatModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };

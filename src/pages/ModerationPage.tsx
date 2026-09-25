@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Shield,
@@ -15,10 +16,12 @@ import {
   Tag,
   Clock,
   Sparkles,
-  Filter
+  Filter,
+  X
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 interface ModerationService {
   id: string;
@@ -55,6 +58,19 @@ export const ModerationPage: React.FC = () => {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [rejectModalService, setRejectModalService] = useState<ModerationService | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+
+  useScrollLock(Boolean(rejectModalService));
+
+  useEffect(() => {
+    if (!rejectModalService) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setRejectModalService(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [rejectModalService]);
 
   const isModeratorOrAdmin = Boolean(
     user && (
@@ -458,41 +474,61 @@ export const ModerationPage: React.FC = () => {
       </main>
 
       {/* Reject Modal */}
-      {rejectModalService && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-100">
-            <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
-              <AlertTriangle size={18} />
-              <span>Отклонить объявление</span>
-            </div>
-            <p className="text-xs text-app-muted">
-              Укажите причину отказа для позиции «{rejectModalService.title}». Продавец увидит это пояснение:
-            </p>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Например: Некорректная цена, запрещенный товар или некачественное фото..."
-              rows={3}
-              className="w-full bg-app-card border border-app-border rounded-xl p-3 text-xs text-app-primary placeholder:text-app-muted focus:outline-none focus:border-rose-500"
-            />
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setRejectModalService(null)}
-                className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs text-app-primary cursor-pointer"
+      {typeof document !== "undefined" && createPortal(
+        <>
+          {rejectModalService && (
+            <div 
+              className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+              onClick={() => setRejectModalService(null)}
+            >
+              <div 
+                className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 space-y-4 shadow-2xl relative z-[10000] animate-in zoom-in-95 duration-100"
+                onClick={(e) => e.stopPropagation()}
               >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={handleReject}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold cursor-pointer"
-              >
-                Подтвердить отказ
-              </button>
+                <div className="flex items-center justify-between border-b border-app-border pb-3">
+                  <div className="flex items-center gap-2 text-rose-500 font-bold text-sm">
+                    <AlertTriangle size={18} />
+                    <span>Отклонить объявление</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRejectModalService(null)}
+                    className="p-1 text-app-muted hover:text-app-primary rounded-lg cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <p className="text-xs text-app-muted">
+                  Укажите причину отказа для позиции «{rejectModalService.title}». Продавец увидит это пояснение:
+                </p>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Например: Некорректная цена, запрещенный товар или некачественное фото..."
+                  rows={3}
+                  className="w-full bg-app-card border border-app-border rounded-xl p-3 text-xs text-app-primary placeholder:text-app-muted focus:outline-none focus:border-rose-500"
+                />
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-border">
+                  <button
+                    type="button"
+                    onClick={() => setRejectModalService(null)}
+                    className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border rounded-xl text-xs text-app-primary cursor-pointer"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReject}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-xs"
+                  >
+                    Подтвердить отказ
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+        </>,
+        document.body
       )}
     </div>
   );

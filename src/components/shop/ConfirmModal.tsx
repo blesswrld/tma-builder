@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { AlertCircle } from "lucide-react";
@@ -31,12 +31,23 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const effectiveCancelText = cancelText || t("common.cancel", "Отмена");
   useScrollLock(isOpen);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onCancel();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onCancel]);
+
   const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <div 
           key="confirm-modal-container"
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[10001] flex items-center justify-center p-4"
         >
           <motion.div
             key="confirm-backdrop"
@@ -45,7 +56,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
             onClick={onCancel}
-            className="fixed inset-0 bg-black/80 z-[9999]"
+            className="fixed inset-0 bg-black/80 backdrop-blur-xs z-[10001]"
           />
           <motion.div
             key="confirm-panel"
@@ -53,7 +64,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 12 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
-            className="max-w-sm w-full bg-app-card border border-app-border rounded-2xl p-6 text-app-primary shadow-2xl space-y-5 relative z-[10000]"
+            className="max-w-sm w-full bg-app-card border border-app-border rounded-2xl p-6 text-app-primary shadow-2xl space-y-5 relative z-[10002]"
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="space-y-2">
               <h3 className="text-sm font-bold tracking-tight text-app-primary flex items-center gap-2 font-mono">

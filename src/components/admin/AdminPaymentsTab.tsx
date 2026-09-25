@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { 
   CreditCard, QrCode, Ticket, RefreshCw, Search, Filter, 
   CheckCircle2, Clock, XCircle, AlertCircle, ExternalLink, 
@@ -7,6 +8,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useRealtimeEvent } from "../../context/RealtimeContext";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface PaymentItem {
   id: string;
@@ -71,6 +73,18 @@ export default function AdminPaymentsTab({
   useEffect(() => {
     fetchPayments();
   }, [token]);
+
+  useScrollLock(Boolean(selectedPaymentDetails));
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selectedPaymentDetails) {
+        setSelectedPaymentDetails(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedPaymentDetails]);
 
   useRealtimeEvent(["PAYMENT_UPDATED", "PAYMENT_CREATED", "USER_UPDATED", "PLAN_UPDATED", "REALTIME_RECONNECTED"], (event) => {
     if (event.type === "PAYMENT_UPDATED" && event.payload?.paymentId) {
@@ -610,15 +624,26 @@ export default function AdminPaymentsTab({
       </div>
 
       {/* Payment Details Modal */}
-      <AnimatePresence>
-        {selectedPaymentDetails && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-lg bg-app-modal border border-app-border rounded-3xl p-6 space-y-5 text-app-primary font-mono shadow-2xl relative"
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {selectedPaymentDetails && (
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto"
+              onClick={() => setSelectedPaymentDetails(null)}
             >
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="relative w-full max-w-lg bg-app-modal border border-app-border rounded-3xl p-6 space-y-5 text-app-primary font-mono shadow-2xl z-[10000]"
+                onClick={(e) => e.stopPropagation()}
+              >
               <div className="flex items-center justify-between border-b border-app-border pb-4">
                 <div className="flex items-center gap-2.5">
                   <div className="w-10 h-10 rounded-2xl bg-app-card border border-app-border flex items-center justify-center text-app-accent">
@@ -745,7 +770,9 @@ export default function AdminPaymentsTab({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
     </div>
   );
 }

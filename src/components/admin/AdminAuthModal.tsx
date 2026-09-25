@@ -1,4 +1,4 @@
-import React, { FormEvent } from "react";
+import React, { FormEvent, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
   ShieldCheck,
@@ -74,11 +74,33 @@ export function AdminAuthModal({
 }: AdminAuthModalProps) {
   useScrollLock(isOpen);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+        setAuthError(null);
+        setAuthSuccessMsg(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose, setAuthError, setAuthSuccessMsg]);
+
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-100 relative z-[10000]">
+    <div 
+      className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4 overflow-y-auto"
+      onClick={() => {
+        onClose();
+        setAuthError(null);
+        setAuthSuccessMsg(null);
+      }}
+    >
+      <div 
+        className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-100 relative z-[10000]"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex justify-between items-center border-b border-app-border pb-3">
           <div className="flex items-center gap-2">
             <ShieldCheck size={18} className="text-app-muted" />

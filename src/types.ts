@@ -164,6 +164,15 @@ export interface TelegramSettings {
   lastWebhookError?: string | null;
 }
 
+export interface ShopVideo {
+  id: string;
+  type: "youtube" | "vk" | "rutube" | "file";
+  url: string;
+  embedUrl?: string;
+  title?: string;
+  size?: number;
+}
+
 export interface Shop {
   id: string;
   name: string;
@@ -189,6 +198,7 @@ export interface Shop {
   isOpen?: boolean;
   ownerId?: string | null;
   musicSettings?: string | MusicSettings | null;
+  videos?: string | ShopVideo[] | null;
   owner?: {
     id: string;
     email: string;
@@ -590,5 +600,7 @@ export interface PublicShopsResponse {
     cityCounts?: Record<string, number>;
   };
 }
+
+export { parseShopVideos } from "./lib/videoUtils";
 
 

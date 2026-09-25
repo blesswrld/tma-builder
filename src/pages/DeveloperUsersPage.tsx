@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   Users,
@@ -221,6 +222,19 @@ export default function DeveloperUsersPage() {
     alertModal?.isOpen
   );
   useScrollLock(isAnyModalOpen);
+
+  useEffect(() => {
+    if (!isAnyModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (banModalUser) setBanModalUser(null);
+        if (editModalUser) setEditModalUser(null);
+        if (batchBanModalOpen) setBatchBanModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isAnyModalOpen, banModalUser, editModalUser, batchBanModalOpen]);
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -1768,319 +1782,343 @@ export default function DeveloperUsersPage() {
       {/* ========================================================= */}
       {/* BAN USER MODAL */}
       {/* ========================================================= */}
-      <AnimatePresence>
-        {banModalUser && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 font-sans">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl"
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {banModalUser && (
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs font-sans"
+              onClick={() => setBanModalUser(null)}
             >
-              <div className="flex items-center justify-between border-b border-app-border pb-3">
-                <div className="flex items-center gap-2.5 text-rose-600 dark:text-rose-300 font-bold text-base">
-                  <div className="p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-xl">
-                    <ShieldAlert size={18} />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.15 }}
+                className="w-full max-w-lg bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl relative z-[10000]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-app-border pb-3">
+                  <div className="flex items-center gap-2.5 text-rose-600 dark:text-rose-300 font-bold text-base">
+                    <div className="p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-xl">
+                      <ShieldAlert size={18} />
+                    </div>
+                    <span>Блокировка пользователя</span>
                   </div>
-                  <span>Блокировка пользователя</span>
-                </div>
-                <button
-                  onClick={() => setBanModalUser(null)}
-                  className="p-1 text-app-muted hover:text-app-primary rounded-lg cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="space-y-3 text-xs font-mono">
-                <div className="p-3 bg-app-card border border-app-border rounded-xl space-y-1">
-                  <div className="text-app-muted">Блокируемый аккаунт:</div>
-                  <div className="text-app-primary font-bold text-sm">{banModalUser.email}</div>
-                  <div className="text-[11px] text-app-muted">Имя: {banModalUser.name || "—"} • Заведений: {banModalUser.shopsCount}</div>
+                  <button
+                    onClick={() => setBanModalUser(null)}
+                    className="p-1 text-app-muted hover:text-app-primary rounded-lg cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-app-secondary font-medium">Выберите причину блокировки:</label>
+                <div className="space-y-3 text-xs font-mono">
+                  <div className="p-3 bg-app-card border border-app-border rounded-xl space-y-1">
+                    <div className="text-app-muted">Блокируемый аккаунт:</div>
+                    <div className="text-app-primary font-bold text-sm">{banModalUser.email}</div>
+                    <div className="text-[11px] text-app-muted">Имя: {banModalUser.name || "—"} • Заведений: {banModalUser.shopsCount}</div>
+                  </div>
+
                   <div className="space-y-1.5">
-                    {BAN_REASONS.map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => {
-                          setBanReason(r);
-                          setCustomBanReason("");
-                        }}
-                        className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer text-xs ${
-                          banReason === r && !customBanReason
-                            ? "bg-rose-50 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/40 text-rose-800 dark:text-rose-200 font-semibold"
-                            : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-bg"
-                        }`}
-                      >
-                        {r}
-                      </button>
-                    ))}
+                    <label className="text-app-secondary font-medium">Выберите причину блокировки:</label>
+                    <div className="space-y-1.5">
+                      {BAN_REASONS.map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => {
+                            setBanReason(r);
+                            setCustomBanReason("");
+                          }}
+                          className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer text-xs ${
+                            banReason === r && !customBanReason
+                              ? "bg-rose-50 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/40 text-rose-800 dark:text-rose-200 font-semibold"
+                              : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-bg"
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-app-secondary font-medium">Либо укажите свою причину:</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Например: Подозрение в мошеннических операциях..."
+                      value={customBanReason}
+                      onChange={(e) => setCustomBanReason(e.target.value)}
+                      className="w-full p-2.5 bg-app-card border border-app-border rounded-xl text-xs text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-border"
+                    />
+                  </div>
+
+                  <div
+                    onClick={() => setDisableShopsOnBan(!disableShopsOnBan)}
+                    className="flex items-center gap-2.5 p-2.5 bg-app-card border border-app-border rounded-xl cursor-pointer text-app-primary select-none"
+                  >
+                    <CustomCheckbox
+                      checked={disableShopsOnBan}
+                      onChange={(c) => setDisableShopsOnBan(c)}
+                      size="sm"
+                      variant="default"
+                    />
+                    <span className="text-xs font-mono">Также немедленно деактивировать все заведения этого пользователя</span>
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-app-secondary font-medium">Либо укажите свою причину:</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Например: Подозрение в мошеннических операциях..."
-                    value={customBanReason}
-                    onChange={(e) => setCustomBanReason(e.target.value)}
-                    className="w-full p-2.5 bg-app-card border border-app-border rounded-xl text-xs text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-border"
-                  />
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-border">
+                  <button
+                    type="button"
+                    onClick={() => setBanModalUser(null)}
+                    className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary rounded-xl text-xs font-mono cursor-pointer"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBanUser}
+                    disabled={isBanning}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-xs font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                  >
+                    <Ban size={14} />
+                    <span>{isBanning ? "Блокировка..." : "Заблокировать аккаунт"}</span>
+                  </button>
                 </div>
-
-                <div
-                  onClick={() => setDisableShopsOnBan(!disableShopsOnBan)}
-                  className="flex items-center gap-2.5 p-2.5 bg-app-card border border-app-border rounded-xl cursor-pointer text-app-primary select-none"
-                >
-                  <CustomCheckbox
-                    checked={disableShopsOnBan}
-                    onChange={(c) => setDisableShopsOnBan(c)}
-                    size="sm"
-                    variant="default"
-                  />
-                  <span className="text-xs font-mono">Также немедленно деактивировать все заведения этого пользователя</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-border">
-                <button
-                  type="button"
-                  onClick={() => setBanModalUser(null)}
-                  className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary rounded-xl text-xs font-mono cursor-pointer"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBanUser}
-                  disabled={isBanning}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-xs font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
-                >
-                  <Ban size={14} />
-                  <span>{isBanning ? "Блокировка..." : "Заблокировать аккаунт"}</span>
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* EDIT USER MODAL */}
-      <AnimatePresence>
-        {editModalUser && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 font-sans">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl"
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {editModalUser && (
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs font-sans"
+              onClick={() => setEditModalUser(null)}
             >
-              <div className="flex items-center justify-between border-b border-app-border pb-3">
-                <div className="flex items-center gap-2 text-app-primary font-bold text-base">
-                  <Edit3 size={18} className="text-app-primary" />
-                  <span>Редактирование профиля</span>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.15 }}
+                className="w-full max-w-lg bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl relative z-[10000]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-app-border pb-3">
+                  <div className="flex items-center gap-2 text-app-primary font-bold text-base">
+                    <Edit3 size={18} className="text-app-primary" />
+                    <span>Редактирование профиля</span>
+                  </div>
+                  <button
+                    onClick={() => setEditModalUser(null)}
+                    className="p-1 text-app-muted hover:text-app-primary rounded-lg cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => setEditModalUser(null)}
-                  className="p-1 text-app-muted hover:text-app-primary rounded-lg cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
-              </div>
 
-              <div className="space-y-3 text-xs font-mono">
-                <div className="p-2.5 bg-app-card border border-app-border rounded-xl text-app-muted">
-                  E-mail аккаунта: <strong className="text-app-primary">{editModalUser.email}</strong>
-                </div>
+                <div className="space-y-3 text-xs font-mono">
+                  <div className="p-2.5 bg-app-card border border-app-border rounded-xl text-app-muted">
+                    E-mail аккаунта: <strong className="text-app-primary">{editModalUser.email}</strong>
+                  </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-app-muted">Имя / Фамилия:</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-app-muted">Имя / Фамилия:</label>
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        placeholder="Иван Иванов"
+                        className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-app-muted">Телефон:</label>
+                      <input
+                        type="text"
+                        value={editForm.phone}
+                        onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                        placeholder="+7 999 123-45-67"
+                        className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-app-muted">Telegram Handle:</label>
+                      <input
+                        type="text"
+                        value={editForm.telegramHandle}
+                        onChange={(e) => setEditForm({ ...editForm, telegramHandle: e.target.value })}
+                        placeholder="@username"
+                        className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-app-muted">GitHub Handle:</label>
+                      <input
+                        type="text"
+                        value={editForm.githubHandle}
+                        onChange={(e) => setEditForm({ ...editForm, githubHandle: e.target.value })}
+                        placeholder="octocat"
+                        className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border font-mono text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-app-muted">Организация / Бренд:</label>
+                      <input
+                        type="text"
+                        value={editForm.companyName}
+                        onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })}
+                        placeholder="ООО Компания"
+                        className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 pt-2 border-t border-app-border">
+                    <label className="text-app-muted flex items-center gap-1.5">
+                      <Crown size={14} className="text-amber-400" />
+                      <span>Тарифный план:</span>
+                    </label>
+                    <CustomDropdown
+                      value={editForm.plan}
+                      onChange={(val) => setEditForm({ ...editForm, plan: val })}
+                      options={[
+                        { value: "FREE", label: "FREE (Базовый)" },
+                        { value: "PRO", label: "PRO (Продвинутый)" },
+                        { value: "ENTERPRISE", label: "ENTERPRISE (Безлимитный)" }
+                      ]}
+                    />
+                  </div>
+
+                  <div className="space-y-1 pt-2 border-t border-app-border">
+                    <label className="text-app-muted flex items-center gap-1.5">
+                      <Key size={14} className="text-app-text-secondary" />
+                      <span>Задать новый пароль для входа (опционально):</span>
+                    </label>
                     <input
-                      type="text"
-                      value={editForm.name}
-                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                      placeholder="Иван Иванов"
+                      type="password"
+                      autoComplete="new-password"
+                      value={editForm.newPassword}
+                      onChange={(e) => setEditForm({ ...editForm, newPassword: e.target.value })}
+                      placeholder="Оставьте пустым, если не нужно менять"
                       className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border"
                     />
                   </div>
-
-                  <div className="space-y-1">
-                    <label className="text-app-muted">Телефон:</label>
-                    <input
-                      type="text"
-                      value={editForm.phone}
-                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                      placeholder="+7 999 123-45-67"
-                      className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-app-muted">Telegram Handle:</label>
-                    <input
-                      type="text"
-                      value={editForm.telegramHandle}
-                      onChange={(e) => setEditForm({ ...editForm, telegramHandle: e.target.value })}
-                      placeholder="@username"
-                      className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-app-muted">GitHub Handle:</label>
-                    <input
-                      type="text"
-                      value={editForm.githubHandle}
-                      onChange={(e) => setEditForm({ ...editForm, githubHandle: e.target.value })}
-                      placeholder="octocat"
-                      className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border font-mono text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-app-muted">Организация / Бренд:</label>
-                    <input
-                      type="text"
-                      value={editForm.companyName}
-                      onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })}
-                      placeholder="ООО Компания"
-                      className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border"
-                    />
-                  </div>
                 </div>
 
-                <div className="space-y-1 pt-2 border-t border-app-border">
-                  <label className="text-app-muted flex items-center gap-1.5">
-                    <Crown size={14} className="text-amber-400" />
-                    <span>Тарифный план:</span>
-                  </label>
-                  <CustomDropdown
-                    value={editForm.plan}
-                    onChange={(val) => setEditForm({ ...editForm, plan: val })}
-                    options={[
-                      { value: "FREE", label: "FREE (Базовый)" },
-                      { value: "PRO", label: "PRO (Продвинутый)" },
-                      { value: "ENTERPRISE", label: "ENTERPRISE (Безлимитный)" }
-                    ]}
-                  />
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-border">
+                  <button
+                    type="button"
+                    onClick={() => setEditModalUser(null)}
+                    className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary rounded-xl text-xs font-mono cursor-pointer"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveUser}
+                    disabled={isSavingUser}
+                    className="px-4 py-2 bg-app-accent hover:opacity-90 text-app-accent-fg font-bold rounded-xl text-xs font-mono flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    <Check size={14} />
+                    <span>{isSavingUser ? "Сохранение..." : "Сохранить профиль"}</span>
+                  </button>
                 </div>
-
-                <div className="space-y-1 pt-2 border-t border-app-border">
-                  <label className="text-app-muted flex items-center gap-1.5">
-                    <Key size={14} className="text-app-text-secondary" />
-                    <span>Задать новый пароль для входа (опционально):</span>
-                  </label>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    value={editForm.newPassword}
-                    onChange={(e) => setEditForm({ ...editForm, newPassword: e.target.value })}
-                    placeholder="Оставьте пустым, если не нужно менять"
-                    className="w-full p-2 bg-app-card border border-app-border rounded-xl text-app-primary focus:outline-none focus:border-app-border"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-border">
-                <button
-                  type="button"
-                  onClick={() => setEditModalUser(null)}
-                  className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary rounded-xl text-xs font-mono cursor-pointer"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveUser}
-                  disabled={isSavingUser}
-                  className="px-4 py-2 bg-app-accent hover:opacity-90 text-app-accent-fg font-bold rounded-xl text-xs font-mono flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
-                >
-                  <Check size={14} />
-                  <span>{isSavingUser ? "Сохранение..." : "Сохранить профиль"}</span>
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* BATCH BAN MODAL */}
-      <AnimatePresence>
-        {batchBanModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 font-sans">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl"
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {batchBanModalOpen && (
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs font-sans"
+              onClick={() => setBatchBanModalOpen(false)}
             >
-              <div className="flex items-center justify-between border-b border-app-border pb-3">
-                <div className="flex items-center gap-2 text-rose-600 dark:text-rose-300 font-bold text-base">
-                  <Ban size={18} />
-                  <span>Массовая блокировка ({selectedUserIds.size})</span>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.15 }}
+                className="w-full max-w-md bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl relative z-[10000]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-app-border pb-3">
+                  <div className="flex items-center gap-2 text-rose-600 dark:text-rose-300 font-bold text-base">
+                    <Ban size={18} />
+                    <span>Массовая блокировка ({selectedUserIds.size})</span>
+                  </div>
+                  <button
+                    onClick={() => setBatchBanModalOpen(false)}
+                    className="p-1 text-app-muted hover:text-app-primary rounded-lg cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => setBatchBanModalOpen(false)}
-                  className="p-1 text-app-muted hover:text-app-primary rounded-lg cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
-              </div>
 
-              <div className="space-y-3 text-xs font-mono">
-                <p className="text-app-muted font-sans">
-                  Выбранные аккаунты ({selectedUserIds.size}) будут заблокированы, а их заведения временно закрыты.
-                </p>
+                <div className="space-y-3 text-xs font-mono">
+                  <p className="text-app-muted font-sans">
+                    Выбранные аккаунты ({selectedUserIds.size}) будут заблокированы, а их заведения временно закрыты.
+                  </p>
 
-                <div className="space-y-1.5">
-                  <label className="text-app-secondary font-medium">Причина:</label>
                   <div className="space-y-1.5">
-                    {BAN_REASONS.map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => setBatchBanReason(r)}
-                        className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer text-xs ${
-                          batchBanReason === r
-                            ? "bg-rose-50 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/40 text-rose-800 dark:text-rose-200 font-semibold"
-                            : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-bg"
-                        }`}
-                      >
-                        {r}
-                      </button>
-                    ))}
+                    <label className="text-app-secondary font-medium">Причина:</label>
+                    <div className="space-y-1.5">
+                      {BAN_REASONS.map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setBatchBanReason(r)}
+                          className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer text-xs ${
+                            batchBanReason === r
+                              ? "bg-rose-50 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/40 text-rose-800 dark:text-rose-200 font-semibold"
+                              : "bg-app-card border-app-border text-app-secondary hover:text-app-primary hover:bg-app-bg"
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-border">
-                <button
-                  type="button"
-                  onClick={() => setBatchBanModalOpen(false)}
-                  className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary rounded-xl text-xs font-mono cursor-pointer"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBatchBan}
-                  disabled={isBatchBanning}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-xs font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
-                >
-                  <Ban size={14} />
-                  <span>{isBatchBanning ? "Блокировка..." : `Забанить (${selectedUserIds.size})`}</span>
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-border">
+                  <button
+                    type="button"
+                    onClick={() => setBatchBanModalOpen(false)}
+                    className="px-4 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary rounded-xl text-xs font-mono cursor-pointer"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBatchBan}
+                    disabled={isBatchBanning}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-xs font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                  >
+                    <Ban size={14} />
+                    <span>{isBatchBanning ? "Блокировка..." : `Забанить (${selectedUserIds.size})`}</span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* CONFIRMATION MODALS */}
       {/* 1. Unban confirm */}

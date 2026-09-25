@@ -28,100 +28,100 @@
 @layer base {
   :root, html.dark {
     color-scheme: dark;
-    --background: #08080b;
-    --surface: #0e0e12;
+    --background: #09090c;
+    --surface: #101014;
     --card: var(--surface);
-    --card-hover: #141419;
-    --hover: #141419;
-    --input-bg: #0e0e12;
-    --input-border: rgba(255, 255, 255, 0.08);
-    --input-focus-border: #525260;
+    --card-hover: #16161c;
+    --hover: #16161c;
+    --input-bg: #101014;
+    --input-border: rgba(255, 255, 255, 0.10);
+    --input-focus-border: #636375;
     
-    --border: rgba(255, 255, 255, 0.08);
-    --border-subtle: rgba(255, 255, 255, 0.045);
+    --border: rgba(255, 255, 255, 0.09);
+    --border-subtle: rgba(255, 255, 255, 0.05);
     
-    --text-primary: #e6e6ec;
-    --text-secondary: #92929e;
-    --text-muted: #686876;
+    --text-primary: #f4f4f7;
+    --text-secondary: #a0a0ab;
+    --text-muted: #71717c;
     
-    --accent: #e4e4ea;
-    --accent-fg: #08080b;
-    --accent-hover: #d2d2da;
+    --accent: #f4f4f7;
+    --accent-fg: #09090c;
+    --accent-hover: #e4e4e9;
     
-    --btn-secondary-bg: #0e0e12;
-    --btn-secondary-fg: #e6e6ec;
-    --btn-secondary-hover: #141419;
+    --btn-secondary-bg: #141419;
+    --btn-secondary-fg: #f4f4f7;
+    --btn-secondary-hover: #1c1c23;
 
-    --badge-bg: #141419;
-    --badge-fg: #d2d2da;
+    --badge-bg: #17171e;
+    --badge-fg: #e4e4e9;
 
-    --modal-bg: #0e0e12;
-    --modal-header-bg: #0e0e12;
-    --modal-overlay: rgba(0, 0, 0, 0.80);
+    --modal-bg: #101014;
+    --modal-header-bg: #101014;
+    --modal-overlay: rgba(0, 0, 0, 0.75);
     
     --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
     --glow: rgba(255, 255, 255, 0.07);
 
-    --chart-grid: #141419;
-    --chart-line: #e6e6ec;
-    --chart-area-start: rgba(230, 230, 236, 0.15);
-    --chart-area-end: rgba(230, 230, 236, 0);
-    --chart-tooltip-bg: #0e0e12;
-    --chart-tooltip-text: #e6e6ec;
-    --chart-tooltip-border: #141419;
+    --chart-grid: #16161c;
+    --chart-line: #f4f4f7;
+    --chart-area-start: rgba(244, 244, 247, 0.15);
+    --chart-area-end: rgba(244, 244, 247, 0);
+    --chart-tooltip-bg: #101014;
+    --chart-tooltip-text: #f4f4f7;
+    --chart-tooltip-border: #1a1a22;
 
-    --scrollbar-thumb: #1e1e27;
-    --scrollbar-thumb-hover: #2e2e3a;
+    --scrollbar-thumb: #22222d;
+    --scrollbar-thumb-hover: #323240;
   }
 
   html.light {
     color-scheme: light;
-    --background: #e6e6eb;
-    --surface: #efeff3;
-    --card: var(--surface);
-    --card-hover: #e5e5eb;
-    --hover: #e5e5eb;
-    --input-bg: #f2f2f6;
-    --input-border: rgba(0, 0, 0, 0.10);
-    --input-focus-border: #4a4a55;
+    --background: #f7f7f9;
+    --surface: #ffffff;
+    --card: #ffffff;
+    --card-hover: #f3f3f6;
+    --hover: #f0f0f4;
+    --input-bg: #ffffff;
+    --input-border: rgba(0, 0, 0, 0.12);
+    --input-focus-border: #18181b;
     
-    --border: rgba(0, 0, 0, 0.07);
+    --border: rgba(0, 0, 0, 0.08);
     --border-subtle: rgba(0, 0, 0, 0.04);
     
-    --text-primary: #111114;
-    --text-secondary: #484854;
-    --text-muted: #666672;
+    --text-primary: #09090b;
+    --text-secondary: #52525c;
+    --text-muted: #71717b;
     
-    --accent: #111114;
-    --accent-fg: #f7f7fa;
-    --accent-hover: #26262c;
+    --accent: #09090b;
+    --accent-fg: #ffffff;
+    --accent-hover: #27272a;
     
-    --btn-secondary-bg: #efeff3;
-    --btn-secondary-fg: #111114;
-    --btn-secondary-hover: #e5e5eb;
+    --btn-secondary-bg: #f4f4f6;
+    --btn-secondary-fg: #09090b;
+    --btn-secondary-hover: #e8e8ed;
 
-    --badge-bg: #e0e0e6;
-    --badge-fg: #111114;
+    --badge-bg: #ececee;
+    --badge-fg: #09090b;
 
-    --modal-bg: #efeff3;
-    --modal-header-bg: #efeff3;
+    --modal-bg: #ffffff;
+    --modal-header-bg: #ffffff;
     --modal-overlay: rgba(0, 0, 0, 0.45);
     
-    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.10);
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
-    --glow: rgba(0, 0, 0, 0.05);
+    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+    --glow: rgba(0, 0, 0, 0.04);
 
-    --chart-grid: #e0e0e6;
-    --chart-line: #111114;
-    --chart-area-start: rgba(17, 17, 20, 0.15);
-    --chart-area-end: rgba(17, 17, 20, 0);
-    --chart-tooltip-bg: #efeff3;
-    --chart-tooltip-text: #111114;
-    --chart-tooltip-border: #e0e0e6;
+    --chart-grid: #e5e5ea;
+    --chart-line: #09090b;
+    --chart-area-start: rgba(9, 9, 11, 0.12);
+    --chart-area-end: rgba(9, 9, 11, 0);
+    --chart-tooltip-bg: #ffffff;
+    --chart-tooltip-text: #09090b;
+    --chart-tooltip-border: #e5e5ea;
 
-    --scrollbar-thumb: #cacacf;
-    --scrollbar-thumb-hover: #9e9ea8;
+    --scrollbar-thumb: #d4d4d8;
+    --scrollbar-thumb-hover: #a1a1aa;
   }
 
   html {
@@ -134,6 +134,7 @@
     background-color: var(--background);
     color: var(--text-primary);
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
+    font-weight: 400;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
@@ -143,6 +144,30 @@
     min-height: 100dvh;
     min-height: -webkit-fill-available;
     overflow-x: hidden;
+  }
+
+  /* Universal Minimalist Typography: Remove aggressive bold weights across app */
+  b, strong {
+    font-weight: 500 !important;
+  }
+
+  .font-bold,
+  .font-extrabold,
+  .font-black,
+  .font-semibold {
+    font-weight: 500 !important;
+  }
+
+  .font-normal {
+    font-weight: 400 !important;
+  }
+
+  .font-medium {
+    font-weight: 500 !important;
+  }
+
+  .font-light {
+    font-weight: 300 !important;
   }
 
   /* Universal Custom Number Input styling */
@@ -358,7 +383,23 @@ html.light .bg-app-modal {
   color: var(--text-primary);
 }
 
-html.light .text-white:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-black"]):not([class*="bg-black"] *):not([class*="bg-gradient"]):not([class*="bg-gradient"] *):not([class*="bg-zinc-900"]):not([class*="bg-zinc-900"] *):not([class*="bg-zinc-950"]):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-900"]):not([class*="bg-neutral-900"] *):not([class*="bg-neutral-950"]):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500):not(.bg-rose-500 *):not(.bg-rose-600):not(.bg-rose-600 *):not(.bg-emerald-500):not(.bg-emerald-500 *):not(.bg-emerald-600):not(.bg-emerald-600 *):not(.bg-indigo-600):not(.bg-indigo-600 *) {
+/* Ensure modal overlays, dark buttons, badges, and dark containers retain pure crisp contrast */
+.modal-overlay,
+[class*="bg-black/"],
+[class*="bg-black"],
+button[class*="bg-black"],
+button[class*="bg-rose"],
+button[class*="bg-emerald"],
+button[class*="bg-indigo"],
+button[class*="bg-amber"],
+button[class*="bg-zinc-900"],
+button[class*="bg-zinc-950"],
+.keep-white,
+.keep-white * {
+  color-scheme: dark;
+}
+
+html.light .text-white:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-black"]):not([class*="bg-black"] *):not([class*="bg-gradient"]):not([class*="bg-gradient"] *):not([class*="bg-zinc-900"]):not([class*="bg-zinc-900"] *):not([class*="bg-zinc-950"]):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-900"]):not([class*="bg-neutral-900"] *):not([class*="bg-neutral-950"]):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500):not(.bg-rose-500 *):not(.bg-rose-600):not(.bg-rose-600 *):not(.bg-emerald-500):not(.bg-emerald-500 *):not(.bg-emerald-600):not(.bg-emerald-600 *):not(.bg-indigo-600):not(.bg-indigo-600 *):not(button):not(button *):not([role="dialog"]):not([role="dialog"] *):not([class*="modal"]):not([class*="modal"] *) {
   color: var(--text-primary) !important;
 }
 

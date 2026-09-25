@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, MapPin, Search, Check, Building2, Map, Globe } from 'lucide-react';
 import { InteractiveMap } from '../map/InteractiveMap';
+import { useScrollLock } from '../../hooks/useScrollLock';
 import { 
   RUSSIAN_POPULAR_CITIES, 
   searchRussianAddressSuggestions,
@@ -44,6 +45,19 @@ export const AdminMapPickerModal: React.FC<AdminMapPickerModalProps> = ({
     }
     return RUSSIAN_POPULAR_CITIES.filter((c) => c.countryCode === selectedCountryFilter);
   }, [selectedCountryFilter]);
+
+  useScrollLock(isOpen);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -96,7 +110,7 @@ export const AdminMapPickerModal: React.FC<AdminMapPickerModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-black/80 z-[9999]"
+          className="fixed inset-0 bg-black/80 backdrop-blur-xs z-[9999]"
         />
 
         <motion.div
@@ -104,6 +118,7 @@ export const AdminMapPickerModal: React.FC<AdminMapPickerModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 12 }}
           className="relative w-full max-w-3xl bg-app-modal border border-app-border rounded-3xl overflow-hidden shadow-2xl z-[10000] flex flex-col max-h-[92vh] text-app-primary"
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="px-5 py-4 bg-app-modal-header border-b border-app-border flex items-center justify-between gap-3 shrink-0">

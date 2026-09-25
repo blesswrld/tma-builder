@@ -1,4 +1,5 @@
-import React, { FormEvent, useState, useMemo } from "react";
+import React, { FormEvent, useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Tag,
@@ -28,6 +29,7 @@ import {
 import { Promocode } from "../../types";
 import { CustomDatePicker } from "../ui/CustomDatePicker";
 import { CustomNumberInput } from "../CustomNumberInput";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface AdminPromocodesTabProps {
   promocodes: Promocode[];
@@ -142,6 +144,19 @@ export function AdminPromocodesTab({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "PERCENT" | "FIXED" | "EXHAUSTED">("ALL");
+
+  useScrollLock(isCreatingPromo);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isCreatingPromo) {
+        setIsCreatingPromo(false);
+        setEditingPromoId?.(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isCreatingPromo, setIsCreatingPromo, setEditingPromoId]);
 
   // Determine active discount type
   const activeDiscountType = newPromoData.discountType || (Number(newPromoData.discountPercent) > 0 ? "percent" : "fixed");
@@ -569,15 +584,29 @@ export function AdminPromocodesTab({
       )}
 
       {/* Advanced Create Promo Modal with Live Ticket Preview */}
-      <AnimatePresence>
-        {isCreatingPromo && (
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="max-w-xl w-full bg-app-modal border border-app-border rounded-3xl p-4 sm:p-5 text-app-primary space-y-3 shadow-2xl my-auto max-h-[94vh] overflow-y-auto"
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {isCreatingPromo && (
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+              onClick={() => {
+                setIsCreatingPromo(false);
+                setEditingPromoId?.(null);
+              }}
             >
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                className="relative max-w-xl w-full bg-app-modal border border-app-border rounded-3xl p-4 sm:p-5 text-app-primary space-y-3 shadow-2xl my-auto max-h-[94vh] overflow-y-auto z-[10000]"
+                onClick={(e) => e.stopPropagation()}
+              >
               {/* Modal Header */}
               <div className="flex justify-between items-center border-b border-app-border pb-2.5">
                 <div className="flex items-center gap-2">
@@ -949,7 +978,9 @@ export function AdminPromocodesTab({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Store, Truck, Clock, Scale, Heart, Plus } from "lucide-react";
 import { Service } from "../../types";
@@ -27,6 +28,17 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
   useScrollLock(Boolean(service));
   const [detailItemNote, setDetailItemNote] = useState("");
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && service) {
+        onClose();
+        setDetailItemNote("");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [service, onClose]);
+
   const badges = service?.badge ? service.badge.split(",").map(b => b.trim()).filter(Boolean) : [];
   const f = service?.fulfillment || "courier,pickup";
   const hasCourier = f.includes("courier");
@@ -39,21 +51,24 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
     } catch {}
   }
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {service && (
-        <div key="service-detail-container" className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div 
+          key="service-detail-container" 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4"
+          onClick={() => {
+            onClose();
+            setDetailItemNote("");
+          }}
+        >
           <motion.div
             key="service-detail-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
-            onClick={() => {
-              onClose();
-              setDetailItemNote("");
-            }}
-            className="fixed inset-0 bg-black/75 z-50"
+            className="fixed inset-0 bg-black/75"
           />
           <motion.div
             key="service-detail-panel"
@@ -61,7 +76,8 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 8 }}
             transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
-            className="max-w-md w-full bg-app-modal border border-app-border rounded-3xl overflow-hidden text-app-primary shadow-2xl flex flex-col max-h-[90vh] relative z-50 fast-panel-slide"
+            className="max-w-md w-full bg-app-modal border border-app-border rounded-2xl sm:rounded-3xl overflow-hidden text-app-primary shadow-2xl flex flex-col max-h-[90vh] relative z-[10000] fast-panel-slide"
+            onClick={(e) => e.stopPropagation()}
           >
           {service.imageUrl ? (
             <div className="relative h-56 w-full shrink-0">
@@ -239,7 +255,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                 setDetailItemNote("");
                 onShowToast(`"${service.title}" ${t("cart.added_to_cart_msg", "добавлено в корзину")}`, "success");
               }}
-              className="flex-1 py-3 bg-app-accent text-app-accent-fg font-bold font-mono text-xs uppercase rounded-2xl hover:opacity-90 active:scale-[0.98] transition-all duration-75 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              className="flex-1 py-3 bg-app-accent text-app-accent-fg font-medium font-mono text-xs rounded-2xl hover:opacity-90 active:scale-[0.98] transition-all duration-75 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
             >
               <Plus size={16} />
               <span>{t("service.to_cart", "В корзину")} • {service.price} ₽</span>
@@ -250,4 +266,6 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
       )}
     </AnimatePresence>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };

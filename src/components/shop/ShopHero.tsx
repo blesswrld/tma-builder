@@ -78,8 +78,8 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-end gap-3.5">
             {/* Store Logo */}
-            <div className={`-mt-10 sm:-mt-16 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center font-mono font-bold text-xl sm:text-2xl text-app-primary shrink-0 shadow-lg overflow-hidden border-2 border-app-card ${
-              shop.logoUrl ? "bg-transparent" : "bg-app-surface"
+            <div className={`-mt-10 sm:-mt-16 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center font-mono font-bold text-xl sm:text-2xl text-app-primary dark:text-white shrink-0 shadow-lg overflow-hidden border-2 border-app-card ${
+              shop.logoUrl ? "bg-transparent" : "bg-app-surface dark:bg-zinc-800"
             }`}>
               {shop.logoUrl ? (
                 <ResponsiveImage
@@ -95,7 +95,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
               )}
             </div>
             <div className="pt-1 sm:pt-0 min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-app-primary truncate">{shop.name}</h1>
+              <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight text-app-primary dark:text-white truncate">{shop.name}</h1>
               {shop.workingHours && (
                 <div className="flex items-center gap-1.5 text-xs text-app-muted font-mono mt-1">
                   <Clock size={13} className="text-app-muted shrink-0" />

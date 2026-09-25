@@ -608,6 +608,7 @@ async function ensureOrderSchema(db: PrismaClient) {
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "deliveryOptions" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "paymentInstructions" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "musicSettings" TEXT`,
+        `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "videos" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "botToken" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "adminChatId" TEXT`,
         `ALTER TABLE "Shop" ADD COLUMN IF NOT EXISTS "telegramSettings" TEXT`,
@@ -3713,6 +3714,7 @@ app.get(["/api/public/shops", "/api/explore/shops"], async (req, res) => {
         currency: true,
         currencySymbol: true,
         deliveryOptions: true,
+        videos: true,
         isOpen: true,
         cashbackPercent: true,
         createdAt: true,
@@ -3856,6 +3858,7 @@ app.get(["/api/public/shops", "/api/explore/shops"], async (req, res) => {
         currency: s.currency || "RUB",
         currencySymbol: s.currencySymbol || "₽",
         deliveryOptions: parsedDelivery,
+        videos: (s as any).videos || null,
         isOpen: s.isOpen !== false,
         cashbackPercent: s.cashbackPercent || 5,
         servicesCount: s._count?.services || s.services.length,
@@ -4310,6 +4313,7 @@ app.post("/api/shops", async (req, res) => {
       deliveryOptions,
       paymentInstructions,
       musicSettings,
+      videos,
       botToken,
       adminChatId,
       isOpen
@@ -4411,6 +4415,7 @@ app.post("/api/shops", async (req, res) => {
         deliveryOptions: typeof deliveryOptions === "object" ? JSON.stringify(deliveryOptions) : (deliveryOptions || null),
         paymentInstructions: paymentInstructions?.trim() || null,
         musicSettings: typeof musicSettings === "object" ? JSON.stringify(musicSettings) : (musicSettings || null),
+        videos: typeof videos === "object" ? JSON.stringify(videos) : (videos || null),
         botToken: botToken?.trim() || null,
         adminChatId: adminChatId?.trim() || null,
         isOpen: typeof isOpen === "boolean" ? isOpen : true,
@@ -4688,6 +4693,123 @@ app.post("/api/shops", async (req, res) => {
     }
   });
 
+  // API Route: Загрузка видеофайла заведения (до 30 МБ)
+  app.post("/api/upload/video", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        return res.status(401).json({ error: "Необходима авторизация для загрузки видео." });
+      }
+
+      const { data, filename, mimeType } = req.body;
+      if (!data || typeof data !== "string") {
+        return res.status(400).json({ error: "Файл видео не передан." });
+      }
+
+      const base64PrefixMatch = data.match(/^data:([a-zA-Z0-9\/+-]+);base64,/);
+      const rawBase64 = base64PrefixMatch ? data.replace(/^data:[^;]+;base64,/, "") : data;
+      const declaredMime = (base64PrefixMatch ? base64PrefixMatch[1] : mimeType) || "video/mp4";
+
+      const allowedMimes = ["video/mp4", "video/webm", "video/quicktime", "video/ogg", "video/x-matroska", "video/mp4v-es"];
+      if (!allowedMimes.includes(declaredMime.toLowerCase()) && !declaredMime.startsWith("video/")) {
+        return res.status(400).json({ error: "Недопустимый формат файла. Разрешены только видео (MP4, WebM, MOV)." });
+      }
+
+      const buffer = Buffer.from(rawBase64, "base64");
+      const MAX_SIZE_BYTES = 30 * 1024 * 1024; // 30 MB
+      if (buffer.length > MAX_SIZE_BYTES) {
+        return res.status(400).json({
+          error: `Размер видеофайла (${(buffer.length / (1024 * 1024)).toFixed(1)} МБ) превышает допустимый лимит 30 МБ.`
+        });
+      }
+
+      let ext = ".mp4";
+      if (declaredMime.includes("webm")) ext = ".webm";
+      else if (declaredMime.includes("quicktime")) ext = ".mov";
+      else if (filename && path.extname(filename)) ext = path.extname(filename).toLowerCase();
+
+      const safeExt = [".mp4", ".webm", ".mov", ".ogg"].includes(ext) ? ext : ".mp4";
+      const uniqueName = `video_${Date.now()}_${Math.random().toString(36).substring(2, 9)}${safeExt}`;
+
+      const videosDir = path.join(process.cwd(), "public", "uploads", "videos");
+      if (!fs.existsSync(videosDir)) {
+        fs.mkdirSync(videosDir, { recursive: true });
+      }
+
+      const targetPath = path.join(videosDir, uniqueName);
+      fs.writeFileSync(targetPath, buffer);
+
+      const videoUrl = `/uploads/videos/${uniqueName}`;
+      const streamUrl = `/api/videos/${uniqueName}`;
+
+      res.json({
+        success: true,
+        url: videoUrl,
+        streamUrl: streamUrl,
+        filename: uniqueName,
+        size: buffer.length
+      });
+    } catch (err) {
+      console.error("Ошибка при загрузке видео:", err);
+      res.status(500).json({ error: "Не удалось сохранить видеофайл." });
+    }
+  });
+
+  // API Route: Стриминг видеофайлов с поддержкой Range (206 Partial Content) для мобильных и Safari
+  app.get(["/api/videos/:filename", "/uploads/videos/:filename"], (req, res) => {
+    try {
+      const filename = path.basename(req.params.filename);
+      const filePath = path.join(process.cwd(), "public", "uploads", "videos", filename);
+
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).send("Видео не найдено");
+      }
+
+      const stat = fs.statSync(filePath);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      const ext = path.extname(filename).toLowerCase();
+      let contentType = "video/mp4";
+      if (ext === ".webm") contentType = "video/webm";
+      else if (ext === ".mov") contentType = "video/quicktime";
+      else if (ext === ".ogg") contentType = "video/ogg";
+
+      if (range) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+        if (start >= fileSize) {
+          res.status(416).send(`Requested range not satisfiable\n${start} >= ${fileSize}`);
+          return;
+        }
+
+        const chunksize = end - start + 1;
+        const file = fs.createReadStream(filePath, { start, end });
+        const head = {
+          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": chunksize,
+          "Content-Type": contentType,
+        };
+        res.writeHead(206, head);
+        file.pipe(res);
+      } else {
+        const head = {
+          "Content-Length": fileSize,
+          "Content-Type": contentType,
+          "Accept-Ranges": "bytes",
+        };
+        res.writeHead(200, head);
+        fs.createReadStream(filePath).pipe(res);
+      }
+    } catch (err) {
+      console.error("Ошибка при стриминге видео:", err);
+      res.status(500).send("Ошибка стриминга видео");
+    }
+  });
+
   // API Route: Получить данные заведения по slug (или id)
   app.get(["/api/shops/:slug", "/api/public/shops/:slug"], async (req, res) => {
     try {
@@ -4758,7 +4880,8 @@ app.post("/api/shops", async (req, res) => {
         socialLinks,
         deliveryOptions,
         paymentInstructions,
-        musicSettings
+        musicSettings,
+        videos
       } = req.body;
       const authUser = getAuthUser(req);
       
@@ -4857,7 +4980,8 @@ app.post("/api/shops", async (req, res) => {
           socialLinks: socialLinks !== undefined ? (typeof socialLinks === "string" ? socialLinks : JSON.stringify(socialLinks)) : shop.socialLinks,
           deliveryOptions: deliveryOptions !== undefined ? (typeof deliveryOptions === "string" ? deliveryOptions : JSON.stringify(deliveryOptions)) : shop.deliveryOptions,
           paymentInstructions: paymentInstructions !== undefined ? (paymentInstructions ? String(paymentInstructions).trim() : null) : shop.paymentInstructions,
-          musicSettings: musicSettings !== undefined ? (typeof musicSettings === "string" ? musicSettings : JSON.stringify(musicSettings)) : (shop as any).musicSettings
+          musicSettings: musicSettings !== undefined ? (typeof musicSettings === "string" ? musicSettings : JSON.stringify(musicSettings)) : (shop as any).musicSettings,
+          videos: videos !== undefined ? (typeof videos === "string" ? videos : JSON.stringify(videos)) : (shop as any).videos
         },
         include: {
           services: true,

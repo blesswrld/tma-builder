@@ -1,9 +1,11 @@
-import React, { FormEvent, useState, useMemo } from "react";
+import React, { FormEvent, useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Trash2, X, Plus, Send, Users, Sparkles, MessageSquare, Search, Check, Copy, Target } from "lucide-react";
 import { Shop, Broadcast } from "../../types";
 import ImageUploader from "../ImageUploader";
 import { CustomDropdown } from "../CustomDropdown";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface AdminBroadcastsTabProps {
   selectedShop: Shop;
@@ -146,6 +148,18 @@ export function AdminBroadcastsTab({
       .replace(/\{shop_name\}/g, selectedShop.name || "заведении")
       .replace(/\{bonus\}/g, "300");
   }, [newBroadcastData.message, selectedShop.name]);
+
+  useScrollLock(isCreatingBroadcast);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isCreatingBroadcast) {
+        setIsCreatingBroadcast(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isCreatingBroadcast, setIsCreatingBroadcast]);
 
   return (
     <div className="space-y-6">
@@ -319,15 +333,26 @@ export function AdminBroadcastsTab({
       )}
 
       {/* Create Broadcast Modal - Compact, No Vertical Scroll */}
-      <AnimatePresence>
-        {isCreatingBroadcast && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              className="max-w-5xl w-full bg-app-surface border border-app-border rounded-3xl p-4 sm:p-5 text-app-primary flex flex-col max-h-[94vh] shadow-2xl overflow-hidden"
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {isCreatingBroadcast && (
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+              onClick={() => setIsCreatingBroadcast(false)}
             >
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                className="relative max-w-5xl w-full bg-app-surface border border-app-border rounded-3xl p-4 sm:p-5 text-app-primary flex flex-col max-h-[94vh] shadow-2xl overflow-hidden z-[10000]"
+                onClick={(e) => e.stopPropagation()}
+              >
               {/* Header */}
               <div className="flex justify-between items-center border-b border-app-border pb-2.5 shrink-0">
                 <div className="space-y-0.5">
@@ -634,7 +659,9 @@ export function AdminBroadcastsTab({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
     </div>
   );
 }

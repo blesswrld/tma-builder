@@ -1,8 +1,10 @@
-import React, { FormEvent, useState } from "react";
+import React, { FormEvent, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Trash2, X, Plus, Sparkles, Image as ImageIcon, Eye, Tag, Check, Copy } from "lucide-react";
 import { Banner } from "../../types";
 import ImageUploader from "../ImageUploader";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface AdminBannersTabProps {
   banners: Banner[];
@@ -94,6 +96,18 @@ export function AdminBannersTab({
       imageUrl: tpl.imageUrl,
     }));
   };
+
+  useScrollLock(isCreatingBanner);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isCreatingBanner) {
+        setIsCreatingBanner(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isCreatingBanner, setIsCreatingBanner]);
 
   return (
     <div className="space-y-6">
@@ -254,15 +268,26 @@ export function AdminBannersTab({
       )}
 
       {/* Create Banner Modal */}
-      <AnimatePresence>
-        {isCreatingBanner && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-3 sm:p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              className="max-w-3xl w-full bg-app-surface border border-app-border rounded-3xl p-5 sm:p-6 text-app-primary flex flex-col max-h-[92vh] shadow-2xl overflow-hidden"
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {isCreatingBanner && (
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+              onClick={() => setIsCreatingBanner(false)}
             >
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                className="relative max-w-3xl w-full bg-app-surface border border-app-border rounded-3xl p-5 sm:p-6 text-app-primary flex flex-col max-h-[92vh] shadow-2xl overflow-hidden z-[10000]"
+                onClick={(e) => e.stopPropagation()}
+              >
               {/* Modal Header */}
               <div className="flex justify-between items-center border-b border-app-border pb-3 shrink-0">
                 <div className="space-y-0.5">
@@ -485,7 +510,9 @@ export function AdminBannersTab({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
     </div>
   );
 }

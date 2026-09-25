@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { ShoppingBag, X, Gift, CreditCard, Truck, Store, Package, Globe, AlertCircle, Clock, FileText, User, Phone, MapPin, Hash } from "lucide-react";
 import { Shop, Service } from "../../types";
@@ -108,6 +109,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [consentError, setConsentError] = React.useState<string | null>(null);
   const [isMapModalOpen, setIsMapModalOpen] = React.useState<boolean>(false);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen && !isMapModalOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isMapModalOpen, onClose]);
+
   // Parse delivery options from shop
   const deliveryOpts: any = shop.deliveryOptions
     ? typeof shop.deliveryOptions === "string"
@@ -173,26 +184,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setAddressSuggestions([]);
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div key="checkout-modal-container" className="fixed inset-0 z-50">
-          <motion.div 
+        <div key="checkout-modal-container" className="fixed inset-0 z-[9999]">
+          <motion.div
             key="checkout-backdrop"
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/70 z-50"
+            className="fixed inset-0 bg-black/70"
           />
-          <motion.div 
+          <motion.div
             key="checkout-panel"
-            initial={{ x: "100%" }} 
-            animate={{ x: 0 }} 
-            exit={{ x: "100%" }} 
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
             transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-50 flex flex-col shadow-2xl text-app-primary font-sans fast-panel-slide"
+            className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-[10000] flex flex-col shadow-2xl text-app-primary font-sans fast-panel-slide"
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="h-16 flex items-center justify-between px-6 border-b border-app-border bg-app-modal-header shrink-0">
               <div className="flex items-center gap-2">
@@ -905,4 +917,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       />
     </AnimatePresence>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };

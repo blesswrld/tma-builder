@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Star,
   Search,
@@ -88,6 +89,16 @@ export function AdminReviewsTab({
 }: AdminReviewsTabProps) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [isNoticeCollapsed, setIsNoticeCollapsed] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && lightboxImage) {
+        setLightboxImage(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [lightboxImage]);
 
   return (
     <div className="space-y-4 font-sans">
@@ -591,30 +602,33 @@ export function AdminReviewsTab({
       )}
 
       {/* LIGHTBOX MODAL */}
-      <AnimatePresence>
-        {lightboxImage && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setLightboxImage(null)}
-            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-zoom-out"
-          >
-            <button
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {lightboxImage && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => setLightboxImage(null)}
-              className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
+              className="fixed inset-0 bg-black/90 z-[10001] flex items-center justify-center p-4 cursor-zoom-out"
             >
-              <X size={20} />
-            </button>
-            <img
-              src={lightboxImage}
-              alt="Полноэкранное фото"
-              className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <button
+                onClick={() => setLightboxImage(null)}
+                className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+              <img
+                src={lightboxImage}
+                alt="Полноэкранное фото"
+                className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }

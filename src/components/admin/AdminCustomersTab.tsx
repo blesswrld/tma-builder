@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
+import { useScrollLock } from "../../hooks/useScrollLock";
 import { CustomNumberInput } from "../CustomNumberInput";
 import {
   User,
@@ -71,6 +73,18 @@ export function AdminCustomersTab({
     setEditPhone(customer.phone || "");
     setEditBonus(customer.bonusBalance || 0);
   };
+
+  useScrollLock(Boolean(editingCustomer));
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && editingCustomer) {
+        handleCloseEdit();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [editingCustomer]);
 
   const handleCloseEdit = () => {
     setEditingCustomer(null);
@@ -362,130 +376,138 @@ export function AdminCustomersTab({
       )}
 
       {/* Edit Customer Modal */}
-      <AnimatePresence>
-        {editingCustomer && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className="w-full max-w-md bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 shadow-xl space-y-4 font-sans"
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {editingCustomer && (
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/70 animate-in fade-in duration-150"
+              onClick={handleCloseEdit}
             >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-app-border pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-app-card text-app-primary rounded-xl border border-app-border">
-                    <Pencil size={16} />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.15 }}
+                className="w-full max-w-md bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 font-sans relative z-[10000]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div className="flex items-center justify-between border-b border-app-border pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-app-card text-app-primary rounded-xl border border-app-border">
+                      <Pencil size={16} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-app-primary">
+                        Редактировать данные клиента
+                      </h3>
+                      <p className="text-xs text-app-muted font-mono">
+                        Изменение профиля и баланса в CRM
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-app-primary">
-                      Редактировать данные клиента
-                    </h3>
-                    <p className="text-xs text-app-muted font-mono">
-                      Изменение профиля и баланса в CRM
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCloseEdit}
-                  className="p-1.5 text-app-muted hover:text-app-primary rounded-lg transition-colors cursor-pointer"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              {/* Edit Form */}
-              <form onSubmit={handleSaveEdit} className="space-y-3.5">
-                {/* Name Field */}
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-app-secondary">
-                    Имя клиента <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted" />
-                    <input
-                      type="text"
-                      required
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Например: Иван Иванов"
-                      className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3 py-2 text-xs text-app-primary placeholder:text-app-muted/60 focus:outline-none focus:border-app-primary transition-colors"
-                    />
-                  </div>
-                </div>
-
-                {/* Phone Field */}
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-app-secondary">
-                    Номер телефона <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted" />
-                    <input
-                      type="text"
-                      required
-                      value={editPhone}
-                      onChange={(e) => setEditPhone(e.target.value)}
-                      placeholder="+7 (999) 000-00-00"
-                      className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3 py-2 text-xs font-mono text-app-primary placeholder:text-app-muted/60 focus:outline-none focus:border-app-primary transition-colors"
-                    />
-                  </div>
-                </div>
-
-                {/* Bonus Balance Field */}
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-app-secondary flex items-center justify-between">
-                    <span>Бонусный баланс</span>
-                    <span className="text-[10.5px] font-mono text-app-muted">Баллы заведения</span>
-                  </label>
-                  <CustomNumberInput
-                    min={0}
-                    step={1}
-                    value={editBonus}
-                    onChange={(e) => setEditBonus(Math.max(0, parseInt(e.target.value) || 0))}
-                    placeholder="0"
-                    leftIcon={<Award size={14} className="text-amber-500" />}
-                    className="w-full bg-app-card border border-app-border rounded-xl py-2 text-xs font-mono font-bold text-app-primary placeholder:text-app-muted/60 focus:outline-none focus:border-app-primary"
-                  />
-                </div>
-
-                {/* Info Note */}
-                <p className="text-[11px] text-app-muted font-mono bg-app-card p-2.5 rounded-xl border border-app-border">
-                  Обновление номера или имени синхронизирует профиль клиента и свяжет историю его покупок.
-                </p>
-
-                {/* Modal Buttons */}
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-border">
                   <button
                     type="button"
                     onClick={handleCloseEdit}
-                    disabled={isSubmitting}
-                    className="px-3.5 py-2 text-xs font-mono text-app-secondary hover:text-app-primary bg-app-card hover:bg-app-hover border border-app-border rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                    className="p-1.5 text-app-muted hover:text-app-primary rounded-lg transition-colors cursor-pointer"
+                    title="Закрыть (Esc)"
                   >
-                    Отмена
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-4 py-2 text-xs font-mono font-bold bg-app-accent text-app-accent-fg hover:opacity-90 rounded-xl transition-opacity flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    {isSubmitting ? (
-                      <span>Сохранение...</span>
-                    ) : (
-                      <>
-                        <Check size={14} className="text-app-accent-fg shrink-0" />
-                        <span>Сохранить</span>
-                      </>
-                    )}
+                    <X size={16} />
                   </button>
                 </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+
+                {/* Edit Form */}
+                <form onSubmit={handleSaveEdit} className="space-y-3.5">
+                  {/* Name Field */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-app-secondary">
+                      Имя клиента <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted" />
+                      <input
+                        type="text"
+                        required
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        placeholder="Например: Иван Иванов"
+                        className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3 py-2 text-xs text-app-primary placeholder:text-app-muted/60 focus:outline-none focus:border-app-primary transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Phone Field */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-app-secondary">
+                      Номер телефона <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted" />
+                      <input
+                        type="text"
+                        required
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        placeholder="+7 (999) 000-00-00"
+                        className="w-full bg-app-card border border-app-border rounded-xl pl-9 pr-3 py-2 text-xs font-mono text-app-primary placeholder:text-app-muted/60 focus:outline-none focus:border-app-primary transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Bonus Balance Field */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-app-secondary flex items-center justify-between">
+                      <span>Бонусный баланс</span>
+                      <span className="text-[10.5px] font-mono text-app-muted">Баллы заведения</span>
+                    </label>
+                    <CustomNumberInput
+                      min={0}
+                      step={1}
+                      value={editBonus}
+                      onChange={(e) => setEditBonus(Math.max(0, parseInt(e.target.value) || 0))}
+                      placeholder="0"
+                      leftIcon={<Award size={14} className="text-amber-500" />}
+                      className="w-full bg-app-card border border-app-border rounded-xl py-2 text-xs font-mono font-medium text-app-primary placeholder:text-app-muted/60 focus:outline-none focus:border-app-primary"
+                    />
+                  </div>
+
+                  {/* Info Note */}
+                  <p className="text-[11px] text-app-muted font-mono bg-app-card p-2.5 rounded-xl border border-app-border">
+                    Обновление номера или имени синхронизирует профиль клиента и свяжет историю его покупок.
+                  </p>
+
+                  {/* Modal Buttons */}
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-border">
+                    <button
+                      type="button"
+                      onClick={handleCloseEdit}
+                      disabled={isSubmitting}
+                      className="px-3.5 py-2 text-xs font-mono text-app-secondary hover:text-app-primary bg-app-card hover:bg-app-hover border border-app-border rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-4 py-2 text-xs font-mono font-medium bg-app-accent text-app-accent-fg hover:opacity-90 rounded-xl transition-opacity flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-sm"
+                    >
+                      {isSubmitting ? (
+                        <span>Сохранение...</span>
+                      ) : (
+                        <>
+                          <Check size={14} className="text-app-accent-fg shrink-0" />
+                          <span>Сохранить</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }

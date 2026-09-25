@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Send, Copy, Check, MessageSquare, Sparkles } from "lucide-react";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface ReferralPostShareModalProps {
   isOpen: boolean;
@@ -48,16 +50,37 @@ export const ReferralPostShareModal: React.FC<ReferralPostShareModalProps> = ({
     window.open(url, "_blank");
   };
 
+  useScrollLock(isOpen);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+      <div 
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+        />
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="relative w-full max-w-lg bg-app-surface border border-app-border rounded-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto"
+          className="relative w-full max-w-lg bg-app-surface border border-app-border rounded-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto z-[10000]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -136,5 +159,7 @@ export const ReferralPostShareModal: React.FC<ReferralPostShareModalProps> = ({
       </div>
     </AnimatePresence>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };
 export default ReferralPostShareModal;

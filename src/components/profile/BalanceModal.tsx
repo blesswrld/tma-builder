@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Wallet,
   X,
@@ -14,6 +15,7 @@ import {
   History
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useScrollLock } from "../../hooks/useScrollLock";
 import { UserTransaction } from "../../types";
 
 interface BalanceModalProps {
@@ -37,6 +39,18 @@ export const BalanceModal: React.FC<BalanceModalProps> = ({
   const [fetchingHistory, setFetchingHistory] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useScrollLock(isOpen);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   const fetchBalanceData = async () => {
     setFetchingHistory(true);
@@ -113,9 +127,15 @@ export const BalanceModal: React.FC<BalanceModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div className="max-w-lg w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-6 shadow-2xl animate-in zoom-in-95 duration-100 max-h-[90vh] overflow-y-auto">
+  const modalContent = (
+    <div 
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div 
+        className="max-w-lg w-full my-auto bg-app-surface border border-app-border rounded-3xl p-5 sm:p-6 text-app-primary space-y-6 shadow-2xl animate-in zoom-in-95 duration-100 max-h-[92vh] overflow-y-auto relative z-[10000]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-app-border">
           <div className="flex items-center gap-2.5">
@@ -337,4 +357,6 @@ export const BalanceModal: React.FC<BalanceModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };

@@ -41,6 +41,8 @@ import {
 } from "../../lib/validation";
 import { AdminMusicSettingsSection } from "./AdminMusicSettingsSection";
 import { AdminTelegramIntegrationTab } from "./AdminTelegramIntegrationTab";
+import { AdminShopVideosManager } from "./AdminShopVideosManager";
+import { parseShopVideos } from "../../lib/videoUtils";
 import { CustomCheckbox } from "../CustomCheckbox";
 import { CustomToggle } from "../ui/CustomToggle";
 import { CustomNumberInput } from "../CustomNumberInput";
@@ -83,6 +85,7 @@ interface AdminSettingsTabProps {
     telegramBotToken?: string;
     telegramChatId?: string;
     musicSettings?: any;
+    videos?: any[];
   };
   setSettingsData: React.Dispatch<React.SetStateAction<any>>;
   settingsError: string | null;
@@ -100,6 +103,7 @@ interface AdminSettingsTabProps {
     isDangerous?: boolean
   ) => void;
   showToast: (msg: string, type?: "success" | "error" | "info" | "warning") => void;
+  token?: string | null;
   // Bot & Sub-tabs handlers
   settingsActiveTab?: "general" | "branding" | "currency" | "delivery" | "social" | "telegram" | "music";
   setSettingsActiveTab?: (tab: "general" | "branding" | "currency" | "delivery" | "social" | "telegram" | "music") => void;
@@ -144,6 +148,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
   isSendingTestNotification,
   onOpenReport,
   isOwner = true,
+  token,
 }) => {
   const [activeSubTab, setActiveSubTab] = React.useState<
     "general" | "branding" | "currency" | "delivery" | "social" | "telegram"
@@ -299,7 +304,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 font-mono text-xs">
           {[
             { id: "general", label: "Основное", icon: Store },
-            { id: "branding", label: "Брендинг", icon: ImageIcon },
+            { id: "branding", label: "Брендинг и Видео", icon: ImageIcon },
             { id: "music", label: "Музыка и Плейлист", icon: Music },
             { id: "currency", label: "Оплата и Валюта", icon: CreditCard },
             { id: "delivery", label: "Доставка", icon: Truck },
@@ -446,6 +451,16 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
               />
             </div>
 
+            {/* ВИДЕО О ЗАВЕДЕНИИ И УСЛУГАХ (ДО 2 ВИДЕО) */}
+            <div className="p-4 bg-app-surface/60 border border-app-border rounded-2xl">
+              <AdminShopVideosManager
+                videos={parseShopVideos(settingsData.videos)}
+                onChange={(vids) => setSettingsData((s: any) => ({ ...s, videos: vids }))}
+                showToast={showToast}
+                token={token}
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-[11px] font-mono text-app-muted mb-1.5 uppercase tracking-wider">
@@ -545,6 +560,16 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                   Рекомендуемый размер: 1200x400 px
                 </p>
               </div>
+            </div>
+
+            {/* ВИДЕО О ЗАВЕДЕНИИ И УСЛУГАХ (ДО 2 ВИДЕО) */}
+            <div className="pt-4 border-t border-app-border">
+              <AdminShopVideosManager
+                videos={parseShopVideos(settingsData.videos)}
+                onChange={(vids) => setSettingsData((s: any) => ({ ...s, videos: vids }))}
+                showToast={showToast}
+                token={token}
+              />
             </div>
           </div>
         )}

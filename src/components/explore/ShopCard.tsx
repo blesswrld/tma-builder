@@ -99,7 +99,7 @@ export const ShopCard: React.FC<ShopCardProps> = ({
             <div className="flex items-center gap-2 flex-wrap">
               <Link
                 to={`/${shop.slug}`}
-                className="font-bold text-sm sm:text-base text-app-primary hover:opacity-80 transition-opacity truncate group-hover:underline"
+                className="font-bold text-sm sm:text-base text-app-primary dark:text-white hover:opacity-80 transition-opacity truncate group-hover:underline"
               >
                 {shop.name}
               </Link>
@@ -310,7 +310,7 @@ export const ShopCard: React.FC<ShopCardProps> = ({
           <div className="flex items-start justify-between gap-2 min-h-[1.5rem]">
             <Link
               to={`/${shop.slug}`}
-              className="font-bold text-sm sm:text-base text-app-primary hover:opacity-80 transition-opacity line-clamp-1 group-hover:underline"
+              className="font-bold text-sm sm:text-base text-app-primary dark:text-white hover:opacity-80 transition-opacity line-clamp-1 group-hover:underline"
               title={shop.name}
             >
               {shop.name}

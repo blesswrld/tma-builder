@@ -1,6 +1,8 @@
 import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Trash2, User, Users, X, Loader2 } from "lucide-react";
 import { ChatMessage } from "../../types";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface DeleteMessageModalProps {
   isOpen: boolean;
@@ -19,6 +21,8 @@ export const DeleteMessageModal: React.FC<DeleteMessageModalProps> = ({
   onConfirm,
   isDeleting = false
 }) => {
+  useScrollLock(isOpen);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen && !isDeleting) {
@@ -33,16 +37,19 @@ export const DeleteMessageModal: React.FC<DeleteMessageModalProps> = ({
 
   const isForAll = mode === "for_all";
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      {/* Dark overlay without expensive backdrop-blur for max FPS performance */}
+  const modalContent = (
+    <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4">
+      {/* Dark overlay */}
       <div
-        className="fixed inset-0 bg-black/60 transition-opacity"
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
         onClick={isDeleting ? undefined : onClose}
       />
 
       {/* Modal Dialog Card */}
-      <div className="relative w-full max-w-sm bg-app-card border border-app-border rounded-2xl shadow-2xl overflow-hidden z-10 flex flex-col animate-in fade-in zoom-in-95 duration-100">
+      <div 
+        className="relative w-full max-w-sm bg-app-card border border-app-border rounded-2xl shadow-2xl overflow-hidden z-[10002] flex flex-col animate-in fade-in zoom-in-95 duration-100"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-app-border bg-app-surface">
           <div className="flex items-center gap-2.5">
@@ -121,6 +128,8 @@ export const DeleteMessageModal: React.FC<DeleteMessageModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };
 
 export default DeleteMessageModal;

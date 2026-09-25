@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Sparkles,
   X,
@@ -11,6 +12,7 @@ import {
   Flame
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface BoostServiceModalProps {
   isOpen: boolean;
@@ -40,6 +42,18 @@ export const BoostServiceModal: React.FC<BoostServiceModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  useScrollLock(isOpen);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -84,23 +98,29 @@ export const BoostServiceModal: React.FC<BoostServiceModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary space-y-5 shadow-2xl animate-in zoom-in-95 duration-100">
+  const modalContent = (
+    <div 
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div 
+        className="max-w-md w-full my-auto bg-app-surface border border-app-border rounded-3xl p-5 sm:p-6 text-app-primary space-y-4 sm:space-y-5 shadow-2xl animate-in zoom-in-95 duration-100 max-h-[92vh] overflow-y-auto relative z-[10000]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-app-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-app-card border border-app-border flex items-center justify-center text-app-primary">
+            <div className="w-10 h-10 rounded-2xl bg-app-card border border-app-border flex items-center justify-center text-app-primary shrink-0">
               <Flame size={20} />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-base font-bold tracking-tight">Поднять в ТОП / VIP</h2>
-              <p className="text-[11px] text-app-muted line-clamp-1">{serviceTitle}</p>
+              <p className="text-[11px] text-app-muted truncate">{serviceTitle}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-app-muted hover:text-app-primary rounded-xl transition-colors cursor-pointer"
+            className="p-1.5 text-app-muted hover:text-app-primary rounded-xl transition-colors cursor-pointer shrink-0 ml-2"
           >
             <X size={18} />
           </button>
@@ -208,4 +228,6 @@ export const BoostServiceModal: React.FC<BoostServiceModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };

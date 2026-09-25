@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -130,6 +131,17 @@ export default function DeveloperReportsPage() {
     previewImage || deleteConfirmId || isBatchDeleteConfirmOpen || alertModal?.isOpen
   );
   useScrollLock(isAnyModalOpen);
+
+  useEffect(() => {
+    if (!previewImage) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setPreviewImage(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [previewImage]);
 
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const shopMenuRef = useRef<HTMLDivElement>(null);
@@ -1366,51 +1378,55 @@ export default function DeveloperReportsPage() {
       </AnimatePresence>
 
       {/* Image Lightbox Preview Modal */}
-      <AnimatePresence>
-        {previewImage && (
-          <div
-            className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
-            onClick={() => setPreviewImage(null)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative max-w-4xl max-h-[90vh] bg-app-surface border border-app-border rounded-2xl overflow-hidden shadow-2xl p-2"
-              onClick={(e) => e.stopPropagation()}
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {previewImage && (
+            <div
+              className="fixed inset-0 z-[10001] bg-black/85 backdrop-blur-xs flex items-center justify-center p-4"
+              onClick={() => setPreviewImage(null)}
             >
-              <div className="flex justify-between items-center px-4 py-2 border-b border-app-border">
-                <span className="text-xs font-mono text-app-muted">
-                  Просмотр скриншота
-                </span>
-                <div className="flex items-center gap-2">
-                  <a
-                    href={previewImage}
-                    download="screenshot.png"
-                    className="p-1.5 text-app-muted hover:text-app-primary rounded-lg cursor-pointer"
-                    title="Скачать изображение"
-                  >
-                    <Download size={16} />
-                  </a>
-                  <button
-                    onClick={() => setPreviewImage(null)}
-                    className="p-1.5 text-app-muted hover:text-app-primary rounded-lg cursor-pointer"
-                  >
-                    <X size={18} />
-                  </button>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="relative max-w-4xl max-h-[90vh] bg-app-surface border border-app-border rounded-2xl overflow-hidden shadow-2xl p-2 z-[10002]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex justify-between items-center px-4 py-2 border-b border-app-border">
+                  <span className="text-xs font-mono text-app-muted">
+                    Просмотр скриншота
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={previewImage}
+                      download="screenshot.png"
+                      className="p-1.5 text-app-muted hover:text-app-primary rounded-lg cursor-pointer"
+                      title="Скачать изображение"
+                    >
+                      <Download size={16} />
+                    </a>
+                    <button
+                      onClick={() => setPreviewImage(null)}
+                      className="p-1.5 text-app-muted hover:text-app-primary rounded-lg cursor-pointer"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="p-2 max-h-[80vh] overflow-auto flex items-center justify-center">
-                <img
-                  src={previewImage}
-                  alt="Screenshot Full"
-                  className="max-h-[75vh] w-auto object-contain rounded-xl"
-                />
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                <div className="p-2 max-h-[80vh] overflow-auto flex items-center justify-center">
+                  <img
+                    src={previewImage}
+                    alt="Screenshot Full"
+                    className="max-h-[75vh] w-auto object-contain rounded-xl"
+                  />
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Single Delete Confirmation Modal */}
       <ConfirmModal

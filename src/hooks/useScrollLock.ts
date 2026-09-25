@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 
 let lockCount = 0;
-let originalOverflow = "";
 let originalPaddingRight = "";
 
 /**
@@ -13,7 +12,6 @@ export function useScrollLock(lock: boolean = true) {
     if (!lock) return;
 
     if (lockCount === 0) {
-      originalOverflow = document.body.style.overflow;
       originalPaddingRight = document.body.style.paddingRight;
 
       // Prevent content shift when scrollbar disappears
@@ -23,7 +21,6 @@ export function useScrollLock(lock: boolean = true) {
       }
 
       document.body.style.overflow = "hidden";
-      document.body.style.touchAction = "none";
     }
 
     lockCount++;
@@ -31,9 +28,8 @@ export function useScrollLock(lock: boolean = true) {
     return () => {
       lockCount = Math.max(0, lockCount - 1);
       if (lockCount === 0) {
-        document.body.style.overflow = originalOverflow || "";
+        document.body.style.overflow = "";
         document.body.style.paddingRight = originalPaddingRight || "";
-        document.body.style.touchAction = "";
       }
     };
   }, [lock]);

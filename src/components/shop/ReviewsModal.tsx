@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Star, X, MessageSquare, Send, Edit2, Trash2, Image as ImageIcon, ZoomIn } from "lucide-react";
 import { Review, Shop } from "../../types";
@@ -65,10 +66,24 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
   // Lock background scroll when modal or lightbox is open
   useScrollLock(isOpen || Boolean(lightboxImage));
 
-  return (
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (lightboxImage) {
+          setLightboxImage(null);
+        } else if (isOpen) {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, lightboxImage, onClose]);
+
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div key="reviews-modal-container" className="fixed inset-0 z-50">
+        <div key="reviews-modal-container" className="fixed inset-0 z-[9999]">
           <motion.div
             key="reviews-backdrop"
             initial={{ opacity: 0 }}
@@ -76,7 +91,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/70 z-50"
+            className="fixed inset-0 bg-black/70"
           />
           <motion.div
             key="reviews-panel"
@@ -84,7 +99,8 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-50 flex flex-col shadow-2xl text-app-primary font-sans fast-panel-slide"
+            className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-[10000] flex flex-col shadow-2xl text-app-primary font-sans fast-panel-slide"
+            onClick={(e) => e.stopPropagation()}
           >
         {/* Header */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-app-border bg-app-modal-header shrink-0">
@@ -471,7 +487,7 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setLightboxImage(null)}
-            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-zoom-out"
+            className="fixed inset-0 bg-black/90 z-[10001] flex items-center justify-center p-4 cursor-zoom-out"
           >
             <button
               onClick={() => setLightboxImage(null)}
@@ -492,4 +508,6 @@ export const ReviewsModal: React.FC<ReviewsModalProps> = ({
       </AnimatePresence>
     </AnimatePresence>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };

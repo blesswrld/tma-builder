@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useWorkerOrdersFilter } from "../../workers/useWorkerComputations";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -32,6 +33,7 @@ import {
   Table as TableIcon,
 } from "lucide-react";
 import { SpinnerLoader } from "../Skeleton";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface OrderItem {
   id?: string;
@@ -176,6 +178,18 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
   useEffect(() => {
     setVisibleCount(50);
   }, [orderFilter, orderTypeFilter, orderSearchQuery]);
+
+  useScrollLock(Boolean(receiptOrder));
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && receiptOrder) {
+        setReceiptOrder(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [receiptOrder]);
 
   const handleViewModeChange = (mode: "cards" | "table") => {
     setViewMode(mode);
@@ -1094,24 +1108,28 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
       )}
 
       {/* PRINT RECEIPT / KITCHEN TICKET MODAL */}
-      <AnimatePresence>
-        {receiptOrder && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.12 }}
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {receiptOrder && (
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto"
               onClick={() => setReceiptOrder(null)}
-              className="fixed inset-0 bg-black/75 backdrop-blur-[2px]"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.97, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97, y: 8 }}
-              transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-md bg-white text-black p-6 rounded-2xl shadow-2xl z-50 font-mono space-y-4 print:shadow-none print:border-0 fast-panel-slide"
             >
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97, y: 8 }}
+                transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+                className="relative w-full max-w-md bg-white text-black p-6 rounded-2xl shadow-2xl z-[10000] font-mono space-y-4 print:shadow-none print:border-0 fast-panel-slide"
+                onClick={(e) => e.stopPropagation()}
+              >
               {/* Receipt Header */}
               <div className="text-center border-b border-dashed border-gray-400 pb-3 space-y-1">
                 <h3 className="font-bold text-base uppercase tracking-wider">
@@ -1239,7 +1257,9 @@ export const AdminOrdersTab: React.FC<AdminOrdersTabProps> = ({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
     </div>
   );
 };

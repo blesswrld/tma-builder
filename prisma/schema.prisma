@@ -78,6 +78,7 @@ model Shop {
   deliveryOptions     String?
   paymentInstructions String?
   musicSettings       String?
+  videos              String?
   isOpen              Boolean     @default(true)
   city                String?
   rating              Float       @default(5.0)

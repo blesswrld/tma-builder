@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Music,
@@ -84,6 +85,17 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
 }) => {
   const { t } = useLanguage();
   useScrollLock(isModalOpen);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onCloseModal();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isModalOpen, onCloseModal]);
   const musicSettings = parseMusicSettings(shop.musicSettings);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -393,24 +405,28 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
       </div>
 
       {/* 2. Полноэкранное модальное окно «Музыка заведения» */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {isModalOpen && (
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-hidden"
               onClick={onCloseModal}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative w-full max-w-lg bg-app-card border border-app-border rounded-3xl shadow-2xl overflow-hidden z-10 font-sans"
             >
-              {/* Шапка модалки */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+              />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                className="relative w-full max-w-lg bg-app-card border border-app-border rounded-3xl shadow-2xl overflow-hidden z-[10000] font-sans"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Шапка модалки */}
               <div className="p-5 border-b border-app-border flex items-center justify-between bg-app-surface/50">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-2xl bg-app-accent text-app-accent-fg flex items-center justify-center shrink-0">
@@ -718,7 +734,9 @@ export const ShopMusicPlayer: React.FC<ShopMusicPlayerProps> = ({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
     </>
   );
 };

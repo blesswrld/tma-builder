@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
+import { useScrollLock } from "../hooks/useScrollLock";
 import { CustomCheckbox } from "./ui/CustomCheckbox";
 import {
   X,
@@ -352,16 +353,22 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
     { label: "Фоновая музыка", query: "музыка радио" },
   ];
 
+  useScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-2 sm:p-4 md:p-5 overflow-hidden">
+    <div 
+      className="fixed inset-0 bg-black/80 backdrop-blur-xs z-[9999] flex items-center justify-center p-2 sm:p-4 md:p-5 overflow-y-auto"
+      onClick={onClose}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
         className="w-full max-w-4xl bg-app-surface border border-app-border rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[94vh] sm:max-h-[90vh] overflow-hidden text-app-primary relative z-[10000]"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header Bar */}
         <div className="px-3.5 sm:px-5 py-3 sm:py-4 border-b border-app-border flex items-center justify-between gap-2.5 sm:gap-4 bg-app-card shrink-0">

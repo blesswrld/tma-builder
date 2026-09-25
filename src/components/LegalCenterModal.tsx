@@ -80,6 +80,17 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
     }
   }, [isOpen, initialDoc]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   const effectiveShopName自我 = shopName?.trim() || "TMA Builder";
   const legalName = shopData?.legalName || `ИП / Организация сервиса «${effectiveShopName自我}»`;
   const inn = shopData?.inn || "770000000000";
@@ -166,7 +177,7 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/80 z-[9999]"
+            className="fixed inset-0 bg-black/80 backdrop-blur-xs z-[9999]"
           />
 
           <motion.div
@@ -176,6 +187,7 @@ export const LegalCenterModal: React.FC<LegalCenterModalProps> = ({
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: "spring", damping: 26, stiffness: 280 }}
             className="w-full max-w-5xl h-[94vh] sm:h-[92vh] max-h-[850px] bg-app-modal border border-app-border rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl relative z-[10000] flex flex-col text-app-primary"
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="min-h-[3.75rem] py-2.5 px-3.5 sm:px-6 border-b border-app-border bg-app-modal-header flex items-center justify-between gap-2.5 shrink-0">

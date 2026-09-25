@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { X, QrCode, Download, Copy, Check, ExternalLink } from "lucide-react";
 import QRCode from "qrcode";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 interface ReferralQrModalProps {
   isOpen: boolean;
@@ -60,16 +62,37 @@ export const ReferralQrModal: React.FC<ReferralQrModalProps> = ({
     document.body.removeChild(a);
   };
 
+  useScrollLock(isOpen);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+      <div 
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+        />
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="relative w-full max-w-sm bg-app-surface border border-app-border rounded-2xl p-6 shadow-2xl space-y-5"
+          className="relative w-full max-w-sm bg-app-surface border border-app-border rounded-2xl p-6 shadow-2xl space-y-5 z-[10000]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -132,5 +155,7 @@ export const ReferralQrModal: React.FC<ReferralQrModalProps> = ({
       </div>
     </AnimatePresence>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };
 export default ReferralQrModal;

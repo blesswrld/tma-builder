@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Info, CheckCircle2, X } from "lucide-react";
 import { useScrollLock } from "../hooks/useScrollLock";
@@ -28,6 +28,17 @@ export function ConfirmModal({
 }: ConfirmModalProps) {
   useScrollLock(isOpen);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isLoading) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isLoading, onClose]);
+
   if (!isOpen) return null;
 
   const variantStyles = {
@@ -51,8 +62,14 @@ export function ConfirmModal({
   const IconComponent = variantStyles.icon;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-150">
-      <div className="relative w-full max-w-md bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 z-[10000]">
+    <div 
+      className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      <div 
+        className="relative w-full max-w-md bg-app-surface border border-app-border rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 z-[10002]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Close Button */}
         <button
           onClick={onClose}

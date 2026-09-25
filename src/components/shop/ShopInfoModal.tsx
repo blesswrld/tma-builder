@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   X,
@@ -23,6 +24,7 @@ import { Shop, parseSocialLinks, parseDeliveryOptions, parseMusicSettings } from
 import { useScrollLock } from "../../hooks/useScrollLock";
 import { useLanguage } from "../../context/LanguageContext";
 import { ResponsiveImage } from "../common/ResponsiveImage";
+import { ShopVideosSection } from "./ShopVideosSection";
 
 interface ShopInfoModalProps {
   shop: Shop | null;
@@ -43,6 +45,16 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
 }) => {
   useScrollLock(isOpen);
   const { t } = useLanguage();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!shop) return null;
 
@@ -84,17 +96,19 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
 
   const hasCashback = Boolean(shop.cashbackPercent && Number(shop.cashbackPercent) > 0);
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-hidden"
+          onClick={onClose}
+        >
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
-            onClick={onClose}
-            className="absolute inset-0 bg-black/60"
+            className="fixed inset-0 bg-black/70"
           />
 
           <motion.div
@@ -102,7 +116,8 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 8 }}
             transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-lg bg-app-card border border-app-border rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] z-10 font-sans fast-panel-slide"
+            className="relative w-full max-w-lg bg-app-card border border-app-border rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] z-[10000] font-sans fast-panel-slide"
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button Top Right */}
             <button
@@ -123,10 +138,10 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/10 pointer-events-none" />
                 <div className="absolute bottom-3 left-4 right-14 flex items-end gap-3 pointer-events-none">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-mono font-bold text-base text-app-primary shrink-0 overflow-hidden shadow-lg border-2 border-app-card ${
-                    shop.logoUrl ? "bg-transparent" : "bg-app-card"
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-mono font-bold text-base shrink-0 overflow-hidden shadow-lg border-2 border-white/30 ${
+                    shop.logoUrl ? "bg-transparent" : "bg-black/80 text-white"
                   }`}>
                     {shop.logoUrl ? (
                       <ResponsiveImage
@@ -141,7 +156,7 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
                     )}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-base font-bold tracking-tight text-white truncate drop-shadow-xs">{shop.name}</h3>
+                    <h3 className="text-base sm:text-lg font-black tracking-tight text-white truncate drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]">{shop.name}</h3>
                     <span className="text-[10px] font-mono text-emerald-400 font-semibold flex items-center gap-1.5 mt-0.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                       <span>{shop.isOpen !== false ? t("shop.open", "Открыто") : t("shop.closed", "Закрыто")}</span>
@@ -151,9 +166,9 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
               </div>
             ) : (
               <div className="p-4 border-b border-app-border flex items-center justify-between shrink-0 bg-app-modal-header pr-14">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-mono font-bold text-sm text-app-primary shrink-0 overflow-hidden shadow-md border border-app-border ${
-                    shop.logoUrl ? "bg-transparent" : "bg-app-card"
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-mono font-bold text-sm shrink-0 overflow-hidden shadow-md border border-app-border dark:border-white/10 ${
+                    shop.logoUrl ? "bg-transparent" : "bg-app-card dark:bg-zinc-800 text-app-primary dark:text-white"
                   }`}>
                     {shop.logoUrl ? (
                       <ResponsiveImage
@@ -167,8 +182,8 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
                       shop.name.charAt(0).toUpperCase()
                     )}
                   </div>
-                  <div>
-                    <h3 className="text-base font-bold tracking-tight text-app-primary">{shop.name}</h3>
+                  <div className="min-w-0">
+                    <h3 className="text-base sm:text-lg font-extrabold tracking-tight text-app-primary dark:text-white truncate">{shop.name}</h3>
                     <span className="text-[10px] font-mono text-emerald-500 font-semibold flex items-center gap-1.5 mt-0.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       <span>{shop.isOpen !== false ? t("shop.open", "Открыто") : t("shop.closed", "Закрыто")}</span>
@@ -186,6 +201,11 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
                   <span className="text-[9px] font-mono text-app-muted uppercase tracking-wider block">{t("shop.about", "О заведении")}</span>
                   <p className="text-xs text-app-secondary leading-relaxed whitespace-pre-line font-sans">{shop.description}</p>
                 </div>
+              )}
+
+              {/* Videos about the venue and services */}
+              {Boolean(shop.videos) && (
+                <ShopVideosSection videos={shop.videos} />
               )}
 
               {/* Contacts & Working Hours */}
@@ -424,35 +444,10 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
                 </div>
               )}
 
-              {/* Legal Hub */}
-              <div className="space-y-1.5 pt-0.5">
-                <span className="text-[9px] font-mono text-app-muted uppercase tracking-wider block">{t("shop.legal_info", "Правовая информация")}</span>
-                
-                {onOpenPrivacy && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onOpenPrivacy();
-                    }}
-                    className="w-full p-2.5 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs rounded-2xl transition-all flex items-center justify-between group cursor-pointer shadow-xs hover:border-emerald-500/30"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 shrink-0">
-                        <ShieldCheck size={14} />
-                      </div>
-                      <div className="text-left">
-                        <span className="font-bold block text-xs">{t("shop.privacy_policy", "Политика конфиденциальности")}</span>
-                      </div>
-                    </div>
-                    <ExternalLink size={13} className="text-app-muted group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all shrink-0" />
-                  </button>
-                )}
-              </div>
-
+              {/* Close Button */}
               <button 
                 onClick={onClose}
-                className="w-full py-2.5 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-bold rounded-2xl transition-all cursor-pointer shadow-xs hover:border-app-border-hover active:scale-[0.99]"
+                className="w-full py-2.5 bg-app-surface hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-medium rounded-2xl transition-all cursor-pointer shadow-xs hover:border-app-border-hover active:scale-[0.99]"
               >
                 {t("common.close", "Закрыть")}
               </button>
@@ -462,4 +457,6 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
       )}
     </AnimatePresence>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };

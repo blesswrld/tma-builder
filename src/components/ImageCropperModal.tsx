@@ -111,6 +111,18 @@ export default function ImageCropperModal({
     return () => window.removeEventListener("resize", updateSize);
   }, [isOpen]);
 
+  // Escape key handler
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Calculate target aspect ratio
   const selectedRatioConfig = ASPECT_RATIOS.find((r) => r.value === aspectRatio);
   let targetRatio = selectedRatioConfig?.ratio;
@@ -298,8 +310,14 @@ export default function ImageCropperModal({
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 animate-fadeIn select-none">
-      <div className="bg-app-card border border-app-border text-app-primary rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[94vh] relative z-[10000]">
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-fadeIn select-none"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-app-card border border-app-border text-app-primary rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[94vh] relative z-[10000]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
         <div className="p-4 border-b border-app-border flex items-center justify-between bg-app-surface">
           <div className="flex items-center gap-3">

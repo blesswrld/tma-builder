@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Clock, Hash, MapPin, FileText, ShoppingBag, Truck, Store, Package, Globe } from "lucide-react";
 import { Order, OrderItem } from "../../types";
@@ -23,10 +24,20 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
   const { t } = useLanguage();
   useScrollLock(isOpen);
 
-  return (
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div key="my-orders-modal-container" className="fixed inset-0 z-50">
+        <div key="my-orders-modal-container" className="fixed inset-0 z-[9999]">
           <motion.div 
             key="my-orders-backdrop" 
             initial={{ opacity: 0 }} 
@@ -34,7 +45,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
             exit={{ opacity: 0 }} 
             transition={{ duration: 0.12 }}
             onClick={onClose} 
-            className="fixed inset-0 bg-black/70 z-50" 
+            className="fixed inset-0 bg-black/70" 
           />
           <motion.div 
             key="my-orders-panel" 
@@ -42,7 +53,8 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
             animate={{ x: 0 }} 
             exit={{ x: "100%" }} 
             transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }} 
-            className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-50 flex flex-col shadow-2xl text-app-primary font-sans fast-panel-slide"
+            className="fixed inset-y-0 right-0 w-full max-w-md bg-app-modal border-l border-app-border z-[10000] flex flex-col shadow-2xl text-app-primary font-sans fast-panel-slide"
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="h-16 flex items-center justify-between px-6 border-b border-app-border bg-app-modal-header shrink-0">
               <div className="flex items-center gap-2">
@@ -191,4 +203,6 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({
       )}
     </AnimatePresence>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };

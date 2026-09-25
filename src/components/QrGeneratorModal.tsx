@@ -20,6 +20,16 @@ export default function QrGeneratorModal({
 }: QrGeneratorModalProps) {
   useScrollLock(isOpen);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   const [mode, setMode] = useState<"single" | "batch">("single");
   const [tableNumber, setTableNumber] = useState("");
   const [batchStart, setBatchStart] = useState("1");
@@ -101,7 +111,10 @@ export default function QrGeneratorModal({
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/80 overflow-hidden text-app-primary font-sans">
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs overflow-y-auto text-app-primary font-sans"
+      onClick={onClose}
+    >
       <style>{`
         @media print {
           body * {
@@ -127,7 +140,10 @@ export default function QrGeneratorModal({
         }
       `}</style>
 
-      <div className="bg-app-modal rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-app-border flex flex-col max-h-[90vh]">
+      <div 
+        className="bg-app-modal rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-app-border flex flex-col max-h-[90vh] relative z-[10000]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="px-6 py-4 border-b border-app-border flex items-center justify-between bg-app-modal-header">
           <div className="flex items-center gap-2.5">

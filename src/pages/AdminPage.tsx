@@ -1,4 +1,5 @@
 import React, { useEffect, useState, FormEvent, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -37,6 +38,7 @@ import { InstallButton } from "../components/InstallButton";
 import { updatePageSeo } from "../lib/seo";
 import { playNotificationSound, playToggleOnSound, playToggleOffSound } from "../lib/sound";
 import { AdminSettingsTab } from "../components/admin/AdminSettingsTab";
+import { parseShopVideos } from "../lib/videoUtils";
 import { useWorkerOrdersFilter, useWorkerReviewsFilter } from "../workers/useWorkerComputations";
 import { AdminServicesTab } from "../components/admin/AdminServicesTab";
 import { AdminOrdersTab } from "../components/admin/AdminOrdersTab";
@@ -1316,7 +1318,8 @@ export default function AdminPage() {
       selectedRadioGenre: "lounge",
       customStreamUrl: "",
       tracks: []
-    }
+    },
+    videos: [] as any[]
   });
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
@@ -3288,7 +3291,8 @@ export default function AdminPage() {
       paymentInstructions: shop.paymentInstructions || "",
       cashbackPercent: shop.cashbackPercent !== undefined && shop.cashbackPercent !== null ? Number(shop.cashbackPercent) : 5,
       isOpen: shop.isOpen !== false,
-      musicSettings: parsedMusic
+      musicSettings: parsedMusic,
+      videos: parseShopVideos((shop as any).videos)
     });
     setSettingsActiveTab("general");
     setSettingsError(null);
@@ -3462,7 +3466,8 @@ export default function AdminPage() {
           paymentInstructions: settingsData.paymentInstructions.trim(),
           cashbackPercent: settingsData.cashbackPercent !== undefined && settingsData.cashbackPercent !== "" ? Math.max(0, Math.min(100, Number(settingsData.cashbackPercent) || 0)) : 0,
           isOpen: settingsData.isOpen,
-          musicSettings: settingsData.musicSettings ? JSON.stringify(settingsData.musicSettings) : null
+          musicSettings: settingsData.musicSettings ? JSON.stringify(settingsData.musicSettings) : null,
+          videos: JSON.stringify(settingsData.videos || [])
         })
       });
 
@@ -3754,15 +3759,15 @@ export default function AdminPage() {
           </div>
 
           {authError && (
-            <div className="p-3 bg-rose-500/10 border border-rose-500/25 rounded-2xl flex items-center gap-2.5 text-rose-300 text-xs font-mono">
-              <AlertCircle size={15} className="shrink-0 text-rose-400" />
+            <div className="p-2.5 px-3 bg-app-card border border-app-border text-rose-600 dark:text-rose-400 rounded-xl flex items-center gap-2.5 text-xs font-sans font-medium">
+              <AlertCircle size={14} className="shrink-0" />
               <span>{authError}</span>
             </div>
           )}
 
           {authSuccessMsg && (
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl flex items-center gap-2.5 text-emerald-300 text-xs font-mono">
-              <CheckCircle size={15} className="shrink-0 text-emerald-400" />
+            <div className="p-2.5 px-3 bg-app-card border border-app-border text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center gap-2.5 text-xs font-sans font-medium">
+              <CheckCircle size={14} className="shrink-0" />
               <span>{authSuccessMsg}</span>
             </div>
           )}
@@ -4180,7 +4185,7 @@ export default function AdminPage() {
                   {activeTab === "editservice" && t("nav.editservice", "Редактирование позиции")}
                 </h2>
               </div>
-              <p className="text-[11px] text-app-muted font-sans truncate max-w-[200px] sm:max-w-xs">
+              <p className="text-[11px] text-app-muted dark:text-zinc-400 font-sans truncate max-w-[200px] sm:max-w-xs">
                 {activeTab === "profile"
                   ? (user?.email || t("sub.manage_account", "Управление аккаунтом"))
                   : activeTab === "shopchat"
@@ -4191,7 +4196,12 @@ export default function AdminPage() {
                   ? t("sub.devchat_desc", "Прямая связь с разработчиком, поддержка и вопросы")
                   : (activeTab === "createshop"
                     ? t("sub.createshop_desc", "Новое заведение")
-                    : `${t("sub.manage_shop", "Управление заведением")} ${selectedShop?.name || ""}`)}
+                    : (
+                      <span>
+                        {t("sub.manage_shop", "Управление заведением")}:{" "}
+                        <span className="text-app-primary dark:text-white font-semibold">{selectedShop?.name || ""}</span>
+                      </span>
+                    ))}
               </p>
             </div>
           </div>
@@ -4331,15 +4341,15 @@ export default function AdminPage() {
               </div>
 
               {profileError && !profileError.toLowerCase().includes("ник") && !profileError.toLowerCase().includes("им") && (
-                <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-xs flex items-center gap-2.5 font-mono">
-                  <AlertCircle size={16} className="shrink-0" />
+                <div className="p-2.5 px-3 bg-app-card border border-app-border text-rose-600 dark:text-rose-400 rounded-xl text-xs flex items-center gap-2 font-sans font-medium">
+                  <AlertCircle size={15} className="shrink-0" />
                   <span>{profileError}</span>
                 </div>
               )}
 
               {profileSuccess && (
-                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl text-xs flex items-center gap-2.5 font-mono">
-                  <Check size={16} className="shrink-0" />
+                <div className="p-2.5 px-3 bg-app-card border border-app-border text-emerald-600 dark:text-emerald-400 rounded-xl text-xs flex items-center gap-2 font-sans font-medium">
+                  <Check size={15} className="shrink-0" />
                   <span>{profileSuccess}</span>
                 </div>
               )}
@@ -4479,10 +4489,10 @@ export default function AdminPage() {
 
                     {/* Prominent Warning Directly Under Nickname Field */}
                     {profileError && (profileError.toLowerCase().includes("ник") || profileError.toLowerCase().includes("им")) ? (
-                      <div className="mt-2 p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs font-mono flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <AlertCircle size={14} className="text-rose-400 shrink-0" />
-                          <span className="leading-snug text-[11px]">{profileError}</span>
+                      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-rose-600 dark:text-rose-400 font-sans">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <AlertCircle size={14} className="shrink-0" />
+                          <span className="leading-snug text-[11px] truncate">{profileError}</span>
                         </div>
                         <button
                           type="button"
@@ -4495,7 +4505,7 @@ export default function AdminPage() {
                             setProfileData(p => ({ ...p, name: `${adj}${noun}_${num}` }));
                             setProfileError(null);
                           }}
-                          className="px-2 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 rounded-lg text-[10px] text-rose-300 font-bold shrink-0 cursor-pointer transition-all"
+                          className="px-2 py-0.5 bg-app-card hover:bg-app-hover border border-app-border rounded-lg text-[10px] text-app-primary font-medium shrink-0 cursor-pointer transition-colors"
                         >
                           Сгенерировать 🎲
                         </button>
@@ -4823,6 +4833,7 @@ export default function AdminPage() {
               settingsError={settingsError}
               settingsSuccess={settingsSuccess}
               isSavingSettings={isSavingSettings}
+              token={token}
               handleSaveSettings={handleSaveSettings}
               handleDeleteShop={handleDeleteShop}
               handleRegenerateSlug={() => {
@@ -5133,41 +5144,52 @@ export default function AdminPage() {
 
 
       {/* Hotkeys Helper Modal */}
-      <AnimatePresence>
-        {isHotkeysModalOpen && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.15 }}
-              className="max-w-xl w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto custom-scrollbar"
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {isHotkeysModalOpen && (
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+              onClick={() => setIsHotkeysModalOpen(false)}
             >
-              <div className="flex items-center justify-between border-b border-app-border pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-app-accent/10 text-app-accent flex items-center justify-center border border-app-accent/20">
-                    <Keyboard size={20} />
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.15 }}
+                className="relative max-w-xl w-full bg-app-surface border border-app-border rounded-3xl p-6 text-app-primary shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto custom-scrollbar z-[10000]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-app-border pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-app-accent/10 text-app-accent flex items-center justify-center border border-app-accent/20">
+                      <Keyboard size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold font-mono tracking-tight text-app-primary">
+                        Горячие клавиши (Hotkeys)
+                      </h3>
+                      <p className="text-xs text-app-muted font-sans">
+                        Быстрое управление панелью администратора с клавиатуры
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-base font-bold font-mono tracking-tight text-app-primary">
-                      Горячие клавиши (Hotkeys)
-                    </h3>
-                    <p className="text-xs text-app-muted font-sans">
-                      Быстрое управление панелью администратора с клавиатуры
-                    </p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsHotkeysModalOpen(false)}
+                    className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-xl transition-all cursor-pointer active:scale-95"
+                    title="Закрыть"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsHotkeysModalOpen(false)}
-                  className="p-1.5 text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border rounded-xl transition-all cursor-pointer active:scale-95"
-                  title="Закрыть"
-                >
-                  <X size={18} />
-                </button>
-              </div>
 
-              <div className="space-y-5 text-xs">
+                <div className="space-y-5 text-xs">
                 {/* Section 1: Navigation */}
                 <div>
                   <h4 className="text-[11px] font-bold font-mono text-app-muted uppercase tracking-wider mb-2.5">
@@ -5301,7 +5323,9 @@ export default function AdminPage() {
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
 
       {/* QR Modal & Plan Modal */}
       <HelpCenterModal
@@ -5429,50 +5453,63 @@ export default function AdminPage() {
       />
 
       {/* Custom Confirmation Modal */}
-      <AnimatePresence>
-        {confirmModal.isOpen && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.15 }}
-              className="max-w-sm w-full bg-app-card border border-app-border rounded-2xl p-6 text-app-primary shadow-2xl space-y-5"
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {confirmModal.isOpen && (
+            <div 
+              className="fixed inset-0 z-[10001] flex items-center justify-center p-4"
+              onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
             >
-              <div className="space-y-2">
-                <h3 className="text-sm font-bold tracking-tight text-app-primary flex items-center gap-2">
-                  <AlertCircle size={16} className={confirmModal.isDangerous ? "text-rose-500" : "text-amber-500"} />
-                  {confirmModal.title}
-                </h3>
-                <p className="text-xs text-app-muted leading-relaxed font-sans">
-                  {confirmModal.message}
-                </p>
-              </div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="relative max-w-sm w-full bg-app-card border border-app-border rounded-2xl p-6 text-app-primary shadow-2xl space-y-5 z-[10002]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="space-y-2">
+                  <h3 className="text-sm font-bold tracking-tight text-app-primary flex items-center gap-2">
+                    <AlertCircle size={16} className={confirmModal.isDangerous ? "text-rose-500" : "text-amber-500"} />
+                    {confirmModal.title}
+                  </h3>
+                  <p className="text-xs text-app-muted leading-relaxed font-sans">
+                    {confirmModal.message}
+                  </p>
+                </div>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                  className="px-4 py-2 bg-app-surface border border-app-border text-app-primary rounded-xl hover:bg-app-hover text-xs font-mono transition-colors"
-                >
-                  {confirmModal.cancelText || "Отмена"}
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmModal.onConfirm}
-                  className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-colors ${
-                    confirmModal.isDangerous 
-                      ? "bg-rose-500 hover:bg-rose-600 text-white shadow-md shadow-rose-500/20" 
-                      : "bg-app-accent text-app-accent-fg hover:opacity-90"
-                  }`}
-                >
-                  {confirmModal.confirmText || "Подтвердить"}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                    className="px-4 py-2 bg-app-surface border border-app-border text-app-primary rounded-xl hover:bg-app-hover text-xs font-mono transition-colors cursor-pointer"
+                  >
+                    {confirmModal.cancelText || "Отмена"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmModal.onConfirm}
+                    className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-colors cursor-pointer ${
+                      confirmModal.isDangerous 
+                        ? "bg-rose-500 hover:bg-rose-600 text-white shadow-md shadow-rose-500/20" 
+                        : "bg-app-accent text-app-accent-fg hover:opacity-90"
+                    }`}
+                  >
+                    {confirmModal.confirmText || "Подтвердить"}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Toast Notifications System */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
@@ -5480,33 +5517,25 @@ export default function AdminPage() {
           {toasts.map(toast => (
             <motion.div
               key={toast.id}
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
               transition={{ duration: 0.15 }}
               onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-              className={`p-4 rounded-xl border shadow-lg pointer-events-auto flex items-start gap-3 cursor-pointer hover:opacity-95 transition-opacity ${
-                toast.type === "success" 
-                  ? "bg-[#0b2518] text-emerald-200 border-emerald-800/40" 
-                  : toast.type === "error" 
-                  ? "bg-[#2d0f13] text-rose-200 border-rose-800/40" 
-                  : toast.type === "info"
-                  ? "bg-[#0c2333] text-sky-200 border-sky-800/40"
-                  : "bg-[#2d210f] text-amber-200 border-amber-800/40"
-              }`}
+              className="px-3.5 py-2.5 rounded-xl border border-app-border bg-app-card/95 text-app-primary shadow-lg pointer-events-auto flex items-center gap-2.5 cursor-pointer hover:opacity-90 transition-opacity backdrop-blur-sm"
             >
-              <div className="mt-0.5 shrink-0">
+              <div className="shrink-0">
                 {toast.type === "success" ? (
-                  <Check size={14} className="text-emerald-400" />
+                  <Check size={14} className="text-emerald-500" />
                 ) : toast.type === "error" ? (
-                  <AlertCircle size={14} className="text-rose-400" />
+                  <AlertCircle size={14} className="text-rose-500" />
                 ) : toast.type === "info" ? (
-                  <Info size={14} className="text-sky-400" />
+                  <Info size={14} className="text-sky-500" />
                 ) : (
-                  <AlertCircle size={14} className="text-amber-400" />
+                  <AlertCircle size={14} className="text-amber-500" />
                 )}
               </div>
-              <p className="text-xs font-sans leading-relaxed">{toast.message}</p>
+              <p className="text-xs font-sans font-medium leading-relaxed text-app-primary">{toast.message}</p>
             </motion.div>
           ))}
         </AnimatePresence>

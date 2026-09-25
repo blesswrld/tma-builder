@@ -28,6 +28,16 @@ export default function PlanModal({
 }: PlanModalProps) {
   useScrollLock(isOpen);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [paymentMethod, setPaymentMethod] = useState<"card" | "sbp" | "promo">("card");
@@ -388,8 +398,14 @@ export default function PlanModal({
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/80 overflow-hidden text-app-primary font-sans transition-all">
-      <div className="bg-app-modal rounded-3xl max-w-4xl w-full border border-app-border flex flex-col max-h-[92vh] shadow-2xl overflow-hidden relative z-[10000]">
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs overflow-y-auto text-app-primary font-sans transition-all"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-app-modal rounded-3xl max-w-4xl w-full border border-app-border flex flex-col max-h-[92vh] shadow-2xl overflow-hidden relative z-[10000]"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Header */}
         <div className="px-6 py-4 border-b border-app-border flex items-center justify-between bg-app-modal-header rounded-t-3xl">

@@ -424,11 +424,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11.5px] font-semibold text-app-primary truncate group-hover:text-app-accent leading-none">
+                        <span className="text-[11.5px] font-bold text-app-primary dark:text-white truncate group-hover:text-app-accent leading-none">
                           {selectedShop ? selectedShop.name : t("admin.select_shop", "Выберите заведение")}
                         </span>
                       </div>
-                      <p className="text-[9.5px] font-mono text-app-muted truncate mt-0.5">
+                      <p className="text-[9.5px] font-mono text-app-muted dark:text-zinc-400 truncate mt-0.5">
                         {selectedShop ? `/${selectedShop.slug}` : t("admin.no_shops", "нет заведений")}
                       </p>
                     </div>

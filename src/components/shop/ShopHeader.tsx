@@ -40,8 +40,8 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
         {/* Shop Avatar & Name */}
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <div
-            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-mono font-bold text-xs sm:text-sm shrink-0 overflow-hidden border border-app-border shadow-xs ${
-              shop.logoUrl ? "bg-transparent" : "bg-app-card text-app-primary"
+            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-mono font-bold text-xs sm:text-sm shrink-0 overflow-hidden border border-app-border dark:border-white/10 shadow-xs ${
+              shop.logoUrl ? "bg-transparent" : "bg-app-card dark:bg-zinc-800 text-app-primary dark:text-white"
             }`}
           >
             {shop.logoUrl ? (
@@ -57,7 +57,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
-              <h1 className="text-xs sm:text-sm font-semibold tracking-tight text-app-primary truncate">
+              <h1 className="text-xs sm:text-sm font-bold tracking-tight text-app-primary dark:text-white truncate">
                 {shop.name}
               </h1>
               <span
