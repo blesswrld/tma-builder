@@ -315,19 +315,21 @@ export async function authenticateTelegramUser(
     tgData.photo_url ||
     (cleanUsername ? `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}` : null);
 
-  // Search by telegramId, phone, email or handle
+  // Search by telegramId or verified telegram email/phone
   let user = await db.user.findFirst({
     where: {
       OR: [
         { telegramId: telegramIdStr },
-        ...(normPhone ? [{ phone: normPhone }] : []),
         { email: `tg_${telegramIdStr}@telegram.org` },
-        ...(cleanUsername
-          ? [{ telegramHandle: cleanUsername }, { email: `${cleanUsername}@telegram.org` }]
-          : [])
+        ...(normPhone ? [{ phone: normPhone }] : [])
       ]
     }
   });
+
+  // Security guard: If found user already belongs to a DIFFERENT Telegram account, do not hijack it
+  if (user && user.telegramId && user.telegramId !== telegramIdStr) {
+    user = null;
+  }
 
   if (user) {
     const updateData: any = {};

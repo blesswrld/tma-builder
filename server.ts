@@ -37,12 +37,13 @@ import {
 } from "./src/server/telegramAuth.js";
 import { parseTelegramSettings, maskTelegramToken } from "./src/types.js";
 
-const JWT_SECRET = process.env.JWT_SECRET || "smart-menu-secret-key-2026";
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? nodeCrypto.randomBytes(48).toString("hex") : "smart-menu-secret-key-2026");
 
 export function isDeveloperEmail(email?: string | null): boolean {
   if (!email) return false;
   const normalized = email.toLowerCase().trim();
-  return normalized === "gelgaev.dev@mail.ru" || normalized === "roninfortnite71@gmail.com";
+  const envDevs = (process.env.DEVELOPER_EMAILS || "").toLowerCase().split(",").map(e => e.trim()).filter(Boolean);
+  return normalized === "gelgaev.dev@mail.ru" || normalized === "roninfortnite71@gmail.com" || envDevs.includes(normalized);
 }
 
 export function isAdminUser(user?: { email?: string | null; role?: string | null } | null): boolean {
@@ -79,6 +80,29 @@ const rateLimitMaps = {
   messages: new Map<string, number[]>(),
   auth: new Map<string, number[]>()
 };
+
+// Periodic cleanup of rate limit maps every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const map of Object.values(rateLimitMaps)) {
+    for (const [key, timestamps] of map.entries()) {
+      const valid = timestamps.filter(t => now - t < 600000);
+      if (valid.length === 0) {
+        map.delete(key);
+      } else {
+        map.set(key, valid);
+      }
+    }
+  }
+}, 5 * 60 * 1000);
+
+export function getClientIp(req: any): string {
+  const forwarded = req.headers?.["x-forwarded-for"];
+  if (typeof forwarded === "string") {
+    return forwarded.split(",")[0].trim();
+  }
+  return req.socket?.remoteAddress || req.ip || "127.0.0.1";
+}
 
 export function checkRateLimit(type: "reviews" | "orders" | "messages" | "auth", key: string, limit: number, windowMs: number): boolean {
   const now = Date.now();
@@ -804,7 +828,40 @@ async function ensureOrderSchema(db: PrismaClient) {
           "description" TEXT,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         )`,
-        `CREATE INDEX IF NOT EXISTS "UserTransaction_userId_idx" ON "UserTransaction"("userId")`
+        `CREATE INDEX IF NOT EXISTS "UserTransaction_userId_idx" ON "UserTransaction"("userId")`,
+
+        // Production performance indexes for PostgreSQL
+        `CREATE INDEX IF NOT EXISTS "Shop_ownerId_idx" ON "Shop"("ownerId")`,
+        `CREATE INDEX IF NOT EXISTS "Shop_city_idx" ON "Shop"("city")`,
+        `CREATE INDEX IF NOT EXISTS "Service_shopId_idx" ON "Service"("shopId")`,
+        `CREATE INDEX IF NOT EXISTS "Service_shopId_isAvailable_idx" ON "Service"("shopId", "isAvailable")`,
+        `CREATE INDEX IF NOT EXISTS "Service_shopId_category_idx" ON "Service"("shopId", "category")`,
+        `CREATE INDEX IF NOT EXISTS "Service_category_idx" ON "Service"("category")`,
+        `CREATE INDEX IF NOT EXISTS "Service_isAvailable_idx" ON "Service"("isAvailable")`,
+        `CREATE INDEX IF NOT EXISTS "Service_moderationStatus_idx" ON "Service"("moderationStatus")`,
+        `CREATE INDEX IF NOT EXISTS "Order_shopId_idx" ON "Order"("shopId")`,
+        `CREATE INDEX IF NOT EXISTS "Order_shopId_createdAt_idx" ON "Order"("shopId", "createdAt")`,
+        `CREATE INDEX IF NOT EXISTS "Order_customerPhone_idx" ON "Order"("customerPhone")`,
+        `CREATE INDEX IF NOT EXISTS "Order_status_idx" ON "Order"("status")`,
+        `CREATE INDEX IF NOT EXISTS "Order_createdAt_idx" ON "Order"("createdAt")`,
+        `CREATE INDEX IF NOT EXISTS "Customer_shopId_phone_idx" ON "Customer"("shopId", "phone")`,
+        `CREATE INDEX IF NOT EXISTS "Customer_shopId_idx" ON "Customer"("shopId")`,
+        `CREATE INDEX IF NOT EXISTS "Review_shopId_idx" ON "Review"("shopId")`,
+        `CREATE INDEX IF NOT EXISTS "Review_shopId_createdAt_idx" ON "Review"("shopId", "createdAt")`,
+        `CREATE INDEX IF NOT EXISTS "Review_authorToken_idx" ON "Review"("authorToken")`,
+        `CREATE INDEX IF NOT EXISTS "Review_createdAt_idx" ON "Review"("createdAt")`,
+        `CREATE INDEX IF NOT EXISTS "Promocode_shopId_code_idx" ON "Promocode"("shopId", "code")`,
+        `CREATE INDEX IF NOT EXISTS "Banner_shopId_idx" ON "Banner"("shopId")`,
+        `CREATE INDEX IF NOT EXISTS "Broadcast_shopId_idx" ON "Broadcast"("shopId")`,
+        `CREATE INDEX IF NOT EXISTS "ShopMember_shopId_userId_idx" ON "ShopMember"("shopId", "userId")`,
+        `CREATE INDEX IF NOT EXISTS "ShopMember_userId_idx" ON "ShopMember"("userId")`,
+        `CREATE INDEX IF NOT EXISTS "ShopInvite_shopId_idx" ON "ShopInvite"("shopId")`,
+        `CREATE INDEX IF NOT EXISTS "Payment_userId_idx" ON "Payment"("userId")`,
+        `CREATE INDEX IF NOT EXISTS "Payment_status_idx" ON "Payment"("status")`,
+        `CREATE INDEX IF NOT EXISTS "ChatMessage_userId_idx" ON "ChatMessage"("userId")`,
+        `CREATE INDEX IF NOT EXISTS "ChatMessage_createdAt_idx" ON "ChatMessage"("createdAt")`,
+        `CREATE INDEX IF NOT EXISTS "VerificationCode_email_code_idx" ON "VerificationCode"("email", "code")`,
+        `CREATE INDEX IF NOT EXISTS "VerificationCode_expiresAt_idx" ON "VerificationCode"("expiresAt")`
       ];
 
       for (const stmt of statements) {
@@ -838,13 +895,7 @@ async function getShopUserRole(db: PrismaClient, shopId: string, authUser: { id:
     return "OWNER";
   }
 
-  // 2. Unassigned legacy shop -> assign to first logged-in user who accesses it
-  if (!shop.ownerId) {
-    await db.shop.update({ where: { id: shopId }, data: { ownerId: authUser.id } }).catch(() => {});
-    return "OWNER";
-  }
-
-  // 3. Staff / Manager member check via ShopMember
+  // 2. Staff / Manager member check via ShopMember
   try {
     const members: any[] = await db.$queryRawUnsafe(
       `SELECT "role" FROM "ShopMember" WHERE "shopId" = $1 AND "userId" = $2 LIMIT 1;`,
@@ -858,13 +909,6 @@ async function getShopUserRole(db: PrismaClient, shopId: string, authUser: { id:
     }
   } catch (e) {
     // Ignore error if query fails
-  }
-
-  // 4. Re-bind if previous owner was deleted
-  const existingOwner = await db.user.findUnique({ where: { id: shop.ownerId } });
-  if (!existingOwner) {
-    await db.shop.update({ where: { id: shopId }, data: { ownerId: authUser.id } }).catch(() => {});
-    return "OWNER";
   }
 
   return null;
@@ -969,12 +1013,16 @@ async function getUserShops(db: PrismaClient, userId: string) {
 export const prisma = getPrismaClient();
 
 export const app = express();
+app.disable("x-powered-by");
 
 // High-performance gzip/brotli compression for API payloads and assets
 app.use(compression());
 
-// CORS middleware allowing cross-origin requests from Vercel frontend / local / custom domains
+// CORS & Security headers middleware allowing cross-origin requests from Vercel frontend / local / custom domains
 app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+
   const origin = req.headers.origin;
   if (origin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
@@ -990,8 +1038,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.json({ limit: "15mb" }));
+app.use(express.urlencoded({ limit: "15mb", extended: true }));
 
 // Health check endpoint for Render / monitoring
 app.get("/api/health", (_req, res) => {
@@ -1091,6 +1139,11 @@ async function sendVerificationEmail(toEmail: string, code: string, typeName: st
 // Auth Route: Отправить одноразовый код на почту
 app.post("/api/auth/send-code", async (req, res) => {
   try {
+    const clientIp = getClientIp(req);
+    if (!checkRateLimit("auth", `${clientIp}_send_code`, 5, 10 * 60 * 1000)) {
+      return res.status(429).json({ error: "Слишком много запросов кода. Попробуйте снова через 10 минут." });
+    }
+
     const db = getPrismaClient();
     if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
     await ensureOrderSchema(db);
@@ -1102,6 +1155,10 @@ app.post("/api/auth/send-code", async (req, res) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    if (isDisposableEmail(cleanEmail)) {
+      return res.status(400).json({ error: "Временные почтовые адреса не поддерживаются." });
+    }
+
     const typeNames: Record<string, string> = {
       LOGIN: "входа в систему",
       REGISTER: "регистрации аккаунта",
@@ -1158,11 +1215,17 @@ app.post("/api/auth/send-code", async (req, res) => {
 
     const emailResult = await sendVerificationEmail(cleanEmail, code, typeName);
 
+    if (!emailResult.sentViaSmtp && process.env.NODE_ENV === "production" && process.env.ALLOW_DEV_CODE !== "true") {
+      return res.status(503).json({ error: "Почтовый сервис временно недоступен. Пожалуйста, воспользуйтесь входом через Telegram или обратитесь к администратору." });
+    }
+
+    const isDevPreview = process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_CODE === "true";
+
     res.json({
       success: true,
       message: `Код подтверждения отправлен на ${cleanEmail}!`,
       email: cleanEmail,
-      devCode: emailResult.sentViaSmtp ? undefined : code
+      devCode: (isDevPreview && !emailResult.sentViaSmtp) ? code : undefined
     });
   } catch (error: any) {
     console.error("Send auth code error:", error);
@@ -1173,6 +1236,11 @@ app.post("/api/auth/send-code", async (req, res) => {
 // Auth Route: Проверить код из письма и авторизоваться
 app.post("/api/auth/verify-code", async (req, res) => {
   try {
+    const clientIp = getClientIp(req);
+    if (!checkRateLimit("auth", `${clientIp}_verify_code`, 10, 10 * 60 * 1000)) {
+      return res.status(429).json({ error: "Слишком много попыток проверки кода. Подождите 10 минут." });
+    }
+
     const db = getPrismaClient();
     if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
     await ensureOrderSchema(db);
@@ -1272,12 +1340,6 @@ app.post("/api/auth/verify-code", async (req, res) => {
       }
     }
 
-    // Автоматически привязываем неназначенные заведения к этому пользователю
-    await db.shop.updateMany({
-      where: { ownerId: null },
-      data: { ownerId: user.id }
-    }).catch(() => {});
-
     const token = jwt.sign(
       { id: user.id, email: user.email, name: user.name },
       JWT_SECRET,
@@ -1297,6 +1359,11 @@ app.post("/api/auth/verify-code", async (req, res) => {
 // Auth Route: Сброс пароля по коду
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
+    const clientIp = getClientIp(req);
+    if (!checkRateLimit("auth", `${clientIp}_reset_password`, 5, 10 * 60 * 1000)) {
+      return res.status(429).json({ error: "Слишком много попыток сброса пароля. Подождите 10 минут." });
+    }
+
     const db = getPrismaClient();
     if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
     await ensureOrderSchema(db);
@@ -1349,6 +1416,11 @@ app.post("/api/auth/reset-password", async (req, res) => {
 });
 app.post("/api/auth/register", async (req, res) => {
   try {
+    const clientIp = getClientIp(req);
+    if (!checkRateLimit("auth", `${clientIp}_register`, 5, 60 * 1000)) {
+      return res.status(429).json({ error: "Слишком много запросов на регистрацию. Подождите 1 минуту." });
+    }
+
     const db = getPrismaClient();
     if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
     await ensureOrderSchema(db);
@@ -1359,11 +1431,14 @@ app.post("/api/auth/register", async (req, res) => {
       return res.status(400).json({ error: "Введите корректный E-mail адрес." });
     }
 
+    const cleanEmail = email.toLowerCase().trim();
+    if (isDisposableEmail(cleanEmail)) {
+      return res.status(400).json({ error: "Временные почтовые адреса не поддерживаются." });
+    }
+
     if (!password || typeof password !== "string" || password.length < 6) {
       return res.status(400).json({ error: "Пароль должен содержать не менее 6 символов." });
     }
-
-    const cleanEmail = email.toLowerCase().trim();
 
     const existingUser = await db.user.findUnique({ where: { email: cleanEmail } });
     if (existingUser) {
@@ -1436,6 +1511,11 @@ app.post("/api/auth/register", async (req, res) => {
 // Auth Route: Вход в аккаунт
 app.post("/api/auth/login", async (req, res) => {
   try {
+    const clientIp = getClientIp(req);
+    if (!checkRateLimit("auth", `${clientIp}_login`, 10, 60 * 1000)) {
+      return res.status(429).json({ error: "Слишком много попыток входа. Подождите 1 минуту." });
+    }
+
     const db = getPrismaClient();
     if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
     await ensureOrderSchema(db);
@@ -1513,9 +1593,12 @@ app.post("/api/auth/telegram/webapp", async (req, res) => {
       return res.status(400).json({ error: "ID пользователя Telegram не найден." });
     }
 
-    // Optional cryptographic validation if TELEGRAM_BOT_TOKEN is set
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    if (botToken && hash) {
+    // Cryptographic validation if TELEGRAM_AUTH_BOT_TOKEN or TELEGRAM_BOT_TOKEN is set
+    const botToken = (process.env.TELEGRAM_AUTH_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "").trim();
+    if (botToken) {
+      if (!hash) {
+        return res.status(401).json({ error: "Подпись Telegram (hash) отсутствует." });
+      }
       try {
         const dataCheckArr: string[] = [];
         params.forEach((val, key) => {
@@ -1527,12 +1610,31 @@ app.post("/api/auth/telegram/webapp", async (req, res) => {
         const dataCheckString = dataCheckArr.join("\n");
         const secretKey = nodeCrypto.createHmac("sha256", "WebAppData").update(botToken).digest();
         const calculatedHash = nodeCrypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
-        if (calculatedHash !== hash) {
-          console.warn("Telegram WebApp HMAC check did not match - allowing safe fallback for preview/development");
+        
+        let matches = false;
+        try {
+          matches = nodeCrypto.timingSafeEqual(Buffer.from(calculatedHash, "hex"), Buffer.from(hash, "hex"));
+        } catch {}
+
+        if (!matches) {
+          return res.status(401).json({ error: "Недействительная криптографическая подпись данных Telegram." });
         }
       } catch (cryptoErr) {
-        console.warn("Crypto check error:", cryptoErr);
+        console.error("Telegram WebApp HMAC error:", cryptoErr);
+        return res.status(401).json({ error: "Ошибка проверки криптографической подписи Telegram." });
       }
+
+      // Replay attack prevention: check auth_date
+      const authDateStr = params.get("auth_date");
+      if (authDateStr) {
+        const authDate = parseInt(authDateStr, 10);
+        const now = Math.floor(Date.now() / 1000);
+        if (Number.isFinite(authDate) && Math.abs(now - authDate) > 86400) {
+          return res.status(401).json({ error: "Срок действия сессии Telegram истек (auth_date > 24ч). Перезапустите приложение." });
+        }
+      }
+    } else if (process.env.NODE_ENV === "production") {
+      return res.status(503).json({ error: "Авторизация через Telegram временно недоступна: бот авторизации не настроен на сервере (TELEGRAM_AUTH_BOT_TOKEN)." });
     }
 
     const telegramIdStr = String(tgUser.id);
@@ -1544,11 +1646,14 @@ app.post("/api/auth/telegram/webapp", async (req, res) => {
       where: {
         OR: [
           { telegramId: telegramIdStr },
-          { email: `tg_${telegramIdStr}@telegram.org` },
-          ...(tgUsername ? [{ telegramHandle: tgUsername }, { email: `${tgUsername.toLowerCase()}@telegram.org` }] : [])
+          { email: `tg_${telegramIdStr}@telegram.org` }
         ]
       }
     });
+
+    if (user && user.telegramId && user.telegramId !== telegramIdStr) {
+      user = null;
+    }
 
     if (user) {
       const updateData: any = {};
@@ -1625,83 +1730,16 @@ app.post("/api/auth/telegram/webapp", async (req, res) => {
   }
 });
 
-// Fast login via Telegram Handle / ID
-app.post("/api/auth/telegram/fast-login", async (req, res) => {
-  try {
-    const db = getPrismaClient();
-    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
-    await ensureOrderSchema(db);
-
-    const { username, referralCode } = req.body;
-    if (!username || typeof username !== "string" || !username.trim()) {
-      return res.status(400).json({ error: "Укажите имя пользователя Telegram (@username)" });
-    }
-
-    const cleanUsername = username.replace(/^@/, "").trim().toLowerCase();
-    const fakeTgId = "tg_" + Math.abs(cleanUsername.split("").reduce((acc, c) => acc * 31 + c.charCodeAt(0), 0));
-
-    let user = await db.user.findFirst({
-      where: {
-        OR: [
-          { telegramHandle: cleanUsername },
-          { email: `${cleanUsername}@telegram.org` },
-          { telegramId: fakeTgId }
-        ]
-      }
-    });
-
-    if (!user) {
-      let referredById: string | null = null;
-      if (referralCode && typeof referralCode === "string") {
-        const cleanRef = referralCode.trim();
-        const referrer = await db.user.findFirst({
-          where: { OR: [{ referralCode: cleanRef }, { id: cleanRef }] }
-        });
-        if (referrer) referredById = referrer.id;
-      }
-
-      const generatedPassword = await bcrypt.hash("tg_" + cleanUsername, 10);
-      const uniqueNickname = await generateUniqueNickname(db, cleanUsername);
-      user = await db.user.create({
-        data: {
-          email: `${cleanUsername}@telegram.org`,
-          password: generatedPassword,
-          name: uniqueNickname,
-          telegramHandle: cleanUsername,
-          telegramId: fakeTgId,
-          role: "USER",
-          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${uniqueNickname}`,
-          referralCode: generateReferralCode(),
-          referredById: referredById || undefined
-        }
-      });
-    }
-
-    if (user.isBanned) {
-      return res.status(403).json({ error: `Аккаунт заблокирован.` });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name, role: user.role },
-      JWT_SECRET,
-      { expiresIn: "60d" }
-    );
-
-    res.json({
-      token,
-      user: formatUserResponse(user)
-    });
-  } catch (error: any) {
-    console.error("Fast Telegram auth error:", error);
-    res.status(500).json({ error: "Ошибка быстрого входа через Telegram" });
-  }
+// Fast login via Telegram Handle / ID - DISABLED for security
+app.post("/api/auth/telegram/fast-login", async (_req, res) => {
+  return res.status(403).json({ error: "Вход без подтверждения отключен в целях безопасности. Воспользуйтесь официальным входом через Telegram WebApp, Telegram Bot или E-mail." });
 });
 
 // Telegram Login Widget / Bot Info status
 app.get("/api/auth/telegram/bot-info", async (req, res) => {
   try {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const botUsernameEnv = process.env.TELEGRAM_BOT_USERNAME;
+    const botToken = process.env.TELEGRAM_AUTH_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+    const botUsernameEnv = process.env.TELEGRAM_AUTH_BOT_USERNAME || process.env.TELEGRAM_BOT_USERNAME;
     let botUsername = botUsernameEnv || null;
 
     if (botToken && !botUsername) {
@@ -1735,8 +1773,11 @@ app.post("/api/auth/telegram/widget", async (req, res) => {
       return res.status(400).json({ error: "ID пользователя Telegram отсутствует." });
     }
 
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    if (botToken && hash) {
+    const botToken = (process.env.TELEGRAM_AUTH_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "").trim();
+    if (botToken) {
+      if (!hash) {
+        return res.status(401).json({ error: "Подпись данных виджета (hash) отсутствует." });
+      }
       try {
         const checkArr: string[] = [];
         const checkKeys = ["auth_date", "first_name", "id", "last_name", "photo_url", "username"];
@@ -1749,12 +1790,30 @@ app.post("/api/auth/telegram/widget", async (req, res) => {
         const checkString = checkArr.join("\n");
         const secretKey = nodeCrypto.createHash("sha256").update(botToken).digest();
         const calculatedHash = nodeCrypto.createHmac("sha256", secretKey).update(checkString).digest("hex");
-        if (calculatedHash !== hash) {
-          console.warn("Telegram widget HMAC check mismatch - allowing fallback for preview");
+        
+        let matches = false;
+        try {
+          matches = nodeCrypto.timingSafeEqual(Buffer.from(calculatedHash, "hex"), Buffer.from(hash, "hex"));
+        } catch {}
+
+        if (!matches) {
+          return res.status(401).json({ error: "Недействительная криптографическая подпись данных виджета Telegram." });
         }
       } catch (e) {
-        console.warn("Telegram widget crypto check error:", e);
+        console.error("Telegram widget crypto check error:", e);
+        return res.status(401).json({ error: "Ошибка проверки криптографической подписи Telegram." });
       }
+
+      // Replay attack prevention: check auth_date
+      if (auth_date) {
+        const aDate = parseInt(String(auth_date), 10);
+        const now = Math.floor(Date.now() / 1000);
+        if (Number.isFinite(aDate) && Math.abs(now - aDate) > 86400) {
+          return res.status(401).json({ error: "Срок действия данных виджета Telegram истек. Перезапустите страницу." });
+        }
+      }
+    } else if (process.env.NODE_ENV === "production") {
+      return res.status(503).json({ error: "Вход через Telegram временно недоступен: серверный бот авторизации не настроен." });
     }
 
     const telegramIdStr = String(id);
@@ -1767,11 +1826,14 @@ app.post("/api/auth/telegram/widget", async (req, res) => {
       where: {
         OR: [
           { telegramId: telegramIdStr },
-          { email: `tg_${telegramIdStr}@telegram.org` },
-          ...(cleanUsername ? [{ telegramHandle: cleanUsername }, { email: `${cleanUsername}@telegram.org` }] : [])
+          { email: `tg_${telegramIdStr}@telegram.org` }
         ]
       }
     });
+
+    if (user && user.telegramId && user.telegramId !== telegramIdStr) {
+      user = null;
+    }
 
     if (user) {
       const updateData: any = {};
@@ -2329,119 +2391,9 @@ app.get([
   }
 });
 
-// 3. Instant GitHub Profile Sync & Fast Login (handles custom or demo GitHub profiles)
-app.post("/api/auth/github/fast-login", async (req, res) => {
-  try {
-    const { username, referralCode } = req.body;
-    const cleanUsername = String(username || "blesswrld").trim().replace(/^@/, "");
-    if (!cleanUsername) {
-      return res.status(400).json({ error: "Укажите никнейм GitHub" });
-    }
-
-    // Запрашиваем публичные данные профиля GitHub
-    let ghName = cleanUsername;
-    let ghAvatar = `https://github.com/${cleanUsername}.png`;
-    let ghEmail = `${cleanUsername.toLowerCase()}@users.noreply.github.com`;
-    let ghId = `gh_${cleanUsername}`;
-
-    try {
-      const ghRes = await fetch(`https://api.github.com/users/${encodeURIComponent(cleanUsername)}`, {
-        headers: {
-          "User-Agent": "TMA-Builder-App",
-          "Accept": "application/vnd.github.v3+json"
-        }
-      });
-      if (ghRes.ok) {
-        const ghData = (await ghRes.json()) as any;
-        ghName = ghData.name || ghData.login || cleanUsername;
-        ghAvatar = ghData.avatar_url || ghAvatar;
-        if (ghData.email) ghEmail = ghData.email.toLowerCase();
-        if (ghData.id) ghId = String(ghData.id);
-      }
-    } catch (e) {
-      console.warn("Could not fetch public github user data:", e);
-    }
-
-    const db = getPrismaClient();
-    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
-    await ensureOrderSchema(db);
-
-    const userByGhId = ghId ? await db.user.findFirst({ where: { githubId: ghId } }) : null;
-    const userByEmail = await db.user.findUnique({ where: { email: ghEmail } });
-    const userByHandle = await db.user.findFirst({ where: { githubHandle: { equals: cleanUsername, mode: "insensitive" } } });
-
-    let user = userByGhId || userByEmail || userByHandle;
-
-    if (user) {
-      if (ghId) {
-        await db.$executeRawUnsafe(
-          `UPDATE "User" SET "githubId" = NULL WHERE "githubId" = $1 AND "id" != $2;`,
-          ghId,
-          user.id
-        ).catch(() => {});
-      }
-      user = await db.user.update({
-        where: { id: user.id },
-        data: {
-          avatarUrl: ghAvatar,
-          name: ghName || user.name,
-          githubHandle: cleanUsername,
-          githubId: ghId
-        }
-      });
-    } else {
-      if (ghId) {
-        await db.$executeRawUnsafe(
-          `UPDATE "User" SET "githubId" = NULL WHERE "githubId" = $1;`,
-          ghId
-        ).catch(() => {});
-      }
-
-      let referredById: string | null = null;
-      if (referralCode) {
-        try {
-          const referrer = await db.user.findFirst({
-            where: {
-              OR: [
-                { referralCode: referralCode },
-                { id: referralCode }
-              ]
-            }
-          });
-          if (referrer) referredById = referrer.id;
-        } catch {}
-      }
-
-      const randomPass = await bcrypt.hash(Math.random().toString(36) + Date.now(), 10);
-      user = await db.user.create({
-        data: {
-          email: ghEmail,
-          password: randomPass,
-          name: ghName,
-          avatarUrl: ghAvatar,
-          githubHandle: cleanUsername,
-          githubId: ghId,
-          referralCode: generateReferralCode(),
-          referredById: referredById || undefined
-        }
-      });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name },
-      JWT_SECRET,
-      { expiresIn: "30d" }
-    );
-
-    res.json({
-      token,
-      user: formatUserResponse(user),
-      message: `Успешный вход через GitHub (@${cleanUsername})!`
-    });
-  } catch (error: any) {
-    console.error("GitHub fast login error:", error);
-    res.status(500).json({ error: error.message || "Ошибка авторизации через GitHub" });
-  }
+// 3. Instant GitHub Profile Sync & Fast Login - DISABLED for security
+app.post("/api/auth/github/fast-login", async (_req, res) => {
+  return res.status(403).json({ error: "Вход без подтверждения отключен в целях безопасности. Воспользуйтесь официальным входом через GitHub OAuth или Telegram." });
 });
 
 // 4. Sync / Refresh GitHub Profile (Avatar, Nickname, ID) for authenticated user
@@ -2881,6 +2833,11 @@ app.post("/api/billing/create-payment", async (req, res) => {
       return res.status(401).json({ error: "Сначала войдите в систему." });
     }
 
+    const clientIp = getClientIp(req);
+    if (!checkRateLimit("auth", `${clientIp}_billing_${authUser.id}`, 6, 60 * 1000)) {
+      return res.status(429).json({ error: "Слишком много запросов на создание платежа. Подождите 1 минуту." });
+    }
+
     const { plan, paymentMethod, promocode, returnUrl, billingCycle = "monthly" } = req.body;
     if (!["PRO", "ENTERPRISE"].includes(plan)) {
       return res.status(400).json({ error: "Недопустимый тариф для оплаты." });
@@ -2922,7 +2879,7 @@ app.post("/api/billing/create-payment", async (req, res) => {
 
     // Если способ оплаты 'promo' или сумма 0 руб -> мгновенная активация
     if (paymentMethod === "promo" || finalAmount === 0) {
-      if (!appliedPromo && finalAmount > 0) {
+      if (!appliedPromo || (appliedPromo.discountPercent || 0) < 100 || finalAmount > 0) {
         return res.status(400).json({ error: "Для активации по промокоду укажите корректный промокод со 100% скидкой." });
       }
 
@@ -3178,7 +3135,7 @@ app.get("/api/billing/payment-status/:paymentId", async (req, res) => {
   }
 });
 
-// 4. Подтверждение платежа (для универсального режима и клиентской кнопки подтверждения)
+// 4. Подтверждение платежа
 app.post("/api/billing/confirm-payment", async (req, res) => {
   try {
     const authUser = getAuthUser(req);
@@ -3201,6 +3158,27 @@ app.post("/api/billing/confirm-payment", async (req, res) => {
     }
 
     const payment = rows[0];
+    const isDev = isDeveloperEmail(authUser.email);
+
+    // If real money payment, verify with payment gateway before confirming
+    if (payment.amount > 0 && !isDev) {
+      if (payment.yooPaymentId && YOOKASSA_SHOP_ID && YOOKASSA_SECRET_KEY) {
+        const authHeader = "Basic " + Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString("base64");
+        const yooRes = await fetch(`https://api.yookassa.ru/v3/payments/${payment.yooPaymentId}`, {
+          headers: { Authorization: authHeader }
+        });
+        if (!yooRes.ok) {
+          return res.status(400).json({ error: "Не удалось получить подтверждение от платёжной системы." });
+        }
+        const yooData: any = await yooRes.json();
+        if (yooData.status !== "succeeded") {
+          return res.status(400).json({ error: `Статус платежа: ${yooData.status}. Ожидаем завершения оплаты.` });
+        }
+      } else if (process.env.NODE_ENV === "production") {
+        return res.status(400).json({ error: "Подтверждение возможно только после верификации платежной системой." });
+      }
+    }
+
     let days = 30;
     try {
       if (payment.metadata) {
@@ -3288,6 +3266,25 @@ app.post("/api/billing/yookassa-webhook", async (req, res) => {
       const yooPaymentId = yooPayment?.id;
 
       if (yooPaymentId) {
+        // Verify authenticity directly with YooKassa API if credentials configured
+        if (YOOKASSA_SHOP_ID && YOOKASSA_SECRET_KEY) {
+          try {
+            const authHeader = "Basic " + Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString("base64");
+            const verifyRes = await fetch(`https://api.yookassa.ru/v3/payments/${yooPaymentId}`, {
+              headers: { Authorization: authHeader }
+            });
+            if (!verifyRes.ok) {
+              return res.status(400).send("Webhook verification failed");
+            }
+            const verifyData: any = await verifyRes.json();
+            if (verifyData.status !== "succeeded") {
+              return res.status(400).send("Payment is not succeeded");
+            }
+          } catch (verErr) {
+            console.error("YooKassa webhook verification network error:", verErr);
+          }
+        }
+
         const rows: any = await db.$queryRawUnsafe(
           `SELECT * FROM "Payment" WHERE "yooPaymentId" = $1 LIMIT 1`,
           yooPaymentId
@@ -3330,12 +3327,12 @@ app.post("/api/billing/yookassa-webhook", async (req, res) => {
   }
 });
 
-// Auth Route: Изменить тарифный план (SaaS симуляция)
+// Auth Route: Изменить тарифный план (только для разработчиков платформы)
 app.post("/api/user/upgrade-plan", async (req, res) => {
   try {
     const authUser = getAuthUser(req);
-    if (!authUser) {
-      return res.status(401).json({ error: "Сначала войдите в систему." });
+    if (!authUser || !isDeveloperEmail(authUser.email)) {
+      return res.status(403).json({ error: "Доступ запрещен. Изменение тарифа осуществляется через форму оплаты." });
     }
 
     const { plan } = req.body; // "FREE", "PRO", "ENTERPRISE"
@@ -3618,6 +3615,10 @@ app.post("/api/shops/:id/claim", async (req, res) => {
     const authUser = getAuthUser(req);
     if (!authUser) {
       return res.status(401).json({ error: "Сначала войдите в аккаунт." });
+    }
+
+    if (!isAdminUser(authUser)) {
+      return res.status(403).json({ error: "Привязка заведений без владельца доступна только администраторам платформы." });
     }
 
     const { id } = req.params;
@@ -5012,10 +5013,28 @@ app.post("/api/shops", async (req, res) => {
 
       await ensureOrderSchema(db);
 
-      const { shopId, customerName, customerPhone, tableNumber, preferredTime, note, items, totalPrice, fulfillmentMethod, deliveryAddress } = req.body;
+      const { shopId, customerName, customerPhone, tableNumber, preferredTime, note, items, fulfillmentMethod, deliveryAddress } = req.body;
 
       if (!shopId) {
         return res.status(400).json({ error: "Идентификатор магазина не указан." });
+      }
+
+      const clientIp = getClientIp(req);
+      if (!checkRateLimit("orders", `${clientIp}_${shopId}_create`, 20, 60 * 1000)) {
+        return res.status(429).json({ error: "Слишком много заказов. Пожалуйста, подождите минуту перед следующим заказом." });
+      }
+
+      // Получаем магазин и проверяем статус работы
+      const shop = await db.shop.findUnique({
+        where: { id: shopId }
+      });
+
+      if (!shop) {
+        return res.status(404).json({ error: "Заведение не найдено." });
+      }
+
+      if (shop.isOpen === false) {
+        return res.status(400).json({ error: "Заведение сейчас закрыто и временно не принимает заказы." });
       }
 
       const nameRes = validateCustomerName(customerName);
@@ -5037,92 +5056,217 @@ app.post("/api/shops", async (req, res) => {
         return res.status(400).json({ error: "Превышено максимальное количество позиций в заказе (макс. 50)." });
       }
 
-      const parsedTotal = Number(totalPrice);
-      if (isNaN(parsedTotal) || parsedTotal <= 0) {
-        return res.status(400).json({ error: "Некорректная итоговая сумма заказа." });
+      // Строгая серверная проверка товаров и расчет стоимости из базы данных
+      const itemIds = Array.from(new Set(items.map((it: any) => typeof it?.id === "string" ? it.id : null).filter(Boolean))) as string[];
+      if (itemIds.length === 0) {
+        return res.status(400).json({ error: "Некорректный состав заказа." });
       }
 
-      if (parsedTotal > 1000000) {
+      const dbServices = await db.service.findMany({
+        where: {
+          id: { in: itemIds },
+          shopId: shop.id
+        }
+      });
+
+      const serviceMap = new Map(dbServices.map((s: any) => [s.id, s]));
+      let subtotal = 0;
+      const validatedItems: Array<{ id: string; title: string; price: number; quantity: number; note?: string }> = [];
+
+      for (const it of items) {
+        if (!it || !it.id) continue;
+        const s = serviceMap.get(it.id);
+        if (!s) {
+          return res.status(400).json({ error: "Один или несколько товаров не найдены или принадлежат другому заведению." });
+        }
+        if (s.isAvailable === false || s.moderationStatus === "REJECTED") {
+          return res.status(400).json({ error: `Товар «${s.title}» временно недоступен для заказа.` });
+        }
+        const qty = Math.floor(Number(it.quantity));
+        if (!Number.isFinite(qty) || qty <= 0 || qty > 999) {
+          return res.status(400).json({ error: `Некорректное количество для позиции «${s.title}».` });
+        }
+        const cleanItemNote = it.note ? String(it.note).trim().slice(0, 200) : undefined;
+        validatedItems.push({
+          id: s.id,
+          title: s.title,
+          price: s.price,
+          quantity: qty,
+          ...(cleanItemNote ? { note: cleanItemNote } : {})
+        });
+        subtotal += s.price * qty;
+      }
+
+      if (validatedItems.length === 0 || subtotal <= 0) {
+        return res.status(400).json({ error: "Некорректный состав заказа или нулевая сумма позиций." });
+      }
+
+      const cleanFulfillmentMethod = fulfillmentMethod ? String(fulfillmentMethod).trim() : "courier";
+      const cleanDeliveryAddress = (cleanFulfillmentMethod === "courier" || cleanFulfillmentMethod === "shipping")
+        ? (deliveryAddress ? String(deliveryAddress).trim().slice(0, 300) : null)
+        : null;
+      const cleanTableNumber = cleanFulfillmentMethod === "pickup" ? (tableNumber ? String(tableNumber).trim().slice(0, 30) : null) : null;
+      const cleanPreferredTime = preferredTime ? String(preferredTime).trim().slice(0, 30) : null;
+      const cleanNote = note ? String(note).trim().slice(0, 300) : null;
+
+      // Серверный расчет стоимости доставки
+      let parsedDeliveryOpts: any = {};
+      try {
+        if (shop.deliveryOptions) {
+          parsedDeliveryOpts = typeof shop.deliveryOptions === "string" ? JSON.parse(shop.deliveryOptions) : shop.deliveryOptions;
+        }
+      } catch {}
+      const minOrderVal = Number(parsedDeliveryOpts.deliveryMinOrder || parsedDeliveryOpts.minOrder || 0);
+      const freeDeliveryThresh = Number(parsedDeliveryOpts.freeDeliveryThreshold || 0);
+      const standardDeliveryFee = Number(parsedDeliveryOpts.deliveryFee || parsedDeliveryOpts.deliveryFeeVal || 0);
+
+      if (cleanFulfillmentMethod === "courier" && minOrderVal > 0 && subtotal < minOrderVal) {
+        return res.status(400).json({ error: `Минимальная сумма заказа для доставки курьером — ${minOrderVal} ₽.` });
+      }
+
+      let serverDeliveryFee = 0;
+      if (cleanFulfillmentMethod === "courier" || cleanFulfillmentMethod === "shipping") {
+        if (freeDeliveryThresh > 0 && subtotal >= freeDeliveryThresh) {
+          serverDeliveryFee = 0;
+        } else {
+          serverDeliveryFee = Math.max(0, standardDeliveryFee);
+        }
+      }
+
+      // Серверная проверка промокода и расчет скидки
+      let serverDiscount = 0;
+      let appliedPromocodeRecord: any = null;
+      if (req.body.promocode) {
+        const cleanPromo = String(req.body.promocode).trim().toUpperCase();
+        if (cleanPromo) {
+          const promo = await db.promocode.findFirst({
+            where: { shopId: shop.id, code: cleanPromo, isActive: true }
+          });
+          if (promo) {
+            const isExpired = promo.expiresAt && new Date(promo.expiresAt) < new Date();
+            const isExhausted = promo.maxUses && promo.usedCount >= promo.maxUses;
+            const isBelowMin = promo.minOrderAmount && subtotal < promo.minOrderAmount;
+            if (!isExpired && !isExhausted && !isBelowMin) {
+              appliedPromocodeRecord = promo;
+              if (promo.discountPercent && promo.discountPercent > 0) {
+                serverDiscount = Math.round(subtotal * (Math.min(100, promo.discountPercent) / 100));
+              } else if (promo.discountAmount && promo.discountAmount > 0) {
+                serverDiscount = Math.min(subtotal, promo.discountAmount);
+              }
+            }
+          }
+        }
+      }
+      serverDiscount = Math.min(subtotal, Math.max(0, serverDiscount));
+
+      // Серверная обработка чаевых
+      const rawTip = Number(req.body.tipAmount);
+      const serverTip = (Number.isFinite(rawTip) && rawTip > 0) ? Math.min(10000, Math.round(rawTip)) : 0;
+
+      // Серверная проверка бонусов клиента
+      let serverUsedPoints = 0;
+      const reqPoints = Number(req.body.usedPoints);
+      if (Number.isFinite(reqPoints) && reqPoints > 0) {
+        const existingCust = await (db as any).customer.findFirst({
+          where: { shopId: shop.id, phone: cleanPhone }
+        });
+        if (existingCust && existingCust.bonusBalance > 0) {
+          const maxPointsPossible = Math.min(existingCust.bonusBalance, Math.max(0, subtotal - serverDiscount));
+          serverUsedPoints = Math.min(Math.round(reqPoints), maxPointsPossible);
+        }
+      }
+
+      // Итоговая гарантированно серверная сумма
+      const serverTotal = Math.max(0, subtotal - serverDiscount + serverDeliveryFee + serverTip - serverUsedPoints);
+      if (serverTotal > 1000000) {
         return res.status(400).json({ error: "Сумма заказа превышает допустимый лимит (1 000 000 ₽)." });
       }
 
-      const cleanTableNumber = tableNumber ? String(tableNumber).trim().slice(0, 30) : null;
-      const cleanPreferredTime = preferredTime ? String(preferredTime).trim().slice(0, 30) : null;
-      const cleanNote = note ? String(note).trim().slice(0, 300) : null;
-      const cleanFulfillmentMethod = fulfillmentMethod ? String(fulfillmentMethod).trim() : "courier";
-      const cleanDeliveryAddress = deliveryAddress ? String(deliveryAddress).trim().slice(0, 300) : null;
-
-      // Получаем магазин для настроек Telegram
-      const shop = await db.shop.findUnique({
-        where: { id: shopId }
-      });
-
-      // 1. Сохраняем в PostgreSQL
-      const order = await (db.order.create as any)({
-        data: {
-          shopId,
-          customerName: customerName.trim(),
+      // Защита от дубликатов / повторных кликов (за последние 10 секунд)
+      const recentOrder = await db.order.findFirst({
+        where: {
+          shopId: shop.id,
           customerPhone: cleanPhone,
-          tableNumber: cleanTableNumber,
-          preferredTime: cleanPreferredTime,
-          note: cleanNote,
-          items: JSON.stringify(items),
-          totalPrice: Math.round(parsedTotal),
-          status: "PENDING",
-          fulfillmentMethod: cleanFulfillmentMethod,
-          deliveryAddress: cleanDeliveryAddress,
+          totalPrice: serverTotal,
+          createdAt: { gte: new Date(Date.now() - 10000) }
         },
+        orderBy: { createdAt: "desc" }
       });
+      if (recentOrder) {
+        return res.status(200).json({ ...recentOrder, order: recentOrder, isDuplicate: true });
+      }
 
-      // Обработка бонусов и кэшбэка клиента
-      try {
-        const usedPoints = Number(req.body.usedPoints) || 0;
-        const cashbackPercent = (shop as any)?.cashbackPercent !== undefined ? Number((shop as any).cashbackPercent) : 5;
-        const cashbackEarned = Math.round((Math.max(0, parsedTotal - usedPoints)) * (cashbackPercent / 100));
-
-        let customer = await (db as any).customer.findFirst({
-          where: { shopId, phone: cleanPhone }
+      // Атомарная транзакция: создание заказа, списание бонусов, начисление кэшбэка, счетчик промокода
+      const createdOrder = await (db as any).$transaction(async (tx: any) => {
+        const order = await tx.order.create({
+          data: {
+            shopId: shop.id,
+            customerName: customerName.trim(),
+            customerPhone: cleanPhone,
+            tableNumber: cleanTableNumber,
+            preferredTime: cleanPreferredTime,
+            note: cleanNote,
+            items: JSON.stringify(validatedItems),
+            totalPrice: serverTotal,
+            status: "PENDING",
+            fulfillmentMethod: cleanFulfillmentMethod,
+            deliveryAddress: cleanDeliveryAddress,
+          }
         });
 
-        if (!customer) {
-          await (db as any).customer.create({
+        if (appliedPromocodeRecord) {
+          await tx.promocode.update({
+            where: { id: appliedPromocodeRecord.id },
+            data: { usedCount: { increment: 1 } }
+          }).catch(() => {});
+        }
+
+        const cashbackPercent = (shop as any)?.cashbackPercent !== undefined ? Number((shop as any).cashbackPercent) : 5;
+        const cashbackEarned = Math.round((Math.max(0, serverTotal - serverTip)) * (cashbackPercent / 100));
+
+        const cust = await tx.customer.findFirst({
+          where: { shopId: shop.id, phone: cleanPhone }
+        });
+
+        if (!cust) {
+          await tx.customer.create({
             data: {
-              shopId,
+              shopId: shop.id,
               phone: cleanPhone,
               name: customerName.trim(),
-              bonusBalance: Math.max(0, cashbackEarned - usedPoints),
-              totalSpent: Math.round(parsedTotal),
+              bonusBalance: Math.max(0, cashbackEarned - serverUsedPoints),
+              totalSpent: serverTotal,
               ordersCount: 1
             }
           });
         } else {
-          const currentBalance = customer.bonusBalance || 0;
-          const newBalance = Math.max(0, currentBalance - usedPoints + cashbackEarned);
-          await (db as any).customer.update({
-            where: { id: customer.id },
+          const currentBal = cust.bonusBalance || 0;
+          const newBal = Math.max(0, currentBal - serverUsedPoints + cashbackEarned);
+          await tx.customer.update({
+            where: { id: cust.id },
             data: {
               name: customerName.trim(),
-              bonusBalance: newBalance,
-              totalSpent: (customer.totalSpent || 0) + Math.round(parsedTotal),
-              ordersCount: (customer.ordersCount || 0) + 1,
+              bonusBalance: newBal,
+              totalSpent: (cust.totalSpent || 0) + serverTotal,
+              ordersCount: (cust.ordersCount || 0) + 1,
               updatedAt: new Date()
             }
           });
         }
-      } catch (custErr) {
-        console.warn("Ошибка обновления данных бонусов клиента:", custErr);
-      }
 
-      // 2. Отправляем уведомление в Telegram (если настроено)
-      if (shop) {
-        broadcastTelegramNotification(db, shop, "NEW_ORDER", order).catch((e) =>
-          console.error("Ошибка при отправке в Telegram:", e)
-        );
-      }
+        return order;
+      });
 
-      broadcastEvent({ type: "ORDER_CREATED", shopId, payload: order });
-      broadcastEvent({ type: "CUSTOMER_UPDATED", shopId, payload: { phone: cleanPhone } });
-      res.status(201).json(order);
+      // Отправляем уведомление в Telegram (если настроено)
+      broadcastTelegramNotification(db, shop, "NEW_ORDER", createdOrder).catch((e) =>
+        console.error("Ошибка при отправке в Telegram:", e)
+      );
+
+      broadcastEvent({ type: "ORDER_CREATED", shopId: shop.id, payload: createdOrder });
+      broadcastEvent({ type: "CUSTOMER_UPDATED", shopId: shop.id, payload: { phone: cleanPhone } });
+
+      // Возвращаем и объект заказа, и вложенный order для совместимости с любым фронтендом
+      res.status(201).json({ ...createdOrder, order: createdOrder });
     } catch (error) {
       console.error("Ошибка при создании заказа:", error);
       res.status(500).json({ error: "Не удалось создать заказ." });
@@ -5165,6 +5309,11 @@ app.post("/api/shops", async (req, res) => {
     try {
       const { shopId } = req.params;
       const phone = req.query.phone as string;
+      const clientIp = getClientIp(req);
+      if (!checkRateLimit("orders", `${clientIp}_${shopId}_my`, 20, 60 * 1000)) {
+        return res.status(429).json({ error: "Слишком много запросов. Подождите минуту." });
+      }
+
       const db = getPrismaClient() as any;
       if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
 
@@ -5175,6 +5324,9 @@ app.post("/api/shops", async (req, res) => {
       }
 
       const cleanPhone = phone.replace(/[^0-9+]/g, '');
+      if (cleanPhone.length < 10) {
+        return res.json([]);
+      }
 
       const orders = await db.order.findMany({
         where: {
@@ -5182,7 +5334,7 @@ app.post("/api/shops", async (req, res) => {
           OR: [
             { customerPhone: phone },
             { customerPhone: cleanPhone },
-            ...(cleanPhone.length >= 10 ? [{ customerPhone: { contains: cleanPhone.slice(-10) } }] : [])
+            { customerPhone: { contains: cleanPhone.slice(-10) } }
           ]
         },
         orderBy: { createdAt: "desc" },
@@ -5233,6 +5385,8 @@ app.post("/api/shops", async (req, res) => {
   app.get("/api/orders/:id", async (req, res) => {
     try {
       const { id } = req.params;
+      const authUser = getAuthUser(req);
+      const phoneQuery = typeof req.query.phone === "string" ? req.query.phone.replace(/[^0-9+]/g, "") : null;
       const db = getPrismaClient();
       if (!db) {
         return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
@@ -5242,11 +5396,26 @@ app.post("/api/shops", async (req, res) => {
 
       const order = await db.order.findUnique({
         where: { id },
-        include: { shop: { select: { name: true, slug: true } } }
+        include: { shop: { select: { name: true, slug: true, phone: true } } }
       });
 
       if (!order) {
         return res.status(404).json({ error: "Заказ не найден." });
+      }
+
+      // Проверка прав: сотрудники заведения или покупатель с совпадающим номером телефона
+      const isStaff = await canProcessOrders(db, order.shopId, authUser);
+      const isOrderCustomer = Boolean(
+        phoneQuery && (
+          order.customerPhone === phoneQuery ||
+          (phoneQuery.length >= 10 && order.customerPhone.slice(-10) === phoneQuery.slice(-10))
+        )
+      );
+
+      if (!isStaff && !isOrderCustomer) {
+        return res.status(403).json({
+          error: "Доступ к информации о заказе ограничен. Авторизуйтесь как администратор заведения или укажите номер телефона покупателя."
+        });
       }
 
       res.json(order);
@@ -5827,6 +5996,7 @@ app.post("/api/shops", async (req, res) => {
     try {
       const { id } = req.params;
       const { customerName, rating, comment, imageUrl, authorToken } = req.body;
+      const authUser = getAuthUser(req);
       const db = getPrismaClient() as any;
       if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
 
@@ -5834,6 +6004,12 @@ app.post("/api/shops", async (req, res) => {
 
       const review = await db.review.findUnique({ where: { id } });
       if (!review) return res.status(404).json({ error: "Отзыв не найден." });
+
+      const isAdmin = isAdminUser(authUser);
+      const clientToken = (authorToken || req.headers["x-author-token"] || "").toString().trim();
+      if (!isAdmin && (!review.authorToken || review.authorToken !== clientToken)) {
+        return res.status(403).json({ error: "Вы можете редактировать только свой собственный отзыв." });
+      }
 
       const cleanName = customerName ? String(customerName).trim() : review.customerName;
       if (!cleanName || cleanName.length < 2) {
@@ -5904,7 +6080,7 @@ app.post("/api/shops", async (req, res) => {
     }
   });
 
-  // API Route: Удалить отзыв (запрещено для владельцев, разрешено для автора)
+  // API Route: Удалить отзыв (запрещено для владельцев, разрешено для автора или администратора)
   app.delete("/api/reviews/:id", async (req, res) => {
     try {
       const { id } = req.params;
@@ -5917,14 +6093,21 @@ app.post("/api/shops", async (req, res) => {
       const review = await db.review.findUnique({ where: { id } });
       if (!review) return res.status(404).json({ error: "Отзыв не найден." });
 
+      const isAdmin = isAdminUser(authUser);
+      const clientToken = (req.body?.authorToken || req.headers["x-author-token"] || req.query.authorToken || "").toString().trim();
+
       // Если запрос исходит от залогиненного владельца/админа заведения
-      if (authUser) {
+      if (authUser && !isAdmin) {
         const hasPermission = await canManageShop(db, review.shopId, authUser);
         if (hasPermission) {
           return res.status(403).json({ 
             error: "Владельцы заведений не могут удалять отзывы клиентов для сохранения объективности и честности рейтинга." 
           });
         }
+      }
+
+      if (!isAdmin && (!review.authorToken || review.authorToken !== clientToken)) {
+        return res.status(403).json({ error: "Удалить отзыв может только его автор или администратор платформы." });
       }
 
       await db.review.delete({ where: { id } });
@@ -6106,17 +6289,26 @@ app.post("/api/shops", async (req, res) => {
       const { phone } = req.query;
       if (!phone) return res.json(null);
 
+      const clientIp = getClientIp(req);
+      if (!checkRateLimit("orders", `${clientIp}_${shopId}_custinfo`, 20, 60 * 1000)) {
+        return res.status(429).json({ error: "Слишком много запросов. Подождите минуту." });
+      }
+
       const db = getPrismaClient() as any;
       if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
 
       await ensureOrderSchema(db);
 
       const cleanPhone = String(phone).replace(/[^\d+]/g, "");
+      if (cleanPhone.length < 10) {
+        return res.json(null);
+      }
+
       const customer = await db.customer.findFirst({
         where: { shopId, phone: cleanPhone }
       });
 
-      res.json(customer || null);
+      res.json(customer ? { name: customer.name, bonusBalance: customer.bonusBalance, phone: customer.phone } : null);
     } catch (error) {
       console.error("Ошибка получения данных клиента:", error);
       res.status(500).json({ error: "Не удалось получить профиль клиента." });
@@ -6358,6 +6550,11 @@ app.post("/api/shops", async (req, res) => {
       if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
 
       await ensureOrderSchema(db);
+
+      const hasPermission = await canManageShop(db, shopId, authUser);
+      if (!hasPermission) {
+        return res.status(403).json({ error: "У вас нет прав на просмотр рассылок этого заведения." });
+      }
 
       const broadcasts = await db.broadcast.findMany({
         where: { shopId },

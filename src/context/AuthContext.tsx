@@ -453,42 +453,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
-  const fastLoginWithGitHub = useCallback(async (username: string, referralCode?: string): Promise<{ user: User; token: string }> => {
-    let pendingRef: string | null = referralCode || null;
-    if (!pendingRef) {
-      try {
-        pendingRef = localStorage.getItem("pending_referral_code");
-      } catch {}
-    }
-
-    const res = await fetch("/api/auth/github/fast-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username,
-        referralCode: pendingRef || undefined
-      })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || "Не удалось войти через GitHub");
-    }
-
-    try {
-      localStorage.removeItem("pending_referral_code");
-    } catch {}
-
-    localStorage.setItem("auth_token", data.token);
-    localStorage.setItem("auth_user", JSON.stringify(data.user));
-    setToken(data.token);
-    setUser(data.user);
-
-    try {
-      window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
-    } catch {}
-
-    return { user: data.user, token: data.token };
+  const fastLoginWithGitHub = useCallback(async (_username: string, _referralCode?: string): Promise<{ user: User; token: string }> => {
+    throw new Error("Вход без подтверждения отключен в целях безопасности. Воспользуйтесь входом через GitHub OAuth или Telegram.");
   }, []);
 
   const loginWithTelegram = useCallback(async (customInitData?: string, referralCode?: string): Promise<{ user: User; token: string }> => {
@@ -534,42 +500,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { user: data.user, token: data.token };
   }, []);
 
-  const fastLoginWithTelegram = useCallback(async (username: string, referralCode?: string): Promise<{ user: User; token: string }> => {
-    let pendingRef: string | null = referralCode || null;
-    if (!pendingRef) {
-      try {
-        pendingRef = localStorage.getItem("pending_referral_code");
-      } catch {}
-    }
-
-    const res = await fetch("/api/auth/telegram/fast-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username,
-        referralCode: pendingRef || undefined
-      })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || "Не удалось войти через Telegram");
-    }
-
-    try {
-      localStorage.removeItem("pending_referral_code");
-    } catch {}
-
-    localStorage.setItem("auth_token", data.token);
-    localStorage.setItem("auth_user", JSON.stringify(data.user));
-    setToken(data.token);
-    setUser(data.user);
-
-    try {
-      window.dispatchEvent(new CustomEvent("app:auth_token_changed", { detail: { token: data.token } }));
-    } catch {}
-
-    return { user: data.user, token: data.token };
+  const fastLoginWithTelegram = useCallback(async (_username: string, _referralCode?: string): Promise<{ user: User; token: string }> => {
+    throw new Error("Вход без подтверждения отключен в целях безопасности. Воспользуйтесь входом через Telegram WebApp, Telegram Bot или E-mail.");
   }, []);
 
   const loginWithTelegramWidget = useCallback(async (widgetData: any, referralCode?: string): Promise<{ user: User; token: string }> => {

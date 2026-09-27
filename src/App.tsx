@@ -64,6 +64,16 @@ function DeveloperRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
 
+  useEffect(() => {
+    try {
+      const tg = (window as any).Telegram?.WebApp;
+      if (tg) {
+        tg.ready?.();
+        tg.expand?.();
+      }
+    } catch {}
+  }, []);
+
   return (
     <ThemeProvider>
       <LanguageProvider>

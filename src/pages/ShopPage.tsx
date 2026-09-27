@@ -1093,11 +1093,10 @@ export default function ShopPage() {
         onOpenReviews={handleOpenReviews}
         onOpenReport={() => setIsReportOpen(true)}
         onOpenMusic={() => setIsMusicModalOpen(true)}
-        onOpenChat={() => setIsPeerChatOpen(true)}
       />
 
       {/* Main Container */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 pb-28">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 pb-[max(7rem,calc(env(safe-area-inset-bottom)+5.5rem))]">
         
         {/* Hero Section */}
         <ShopHero
@@ -1107,6 +1106,7 @@ export default function ShopPage() {
           onOpenReviews={handleOpenReviews}
           onOpenMusic={() => setIsMusicModalOpen(true)}
           onOpenMap={() => setIsMapModalOpen(true)}
+          onOpenChat={() => setIsPeerChatOpen(true)}
         />
 
         {/* Active Order Tracker Banner */}
@@ -1226,7 +1226,7 @@ export default function ShopPage() {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 50, opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4 fast-panel-slide"
+            className="fixed bottom-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))] left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4 fast-panel-slide"
           >
             <button
               type="button"

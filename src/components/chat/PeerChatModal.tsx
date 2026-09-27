@@ -207,7 +207,7 @@ export const PeerChatModal: React.FC<PeerChatModalProps> = ({
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-lg h-[92vh] sm:h-[620px] max-h-[92vh] my-auto bg-app-surface border border-app-border rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-100 touch-auto relative z-[10000]"
+        className="w-full max-w-lg h-[92dvh] sm:h-[620px] max-h-[92dvh] my-auto bg-app-surface border border-app-border rounded-2xl sm:rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-100 touch-auto relative z-[10000]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -319,7 +319,7 @@ export const PeerChatModal: React.FC<PeerChatModalProps> = ({
         )}
 
         {/* Input Bar */}
-        <form onSubmit={handleSendMessage} className="p-3 border-t border-app-border bg-app-surface flex items-center gap-2">
+        <form onSubmit={handleSendMessage} className="p-3 border-t border-app-border bg-app-surface flex items-center gap-2 pb-[max(0.75rem,calc(env(safe-area-inset-bottom)+0.5rem))]">
           <input
             type="text"
             value={text}

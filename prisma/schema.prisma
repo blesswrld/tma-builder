@@ -37,6 +37,11 @@ model User {
   chatMessages          ChatMessage[]
   shops                 Shop[]
   createdAt             DateTime  @default(now())
+
+  @@index([role])
+  @@index([referredById])
+  @@index([phone])
+  @@index([githubId])
 }
 
 model ReferralReward {
@@ -48,6 +53,8 @@ model ReferralReward {
   months      Int      @default(1)
   claimedAt   DateTime @default(now())
   expiresAt   DateTime?
+
+  @@index([userId])
 }
 
 model VerificationCode {
@@ -57,6 +64,9 @@ model VerificationCode {
   type      String   @default("LOGIN") // REGISTER, LOGIN, RESET_PASSWORD
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([email, code])
+  @@index([expiresAt])
 }
 
 model Shop {
@@ -96,6 +106,9 @@ model Shop {
   broadcasts          Broadcast[]
   customers           Customer[]
   createdAt           DateTime    @default(now())
+
+  @@index([ownerId])
+  @@index([city])
 }
 
 model Broadcast {
@@ -110,6 +123,8 @@ model Broadcast {
   sentCount    Int      @default(0)
   status       String   @default("SENT") // SENT, SCHEDULED, DRAFT
   createdAt    DateTime @default(now())
+
+  @@index([shopId])
 }
 
 model Customer {
@@ -123,6 +138,10 @@ model Customer {
   ordersCount  Int      @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@unique([shopId, phone])
+  @@index([shopId])
+  @@index([phone])
 }
 
 model Banner {
@@ -136,32 +155,41 @@ model Banner {
   bgGradient  String?  @default("from-slate-900 to-indigo-950")
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
+
+  @@index([shopId])
 }
 
 model Service {
-  id          String   @id @default(cuid())
-  shopId      String
-  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  title       String
-  price       Int
-  oldPrice    Int?
-  description String?
-  category    String?
-  imageUrl    String?
-  gallery     String?
-  badge       String?
-  tags        String?
-  prepTime    String?
-  weight      String?
-  isAvailable Boolean  @default(true)
-  fulfillment String?  @default("pickup")
-  moderationStatus String @default("APPROVED") // APPROVED, PENDING, REJECTED
+  id               String    @id @default(cuid())
+  shopId           String
+  shop             Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  title            String
+  price            Int
+  oldPrice         Int?
+  description      String?
+  category         String?
+  imageUrl         String?
+  gallery          String?
+  badge            String?
+  tags             String?
+  prepTime         String?
+  weight           String?
+  isAvailable      Boolean   @default(true)
+  fulfillment      String?   @default("pickup")
+  moderationStatus String    @default("APPROVED") // APPROVED, PENDING, REJECTED
   moderationReason String?
-  isVip       Boolean  @default(false)
-  boostedAt   DateTime?
-  boostExpiresAt DateTime?
-  city        String?
-  createdAt   DateTime @default(now())
+  isVip            Boolean   @default(false)
+  boostedAt        DateTime?
+  boostExpiresAt   DateTime?
+  city             String?
+  createdAt        DateTime  @default(now())
+
+  @@index([shopId])
+  @@index([shopId, isAvailable])
+  @@index([shopId, category])
+  @@index([category])
+  @@index([isAvailable])
+  @@index([moderationStatus])
 }
 
 model Order {
@@ -179,6 +207,12 @@ model Order {
   fulfillmentMethod String?  @default("courier")
   deliveryAddress   String?
   createdAt         DateTime @default(now())
+
+  @@index([shopId])
+  @@index([shopId, createdAt])
+  @@index([customerPhone])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Promocode {
@@ -195,6 +229,9 @@ model Promocode {
   maxUses         Int       @default(100)
   usedCount       Int       @default(0)
   createdAt       DateTime  @default(now())
+
+  @@unique([shopId, code])
+  @@index([shopId])
 }
 
 model Review {
@@ -209,6 +246,11 @@ model Review {
   isEdited     Boolean  @default(false)
   authorToken  String?
   createdAt    DateTime @default(now())
+
+  @@index([shopId])
+  @@index([shopId, createdAt])
+  @@index([authorToken])
+  @@index([createdAt])
 }
 
 model Report {
@@ -225,6 +267,9 @@ model Report {
   developerEmail String?
   developerNotes String?
   createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([status])
 }
 
 model ShopMember {
@@ -233,6 +278,10 @@ model ShopMember {
   userId    String
   role      String   @default("STAFF")
   createdAt DateTime @default(now())
+
+  @@unique([shopId, userId])
+  @@index([shopId])
+  @@index([userId])
 }
 
 model ShopInvite {
@@ -245,6 +294,8 @@ model ShopInvite {
   usedCount   Int       @default(0)
   expiresAt   DateTime?
   createdAt   DateTime  @default(now())
+
+  @@index([shopId])
 }
 
 model Payment {
@@ -262,6 +313,9 @@ model Payment {
   metadata        String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
 
 model SystemPromocode {
@@ -295,6 +349,9 @@ model ChatMessage {
   editedAt          DateTime?
   deletedForUserIds String?
   createdAt         DateTime  @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Favorite {
@@ -338,5 +395,3 @@ model UserTransaction {
 
   @@index([userId])
 }
-
-

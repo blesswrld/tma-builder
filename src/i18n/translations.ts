@@ -331,6 +331,7 @@ export const translations: Record<SupportedLanguage, Record<string, string>> = {
     "shop.applied_successfully": "успешно применён!",
     "shop.bonus_program": "Бонусная программа",
     "shop.call": "Позвонить",
+    "shop.chat": "Чат",
     "shop.cancelled": "ОТМЕНЁН",
     "shop.cart_total": "Сумма заказа",
     "shop.cashback": "Кэшбэк",

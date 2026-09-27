@@ -60,14 +60,18 @@ export const ResponsiveImage = React.memo(function ResponsiveImage({
   };
 
   const handleImgError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    if (!hasError && fallbackSrc) {
-      setHasError(true);
-    }
+    setHasError(true);
     if (onError) onError(e);
   };
 
-  if (!effectiveSrc) {
-    return null;
+  if (!effectiveSrc || (hasError && !fallbackSrc)) {
+    return (
+      <div className={`flex items-center justify-center bg-app-surface text-app-muted border border-app-border/40 ${className} ${containerClassName}`}>
+        <span className="text-xs font-mono font-bold select-none opacity-60">
+          {alt ? alt.trim().charAt(0).toUpperCase() : "•"}
+        </span>
+      </div>
+    );
   }
 
   const content = (

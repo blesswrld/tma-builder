@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Clock, Info, Phone as PhoneIcon, MapPin, Gift, Truck, Store, Send, ExternalLink, MessageCircle, Globe, Music } from "lucide-react";
+import { Clock, Info, Phone as PhoneIcon, MapPin, Gift, Truck, Store, Send, ExternalLink, MessageCircle, Globe, Music, MessageSquare } from "lucide-react";
 import { Shop, parseSocialLinks, parseDeliveryOptions, parseMusicSettings } from "../../types";
 import { useLanguage } from "../../context/LanguageContext";
 import { ResponsiveImage } from "../common/ResponsiveImage";
@@ -13,6 +13,7 @@ interface ShopHeroProps {
   onOpenReviews?: () => void;
   onOpenMusic?: () => void;
   onOpenMap?: () => void;
+  onOpenChat?: () => void;
 }
 
 export const ShopHero: React.FC<ShopHeroProps> = ({
@@ -21,6 +22,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
   onOpenInfoModal,
   onOpenMusic,
   onOpenMap,
+  onOpenChat,
 }) => {
   const { t } = useLanguage();
   const handleOpenInfo = onOpenInfoModal || onOpenInfo || (() => {});
@@ -110,7 +112,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
             <button
               type="button"
               onClick={handleOpenInfo}
-              className="flex-1 sm:flex-initial h-9 px-3.5 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover hover:text-app-primary text-xs font-mono font-semibold text-app-secondary transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+              className="flex-1 sm:flex-initial h-9 px-3 sm:px-3.5 rounded-xl bg-app-surface border border-app-border hover:bg-app-hover hover:text-app-primary text-xs font-mono font-medium sm:font-semibold text-app-secondary transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-2xs active:scale-[0.98] min-w-[84px] whitespace-nowrap"
             >
               <Info size={14} className="text-app-muted shrink-0" />
               <span>{t("shop.about", "О заведении")}</span>
@@ -118,11 +120,21 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
             {shop.phone && (
               <a
                 href={`tel:${shop.phone}`}
-                className="flex-1 sm:flex-initial h-9 px-3.5 rounded-xl bg-app-surface text-app-secondary hover:text-app-primary border border-app-border hover:bg-app-hover text-xs font-mono font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                className="flex-1 sm:flex-initial h-9 px-3 sm:px-3.5 rounded-xl bg-app-surface text-app-secondary hover:text-app-primary border border-app-border hover:bg-app-hover text-xs font-mono font-medium sm:font-semibold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-2xs active:scale-[0.98] min-w-[84px] whitespace-nowrap"
               >
                 <PhoneIcon size={14} className="text-app-muted shrink-0" />
                 <span>{t("shop.call", "Позвонить")}</span>
               </a>
+            )}
+            {onOpenChat && (
+              <button
+                type="button"
+                onClick={onOpenChat}
+                className="flex-1 sm:flex-initial h-9 px-3 sm:px-3.5 rounded-xl bg-app-surface text-app-secondary hover:text-app-primary border border-app-border hover:bg-app-hover text-xs font-mono font-medium sm:font-semibold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-2xs active:scale-[0.98] min-w-[84px] whitespace-nowrap"
+              >
+                <MessageSquare size={14} className="text-app-muted shrink-0" />
+                <span>{t("shop.chat", "Чат")}</span>
+              </button>
             )}
           </div>
         </div>
