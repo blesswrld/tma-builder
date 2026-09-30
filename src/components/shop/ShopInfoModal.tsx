@@ -284,38 +284,6 @@ export const ShopInfoModal: React.FC<ShopInfoModalProps> = ({
                 </div>
               </div>
 
-              {/* Music / Atmosphere */}
-              {hasMusic && (
-                <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent border border-emerald-500/30 rounded-2xl flex items-center justify-between gap-3 shadow-xs">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-xs">
-                      <Music size={17} />
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-app-primary font-mono truncate">
-                        {musicSettings.title || t("shop.tracks", "Музыка салона")}
-                      </h4>
-                      <p className="text-[10px] text-app-secondary leading-snug truncate">
-                        {musicSettings.description || t("shop.tracks_desc", "Фоновая музыка заведения")}
-                      </p>
-                    </div>
-                  </div>
-
-                  {onOpenMusic && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        setTimeout(() => onOpenMusic(), 150);
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-mono text-xs font-bold transition-all cursor-pointer shrink-0 shadow-sm hover:scale-105 active:scale-95"
-                    >
-                      {t("shop.listen", "Слушать")}
-                    </button>
-                  )}
-                </div>
-              )}
-
               {/* Cashback Bonus System */}
               {hasCashback && (
                 <div className="p-3 bg-app-card border border-app-border rounded-2xl flex items-center gap-2.5 shadow-xs">
