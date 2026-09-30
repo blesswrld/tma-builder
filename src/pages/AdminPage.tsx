@@ -4206,24 +4206,17 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            {/* Minimalist PWA Install Icon Button with Tooltip */}
-            <InstallButton
-              variant="icon"
-              tooltipText={t("btn.install_app", "Установить приложение")}
-              className="hidden md:flex"
-            />
-
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {/* Global Theme Switcher */}
             <button
               onClick={toggleTheme}
-              className="p-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer hidden md:flex items-center justify-center shrink-0"
+              className="p-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0"
               title={theme === "dark" ? t("btn.theme_light", "Переключить на светлую тему") : t("btn.theme_dark", "Переключить на тёмную тему")}
             >
               {theme === "dark" ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-400" />}
             </button>
 
-            {/* Help Center & AI Search Button */}
+            {/* Help Center & Knowledge Base Button */}
             <button
               type="button"
               onClick={() => {
@@ -4231,60 +4224,12 @@ export default function AdminPage() {
                 setIsHelpCenterOpen(true);
               }}
               className="px-2.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 text-xs font-mono group"
-              title="Центр помощи & GitBook AI (?)"
+              title="Центр помощи (?)"
             >
               <Sparkles size={14} className="text-indigo-500 group-hover:rotate-12 transition-transform" />
               <span className="hidden sm:inline text-[11px] font-semibold">{t("btn.help", "Справка")}</span>
               <kbd className="hidden lg:inline text-[9px] font-bold text-app-muted border border-app-border/80 px-1 py-0.5 rounded bg-app-surface/50">?</kbd>
             </button>
-
-            {/* Explore Public Catalog Link */}
-            <Link
-              to="/explore"
-              className="px-2.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 text-xs font-mono"
-              title="Открыть единый каталог всех заведений"
-            >
-              <Compass size={14} className="text-emerald-500" />
-              <span className="hidden sm:inline text-[11px] font-semibold">Каталог</span>
-            </Link>
-
-            {/* Report Bug / Feedback Button */}
-            <button
-              type="button"
-              onClick={() => setIsReportModalOpen(true)}
-              className="px-2.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 text-xs font-mono"
-              title="Сообщить об ошибке / отправить идею"
-            >
-              <Bug size={14} className="text-app-muted" />
-              <span className="hidden sm:inline text-[11px] font-semibold">{t("btn.bug_report", "Баг-репорт")}</span>
-            </button>
-
-            {/* Docked Support 24/7 Chat Button (When floating badge was dismissed/closed into menu) */}
-            {!isDeveloperUser && (
-              <AnimatePresence>
-                {isSupportDockedToHeader && (
-                  <motion.button
-                    type="button"
-                    initial={{ opacity: 0, scale: 0.8, y: -10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.8, y: -10 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                    onClick={() => setIsFloatingSupportOpen(true)}
-                    className="relative px-2.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 text-xs font-mono group"
-                    title="Поддержка 24/7 & Чат с разработчиком"
-                  >
-                    <MessageSquare size={14} className="text-emerald-500 group-hover:scale-110 transition-transform" />
-                    <span className="text-[11px] font-semibold hidden sm:inline">Поддержка 24/7</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    {unreadChatCount > 0 && (
-                      <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">
-                        {unreadChatCount > 99 ? "99+" : unreadChatCount}
-                      </span>
-                    )}
-                  </motion.button>
-                )}
-              </AnimatePresence>
-            )}
 
             {["settings", "profile", "createshop", "addservice", "editservice"].includes(activeTab) && (
               <button
@@ -4305,7 +4250,7 @@ export default function AdminPage() {
                   setIsAddingService(true);
                   setActiveTab("services");
                 }}
-                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                className="px-3.5 py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <Plus size={14} /> <span>{t("btn.add_service", "Добавить услугу")}</span>
               </button>
@@ -5541,15 +5486,7 @@ export default function AdminPage() {
         </AnimatePresence>
       </div>
 
-      {/* Floating 24/7 Support Chat Widget for Regular Users */}
-      {!isDeveloperUser && (
-        <SupportChatWidget
-          forceOpen={isFloatingSupportOpen}
-          onOpenChange={setIsFloatingSupportOpen}
-          dockedToHeader={isSupportDockedToHeader}
-          onDockChange={setIsSupportDockedToHeader}
-        />
-      )}
+      {/* Floating widgets removed for clean UI */}
     </div>
   );
 }

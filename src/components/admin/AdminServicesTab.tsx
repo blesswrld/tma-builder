@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   Wallet,
+  MoreHorizontal,
 } from "lucide-react";
 import ImageUploader from "../ImageUploader";
 import { CustomNumberInput } from "../CustomNumberInput";
@@ -183,6 +184,13 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
   const [newGalleryInput, setNewGalleryInput] = useState("");
   const [boostingService, setBoostingService] = useState<{ id: string; title: string } | null>(null);
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
+  const [activeMenuServiceId, setActiveMenuServiceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = () => setActiveMenuServiceId(null);
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, []);
 
   const handleAddGalleryImage = (url: string) => {
     if (!url.trim()) return;
@@ -716,18 +724,12 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                       ))}
                     </div>
                   )}
-                  {/* Moderation & VIP Status */}
-                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  {/* Moderation & VIP Status - only show exceptions, not standard APPROVED */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                     {service.isVip && (
                       <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold flex items-center gap-1">
                         <Sparkles size={10} />
                         <span>VIP / ТОП</span>
-                      </span>
-                    )}
-                    {service.moderationStatus === "APPROVED" && (
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-semibold flex items-center gap-1">
-                        <ShieldCheck size={10} />
-                        <span>Одобрено</span>
                       </span>
                     )}
                     {service.moderationStatus === "PENDING" && (
@@ -752,7 +754,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                     onClick={() =>
                       handleToggleAvailability(service.id, !service.isAvailable)
                     }
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
                       service.isAvailable
                         ? "bg-app-card text-app-primary border border-app-border hover:border-app-accent"
                         : "bg-app-card text-app-muted border border-app-border opacity-70 hover:opacity-100"
@@ -760,38 +762,19 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                   >
                     {service.isAvailable ? (
                       <>
-                        <CheckCircle2 size={11} className="text-emerald-500" />
+                        <CheckCircle2 size={12} className="text-emerald-500" />
                         <span>Доступен</span>
                       </>
                     ) : (
                       <>
-                        <XCircle size={11} className="text-app-muted" />
+                        <XCircle size={12} className="text-app-muted" />
                         <span>Скрыт</span>
                       </>
                     )}
                   </button>
 
                   {!isStaff && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleDuplicateService(service)}
-                        className="p-1.5 text-app-secondary hover:text-app-primary rounded-lg bg-transparent hover:bg-app-card border border-transparent hover:border-app-border transition-all cursor-pointer active:scale-95"
-                        title="Дублировать"
-                      >
-                        <Copy size={13} />
-                      </button>
-                      {/* Boost to Top / VIP */}
-                      <button
-                        type="button"
-                        onClick={() => setBoostingService({ id: service.id, title: service.title })}
-                        className="px-2 py-1 text-amber-400 hover:text-amber-300 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all cursor-pointer active:scale-95 flex items-center gap-1"
-                        title="Поднять в ТОП / VIP"
-                      >
-                        <Flame size={12} />
-                        <span className="text-[10px] font-mono font-bold">В ТОП</span>
-                      </button>
-
+                    <div className="flex items-center gap-1.5 relative">
                       <button
                         type="button"
                         onClick={() => {
@@ -823,19 +806,81 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                             isAvailable: service.isAvailable !== false,
                           });
                         }}
-                        className="p-1.5 text-app-secondary hover:text-app-primary rounded-lg bg-transparent hover:bg-app-card border border-transparent hover:border-app-border transition-all cursor-pointer active:scale-95"
-                        title="Редактировать"
+                        className="px-2.5 py-1 text-app-primary hover:bg-app-card border border-app-border rounded-lg text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
                       >
-                        <Edit3 size={13} />
+                        <Edit3 size={12} className="text-app-muted" />
+                        <span>Изменить</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteService(service.id)}
-                        className="p-1.5 text-app-secondary hover:text-rose-500 rounded-lg bg-transparent hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 transition-all cursor-pointer active:scale-95"
-                        title="Удалить"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+
+                      {/* Clean Actions Overflow Menu */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuServiceId(activeMenuServiceId === service.id ? null : service.id);
+                          }}
+                          className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                            activeMenuServiceId === service.id
+                              ? "bg-app-card border-app-primary text-app-primary"
+                              : "text-app-muted hover:text-app-primary hover:bg-app-card border-transparent hover:border-app-border"
+                          }`}
+                          title="Дополнительные действия"
+                        >
+                          <MoreHorizontal size={14} />
+                        </button>
+
+                        <AnimatePresence>
+                          {activeMenuServiceId === service.id && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                              transition={{ duration: 0.1 }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 bottom-full mb-1.5 w-48 bg-[#121217] dark:bg-[#121217] border border-app-border rounded-xl shadow-2xl p-1 z-30 font-mono text-[11px] space-y-0.5"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuServiceId(null);
+                                  setBoostingService({ id: service.id, title: service.title });
+                                }}
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer text-left"
+                              >
+                                <Flame size={13} className="shrink-0" />
+                                <span>Поднять в ТОП / VIP</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuServiceId(null);
+                                  handleDuplicateService(service);
+                                }}
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-app-secondary hover:text-app-primary hover:bg-app-card rounded-lg transition-colors cursor-pointer text-left"
+                              >
+                                <Copy size={13} className="shrink-0" />
+                                <span>Дублировать</span>
+                              </button>
+
+                              <div className="my-1 border-t border-app-border/50" />
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuServiceId(null);
+                                  handleDeleteService(service.id);
+                                }}
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer text-left"
+                              >
+                                <Trash2 size={13} className="shrink-0" />
+                                <span>Удалить позицию</span>
+                              </button>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
                     </div>
                   )}
                 </div>

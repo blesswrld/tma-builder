@@ -234,15 +234,15 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
       {
         title: t("group.main", "Основное"),
         items: [
-          { id: "services", label: t("nav.services", "Меню и услуги"), icon: Layers, badge: (selectedShop?.services || []).length },
           { id: "orders", label: t("nav.orders", "Заказы"), icon: ShoppingBag, badge: pendingOrdersCount, alert: pendingOrdersCount > 0 },
-          { id: "shopchat", label: "Чат заведения", icon: MessageSquare, badge: unreadPeerChatCount, alert: unreadPeerChatCount > 0 },
+          { id: "services", label: t("nav.services", "Меню и услуги"), icon: Layers, badge: (selectedShop?.services || []).length },
           { id: "customers", label: t("nav.customers", "Клиенты CRM"), icon: Users, badge: (customers || []).length },
-          { id: "explore", label: "Витрина платформы", icon: Compass }
+          { id: "analytics", label: t("nav.analytics", "Аналитика"), icon: BarChart3 },
+          { id: "shopchat", label: "Чат заведения", icon: MessageSquare, badge: unreadPeerChatCount, alert: unreadPeerChatCount > 0 },
         ]
       },
       {
-        title: t("group.marketing", "Маркетинг & Продажи"),
+        title: t("group.marketing", "Маркетинг"),
         items: [
           { id: "promocodes", label: t("nav.promocodes", "Промокоды"), icon: Tag, badge: (promocodes || []).length },
           { id: "reviews", label: t("nav.reviews", "Отзывы"), icon: Star, badge: (reviews || []).length },
@@ -252,9 +252,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
         ]
       },
       {
-        title: t("group.management", "Управление & Инструменты"),
+        title: t("group.management", "Управление"),
         items: [
-          { id: "analytics", label: t("nav.analytics", "Аналитика"), icon: BarChart3 },
+          { id: "settings", label: t("nav.settings", "Настройки заведения"), icon: Settings },
           { id: "team", label: t("nav.team", "Команда и доступ"), icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
           { id: "botsim", label: t("nav.botsim", "Симулятор бота"), icon: Smartphone },
           { id: "payments", label: t("nav.payments", "История оплат"), icon: CreditCard }
@@ -327,6 +327,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
       navigate("/reports");
     } else if (tabId === "profile") {
       handleOpenProfile();
+    } else if (tabId === "settings") {
+      if (selectedShop) {
+        handleOpenSettings(selectedShop);
+      } else {
+        closeSubView();
+        setActiveTab("settings");
+      }
     } else {
       closeSubView();
       setActiveTab(tabId as any);
@@ -371,7 +378,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                     TMA BUILDER
                   </span>
                   <span className="px-1.5 py-0.2 rounded bg-app-card border border-app-border text-[9px] font-mono text-app-muted shrink-0">
-                    {CHANGELOG_DATA[0]?.version || "v2.9.0"}
+                    {CHANGELOG_DATA[0]?.version || "v3.0.0"}
                   </span>
                 </div>
 
@@ -412,13 +419,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               </button>
             ) : (
-              <div className="p-1.5 bg-app-card border border-app-border rounded-xl space-y-1.5 shadow-2xs">
-                <button
-                  type="button"
-                  onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
-                  className="w-full flex items-center justify-between gap-1.5 text-left transition-colors cursor-pointer group rounded-lg p-1 hover:bg-app-surface"
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="p-1.5 bg-app-card border border-app-border rounded-xl shadow-2xs">
+                <div className="flex items-center justify-between gap-1 p-0.5 rounded-lg hover:bg-app-surface transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
+                    className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer group p-1"
+                  >
                     <div className="w-6 h-6 rounded-lg bg-app-surface border border-app-border flex items-center justify-center shrink-0">
                       <Store size={13} className="text-app-primary" />
                     </div>
@@ -432,51 +439,26 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                         {selectedShop ? `/${selectedShop.slug}` : t("admin.no_shops", "нет заведений")}
                       </p>
                     </div>
-                  </div>
+                    <ChevronDown
+                      size={13}
+                      className={`text-app-muted group-hover:text-app-primary shrink-0 transition-transform duration-200 mr-1 ${
+                        isShopDropdownOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
 
-                  <ChevronDown
-                    size={13}
-                    className={`text-app-muted group-hover:text-app-primary shrink-0 transition-transform duration-200 ${
-                      isShopDropdownOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-
-                {/* Quick Shop Action Mini-Strip */}
-                {selectedShop && (
-                  <div className="flex items-center justify-between gap-1 pt-1 border-t border-app-border/50">
-                    {!isStaff && (
-                      <button
-                        type="button"
-                        onClick={handleOpenCreateShop}
-                        className="flex-1 py-1 px-1.5 rounded-md bg-app-surface hover:bg-app-hover border border-app-border/80 text-[10px] font-mono text-app-secondary hover:text-app-primary flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                        title={t("admin.create_new_shop", "Создать новое заведение")}
-                      >
-                        <Plus size={11} className="text-emerald-500" />
-                        <span>{t("admin.new_shop_short", "Новое")}</span>
-                      </button>
-                    )}
-                    {!isStaff && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenSettings(selectedShop)}
-                        className="p-1 rounded-md bg-app-surface hover:bg-app-hover border border-app-border/80 text-app-secondary hover:text-app-primary transition-all cursor-pointer active:scale-95"
-                        title={t("admin.shop_settings", "Настройки заведения")}
-                      >
-                        <Settings size={12} />
-                      </button>
-                    )}
+                  {selectedShop && (
                     <a
                       href={`/${selectedShop.slug}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 rounded-md bg-app-surface hover:bg-app-hover border border-app-border/80 text-app-secondary hover:text-app-primary transition-all cursor-pointer active:scale-95"
-                      title={t("admin.open_storefront", "Открыть витрину заведения")}
+                      className="p-1.5 rounded-lg text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border transition-colors cursor-pointer shrink-0"
+                      title={t("admin.open_storefront", "Открыть витрину заведения в новой вкладке")}
                     >
-                      <ExternalLink size={12} />
+                      <ExternalLink size={13} />
                     </a>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
 
@@ -852,48 +834,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                   </button>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* Micro Footer Links (when expanded) */}
-          {!isSidebarCollapsed && (
-            <div className="grid grid-cols-3 gap-1 pt-0.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPrivacyModalOpen(true);
-                  setIsSidebarOpen(false);
-                }}
-                className="p-1 bg-app-surface hover:bg-app-hover border border-app-border rounded-lg flex items-center justify-center gap-1 text-[9.5px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer text-center"
-                title={t("admin.privacy_policy", "Политика конфиденциальности")}
-              >
-                <ShieldCheck size={11} className="text-emerald-500 shrink-0" />
-                <span className="truncate">ФЗ-152</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsChangelogOpen(true);
-                  setIsSidebarOpen(false);
-                }}
-                className="p-1 bg-app-surface hover:bg-app-hover border border-app-border rounded-lg flex items-center justify-center gap-1 text-[9.5px] font-mono text-app-muted hover:text-app-primary transition-colors cursor-pointer text-center"
-                title={t("admin.changelog", "История обновлений")}
-              >
-                <Sparkles size={11} className="text-indigo-500 shrink-0" />
-                <span className="truncate">{CHANGELOG_DATA[0]?.version || "v2.9.0"}</span>
-              </button>
-
-              <a
-                href="https://github.com/blesswrld/tma-builder"
-                target="_blank"
-                rel="noreferrer"
-                className="p-1 bg-app-surface hover:bg-app-hover border border-app-border rounded-lg flex items-center justify-center gap-1 text-[9.5px] font-mono text-app-muted hover:text-app-primary transition-colors text-center"
-                title={t("admin.github_code", "Исходный код на GitHub")}
-              >
-                <Github size={11} className="text-app-primary shrink-0" />
-                <span className="truncate">Git</span>
-              </a>
             </div>
           )}
         </div>
