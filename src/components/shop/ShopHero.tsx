@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Clock, Info, Phone as PhoneIcon, MapPin, Gift, Truck, Store, Send, ExternalLink, MessageCircle, Globe, Music, MessageSquare } from "lucide-react";
-import { Shop, parseSocialLinks, parseDeliveryOptions, parseMusicSettings } from "../../types";
+import { Clock, Info, Phone as PhoneIcon, MapPin, Gift, Star, Music, MessageSquare } from "lucide-react";
+import { Shop, parseMusicSettings } from "../../types";
 import { useLanguage } from "../../context/LanguageContext";
 import { ResponsiveImage } from "../common/ResponsiveImage";
 
@@ -20,16 +20,15 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
   shop,
   onOpenInfo,
   onOpenInfoModal,
+  reviewsStats,
+  onOpenReviews,
   onOpenMusic,
   onOpenMap,
   onOpenChat,
 }) => {
   const { t } = useLanguage();
   const handleOpenInfo = onOpenInfoModal || onOpenInfo || (() => {});
-  const socials = parseSocialLinks(shop.socialLinks);
-  const delivery = parseDeliveryOptions(shop.deliveryOptions);
   const musicSettings = parseMusicSettings(shop.musicSettings);
-  const hasSocials = Boolean(socials.telegram || socials.instagram || socials.whatsapp || socials.vk || socials.website);
   const hasMusic = musicSettings.enabled !== false && Boolean(
     musicSettings.playlistUrl ||
     musicSettings.yandexMusicUrl ||
@@ -66,6 +65,23 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
         
+        {/* Atmospheric Music Equalizer trigger on banner */}
+        {hasMusic && onOpenMusic && (
+          <button
+            type="button"
+            onClick={onOpenMusic}
+            className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 h-8 px-2.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center gap-2 text-xs font-mono hover:bg-black/80 transition-all cursor-pointer shadow-md group"
+            title={musicSettings.title || "Музыка салона"}
+          >
+            <div className="flex items-end gap-0.5 h-3">
+              <span className="w-0.5 h-2 bg-emerald-400 animate-pulse rounded-full" />
+              <span className="w-0.5 h-3 bg-emerald-400 animate-pulse delay-75 rounded-full" />
+              <span className="w-0.5 h-1.5 bg-emerald-400 animate-pulse delay-150 rounded-full" />
+            </div>
+            <span className="text-[11px] font-medium hidden xs:inline">{musicSettings.title || "Музыка"}</span>
+          </button>
+        )}
+
         {/* Status Badge in top right corner */}
         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
           <span className="px-3 py-1.5 rounded-full text-xs font-mono font-bold flex items-center gap-2 backdrop-blur-md shadow-md border bg-black/60 text-white border-white/10">
@@ -76,7 +92,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
       </div>
 
       {/* Shop Content Header Body */}
-      <div className="px-4 sm:px-6 pb-6 pt-3 relative space-y-4">
+      <div className="px-4 sm:px-6 pb-5 pt-3 relative space-y-3.5">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-end gap-3.5">
             {/* Store Logo */}
@@ -97,17 +113,46 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
               )}
             </div>
             <div className="pt-1 sm:pt-0 min-w-0">
-              <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight text-app-primary dark:text-white truncate">{shop.name}</h1>
-              {shop.workingHours && (
-                <div className="flex items-center gap-1.5 text-xs text-app-muted font-mono mt-1">
-                  <Clock size={13} className="text-app-muted shrink-0" />
-                  <span>{shop.workingHours}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-app-primary dark:text-white truncate">
+                  {shop.name}
+                </h1>
+                {reviewsStats && reviewsStats.totalReviews > 0 && onOpenReviews && (
+                  <button
+                    type="button"
+                    onClick={onOpenReviews}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 transition-all text-xs font-mono font-bold cursor-pointer shrink-0 shadow-2xs"
+                    title={t("shop.reviews", "Отзывы")}
+                  >
+                    <Star size={13} className="fill-amber-400 text-amber-400" />
+                    <span>{reviewsStats.avgRating.toFixed(1)}</span>
+                    <span className="text-app-muted font-normal text-[11px]">({reviewsStats.totalReviews})</span>
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-app-muted font-mono mt-1">
+                {shop.workingHours && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Clock size={13} className="text-app-muted shrink-0" />
+                    <span>{shop.workingHours}</span>
+                  </div>
+                )}
+                {shop.address && (
+                  <button
+                    type="button"
+                    onClick={onOpenMap}
+                    className="flex items-center gap-1 hover:text-emerald-500 transition-colors text-app-muted cursor-pointer truncate max-w-[200px] sm:max-w-xs text-left"
+                    title="Посмотреть на карте"
+                  >
+                    <MapPin size={12} className="text-emerald-500 shrink-0" />
+                    <span className="truncate">{shop.address}</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Actions / Info trigger */}
+          {/* Actions: О заведении, Позвонить, Чат */}
           <div className="flex items-center gap-2 flex-wrap self-stretch sm:self-end">
             <button
               type="button"
@@ -141,120 +186,9 @@ export const ShopHero: React.FC<ShopHeroProps> = ({
 
         {/* Description / Welcome */}
         {shop.description && (
-          <p className="text-xs sm:text-sm text-app-secondary leading-relaxed pt-0.5 whitespace-pre-line">
+          <p className="text-xs sm:text-sm text-app-secondary leading-relaxed pt-0.5 whitespace-pre-line line-clamp-2">
             {shop.description}
           </p>
-        )}
-
-        {/* Quick Details Chips */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-mono">
-          {shop.address && (
-            <button
-              type="button"
-              onClick={onOpenMap}
-              className="h-8 px-3 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border hover:border-emerald-500/40 text-app-secondary hover:text-app-primary flex items-center gap-2 transition-all cursor-pointer group shadow-2xs"
-              title={t("shop.interactive_map", "Посмотреть на интерактивной карте")}
-            >
-              <MapPin size={13} className="text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
-              <span className="truncate max-w-[200px] sm:max-w-xs">{shop.address}</span>
-            </button>
-          )}
-
-          {Boolean(shop.cashbackPercent && Number(shop.cashbackPercent) > 0) && (
-            <div className="h-8 px-3 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center gap-2 font-medium shadow-2xs">
-              <Gift size={13} className="shrink-0 text-app-muted" />
-              <span>{t("shop.cashback", "Кэшбэк")} {shop.cashbackPercent}%</span>
-            </div>
-          )}
-
-          {delivery.enabled !== false && (delivery.courier !== false || Boolean(delivery.shipping)) && (
-            <div className="h-8 px-3 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center gap-2 font-medium shadow-2xs">
-              <Truck size={13} className="shrink-0 text-app-muted" />
-              <span>{t("shop.delivery", "Доставка")}</span>
-            </div>
-          )}
-
-          {delivery.enabled !== false && delivery.pickup !== false && (
-            <div className="h-8 px-3 rounded-xl bg-app-surface border border-app-border text-app-secondary flex items-center gap-2 shadow-2xs">
-              <Store size={13} className="text-app-muted shrink-0" />
-              <span>{t("shop.pickup", "Самовывоз")}</span>
-            </div>
-          )}
-
-          {hasMusic && onOpenMusic && (
-            <button
-              type="button"
-              onClick={onOpenMusic}
-              className="h-8 px-3 rounded-xl bg-app-surface hover:bg-app-hover border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center gap-2 transition-all cursor-pointer shadow-2xs"
-            >
-              <Music size={13} className="shrink-0" />
-              <span>{musicSettings.title || t("shop.tracks", "Музыка салона")}</span>
-            </button>
-          )}
-        </div>
-
-        {/* Social Networks Row */}
-        {hasSocials && (
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-app-border/40">
-            <span className="text-[10px] font-mono text-app-muted uppercase mr-1">{t("shop.socials", "Соцсети")}:</span>
-            {socials.telegram && (
-              <a
-                href={socials.telegram.startsWith("http") ? socials.telegram : `https://t.me/${socials.telegram.replace("@", "")}`}
-                target="_blank"
-                rel="noreferrer"
-                className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
-              >
-                <Send size={13} className="text-app-muted" />
-                <span>Telegram</span>
-              </a>
-            )}
-            {socials.instagram && (
-              <a
-                href={socials.instagram.startsWith("http") ? socials.instagram : `https://instagram.com/${socials.instagram}`}
-                target="_blank"
-                rel="noreferrer"
-                title="* Instagram принадлежит компании Meta Platforms Inc."
-                className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
-              >
-                <ExternalLink size={13} className="text-app-muted" />
-                <span>Instagram*</span>
-              </a>
-            )}
-            {socials.whatsapp && (
-              <a
-                href={socials.whatsapp.startsWith("http") ? socials.whatsapp : `https://wa.me/${socials.whatsapp.replace(/\D/g, "")}`}
-                target="_blank"
-                rel="noreferrer"
-                title="* WhatsApp принадлежит компании Meta Platforms Inc."
-                className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
-              >
-                <MessageCircle size={13} className="text-app-muted" />
-                <span>WhatsApp*</span>
-              </a>
-            )}
-            {socials.vk && (
-              <a
-                href={socials.vk.startsWith("http") ? socials.vk : `https://vk.com/${socials.vk}`}
-                target="_blank"
-                rel="noreferrer"
-                className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
-              >
-                <Globe size={13} className="text-app-muted" />
-                <span>{t("common.vkontakte", "ВКонтакте")}</span>
-              </a>
-            )}
-            {socials.website && (
-              <a
-                href={socials.website.startsWith("http") ? socials.website : `https://${socials.website}`}
-                target="_blank"
-                rel="noreferrer"
-                className="h-8 px-3 rounded-lg bg-app-surface border border-app-border text-app-primary hover:bg-app-hover text-xs font-mono font-medium flex items-center gap-1.5 transition-all shadow-2xs"
-              >
-                <Globe size={13} className="text-app-muted" />
-                <span>{t("common.website", "Сайт")}</span>
-              </a>
-            )}
-          </div>
         )}
       </div>
     </motion.div>

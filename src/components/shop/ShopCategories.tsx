@@ -39,19 +39,21 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
             {t("common.all", "Все")}
           </button>
           
-          {/* Favorites Category Tab */}
-          <button
-            type="button"
-            onClick={() => onSelectCategory("FAVORITES")}
-            className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all duration-75 active:scale-95 shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs ${
-              selectedCategory === "FAVORITES"
-                ? "bg-app-accent text-app-accent-fg font-bold shadow-xs"
-                : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
-            }`}
-          >
-            <Heart size={13} className={favoritesCount > 0 ? "fill-current text-rose-500" : "text-app-muted"} />
-            <span>{t("shop.favorites", "Избранное")} ({favoritesCount})</span>
-          </button>
+          {/* Favorites Category Tab - only shown when items are favorited */}
+          {favoritesCount > 0 && (
+            <button
+              type="button"
+              onClick={() => onSelectCategory("FAVORITES")}
+              className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all duration-75 active:scale-95 shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                selectedCategory === "FAVORITES"
+                  ? "bg-app-accent text-app-accent-fg font-bold shadow-xs"
+                  : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
+              }`}
+            >
+              <Heart size={13} className="fill-rose-500 text-rose-500" />
+              <span>{t("shop.favorites", "Избранное")} ({favoritesCount})</span>
+            </button>
+          )}
 
           {categories.map((cat) => (
             <button

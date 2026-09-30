@@ -422,49 +422,227 @@ function getRequestBaseUrl(req: express.Request): string {
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-function getPrismaClient(): PrismaClient | null {
+export function formatDatabaseUrl(rawUrl: string): string {
+  try {
+    let urlStr = rawUrl.trim();
+    if (!urlStr) return "";
+
+    // Replace Session Mode (5432) with Transaction Mode (6543) for Supabase Pooler
+    if (urlStr.includes("pooler.supabase.com:5432")) {
+      urlStr = urlStr.replace("pooler.supabase.com:5432", "pooler.supabase.com:6543");
+    }
+
+    const parsed = new URL(urlStr);
+    const isPooler = parsed.port === "6543" || parsed.hostname.includes("pooler.supabase.com");
+
+    if (!parsed.searchParams.has("sslmode")) {
+      parsed.searchParams.set("sslmode", "require");
+    }
+    if (isPooler && !parsed.searchParams.has("pgbouncer")) {
+      parsed.searchParams.set("pgbouncer", "true");
+    }
+    // CRITICAL: When using pgbouncer in transaction mode, statement_cache_size MUST be 0
+    // to prevent ConnectionReset / prepared statement collisions across pooled connections
+    if ((isPooler || parsed.searchParams.get("pgbouncer") === "true") && !parsed.searchParams.has("statement_cache_size")) {
+      parsed.searchParams.set("statement_cache_size", "0");
+    }
+    if (!parsed.searchParams.has("connection_limit")) {
+      parsed.searchParams.set("connection_limit", "5");
+    }
+    if (!parsed.searchParams.has("connect_timeout")) {
+      parsed.searchParams.set("connect_timeout", "15");
+    }
+    if (!parsed.searchParams.has("pool_timeout")) {
+      parsed.searchParams.set("pool_timeout", "15");
+    }
+    if (!parsed.searchParams.has("socket_timeout")) {
+      parsed.searchParams.set("socket_timeout", "30");
+    }
+    // TCP Keepalive to prevent idle drops by NAT / Cloud Firewalls
+    if (!parsed.searchParams.has("keepalives")) {
+      parsed.searchParams.set("keepalives", "1");
+    }
+    if (!parsed.searchParams.has("keepalives_idle")) {
+      parsed.searchParams.set("keepalives_idle", "20");
+    }
+    if (!parsed.searchParams.has("keepalives_interval")) {
+      parsed.searchParams.set("keepalives_interval", "10");
+    }
+    if (!parsed.searchParams.has("keepalives_count")) {
+      parsed.searchParams.set("keepalives_count", "3");
+    }
+
+    return parsed.toString();
+  } catch {
+    let fallback = rawUrl;
+    if (fallback.includes("pooler.supabase.com:5432")) {
+      fallback = fallback.replace("pooler.supabase.com:5432", "pooler.supabase.com:6543");
+    }
+    if (!fallback.includes("sslmode=")) {
+      fallback += (fallback.includes("?") ? "&" : "?") + "sslmode=require";
+    }
+    if ((fallback.includes(":6543") || fallback.includes("pooler.supabase.com")) && !fallback.includes("pgbouncer=")) {
+      fallback += "&pgbouncer=true";
+    }
+    if (fallback.includes("pgbouncer=true") && !fallback.includes("statement_cache_size=")) {
+      fallback += "&statement_cache_size=0";
+    }
+    if (!fallback.includes("connection_limit=")) {
+      fallback += "&connection_limit=5";
+    }
+    if (!fallback.includes("connect_timeout=")) {
+      fallback += "&connect_timeout=15&pool_timeout=15&socket_timeout=30&keepalives=1&keepalives_idle=20";
+    }
+    return fallback;
+  }
+}
+
+export function isConnectionError(err: any): boolean {
+  if (!err) return false;
+  const msg = String(err?.message || err);
+  const code = String(err?.code || "");
+  return (
+    code === "P1001" ||
+    code === "P1017" ||
+    code === "P2024" ||
+    msg.includes("Connection reset") ||
+    msg.includes("ConnectionReset") ||
+    msg.includes("104") ||
+    msg.includes("closed") ||
+    msg.includes("ECONNRESET") ||
+    msg.includes("broken pipe") ||
+    msg.includes("EPIPE") ||
+    msg.includes("Server has closed the connection") ||
+    msg.includes("Can't reach database server")
+  );
+}
+
+export function resetPrismaClient() {
+  if (globalForPrisma.prisma) {
+    const oldClient = globalForPrisma.prisma;
+    globalForPrisma.prisma = undefined;
+    try {
+      oldClient.$disconnect().catch(() => {});
+    } catch {}
+  }
+}
+
+export function getPrismaClient(): PrismaClient | null {
   try {
     if (globalForPrisma.prisma) return globalForPrisma.prisma;
 
-    let dbUrl = process.env.DATABASE_URL || "";
-    if (!dbUrl) return null;
+    const rawUrl = process.env.DATABASE_URL || "";
+    if (!rawUrl) return null;
 
-    // Автоматическая замена порта Session Mode (5432) на Transaction Mode (6543) для Supabase Pooler
-    if (dbUrl.includes("pooler.supabase.com:5432")) {
-      dbUrl = dbUrl.replace("pooler.supabase.com:5432", "pooler.supabase.com:6543");
-    }
+    const dbUrl = formatDatabaseUrl(rawUrl);
 
-    // Автоматическая настройка параметров для Supabase
-    if (!dbUrl.includes("sslmode=")) {
-      dbUrl += (dbUrl.includes("?") ? "&" : "?") + "sslmode=require";
-    }
-    // Если порт 6543 (Supabase Connection Pooler) или ссылка pooler, добавляем pgbouncer=true
-    if ((dbUrl.includes(":6543") || dbUrl.includes("pooler.supabase.com")) && !dbUrl.includes("pgbouncer=")) {
-      dbUrl += "&pgbouncer=true";
-    }
-
-    // Ограничиваем пул подключений до 2 штук, чтобы избежать превышения лимитов пулера
-    if (!dbUrl.includes("connection_limit=")) {
-      dbUrl += "&connection_limit=2";
-    }
-
-    // Таймауты подключения
-    if (!dbUrl.includes("connect_timeout=")) {
-      dbUrl += "&connect_timeout=10&pool_timeout=10";
-    }
-
-    const client = new PrismaClient({
+    const baseClient = new PrismaClient({
       datasources: { db: { url: dbUrl } },
       log: ["error"]
     });
 
-    globalForPrisma.prisma = client;
-    return client;
+    // Create resilient client with automatic retry on transient connection drops / resets
+    const extended = baseClient.$extends({
+      query: {
+        $allModels: {
+          async $allOperations({ model, operation, args, query }) {
+            try {
+              return await query(args);
+            } catch (err: any) {
+              if (isConnectionError(err)) {
+                console.warn(`[Prisma] Connection error in ${model}.${operation}, reconnecting and retrying:`, err?.message || err);
+                resetPrismaClient();
+                await new Promise((r) => setTimeout(r, 250));
+                const fresh = getPrismaClient();
+                if (fresh && (fresh as any)[model]?.[operation]) {
+                  return await (fresh as any)[model][operation](args);
+                }
+                return await query(args);
+              }
+              throw err;
+            }
+          }
+        }
+      }
+    }) as unknown as PrismaClient;
+
+    // Wrap raw execute and raw query methods to automatically retry on ConnectionReset
+    const rawExecute = extended.$executeRawUnsafe.bind(extended);
+    (extended as any).$executeRawUnsafe = async function (query: string, ...values: any[]) {
+      try {
+        return await rawExecute(query, ...values);
+      } catch (err: any) {
+        if (isConnectionError(err)) {
+          console.warn("[Prisma] Connection error in $executeRawUnsafe, reconnecting and retrying:", err?.message || err);
+          resetPrismaClient();
+          await new Promise((r) => setTimeout(r, 250));
+          const fresh = getPrismaClient();
+          if (fresh) {
+            return await fresh.$executeRawUnsafe(query, ...values);
+          }
+        }
+        throw err;
+      }
+    };
+
+    const rawQuery = extended.$queryRawUnsafe.bind(extended);
+    (extended as any).$queryRawUnsafe = async function (query: string, ...values: any[]) {
+      try {
+        return await rawQuery(query, ...values);
+      } catch (err: any) {
+        if (isConnectionError(err)) {
+          console.warn("[Prisma] Connection error in $queryRawUnsafe, reconnecting and retrying:", err?.message || err);
+          resetPrismaClient();
+          await new Promise((r) => setTimeout(r, 250));
+          const fresh = getPrismaClient();
+          if (fresh) {
+            return await fresh.$queryRawUnsafe(query, ...values);
+          }
+        }
+        throw err;
+      }
+    };
+
+    globalForPrisma.prisma = extended;
+    return extended;
   } catch (err) {
     console.error("Prisma client instantiation error:", err);
     return null;
   }
 }
+
+// Periodic TCP keepalive ping every 25 seconds to keep PgBouncer / firewall connection warm
+// and immediately detect & heal dropped connections before user requests hit them
+setInterval(async () => {
+  try {
+    const db = globalForPrisma.prisma;
+    if (!db) return;
+    await db.$queryRawUnsafe("SELECT 1");
+  } catch (err: any) {
+    if (isConnectionError(err)) {
+      console.warn("[Prisma] Keepalive ping detected connection reset, renewing client...");
+      resetPrismaClient();
+    }
+  }
+}, 25000);
+
+process.on("unhandledRejection", (reason: any) => {
+  if (isConnectionError(reason)) {
+    console.warn("[Process] Handled database connection rejection:", reason?.message || reason);
+    resetPrismaClient();
+    return;
+  }
+  console.error("[Process] Unhandled rejection:", reason);
+});
+
+process.on("uncaughtException", (error: any) => {
+  if (isConnectionError(error)) {
+    console.warn("[Process] Handled database connection exception:", error?.message || error);
+    resetPrismaClient();
+    return;
+  }
+  console.error("[Process] Uncaught exception:", error);
+});
 
 let orderSchemaChecked = false;
 let schemaInitPromise: Promise<void> | null = null;
@@ -872,7 +1050,10 @@ async function ensureOrderSchema(db: PrismaClient) {
         }
       }
       orderSchemaChecked = true;
-    })();
+    })().catch((err) => {
+      console.warn("[Prisma] Schema init error, will retry on next request:", err);
+      schemaInitPromise = null;
+    });
   }
   await schemaInitPromise;
 }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, FormEvent } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, ShoppingCart, ShieldCheck, Check, AlertCircle } from "lucide-react";
+import { ArrowRight, ShoppingCart, ShieldCheck, Check, AlertCircle, Compass, Bug } from "lucide-react";
 import NotFoundPage from "./NotFoundPage";
 import { ShopPageSkeleton } from "../components/Skeleton";
 import { useRealtime, useRealtimeEvent } from "../context/RealtimeContext";
@@ -294,6 +294,9 @@ export default function ShopPage() {
       try {
         localStorage.setItem(`favs_${slug}`, JSON.stringify(next));
       } catch (e) {}
+      if (next.length === 0 && selectedCategory === "FAVORITES") {
+        setSelectedCategory("ALL");
+      }
       return next;
     });
   };
@@ -1090,9 +1093,8 @@ export default function ShopPage() {
         onToggleTheme={toggleTheme}
         onOpenInfoModal={() => setShowInfoModal(true)}
         onOpenMyOrders={handleOpenMyOrders}
-        onOpenReviews={handleOpenReviews}
         onOpenReport={() => setIsReportOpen(true)}
-        onOpenMusic={() => setIsMusicModalOpen(true)}
+        hasActiveOrder={Boolean(activeOrder)}
       />
 
       {/* Main Container */}
@@ -1190,6 +1192,14 @@ export default function ShopPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 shrink-0">
+            <Link
+              to="/explore"
+              className="hover:text-app-primary flex items-center gap-1.5 transition-colors cursor-pointer text-app-secondary"
+            >
+              <Compass size={13} className="text-emerald-500 shrink-0" />
+              <span>Все заведения</span>
+            </Link>
+
             <button
               type="button"
               onClick={() => setIsPrivacyModalOpen(true)}
@@ -1213,6 +1223,16 @@ export default function ShopPage() {
               className="hover:text-app-primary transition-colors cursor-pointer"
             >
               {t("shop.reviews", "Отзывы")}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsReportOpen(true)}
+              className="hover:text-app-primary flex items-center gap-1.5 transition-colors cursor-pointer"
+              title={t("btn.bug_report", "Сообщить об ошибке")}
+            >
+              <Bug size={13} className="shrink-0" />
+              <span>{t("btn.bug_report", "Сообщить об ошибке")}</span>
             </button>
           </div>
         </footer>
