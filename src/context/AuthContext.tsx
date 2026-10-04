@@ -130,7 +130,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const checkAuth = async () => {
-      const storedToken = localStorage.getItem("auth_token");
+      let storedToken = localStorage.getItem("auth_token");
+      if (!storedToken && typeof window !== "undefined") {
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          const urlToken = urlParams.get("token");
+          if (urlToken) {
+            storedToken = urlToken;
+            localStorage.setItem("auth_token", urlToken);
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+          }
+        } catch {}
+      }
       if (!storedToken) {
         // Auto-login with Telegram WebApp if running inside Telegram
         const tg = (window as any).Telegram?.WebApp;
@@ -374,11 +386,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch {}
     }
 
-    const res = await fetch(`/api/auth/github/url?referralCode=${encodeURIComponent(pendingRef || "")}`);
+    const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+    const res = await fetch(`/api/auth/github/url?referralCode=${encodeURIComponent(pendingRef || "")}&origin=${encodeURIComponent(currentOrigin)}`);
     const data = await res.json();
 
-    if (!data.url) {
-      throw new Error(data.message || "GITHUB_CLIENT_ID не настроен на сервере");
+    if (!data.isConfigured || !data.url) {
+      throw new Error(data.message || "Авторизация через GitHub временно не настроена на сервере. Пожалуйста, используйте Telegram или E-mail.");
     }
 
     const width = 600;

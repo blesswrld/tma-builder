@@ -48,10 +48,7 @@ function DeveloperRoute({ children }: { children: React.ReactNode }) {
   }
 
   const isDev = Boolean(
-    user?.email && (
-      user.email.toLowerCase().trim() === "gelgaev.dev@mail.ru" ||
-      user.email.toLowerCase().trim() === "roninfortnite71@gmail.com"
-    )
+    user?.email && user.email.toLowerCase().trim() === "gelgaev.dev@mail.ru"
   );
 
   if (!isDev) {

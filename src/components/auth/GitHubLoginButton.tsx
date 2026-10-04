@@ -27,19 +27,10 @@ export const GitHubLoginButton: React.FC<GitHubLoginButtonProps> = ({
     setError(null);
 
     try {
-      // Check if OAuth URL is configured on the backend
-      const res = await fetch("/api/auth/github/url");
-      const data = await res.json();
-
-      if (!data.isConfigured || !data.url) {
-        setError("Авторизация через GitHub временно не настроена на сервере. Пожалуйста, используйте Telegram или E-mail.");
-        return;
-      }
-
       await loginWithGitHub(referralCode);
       onSuccess?.();
     } catch (err: any) {
-      if (err.message && err.message.includes("закрыто")) {
+      if (err.message && (err.message.includes("закрыто") || err.message.includes("closed"))) {
         // User closed popup deliberately
       } else {
         setError(err.message || "Ошибка авторизации через GitHub OAuth.");

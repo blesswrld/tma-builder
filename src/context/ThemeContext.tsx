@@ -34,14 +34,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       document.documentElement.classList.add(theme);
       localStorage.setItem("theme_mode", theme);
 
-      // Sync Telegram WebApp native top/bottom chrome
+      // Sync Telegram WebApp native top/bottom chrome (supported from Telegram WebApp v6.1+)
       try {
         const tg = (window as any).Telegram?.WebApp;
         if (tg) {
-          const bg = theme === "dark" ? "#09090c" : "#ffffff";
-          const secondaryBg = theme === "dark" ? "#101014" : "#f7f7f9";
-          tg.setHeaderColor?.(bg);
-          tg.setBackgroundColor?.(secondaryBg);
+          const supportsColors = typeof tg.isVersionAtLeast === "function" ? tg.isVersionAtLeast("6.1") : false;
+          if (supportsColors) {
+            const bg = theme === "dark" ? "#09090c" : "#ffffff";
+            const secondaryBg = theme === "dark" ? "#101014" : "#f7f7f9";
+            tg.setHeaderColor?.(bg);
+            tg.setBackgroundColor?.(secondaryBg);
+          }
         }
       } catch {}
     }

@@ -141,10 +141,7 @@ export default function AdminPage() {
 
   // Developer check for gelgaev.dev@mail.ru
   const isDeveloperUser = Boolean(
-    user?.email && (
-      user.email.toLowerCase().trim() === "gelgaev.dev@mail.ru" ||
-      user.email.toLowerCase().trim() === "roninfortnite71@gmail.com"
-    )
+    user?.email && user.email.toLowerCase().trim() === "gelgaev.dev@mail.ru"
   );
 
   // Developer unhandled reports counter

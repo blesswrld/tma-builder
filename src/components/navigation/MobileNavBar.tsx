@@ -32,8 +32,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
       user.role === "MODERATOR" ||
       user.role === "ADMIN" ||
       user.role === "DEVELOPER" ||
-      user.email?.toLowerCase().trim() === "gelgaev.dev@mail.ru" ||
-      user.email?.toLowerCase().trim() === "roninfortnite71@gmail.com"
+      user.email?.toLowerCase().trim() === "gelgaev.dev@mail.ru"
     )
   );
 

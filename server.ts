@@ -1,4 +1,5 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config();
 import fs from "fs";
 import nodeCrypto from "crypto";
 import express from "express";
@@ -43,7 +44,7 @@ export function isDeveloperEmail(email?: string | null): boolean {
   if (!email) return false;
   const normalized = email.toLowerCase().trim();
   const envDevs = (process.env.DEVELOPER_EMAILS || "").toLowerCase().split(",").map(e => e.trim()).filter(Boolean);
-  return normalized === "gelgaev.dev@mail.ru" || normalized === "roninfortnite71@gmail.com" || envDevs.includes(normalized);
+  return normalized === "gelgaev.dev@mail.ru" || envDevs.includes(normalized);
 }
 
 export function isAdminUser(user?: { email?: string | null; role?: string | null } | null): boolean {
@@ -81,6 +82,82 @@ const rateLimitMaps = {
   auth: new Map<string, number[]>()
 };
 
+// Brute force protection: failed password attempts tracker
+interface FailedPasswordRecord {
+  count: number;
+  firstAttemptAt: number;
+  lastAttemptAt: number;
+  lockedUntil?: number;
+}
+
+const failedPasswordTracker = new Map<string, FailedPasswordRecord>();
+
+export const MAX_PASSWORD_ATTEMPTS = 5;
+export const PASSWORD_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes lockout
+export const PASSWORD_WINDOW_MS = 15 * 60 * 1000;  // 15 minutes rolling attempt window
+
+export function getPasswordLockoutInfo(key: string): { isLocked: boolean; remainingSeconds: number; remainingMinutes: number } {
+  const record = failedPasswordTracker.get(key);
+  if (!record) return { isLocked: false, remainingSeconds: 0, remainingMinutes: 0 };
+
+  const now = Date.now();
+  if (record.lockedUntil && record.lockedUntil > now) {
+    const remainingSeconds = Math.ceil((record.lockedUntil - now) / 1000);
+    const remainingMinutes = Math.max(1, Math.ceil(remainingSeconds / 60));
+    return { isLocked: true, remainingSeconds, remainingMinutes };
+  }
+
+  // If lock expired, clear the lock and reset count
+  if (record.lockedUntil && record.lockedUntil <= now) {
+    failedPasswordTracker.delete(key);
+  }
+  return { isLocked: false, remainingSeconds: 0, remainingMinutes: 0 };
+}
+
+export function recordFailedPasswordAttempt(key: string): {
+  attempts: number;
+  remainingAttempts: number;
+  isLocked: boolean;
+  remainingMinutes: number;
+} {
+  const now = Date.now();
+  let record = failedPasswordTracker.get(key);
+
+  if (!record || (now - record.lastAttemptAt > PASSWORD_WINDOW_MS && !record.lockedUntil)) {
+    record = {
+      count: 1,
+      firstAttemptAt: now,
+      lastAttemptAt: now
+    };
+  } else {
+    record.count += 1;
+    record.lastAttemptAt = now;
+  }
+
+  if (record.count >= MAX_PASSWORD_ATTEMPTS) {
+    record.lockedUntil = now + PASSWORD_LOCKOUT_MS;
+    failedPasswordTracker.set(key, record);
+    return {
+      attempts: record.count,
+      remainingAttempts: 0,
+      isLocked: true,
+      remainingMinutes: Math.ceil(PASSWORD_LOCKOUT_MS / (60 * 1000))
+    };
+  }
+
+  failedPasswordTracker.set(key, record);
+  return {
+    attempts: record.count,
+    remainingAttempts: MAX_PASSWORD_ATTEMPTS - record.count,
+    isLocked: false,
+    remainingMinutes: 0
+  };
+}
+
+export function clearFailedPasswordAttempts(key: string) {
+  failedPasswordTracker.delete(key);
+}
+
 // Periodic cleanup of rate limit maps every 5 minutes
 setInterval(() => {
   const now = Date.now();
@@ -92,6 +169,14 @@ setInterval(() => {
       } else {
         map.set(key, valid);
       }
+    }
+  }
+
+  for (const [key, rec] of failedPasswordTracker.entries()) {
+    if (rec.lockedUntil) {
+      if (rec.lockedUntil < now) failedPasswordTracker.delete(key);
+    } else if (now - rec.lastAttemptAt > PASSWORD_WINDOW_MS) {
+      failedPasswordTracker.delete(key);
     }
   }
 }, 5 * 60 * 1000);
@@ -1693,13 +1778,9 @@ app.post("/api/auth/register", async (req, res) => {
 app.post("/api/auth/login", async (req, res) => {
   try {
     const clientIp = getClientIp(req);
-    if (!checkRateLimit("auth", `${clientIp}_login`, 10, 60 * 1000)) {
-      return res.status(429).json({ error: "Слишком много попыток входа. Подождите 1 минуту." });
+    if (!checkRateLimit("auth", `${clientIp}_login`, 20, 60 * 1000)) {
+      return res.status(429).json({ error: "Слишком много запросов на вход. Подождите 1 минуту." });
     }
-
-    const db = getPrismaClient();
-    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
-    await ensureOrderSchema(db);
 
     const { email, password } = req.body;
 
@@ -1708,16 +1789,77 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const cleanEmail = String(email).toLowerCase().trim();
+    const isDev = isDeveloperEmail(cleanEmail);
+    const emailKey = `email:${cleanEmail}`;
+    const ipKey = `ip:${clientIp}`;
+
+    // 1. Check if email or IP is currently locked out (developers exempted from lockout)
+    if (!isDev) {
+      const emailLock = getPasswordLockoutInfo(emailKey);
+      if (emailLock.isLocked) {
+        return res.status(429).json({
+          error: `Превышено допустимое число попыток ввода пароля. Вход в аккаунт временно заблокирован на ${emailLock.remainingMinutes} мин. в целях безопасности. Воспользуйтесь кнопкой «Забыли пароль?» для восстановления доступа.`
+        });
+      }
+
+      const ipLock = getPasswordLockoutInfo(ipKey);
+      if (ipLock.isLocked) {
+        return res.status(429).json({
+          error: `Слишком много неудачных попыток входа с вашего IP-адреса. Доступ временно заблокирован на ${ipLock.remainingMinutes} мин.`
+        });
+      }
+    }
+
+    const db = getPrismaClient();
+    if (!db) return res.status(500).json({ error: "Ошибка подключения к базе данных." });
+    await ensureOrderSchema(db);
 
     const user = await db.user.findUnique({ where: { email: cleanEmail } });
     if (!user) {
+      if (!isDev) {
+        const emailAttempt = recordFailedPasswordAttempt(emailKey);
+        recordFailedPasswordAttempt(ipKey);
+
+        if (emailAttempt.isLocked) {
+          return res.status(429).json({
+            error: `Превышено максимальное число попыток (${MAX_PASSWORD_ATTEMPTS}). Вход заблокирован на 15 минут.`
+          });
+        }
+      }
+
       return res.status(400).json({ error: "Неверный E-mail или пароль." });
     }
 
     const isValid = await bcrypt.compare(String(password), user.password);
     if (!isValid) {
-      return res.status(400).json({ error: "Неверный E-mail или пароль." });
+      if (isDev) {
+        return res.status(400).json({
+          error: "Неверный пароль разработчика. Проверьте правильность введенного пароля."
+        });
+      }
+
+      const emailAttempt = recordFailedPasswordAttempt(emailKey);
+      recordFailedPasswordAttempt(ipKey);
+
+      if (emailAttempt.isLocked) {
+        return res.status(429).json({
+          error: `Превышено максимальное число попыток ввода пароля (${MAX_PASSWORD_ATTEMPTS}). Вход в аккаунт временно заблокирован на 15 минут в целях безопасности. Воспользуйтесь кнопкой «Забыли пароль?» или повторите попытку позже.`
+        });
+      }
+
+      const remaining = emailAttempt.remainingAttempts;
+      const attemptWarning = remaining <= 2
+        ? ` Осталось попыток: ${remaining} перед блокировкой на 15 минут.`
+        : "";
+
+      return res.status(400).json({
+        error: `Неверный E-mail или пароль.${attemptWarning}`
+      });
     }
+
+    // Login successful: reset failed attempt counters
+    clearFailedPasswordAttempts(emailKey);
+    clearFailedPasswordAttempts(ipKey);
 
     if (user.isBanned) {
       return res.status(403).json({
@@ -1774,9 +1916,23 @@ app.post("/api/auth/telegram/webapp", async (req, res) => {
       return res.status(400).json({ error: "ID пользователя Telegram не найден." });
     }
 
-    // Cryptographic validation if TELEGRAM_AUTH_BOT_TOKEN or TELEGRAM_BOT_TOKEN is set
-    const botToken = (process.env.TELEGRAM_AUTH_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "").trim();
-    if (botToken) {
+    // Cryptographic validation against TELEGRAM_AUTH_BOT_TOKEN, TELEGRAM_BOT_TOKEN or configured Shop bot tokens
+    const primaryAuthToken = (process.env.TELEGRAM_AUTH_BOT_TOKEN || "").trim();
+    const fallbackBotToken = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
+    
+    // Collect potential shop bot tokens in case WebApp was launched from a connected venue bot
+    const shopTokensResult = await db.shop.findMany({
+      where: { botToken: { not: null } },
+      select: { botToken: true }
+    }).catch(() => []);
+    
+    const candidateBotTokens = Array.from(
+      new Set(
+        [primaryAuthToken, fallbackBotToken, ...shopTokensResult.map((s: any) => (s.botToken || "").trim())].filter(Boolean)
+      )
+    );
+
+    if (candidateBotTokens.length > 0) {
       if (!hash) {
         return res.status(401).json({ error: "Подпись Telegram (hash) отсутствует." });
       }
@@ -1789,29 +1945,35 @@ app.post("/api/auth/telegram/webapp", async (req, res) => {
         });
         dataCheckArr.sort();
         const dataCheckString = dataCheckArr.join("\n");
-        const secretKey = nodeCrypto.createHmac("sha256", "WebAppData").update(botToken).digest();
-        const calculatedHash = nodeCrypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
         
-        let matches = false;
-        try {
-          matches = nodeCrypto.timingSafeEqual(Buffer.from(calculatedHash, "hex"), Buffer.from(hash, "hex"));
-        } catch {}
+        let signatureMatched = false;
+        for (const token of candidateBotTokens) {
+          try {
+            const secretKey = nodeCrypto.createHmac("sha256", "WebAppData").update(token).digest();
+            const calculatedHash = nodeCrypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+            if (nodeCrypto.timingSafeEqual(Buffer.from(calculatedHash, "hex"), Buffer.from(hash, "hex"))) {
+              signatureMatched = true;
+              break;
+            }
+          } catch {}
+        }
 
-        if (!matches) {
-          return res.status(401).json({ error: "Недействительная криптографическая подпись данных Telegram." });
+        if (!signatureMatched) {
+          console.warn(`[Telegram WebApp Auth] Signature verification failed. Checked ${candidateBotTokens.length} bot token(s). User ID: ${tgUser?.id}`);
+          return res.status(401).json({ error: "Недействительная криптографическая подпись данных Telegram. Убедитесь, что приложение запускается через настроенного бота." });
         }
       } catch (cryptoErr) {
         console.error("Telegram WebApp HMAC error:", cryptoErr);
         return res.status(401).json({ error: "Ошибка проверки криптографической подписи Telegram." });
       }
 
-      // Replay attack prevention: check auth_date
+      // Replay attack prevention: check auth_date (allow up to 7 days for mobile background sessions)
       const authDateStr = params.get("auth_date");
       if (authDateStr) {
         const authDate = parseInt(authDateStr, 10);
         const now = Math.floor(Date.now() / 1000);
-        if (Number.isFinite(authDate) && Math.abs(now - authDate) > 86400) {
-          return res.status(401).json({ error: "Срок действия сессии Telegram истек (auth_date > 24ч). Перезапустите приложение." });
+        if (Number.isFinite(authDate) && Math.abs(now - authDate) > 86400 * 7) {
+          return res.status(401).json({ error: "Срок действия сессии Telegram истек. Перезапустите приложение в Telegram." });
         }
       }
     } else if (process.env.NODE_ENV === "production") {
@@ -2132,23 +2294,70 @@ app.put("/api/dev/users/:id/role", async (req, res) => {
 // GITHUB OAUTH & AUTHENTICATION ENDPOINTS
 // ==========================================
 
+export function getGitHubCredentials(): { clientId: string; clientSecret: string } {
+  let clientId = (process.env.GITHUB_CLIENT_ID || process.env.CLIENT_ID || "").trim();
+  let clientSecret = (process.env.GITHUB_CLIENT_SECRET || process.env.CLIENT_SECRET || "").trim();
+
+  // If missing from process.env, reload .env dynamically to pick up live edits
+  if (!clientId || !clientSecret) {
+    try {
+      dotenv.config({ override: true });
+      clientId = (process.env.GITHUB_CLIENT_ID || process.env.CLIENT_ID || clientId).trim();
+      clientSecret = (process.env.GITHUB_CLIENT_SECRET || process.env.CLIENT_SECRET || clientSecret).trim();
+    } catch {}
+  }
+
+  // Also direct fs parse fallback from .env file
+  if (!clientId || !clientSecret) {
+    try {
+      const envPath = path.resolve(process.cwd(), ".env");
+      if (fs.existsSync(envPath)) {
+        const raw = fs.readFileSync(envPath, "utf-8");
+        for (const line of raw.split("\n")) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+          const [key, ...rest] = trimmed.split("=");
+          const val = rest.join("=").replace(/^["']|["']$/g, "").trim();
+          if (key.trim() === "GITHUB_CLIENT_ID" && !clientId) {
+            clientId = val;
+            process.env.GITHUB_CLIENT_ID = val;
+          }
+          if (key.trim() === "GITHUB_CLIENT_SECRET" && !clientSecret) {
+            clientSecret = val;
+            process.env.GITHUB_CLIENT_SECRET = val;
+          }
+          if (key.trim() === "TELEGRAM_AUTH_BOT_TOKEN" && !process.env.TELEGRAM_AUTH_BOT_TOKEN) {
+            process.env.TELEGRAM_AUTH_BOT_TOKEN = val;
+          }
+          if (key.trim() === "TELEGRAM_AUTH_BOT_USERNAME" && !process.env.TELEGRAM_AUTH_BOT_USERNAME) {
+            process.env.TELEGRAM_AUTH_BOT_USERNAME = val;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return { clientId, clientSecret };
+}
+
 // 1. Get GitHub OAuth Authorize URL
 app.get("/api/auth/github/url", (req, res) => {
-  const clientId = process.env.GITHUB_CLIENT_ID || process.env.CLIENT_ID;
-  const clientSecret = process.env.GITHUB_CLIENT_SECRET || process.env.CLIENT_SECRET;
+  const { clientId, clientSecret } = getGitHubCredentials();
   const baseUrl = getRequestBaseUrl(req);
+  const clientOrigin = (req.query.origin as string) || req.headers.origin || "";
   const redirectUri = (req.query.redirect_uri as string) || `${baseUrl}/auth/callback`;
   const referralCode = (req.query.referralCode as string) || "";
   const statePayload = {
     ref: referralCode,
-    origin: baseUrl,
+    origin: clientOrigin || baseUrl,
+    redirectUri: redirectUri,
     time: Date.now()
   };
   const state = Buffer.from(JSON.stringify(statePayload)).toString("base64");
 
   const isConfigured = Boolean(clientId && clientId.trim() !== "" && clientSecret && clientSecret.trim() !== "");
   const authUrl = isConfigured
-    ? `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId!)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent("read:user user:email")}&state=${encodeURIComponent(state)}`
+    ? `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent("read:user user:email")}&state=${encodeURIComponent(state)}`
     : null;
 
   res.json({
@@ -2215,8 +2424,7 @@ app.get([
       `);
     }
 
-    const clientId = process.env.GITHUB_CLIENT_ID || process.env.CLIENT_ID;
-    const clientSecret = process.env.GITHUB_CLIENT_SECRET || process.env.CLIENT_SECRET;
+    const { clientId, clientSecret } = getGitHubCredentials();
 
     if (!clientId || !clientSecret) {
       const msg = "GITHUB_CLIENT_ID или GITHUB_CLIENT_SECRET не настроены в переменных окружения.";
@@ -2241,9 +2449,9 @@ app.get([
     }
 
     const baseUrl = stateObj.origin || getRequestBaseUrl(req);
-    // Use the actual pathname hit by the browser to match GitHub redirect_uri strictly
+    // Use the exact redirect_uri passed in state if present, else fallback
     const currentPath = req.path.replace(/\/$/, "");
-    const redirectUri = `${baseUrl}${currentPath || "/auth/callback"}`;
+    const redirectUri = stateObj.redirectUri || `${baseUrl}${currentPath || "/auth/callback"}`;
 
     // 1. Обмениваем временный код на GitHub access token
     const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
@@ -2543,7 +2751,8 @@ app.get([
               localStorage.setItem('auth_token', ${JSON.stringify(token)});
               localStorage.setItem('auth_user', JSON.stringify(authPayload.user));
             } catch(e) {}
-            window.location.href = '/admin';
+            const targetOrigin = ${JSON.stringify(stateObj.origin || baseUrl)};
+            window.location.href = targetOrigin + '/admin?token=' + encodeURIComponent(${JSON.stringify(token)});
           }
         </script>
       </body>
@@ -2847,10 +3056,28 @@ app.put("/api/user/profile", async (req, res) => {
 
       // Вариант 1: Через текущий пароль
       if (currentPassword && !emailCode) {
+        const changePwKey = `change_pw:${user.id}`;
+        const lock = getPasswordLockoutInfo(changePwKey);
+        if (lock.isLocked) {
+          return res.status(429).json({
+            error: `Слишком много неверных попыток ввода текущего пароля. Действие заблокировано на ${lock.remainingMinutes} мин.`
+          });
+        }
+
         const isMatch = await bcrypt.compare(String(currentPassword), user.password);
         if (!isMatch) {
-          return res.status(400).json({ error: "Текущий пароль указан неверно!" });
+          const attempt = recordFailedPasswordAttempt(changePwKey);
+          if (attempt.isLocked) {
+            return res.status(429).json({
+              error: `Превышено допустимое число попыток ввода текущего пароля (${MAX_PASSWORD_ATTEMPTS}). Действие заблокировано на 15 минут.`
+            });
+          }
+          const remainingMsg = attempt.remainingAttempts <= 2 ? ` Осталось попыток: ${attempt.remainingAttempts}.` : "";
+          return res.status(400).json({ error: `Текущий пароль указан неверно!${remainingMsg}` });
         }
+
+        clearFailedPasswordAttempts(changePwKey);
+
         if (String(newPassword).trim().toLowerCase() === String(currentPassword).trim().toLowerCase()) {
           return res.status(400).json({ error: "Новый пароль не должен совпадать с текущим паролем." });
         }
@@ -3402,12 +3629,7 @@ app.get("/api/billing/history", async (req, res) => {
     const db = getPrismaClient();
     if (!db) return res.status(500).json({ error: "Ошибка базы данных." });
 
-    const isDev = Boolean(
-      authUser.email && (
-        authUser.email.toLowerCase().trim() === "gelgaev.dev@mail.ru" ||
-        authUser.email.toLowerCase().trim() === "roninfortnite71@gmail.com"
-      )
-    );
+    const isDev = isDeveloperEmail(authUser.email);
 
     let rows: any[] = [];
     if (isDev && req.query.all === "true") {

@@ -30,6 +30,8 @@ export interface TelegramAuthSession {
 const authSessions = new Map<string, TelegramAuthSession>();
 // Codes map: key = phone or handle, value = { code, expiresAt, referralCode }
 const phoneCodeSessions = new Map<string, { code: string; expiresAt: number; referralCode?: string }>();
+// Failed verify attempts map: key = phone/sessionId, value = { count: number, lockedUntil?: number }
+const codeAttemptsMap = new Map<string, { count: number; lockedUntil?: number }>();
 
 // Cleanup stale sessions every 2 minutes
 setInterval(() => {
@@ -42,6 +44,11 @@ setInterval(() => {
   for (const [phone, codeInfo] of phoneCodeSessions.entries()) {
     if (codeInfo.expiresAt < now) {
       phoneCodeSessions.delete(phone);
+    }
+  }
+  for (const [key, attempt] of codeAttemptsMap.entries()) {
+    if (attempt.lockedUntil && attempt.lockedUntil < now) {
+      codeAttemptsMap.delete(key);
     }
   }
 }, 2 * 60 * 1000);
@@ -63,9 +70,7 @@ function normalizePhone(rawPhone?: string | null): string {
 }
 
 function formatUserResponse(user: any) {
-  const isDev =
-    user.email?.toLowerCase().trim() === "gelgaev.dev@mail.ru" ||
-    user.email?.toLowerCase().trim() === "roninfortnite71@gmail.com";
+  const isDev = user.email?.toLowerCase().trim() === "gelgaev.dev@mail.ru";
   let resolvedRole = user.role || "USER";
   if (isDev) {
     resolvedRole = "ADMIN";
@@ -892,6 +897,16 @@ export function setupTelegramAuthRoutes(app: Express, db: PrismaClient) {
       }
 
       const key = normPhone || cleanHandle;
+      const attemptKey = sessionId || key || "unknown";
+
+      const attemptInfo = codeAttemptsMap.get(attemptKey);
+      if (attemptInfo?.lockedUntil && attemptInfo.lockedUntil > Date.now()) {
+        const remainingMinutes = Math.max(1, Math.ceil((attemptInfo.lockedUntil - Date.now()) / (60 * 1000)));
+        return res.status(429).json({
+          error: `Превышено количество попыток ввода кода. Блокировка на ${remainingMinutes} мин. Запросите новый код позже.`
+        });
+      }
+
       const savedInfo = key ? phoneCodeSessions.get(key) : null;
       const session = sessionId ? authSessions.get(sessionId) : null;
 
@@ -900,8 +915,26 @@ export function setupTelegramAuthRoutes(app: Express, db: PrismaClient) {
         (session && session.verificationCode === cleanCode && session.expiresAt > Date.now());
 
       if (!isValidCode) {
-        return res.status(400).json({ error: "Неверный или устаревший проверочный код" });
+        const currentCount = (attemptInfo?.count || 0) + 1;
+        if (currentCount >= 5) {
+          codeAttemptsMap.set(attemptKey, { count: currentCount, lockedUntil: Date.now() + 15 * 60 * 1000 });
+          // Invalidate active session/code
+          if (key) phoneCodeSessions.delete(key);
+          if (session) session.status = "CANCELLED";
+          return res.status(429).json({
+            error: "Превышено максимальное число попыток ввода кода (5). Сессия аннулирована в целях безопасности. Запросите код заново."
+          });
+        }
+
+        codeAttemptsMap.set(attemptKey, { count: currentCount });
+        const remaining = 5 - currentCount;
+        return res.status(400).json({
+          error: `Неверный или устаревший проверочный код.${remaining <= 2 ? ` Осталось попыток: ${remaining}.` : ""}`
+        });
       }
+
+      // Success: clear attempt tracker
+      codeAttemptsMap.delete(attemptKey);
 
       // Resolve or create user
       const effectiveRef = referralCode || savedInfo?.referralCode || session?.referralCode;

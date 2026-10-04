@@ -222,7 +222,17 @@ export const TelegramAuthModal: React.FC<TelegramAuthModalProps> = ({
     };
   }, [isOpen, activeTab, phoneStep, activeSessionId, pollTelegramSession, onSuccess, onClose]);
 
-  if (!isOpen) return null;
+  useScrollLock(isOpen);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   // Format phone number as typing
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -294,18 +304,6 @@ export const TelegramAuthModal: React.FC<TelegramAuthModalProps> = ({
       setLoading(false);
     }
   };
-
-  useScrollLock(isOpen);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

@@ -139,10 +139,7 @@ export default function DeveloperUsersPage() {
   const { isConnected, lastEvent } = useRealtime();
 
   const isDeveloperUser = Boolean(
-    user?.email && (
-      user.email.toLowerCase().trim() === "gelgaev.dev@mail.ru" ||
-      user.email.toLowerCase().trim() === "roninfortnite71@gmail.com"
-    )
+    user?.email && user.email.toLowerCase().trim() === "gelgaev.dev@mail.ru"
   );
 
   const [users, setUsers] = useState<DevUser[]>([]);
@@ -1258,8 +1255,7 @@ export default function DeveloperUsersPage() {
               const isSelected = selectedUserIds.has(targetUser.id);
               const isExpanded = expandedUserIds.has(targetUser.id);
               const isDev =
-                targetUser.email.toLowerCase().trim() === "gelgaev.dev@mail.ru" ||
-                targetUser.email.toLowerCase().trim() === "roninfortnite71@gmail.com";
+                targetUser.email.toLowerCase().trim() === "gelgaev.dev@mail.ru";
 
               return (
                 <div
@@ -1649,8 +1645,7 @@ export default function DeveloperUsersPage() {
                   {filteredUsers.map((targetUser) => {
                     const isSelected = selectedUserIds.has(targetUser.id);
                     const isDev =
-                      targetUser.email.toLowerCase().trim() === "gelgaev.dev@mail.ru" ||
-                      targetUser.email.toLowerCase().trim() === "roninfortnite71@gmail.com";
+                      targetUser.email.toLowerCase().trim() === "gelgaev.dev@mail.ru";
 
                     return (
                       <tr
