@@ -65,15 +65,21 @@ export const ExploreHeader: React.FC<ExploreHeaderProps> = ({
                 </span>
                 {/* Live Realtime Indicator */}
                 <span
-                  className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-medium bg-app-card text-app-muted border border-app-border"
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold transition-all ${
+                    isRealtimeConnected
+                      ? "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-xs shadow-emerald-500/15"
+                      : "bg-app-card text-app-muted border border-app-border"
+                  }`}
                   title={isRealtimeConnected ? "Realtime синхронизация активна" : "Подключение к Realtime..."}
                 >
                   <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      isRealtimeConnected ? "bg-app-primary animate-pulse" : "bg-app-muted"
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      isRealtimeConnected
+                        ? "bg-emerald-500 shadow-xs shadow-emerald-500/60 animate-pulse ring-1 ring-emerald-400/40"
+                        : "bg-amber-500 animate-pulse"
                     }`}
                   />
-                  <span className="text-[10px] hidden min-[680px]:inline">
+                  <span className="text-[10px] font-bold tracking-tight">
                     {isRealtimeConnected ? "Live" : "Sync"}
                   </span>
                 </span>

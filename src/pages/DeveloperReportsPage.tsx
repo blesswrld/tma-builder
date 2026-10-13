@@ -676,18 +676,18 @@ export default function DeveloperReportsPage() {
 
           {/* Realtime WebSocket status */}
           <div
-            className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 bg-app-card border border-app-border rounded-xl text-[11px] font-mono transition-all duration-150 select-none shrink-0 flex-none ${
+            className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] font-mono transition-all duration-150 select-none shrink-0 flex-none ${
               isConnected
-                ? "text-app-primary"
-                : "text-app-muted animate-pulse"
+                ? "bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-xs shadow-emerald-500/10"
+                : "bg-app-card border border-app-border text-amber-500 animate-pulse"
             }`}
             title={isConnected ? "WebSocket соединение активно (Realtime)" : "Переподключение WebSocket..."}
           >
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${
                 isConnected
-                  ? "bg-app-primary"
-                  : "bg-app-muted"
+                  ? "bg-emerald-500 shadow-xs shadow-emerald-500/50 animate-pulse"
+                  : "bg-amber-500"
               }`}
             />
             <span className="hidden sm:inline font-bold tracking-tight whitespace-nowrap">

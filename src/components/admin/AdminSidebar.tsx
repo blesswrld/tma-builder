@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { CHANGELOG_DATA } from "../../data/changelogData";
 import { useLanguage } from "../../context/LanguageContext";
+import { useRealtime } from "../../context/RealtimeContext";
 
 interface Service {
   id: string;
@@ -186,6 +187,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
   onOpenNotificationBox
 }) => {
   const { t } = useLanguage();
+  const { isConnected } = useRealtime();
   const navigate = useNavigate();
   const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
   const [sidebarFilterQuery, setSidebarFilterQuery] = useState("");
@@ -372,13 +374,27 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
               </button>
             ) : (
               <>
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-1.5 min-w-0">
                   <img src="/favicon.svg" alt="TMA Builder" className="w-6 h-6 rounded-lg shrink-0 object-cover shadow-2xs border border-white/10" />
                   <span className="font-bold text-xs tracking-tight text-app-primary font-mono truncate">
                     TMA BUILDER
                   </span>
-                  <span className="px-1.5 py-0.2 rounded bg-app-card border border-app-border text-[9px] font-mono text-app-muted shrink-0">
-                    {CHANGELOG_DATA[0]?.version || "v3.0.0"}
+                  <span
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold transition-all shrink-0 ${
+                      isConnected
+                        ? "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-xs shadow-emerald-500/15"
+                        : "bg-app-card text-app-muted border border-app-border"
+                    }`}
+                    title={isConnected ? "Realtime синхронизация активна" : "Подключение к Realtime..."}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        isConnected
+                          ? "bg-emerald-500 shadow-xs shadow-emerald-500/60 animate-pulse ring-1 ring-emerald-400/40"
+                          : "bg-amber-500 animate-pulse"
+                      }`}
+                    />
+                    <span>{isConnected ? "Live" : "Sync"}</span>
                   </span>
                 </div>
 

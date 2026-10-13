@@ -37,6 +37,7 @@ import {
   generateUniqueNickname
 } from "./src/server/telegramAuth.js";
 import { parseTelegramSettings, maskTelegramToken } from "./src/types.js";
+import { appCache } from "./src/server/cache.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? nodeCrypto.randomBytes(48).toString("hex") : "smart-menu-secret-key-2026");
 
@@ -190,14 +191,22 @@ export function getClientIp(req: any): string {
 }
 
 export function checkRateLimit(type: "reviews" | "orders" | "messages" | "auth", key: string, limit: number, windowMs: number): boolean {
+  const map = rateLimitMaps[type];
+  if (map.size > 2500) {
+    let purged = 0;
+    for (const k of map.keys()) {
+      map.delete(k);
+      if (++purged >= 500) break;
+    }
+  }
   const now = Date.now();
-  const timestamps = rateLimitMaps[type].get(key) || [];
+  const timestamps = map.get(key) || [];
   const valid = timestamps.filter(t => now - t < windowMs);
   if (valid.length >= limit) {
     return false;
   }
   valid.push(now);
-  rateLimitMaps[type].set(key, valid);
+  map.set(key, valid);
   return true;
 }
 
@@ -239,92 +248,109 @@ export function isDeveloperOnline(): boolean {
   return false;
 }
 
+let presenceDebounceTimer: NodeJS.Timeout | null = null;
+
 export function broadcastPresenceUpdate(specificUserId?: string) {
-  const payload = {
-    userId: specificUserId,
-    onlineUserIds: getOnlineUserIds(),
-    devOnline: isDeveloperOnline(),
-    timestamp: Date.now()
-  };
-  broadcastEvent({
-    type: "PRESENCE_STATE",
-    payload
-  });
+  if (presenceDebounceTimer) return;
+  presenceDebounceTimer = setTimeout(() => {
+    presenceDebounceTimer = null;
+    const payload = {
+      userId: specificUserId,
+      onlineUserIds: getOnlineUserIds(),
+      devOnline: isDeveloperOnline(),
+      timestamp: Date.now()
+    };
+    broadcastEvent({
+      type: "PRESENCE_STATE",
+      payload
+    });
+  }, 1000);
 }
 
 export function broadcastEvent(event: { type: string; shopId?: string; userId?: string; payload?: any }) {
   const message = JSON.stringify(event);
+  const deadClients: RealtimeClient[] = [];
+
   clients.forEach((client) => {
-    if (client.ws.readyState === WebSocket.OPEN) {
-      // 1. Developers receive all events (including all chat messages and presence)
-      if (client.isDeveloper) {
-        try {
-          client.ws.send(message);
-        } catch (e) {
-          console.error("Error broadcasting to WS dev client:", e);
-        }
-        return;
-      }
+    if (client.ws.readyState !== WebSocket.OPEN) {
+      deadClients.push(client);
+      return;
+    }
 
-      // 2. Chat messages & chat read/delete events
-      if (event.type.startsWith("CHAT_")) {
-        const chatTargetUserId = event.userId || event.payload?.targetUserId || event.payload?.message?.userId;
-        const chatSenderId = event.payload?.senderId || event.payload?.deletedByUserId || event.payload?.message?.senderId;
-        if (client.userId && (client.userId === chatTargetUserId || client.userId === chatSenderId)) {
-          try {
-            client.ws.send(message);
-          } catch (e) {
-            console.error("Error broadcasting chat to user client:", e);
-          }
-        }
-        return;
-      }
-
-      // 3. Presence events are broadcast to all connected clients
-      if (event.type.startsWith("PRESENCE_")) {
-        try {
-          client.ws.send(message);
-        } catch (e) {}
-        return;
-      }
-
-      // 4. User-specific event (e.g. USER_UPDATED, PLAN_UPDATED, PAYMENT_UPDATED, USER_BANNED)
-      if (event.userId) {
-        if (client.userId && client.userId === event.userId) {
-          try {
-            client.ws.send(message);
-          } catch (e) {
-            console.error("Error broadcasting to WS user client:", e);
-          }
-        }
-        return;
-      }
-
-      // 5. Shop-specific event (e.g. ORDER_CREATED, SERVICE_UPDATED, REVIEW_CREATED, etc.)
-      if (event.shopId) {
-        if (
-          client.subscribedShopIds.size === 0 ||
-          client.subscribedShopIds.has(event.shopId) ||
-          client.subscribedShopIds.has("EXPLORE_ALL") ||
-          event.type.startsWith("SHOP_")
-        ) {
-          try {
-            client.ws.send(message);
-          } catch (e) {
-            console.error("Error broadcasting to WS shop client:", e);
-          }
-        }
-        return;
-      }
-
-      // 6. Global broadcast (e.g. system notifications, new report, shop list changes)
+    // 1. Developers receive all events (including all chat messages and presence)
+    if (client.isDeveloper) {
       try {
         client.ws.send(message);
       } catch (e) {
-        console.error("Error broadcasting to WS client:", e);
+        deadClients.push(client);
       }
+      return;
+    }
+
+    // 2. Chat messages & chat read/delete events
+    if (event.type.startsWith("CHAT_")) {
+      const chatTargetUserId = event.userId || event.payload?.targetUserId || event.payload?.message?.userId;
+      const chatSenderId = event.payload?.senderId || event.payload?.deletedByUserId || event.payload?.message?.senderId;
+      if (client.userId && (client.userId === chatTargetUserId || client.userId === chatSenderId)) {
+        try {
+          client.ws.send(message);
+        } catch (e) {
+          deadClients.push(client);
+        }
+      }
+      return;
+    }
+
+    // 3. Presence events are broadcast to all connected clients
+    if (event.type.startsWith("PRESENCE_")) {
+      try {
+        client.ws.send(message);
+      } catch (e) {
+        deadClients.push(client);
+      }
+      return;
+    }
+
+    // 4. User-specific event (e.g. USER_UPDATED, PLAN_UPDATED, PAYMENT_UPDATED, USER_BANNED)
+    if (event.userId) {
+      if (client.userId && client.userId === event.userId) {
+        try {
+          client.ws.send(message);
+        } catch (e) {
+          deadClients.push(client);
+        }
+      }
+      return;
+    }
+
+    // 5. Shop-specific event (e.g. ORDER_CREATED, SERVICE_UPDATED, REVIEW_CREATED, etc.)
+    if (event.shopId) {
+      if (
+        client.subscribedShopIds.size === 0 ||
+        client.subscribedShopIds.has(event.shopId) ||
+        client.subscribedShopIds.has("EXPLORE_ALL") ||
+        event.type.startsWith("SHOP_")
+      ) {
+        try {
+          client.ws.send(message);
+        } catch (e) {
+          deadClients.push(client);
+        }
+      }
+      return;
+    }
+
+    // 6. Global broadcast (e.g. system notifications, new report, shop list changes)
+    try {
+      client.ws.send(message);
+    } catch (e) {
+      deadClients.push(client);
     }
   });
+
+  if (deadClients.length > 0) {
+    deadClients.forEach(c => clients.delete(c));
+  }
 }
 
 
@@ -1281,8 +1307,15 @@ export const prisma = getPrismaClient();
 export const app = express();
 app.disable("x-powered-by");
 
-// High-performance gzip/brotli compression for API payloads and assets
-app.use(compression());
+// High-performance gzip/brotli compression for API payloads and assets with low CPU overhead
+app.use(compression({
+  level: 6,
+  threshold: 512,
+  filter: (req, res) => {
+    if (req.headers["x-no-compression"]) return false;
+    return compression.filter(req, res);
+  }
+}));
 
 // CORS & Security headers middleware allowing cross-origin requests from Vercel frontend / local / custom domains
 app.use((req, res, next) => {
@@ -2983,12 +3016,18 @@ app.get("/api/audio-proxy", (req, res) => {
   pipeAudioStream([streamUrl], res, req, 0);
 });
 
-// Auth Route: Профиль текущего пользователя
+// Auth Route: Профиль текущего пользователя (кешируется на 15 секунд для снижения нагрузки на БД)
 app.get("/api/auth/me", async (req, res) => {
   try {
     const authUser = getAuthUser(req);
     if (!authUser) {
       return res.status(401).json({ error: "Не авторизован." });
+    }
+
+    const cacheKey = `user:me:${authUser.id}`;
+    const cachedUser = appCache.get(cacheKey);
+    if (cachedUser) {
+      return res.json(cachedUser);
     }
 
     const db = getPrismaClient();
@@ -3018,7 +3057,9 @@ app.get("/api/auth/me", async (req, res) => {
       });
     }
 
-    res.json(formatUserResponse(user));
+    const formatted = formatUserResponse(user);
+    appCache.set(cacheKey, formatted, 15 * 1000);
+    res.json(formatted);
   } catch (error: any) {
     res.status(500).json({ error: "Ошибка получения профиля." });
   }
@@ -3152,6 +3193,7 @@ app.put("/api/user/profile", async (req, res) => {
     });
 
     const formattedUser = formatUserResponse(updated);
+    appCache.del(`user:me:${authUser.id}`);
     broadcastEvent({ type: "USER_UPDATED", payload: formattedUser });
 
     res.json({
@@ -4087,6 +4129,18 @@ app.get("/api/shops", async (req, res) => {
 // API Route: Публичный каталог всех заведений на платформе с фильтрами, поиском и пагинацией
 app.get(["/api/public/shops", "/api/explore/shops"], async (req, res) => {
   try {
+    const sortedQuery = Object.keys(req.query || {})
+      .sort()
+      .map(k => `${k}=${encodeURIComponent(String(req.query[k]))}`)
+      .join('&');
+    const cacheKey = `explore:${req.path}?${sortedQuery}`;
+    const cachedData = appCache.get(cacheKey);
+    if (cachedData) {
+      res.setHeader("X-Cache", "HIT");
+      res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=50");
+      return res.json(cachedData);
+    }
+
     const db = getPrismaClient();
     if (!db) {
       return res.status(500).json({ error: "Не удалось подключиться к базе данных." });
@@ -4346,7 +4400,7 @@ app.get(["/api/public/shops", "/api/explore/shops"], async (req, res) => {
     const pagedShops = filtered.slice(startIndex, startIndex + limit);
     const hasMore = startIndex + limit < total;
 
-    res.json({
+    const payload = {
       shops: pagedShops,
       total,
       page,
@@ -4360,7 +4414,12 @@ app.get(["/api/public/shops", "/api/explore/shops"], async (req, res) => {
         cities: Array.from(citiesMap.keys()).sort((a, b) => (citiesMap.get(b) || 0) - (citiesMap.get(a) || 0)),
         cityCounts: Object.fromEntries(citiesMap.entries()),
       },
-    });
+    };
+
+    appCache.set(cacheKey, payload, 60 * 1000); // 60s TTL
+    res.setHeader("X-Cache", "MISS");
+    res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=50");
+    res.json(payload);
   } catch (error: any) {
     console.error("Ошибка при получении публичного каталога заведений:", error);
     res.status(500).json({ error: "Внутренняя ошибка сервера: " + (error?.message || String(error)) });
@@ -4961,6 +5020,7 @@ app.post("/api/shops", async (req, res) => {
         }
       });
 
+      appCache.invalidateShop(shopId);
       broadcastEvent({ type: "SERVICE_CREATED", shopId, payload: service });
       res.status(201).json(service);
     } catch (error) {
@@ -5031,6 +5091,7 @@ app.post("/api/shops", async (req, res) => {
         }
       });
 
+      appCache.invalidateShop(updatedService.shopId);
       broadcastEvent({ type: "SERVICE_UPDATED", shopId: updatedService.shopId, payload: updatedService });
       res.json(updatedService);
     } catch (error) {
@@ -5062,6 +5123,7 @@ app.post("/api/shops", async (req, res) => {
         data: { isAvailable: !(service as any).isAvailable }
       });
 
+      appCache.invalidateShop(updated.shopId);
       broadcastEvent({ type: "SERVICE_UPDATED", shopId: updated.shopId, payload: updated });
       res.json(updated);
     } catch (error) {
@@ -5089,6 +5151,7 @@ app.post("/api/shops", async (req, res) => {
       }
 
       await db.service.delete({ where: { id } });
+      appCache.invalidateShop(service.shopId);
       broadcastEvent({ type: "SERVICE_DELETED", shopId: service.shopId, payload: { id } });
       res.json({ success: true });
     } catch (error) {
@@ -5230,6 +5293,13 @@ app.post("/api/shops", async (req, res) => {
 
       const rawParam = req.params.slug;
       const paramSlug = decodeURIComponent(rawParam).trim();
+      const cacheKey = `shop:${paramSlug.toLowerCase()}`;
+      const cachedShop = appCache.get(cacheKey);
+      if (cachedShop) {
+        res.setHeader("X-Cache", "HIT");
+        res.setHeader("Cache-Control", "public, max-age=5, stale-while-revalidate=15");
+        return res.json(cachedShop);
+      }
 
       let shop = await db.shop.findUnique({
         where: { slug: paramSlug },
@@ -5256,7 +5326,19 @@ app.post("/api/shops", async (req, res) => {
         return res.status(404).json({ error: "Заведение не найдено." });
       }
 
-      res.json(shop);
+      const safeShop = { ...shop };
+      delete (safeShop as any).botToken;
+      appCache.set(cacheKey, safeShop, 60 * 1000);
+      if (shop.id) {
+        appCache.set(`shop:${shop.id.toLowerCase()}`, safeShop, 60 * 1000);
+      }
+      if (shop.slug) {
+        appCache.set(`shop:${shop.slug.toLowerCase()}`, safeShop, 60 * 1000);
+      }
+
+      res.setHeader("X-Cache", "MISS");
+      res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=50");
+      res.json(safeShop);
     } catch (error) {
       console.error("Ошибка при получении заведения:", error);
       res.status(500).json({ error: "Внутренняя ошибка сервера." });
@@ -5394,6 +5476,8 @@ app.post("/api/shops", async (req, res) => {
         }
       });
       
+      appCache.invalidateShop(id);
+      if (updatedSlug) appCache.invalidateShop(updatedSlug);
       broadcastEvent({ type: "SHOP_UPDATED", shopId: id, payload: updatedShop });
       res.json(updatedShop);
     } catch (error) {
@@ -6299,11 +6383,18 @@ app.post("/api/shops", async (req, res) => {
   app.post("/api/promocodes/validate", validatePromoHandler);
   app.post("/api/public/promocodes/validate", validatePromoHandler);
 
-  // ==================== REVIEWS API ====================
   // API Route: Получить отзывы заведения
   app.get(["/api/shops/:shopId/reviews", "/api/public/shops/:shopId/reviews"], async (req, res) => {
     try {
       const { shopId } = req.params;
+      const cacheKey = `reviews:${shopId}`;
+      const cachedReviews = appCache.get(cacheKey);
+      if (cachedReviews) {
+        res.setHeader("X-Cache", "HIT");
+        res.setHeader("Cache-Control", "public, max-age=5, stale-while-revalidate=20");
+        return res.json(cachedReviews);
+      }
+
       const db = getPrismaClient() as any;
       if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
 
@@ -6321,13 +6412,18 @@ app.post("/api/shops", async (req, res) => {
         ? (reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / count).toFixed(1)
         : "5.0";
 
-      res.json({
+      const payload = {
         reviews,
         stats: {
           totalReviews: count,
           avgRating: Number(avgRating)
         }
-      });
+      };
+
+      appCache.set(cacheKey, payload, 60 * 1000);
+      res.setHeader("X-Cache", "MISS");
+      res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=50");
+      res.json(payload);
     } catch (error) {
       console.error("Ошибка при получении отзывов:", error);
       res.status(500).json({ error: "Не удалось загрузить отзывы." });
@@ -6386,6 +6482,7 @@ app.post("/api/shops", async (req, res) => {
         console.warn("Ошибка проверки параметров Telegram для отзыва:", tgErr);
       }
 
+      appCache.invalidateShop(shopId);
       broadcastEvent({ type: "REVIEW_CREATED", shopId, payload: review });
       res.status(201).json(review);
     } catch (error) {
@@ -6475,6 +6572,7 @@ app.post("/api/shops", async (req, res) => {
         data: { reply: cleanReply }
       });
 
+      appCache.invalidateShop(review.shopId);
       broadcastEvent({ type: "REVIEW_UPDATED", shopId: review.shopId, payload: updated });
       res.json(updated);
     } catch (error) {
@@ -6514,6 +6612,7 @@ app.post("/api/shops", async (req, res) => {
       }
 
       await db.review.delete({ where: { id } });
+      appCache.invalidateShop(review.shopId);
 
       broadcastEvent({ type: "REVIEW_DELETED", shopId: review.shopId, payload: { id } });
       res.json({ success: true, message: "Отзыв успешно удален." });
@@ -6527,6 +6626,14 @@ app.post("/api/shops", async (req, res) => {
   app.get(["/api/shops/:shopId/banners", "/api/public/shops/:shopId/banners"], async (req, res) => {
     try {
       const { shopId } = req.params;
+      const cacheKey = `banners:${shopId}`;
+      const cachedBanners = appCache.get(cacheKey);
+      if (cachedBanners) {
+        res.setHeader("X-Cache", "HIT");
+        res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=30");
+        return res.json(cachedBanners);
+      }
+
       const db = getPrismaClient() as any;
       if (!db) return res.status(500).json({ error: "Не удалось инициализировать БД." });
 
@@ -6537,6 +6644,9 @@ app.post("/api/shops", async (req, res) => {
         orderBy: { createdAt: "desc" }
       });
 
+      appCache.set(cacheKey, banners, 60 * 1000);
+      res.setHeader("X-Cache", "MISS");
+      res.setHeader("Cache-Control", "public, max-age=15, stale-while-revalidate=45");
       res.json(banners);
     } catch (error) {
       console.error("Ошибка при получении баннеров:", error);
@@ -6583,6 +6693,7 @@ app.post("/api/shops", async (req, res) => {
         }
       });
 
+      appCache.invalidateShop(shopId);
       broadcastEvent({ type: "BANNER_CREATED", shopId, payload: banner });
       res.status(201).json(banner);
     } catch (error: any) {
@@ -6610,6 +6721,7 @@ app.post("/api/shops", async (req, res) => {
       }
 
       await db.banner.delete({ where: { id } });
+      appCache.invalidateShop(banner.shopId);
       broadcastEvent({ type: "BANNER_DELETED", shopId: banner.shopId, payload: { id } });
       res.json({ success: true });
     } catch (error) {
@@ -10125,8 +10237,26 @@ if (!process.env.VERCEL) {
         }
         next();
       });
-      app.use(express.static(distPath));
-      app.get("*", (req, res) => {
+      // Aggressive HTTP caching for production assets to save server memory, CPU and bandwidth
+      app.use(express.static(distPath, {
+        maxAge: "365d",
+        immutable: true,
+        index: false,
+        setHeaders: (res, filePath) => {
+          if (
+            filePath.endsWith("index.html") ||
+            filePath.endsWith("sw.js") ||
+            filePath.endsWith("manifest.json") ||
+            filePath.endsWith("manifest.webmanifest")
+          ) {
+            res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+          } else {
+            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          }
+        }
+      }));
+      app.get("*", (_req, res) => {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         res.sendFile(path.join(distPath, "index.html"));
       });
     }
@@ -10134,7 +10264,32 @@ if (!process.env.VERCEL) {
     const httpServer = createServer(app);
     const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
-    wss.on("connection", (ws, req) => {
+    // Periodic heartbeat reaper every 35 seconds to terminate dead half-open connections
+    // and prevent socket leaks in memory during mobile sleep / network handoffs
+    const wsHeartbeatInterval = setInterval(() => {
+      wss.clients.forEach((wsClient: any) => {
+        if (wsClient.isAlive === false) {
+          try {
+            wsClient.terminate();
+          } catch {}
+          return;
+        }
+        wsClient.isAlive = false;
+        try {
+          wsClient.ping();
+        } catch {
+          wsClient.terminate();
+        }
+      });
+    }, 35000);
+    if (wsHeartbeatInterval.unref) wsHeartbeatInterval.unref();
+
+    wss.on("connection", (ws: any, req) => {
+      ws.isAlive = true;
+      ws.on("pong", () => {
+        ws.isAlive = true;
+      });
+
       let initialUserId: string | undefined;
       let initialIsDev = false;
 
