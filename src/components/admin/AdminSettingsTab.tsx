@@ -25,7 +25,8 @@ import {
   Music,
   MapPin,
   Search,
-  X
+  X,
+  Lock
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ImageUploader from "../ImageUploader";
@@ -104,6 +105,7 @@ interface AdminSettingsTabProps {
   ) => void;
   showToast: (msg: string, type?: "success" | "error" | "info" | "warning") => void;
   token?: string | null;
+  onOpenBatchDeleteModal?: () => void;
   // Bot & Sub-tabs handlers
   settingsActiveTab?: "general" | "branding" | "currency" | "delivery" | "social" | "telegram" | "music";
   setSettingsActiveTab?: (tab: "general" | "branding" | "currency" | "delivery" | "social" | "telegram" | "music") => void;
@@ -149,6 +151,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
   onOpenReport,
   isOwner = true,
   token,
+  onOpenBatchDeleteModal,
 }) => {
   const [activeSubTab, setActiveSubTab] = React.useState<
     "general" | "branding" | "currency" | "delivery" | "social" | "telegram"
@@ -1277,16 +1280,34 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
             activeSubTab === "general" ? "justify-between" : "justify-end"
           }`}
         >
-          {activeSubTab === "general" && isOwner && (
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() => handleDeleteShop(selectedShop)}
-                className="text-xs text-app-primary hover:text-app-primary bg-app-card hover:bg-app-hover border border-app-border px-3.5 py-2 rounded-xl transition-all cursor-pointer flex-1 sm:flex-none font-mono flex items-center justify-center gap-1.5 font-medium backdrop-blur-sm"
-              >
-                <Trash2 size={14} className="text-app-muted" />
-                <span>Удалить заведение</span>
-              </button>
+          {activeSubTab === "general" && (
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+              {isOwner ? (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteShop(selectedShop)}
+                  className="text-xs text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3.5 py-2 rounded-xl transition-all cursor-pointer flex-1 sm:flex-none font-mono flex items-center justify-center gap-1.5 font-medium backdrop-blur-sm"
+                >
+                  <Trash2 size={14} className="text-rose-400" />
+                  <span>Удалить это заведение</span>
+                </button>
+              ) : (
+                <div className="text-xs text-app-muted font-mono flex items-center gap-1.5 bg-app-card px-3 py-2 rounded-xl border border-app-border">
+                  <Lock size={13} className="text-sky-400 shrink-0" />
+                  <span>Приглашённое заведение защищено от удаления</span>
+                </div>
+              )}
+
+              {onOpenBatchDeleteModal && (
+                <button
+                  type="button"
+                  onClick={onOpenBatchDeleteModal}
+                  className="text-xs text-app-primary hover:text-app-primary bg-app-card hover:bg-app-hover border border-app-border px-3.5 py-2 rounded-xl transition-all cursor-pointer flex-1 sm:flex-none font-mono flex items-center justify-center gap-1.5 font-medium backdrop-blur-sm"
+                >
+                  <Trash2 size={14} className="text-app-muted" />
+                  <span>Удалить заведения (выбор / все)</span>
+                </button>
+              )}
             </div>
           )}
 

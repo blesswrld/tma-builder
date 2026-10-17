@@ -43,7 +43,8 @@ import {
   PanelLeftOpen,
   GripVertical,
   Compass,
-  Wallet
+  Wallet,
+  Lock
 } from "lucide-react";
 import { CHANGELOG_DATA } from "../../data/changelogData";
 import { useLanguage } from "../../context/LanguageContext";
@@ -122,6 +123,7 @@ interface AdminSidebarProps {
   setShopFilterMode: (mode: "my" | "all") => void;
   unreadNotificationsCount?: number;
   onOpenNotificationBox?: () => void;
+  onOpenBatchDeleteModal?: () => void;
 }
 
 interface SidebarNavItem {
@@ -184,7 +186,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
   shopFilterMode,
   setShopFilterMode,
   unreadNotificationsCount = 0,
-  onOpenNotificationBox
+  onOpenNotificationBox,
+  onOpenBatchDeleteModal
 }) => {
   const { t } = useLanguage();
   const { isConnected } = useRealtime();
@@ -317,6 +320,18 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
         s.slug.toLowerCase().includes(q)
     );
   }, [activeShops, shopSearchInput]);
+
+  const isShopCreatedByMe = useCallback((s: Shop) => {
+    if (isDeveloperUser) return true;
+    if (s.currentUserRole === "OWNER") return true;
+    if (user?.id && s.ownerId === user.id) return true;
+    if (user?.id && s.owner?.id === user.id) return true;
+    return false;
+  }, [user, isDeveloperUser]);
+
+  const myCreatedShopsCount = useMemo(() => {
+    return shops.filter(isShopCreatedByMe).length;
+  }, [shops, isShopCreatedByMe]);
 
   const handleNavClick = useCallback((tabId: string) => {
     if (tabId === "moderation") {
@@ -494,26 +509,54 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                     isSidebarCollapsed ? "left-full ml-2 top-0 w-64" : "left-0 right-0 top-full mt-1.5"
                   } z-50 bg-[#121217] dark:bg-[#121217] text-app-primary border border-app-border rounded-xl shadow-2xl p-2 space-y-1.5`}
                 >
-                  <div className="flex items-center justify-between text-[10px] font-mono text-app-muted pb-1 border-b border-app-border">
-                    <span className="font-semibold text-app-primary">
-                      {t("admin.venues_count", "Заведения")} ({shops.length})
-                    </span>
-                    {shops.length > 3 && (
+                  {/* Dropdown Header & Category Filter Tabs */}
+                  <div className="space-y-1.5 pb-1.5 border-b border-app-border">
+                    <div className="flex items-center justify-between text-[10px] font-mono text-app-muted px-0.5">
+                      <span className="font-semibold text-app-primary">
+                        {t("admin.venues_count", "Заведения")}
+                      </span>
+                      <span className="text-[10px] text-app-muted">
+                        {myCreatedShopsCount} созданных • {shops.length - myCreatedShopsCount} приглашённых
+                      </span>
+                    </div>
+
+                    {/* Segmented Mode Switcher: Мои vs Все заведения */}
+                    <div className="grid grid-cols-2 p-0.5 bg-app-surface rounded-lg border border-app-border font-mono text-[10.5px]">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setShopFilterMode(shopFilterMode === "my" ? "all" : "my");
+                          setShopFilterMode("my");
                         }}
-                        className="text-app-accent hover:underline cursor-pointer"
+                        className={`py-1 px-1 rounded-md transition-all font-semibold flex items-center justify-center gap-1 cursor-pointer ${
+                          shopFilterMode === "my"
+                            ? "bg-app-accent text-app-accent-fg shadow-2xs font-bold"
+                            : "text-app-muted hover:text-app-primary"
+                        }`}
                       >
-                        {shopFilterMode === "my" ? t("admin.all_venues", "Все заведения") : t("admin.my_venues", "Мои")}
+                        <Crown size={11} className={shopFilterMode === "my" ? "text-app-accent-fg" : "text-emerald-500"} />
+                        <span>{t("admin.my_venues", "Мои")} ({myCreatedShopsCount})</span>
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShopFilterMode("all");
+                        }}
+                        className={`py-1 px-1 rounded-md transition-all font-semibold flex items-center justify-center gap-1 cursor-pointer ${
+                          shopFilterMode === "all"
+                            ? "bg-app-accent text-app-accent-fg shadow-2xs font-bold"
+                            : "text-app-muted hover:text-app-primary"
+                        }`}
+                      >
+                        <Store size={11} />
+                        <span>{t("admin.all_venues", "Все")} ({shops.length})</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Shop Search Filter inside Dropdown */}
-                  {shops.length > 4 && (
+                  {shops.length > 3 && (
                     <div className="relative">
                       <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-app-muted" />
                       <input
@@ -528,12 +571,29 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
 
                   <div className="max-h-48 overflow-y-auto space-y-0.5 pr-0.5 custom-scrollbar">
                     {filteredShopsList.length === 0 ? (
-                      <div className="p-3 text-center text-[11px] text-app-muted font-mono">
-                        {t("admin.no_venues_found", "Заведений не найдено")}
+                      <div className="p-3 text-center text-[11px] text-app-muted font-mono space-y-1">
+                        <div>
+                          {shopFilterMode === "my" 
+                            ? "У вас нет созданных заведений" 
+                            : t("admin.no_venues_found", "Заведений не найдено")}
+                        </div>
+                        {shopFilterMode === "my" && shops.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShopFilterMode("all");
+                            }}
+                            className="text-[10px] text-app-accent hover:underline cursor-pointer font-semibold block mx-auto"
+                          >
+                            Показать все ({shops.length})
+                          </button>
+                        )}
                       </div>
                     ) : (
                       filteredShopsList.map((s) => {
                         const isSelected = selectedShop?.id === s.id;
+                        const isMine = isShopCreatedByMe(s);
                         return (
                           <button
                             key={s.id}
@@ -548,49 +608,91 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                                 : "text-app-secondary hover:text-app-primary hover:bg-app-hover"
                             }`}
                           >
-                            <div className="flex items-center gap-2 min-w-0 pr-1 truncate">
+                            <div className="flex items-center gap-2 min-w-0 pr-1 truncate flex-1">
                               <Store size={13} className={isSelected ? "text-app-accent-fg shrink-0" : "text-app-muted shrink-0"} />
                               <span className="truncate text-[11px]">{s.name}</span>
                               <span className={`text-[9.5px] ${isSelected ? "text-app-accent-fg/80" : "text-app-muted"} shrink-0`}>
                                 ({s.slug})
                               </span>
                             </div>
-                            {isSelected && <Check size={13} className="text-app-accent-fg shrink-0" />}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {isMine ? (
+                                <span className={`text-[8.5px] px-1.5 py-0.2 rounded font-mono uppercase font-semibold ${
+                                  isSelected
+                                    ? "bg-black/20 text-app-accent-fg"
+                                    : "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                                }`}>
+                                  Владелец
+                                </span>
+                              ) : (
+                                <span className={`text-[8.5px] px-1.5 py-0.2 rounded font-mono uppercase font-medium flex items-center gap-0.5 ${
+                                  isSelected
+                                    ? "bg-black/20 text-app-accent-fg"
+                                    : "bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                                }`}>
+                                  <Users size={9} />
+                                  Приглашён
+                                </span>
+                              )}
+                              {isSelected && <Check size={13} className="text-app-accent-fg shrink-0" />}
+                            </div>
                           </button>
                         );
                       })
                     )}
                   </div>
 
-                  {!isStaff && !isManager && (
-                    <div className="pt-1.5 border-t border-app-border space-y-1">
+                  <div className="pt-1.5 border-t border-app-border space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsShopDropdownOpen(false);
+                        handleOpenCreateShop();
+                      }}
+                      className="w-full py-1.5 px-2 rounded-lg text-[11px] font-mono font-semibold bg-app-card hover:bg-app-hover text-app-primary border border-app-border flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Plus size={13} className="text-emerald-500" />
+                      <span>{t("admin.create_venue", "Создать заведение")}</span>
+                    </button>
+
+                    {/* Batch Delete Trigger for Created Shops */}
+                    {onOpenBatchDeleteModal && myCreatedShopsCount > 0 && (
                       <button
                         type="button"
                         onClick={() => {
                           setIsShopDropdownOpen(false);
-                          handleOpenCreateShop();
+                          onOpenBatchDeleteModal();
                         }}
-                        className="w-full py-1.5 px-2 rounded-lg text-[11px] font-mono font-semibold bg-app-card hover:bg-app-hover text-app-primary border border-app-border flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="w-full py-1.5 px-2 rounded-lg text-[10.5px] font-mono font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/5 hover:bg-rose-500/15 border border-rose-500/20 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
-                        <Plus size={13} className="text-emerald-500" />
-                        <span>{t("admin.create_venue", "Создать заведение")}</span>
+                        <Trash2 size={12} className="text-rose-400" />
+                        <span>Удалить заведения (выбор / все)</span>
                       </button>
+                    )}
 
-                      {isOwner && selectedShop && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsShopDropdownOpen(false);
-                            handleDeleteShop(selectedShop);
-                          }}
-                          className="w-full py-1 px-2 rounded-lg text-[10px] font-mono text-rose-500 hover:bg-rose-500/10 flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <Trash2 size={11} />
-                          <span>{t("admin.delete_current_venue", "Удалить текущее заведение")}</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
+                    {/* Delete single current shop (ONLY if user created it) */}
+                    {isOwner && selectedShop && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsShopDropdownOpen(false);
+                          handleDeleteShop(selectedShop);
+                        }}
+                        className="w-full py-1 px-2 rounded-lg text-[10px] font-mono text-rose-500 hover:bg-rose-500/10 flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Trash2 size={11} />
+                        <span>{t("admin.delete_current_venue", "Удалить текущее заведение")}</span>
+                      </button>
+                    )}
+
+                    {/* Informative notice if currently viewing an invited shop */}
+                    {!isOwner && selectedShop && (
+                      <div className="w-full py-1 px-2 text-[9.5px] font-mono text-app-muted flex items-center justify-center gap-1.5 select-none bg-app-card/40 rounded-lg border border-app-subtle">
+                        <Lock size={10} className="text-sky-400" />
+                        <span>Приглашённое заведение защищено от удаления</span>
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

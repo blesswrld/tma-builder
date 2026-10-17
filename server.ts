@@ -4900,7 +4900,27 @@ app.post("/api/shops", async (req, res) => {
     }
   });
 
-  // API Route: Удалить магазин
+  // Helper: Безопасное каскадное удаление всех зависимых сущностей заведения
+  async function performShopCompleteDeletion(db: any, shopId: string) {
+    await db.service.deleteMany({ where: { shopId } }).catch(() => {});
+    await db.order.deleteMany({ where: { shopId } }).catch(() => {});
+    await db.banner.deleteMany({ where: { shopId } }).catch(() => {});
+    await db.broadcast.deleteMany({ where: { shopId } }).catch(() => {});
+    await db.customer.deleteMany({ where: { shopId } }).catch(() => {});
+    await db.promocode.deleteMany({ where: { shopId } }).catch(() => {});
+    await db.review.deleteMany({ where: { shopId } }).catch(() => {});
+    try {
+      await db.shopMember?.deleteMany({ where: { shopId } });
+    } catch {}
+    try {
+      await db.shopInvite?.deleteMany({ where: { shopId } });
+    } catch {}
+    await db.shop.delete({ where: { id: shopId } });
+    appCache.invalidateShop(shopId);
+    broadcastEvent({ type: "SHOP_DELETED", shopId, payload: { id: shopId } });
+  }
+
+  // API Route: Удалить магазин (только владелец-создатель)
   app.delete("/api/shops/:id", async (req, res) => {
     try {
       const { id } = req.params;
@@ -4910,7 +4930,7 @@ app.post("/api/shops", async (req, res) => {
         return res.status(503).json({ error: "База данных PostgreSQL не настроена." });
       }
 
-      const db = getPrismaClient();
+      const db = getPrismaClient() as any;
       if (!db) {
         return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
       }
@@ -4922,21 +4942,81 @@ app.post("/api/shops", async (req, res) => {
 
       const isOwner = await isShopOwner(db, id, authUser);
       if (!isOwner) {
-        return res.status(403).json({ error: "Только владелец заведения может безвозвратно удалить заведение." });
+        return res.status(403).json({ 
+          error: "Запрещено! Вы можете удалять только заведения, которые создали сами. Из заведений, в которые вас пригласили, можно только выйти." 
+        });
       }
 
-      // Используем транзакцию для безопасного каскадного удаления всех зависимых сущностей
-      await db.$transaction([
-        db.service.deleteMany({ where: { shopId: id } }),
-        db.order.deleteMany({ where: { shopId: id } }),
-        db.shop.delete({ where: { id } })
-      ]);
-
-      broadcastEvent({ type: "SHOP_DELETED", shopId: id, payload: { id } });
-      res.json({ success: true });
+      await performShopCompleteDeletion(db, id);
+      res.json({ success: true, deletedId: id });
     } catch (error: any) {
       console.error("Ошибка при удалении магазина:", error);
       res.status(500).json({ error: error?.message || "Не удалось удалить магазин." });
+    }
+  });
+
+  // API Route: Массовое удаление заведений (всех созданных или выбранного списка)
+  app.post("/api/shops/batch-delete", async (req, res) => {
+    try {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        return res.status(401).json({ error: "Требуется авторизация для удаления заведений." });
+      }
+
+      if (!process.env.DATABASE_URL) {
+        return res.status(503).json({ error: "База данных PostgreSQL не настроена." });
+      }
+
+      const db = getPrismaClient() as any;
+      if (!db) {
+        return res.status(500).json({ error: "Не удалось инициализировать клиент базы данных." });
+      }
+
+      const { shopIds, allOwned } = req.body || {};
+      const isDev = isDeveloperEmail(authUser.email);
+
+      let targetShops: any[] = [];
+      if (allOwned) {
+        // Найти ВСЕ заведения, владельцем-создателем которых является текущий пользователь
+        targetShops = await db.shop.findMany({
+          where: { ownerId: authUser.id }
+        });
+      } else if (Array.isArray(shopIds) && shopIds.length > 0) {
+        targetShops = await db.shop.findMany({
+          where: { id: { in: shopIds } }
+        });
+      } else {
+        return res.status(400).json({ error: "Не указаны заведения для удаления." });
+      }
+
+      // КРИТИЧЕСКАЯ ЗАЩИТА: разрешено удалять ТОЛЬКО заведения, где ownerId === authUser.id
+      const deletableShops = targetShops.filter(
+        (s: any) => s.ownerId === authUser.id || isDev
+      );
+      const skippedCount = targetShops.length - deletableShops.length;
+
+      if (deletableShops.length === 0) {
+        return res.status(403).json({
+          error: "У вас нет прав на удаление выбранных заведений. Вы можете удалять только те заведения, которые создали сами (приглашённые заведения защищены от удаления)."
+        });
+      }
+
+      const deletedIds: string[] = [];
+      for (const shop of deletableShops) {
+        await performShopCompleteDeletion(db, shop.id);
+        deletedIds.push(shop.id);
+      }
+
+      res.json({
+        success: true,
+        deletedCount: deletedIds.length,
+        deletedIds,
+        skippedCount,
+        message: `Успешно удалено ${deletedIds.length} заведений.${skippedCount > 0 ? ` Пропущено ${skippedCount} приглашённых заведений.` : ""}`
+      });
+    } catch (error: any) {
+      console.error("Ошибка при массовом удалении магазинов:", error);
+      res.status(500).json({ error: error?.message || "Ошибка при массовом удалении заведений." });
     }
   });
 

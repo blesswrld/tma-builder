@@ -53,6 +53,7 @@ import AdminPaymentsTab from "../components/admin/AdminPaymentsTab";
 import { AdminServersTab } from "../components/admin/AdminServersTab";
 import { AdminReferralTab } from "../components/admin/AdminReferralTab";
 import { AdminCreateShopTab } from "../components/admin/AdminCreateShopTab";
+import { AdminBatchDeleteShopsModal } from "../components/admin/AdminBatchDeleteShopsModal";
 import AdminDevChatTab from "../components/admin/AdminDevChatTab";
 import { AdminShopChatTab } from "../components/admin/AdminShopChatTab";
 import SupportChatWidget from "../components/chat/SupportChatWidget";
@@ -128,6 +129,7 @@ interface Shop {
     name?: string | null;
   } | null;
   services: Service[];
+  currentUserRole?: "OWNER" | "MANAGER" | "STAFF" | null;
   _count?: {
     orders: number;
   };
@@ -1422,6 +1424,18 @@ export default function AdminPage() {
     }
   });
   const [shopFilterMode, setShopFilterMode] = useState<"my" | "all">("my");
+  const [isBatchDeleteModalOpen, setIsBatchDeleteModalOpen] = useState(false);
+
+  // Helper to strictly determine if the shop was created by the current user
+  const isShopCreatedByMe = useCallback((s: Shop | null | undefined): boolean => {
+    if (!s) return false;
+    if (isDeveloperUser) return true;
+    if (s.currentUserRole === "OWNER") return true;
+    if (user?.id && s.ownerId === user.id) return true;
+    if (user?.id && s.owner?.id === user.id) return true;
+    if (!user?.id && myDeviceShopIds.includes(s.id)) return true;
+    return false;
+  }, [user?.id, isDeveloperUser, myDeviceShopIds]);
 
   // SaaS Features Modals
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -2441,6 +2455,12 @@ export default function AdminPage() {
 
     const shopId = shopObj.id;
     const shopName = shopObj.name || "заведение";
+
+    // Strict guard: users can NEVER delete an establishment they were invited to
+    if (!isShopCreatedByMe(shopObj)) {
+      showToast("Удаление запрещено! Вы не являетесь создателем этого заведения. Из заведений, в которые вас пригласили, можно только выйти.", "error");
+      return;
+    }
 
     requestConfirm(
       "Удалить заведение?",
@@ -3534,13 +3554,28 @@ export default function AdminPage() {
     }
   };
 
+  // "Мои" - ONLY the shops created by the user
   const myShopsList = useMemo(() => {
-    return shops.filter(s => myDeviceShopIds.includes(s.id));
-  }, [shops, myDeviceShopIds]);
+    return shops.filter(isShopCreatedByMe);
+  }, [shops, isShopCreatedByMe]);
 
+  // "Все" - ALL establishments (created + invited)
+  // "Мои" - ONLY created establishments
   const activeShops = useMemo(() => {
-    return shops.length > 3 && shopFilterMode === "my" && myShopsList.length > 0 ? myShopsList : shops;
+    if (shopFilterMode === "my") {
+      return myShopsList;
+    }
+    return shops;
   }, [shops, shopFilterMode, myShopsList]);
+
+  // When switching to "my", if currently selected shop is not owned and we have owned shops, switch to the first owned shop
+  useEffect(() => {
+    if (shopFilterMode === "my" && myShopsList.length > 0) {
+      if (selectedShop && !isShopCreatedByMe(selectedShop)) {
+        setSelectedShop(myShopsList[0]);
+      }
+    }
+  }, [shopFilterMode, myShopsList, selectedShop, isShopCreatedByMe]);
 
   const categories = useMemo(() => {
     return selectedShop
@@ -4137,6 +4172,7 @@ export default function AdminPage() {
         setShopFilterMode={setShopFilterMode}
         unreadNotificationsCount={unreadNotificationsCount}
         onOpenNotificationBox={handleToggleNotificationBox}
+        onOpenBatchDeleteModal={() => setIsBatchDeleteModalOpen(true)}
       />
 
       {/* Main Content Workspace */}
@@ -4808,6 +4844,7 @@ export default function AdminPage() {
               webhookStatus={webhookStatus}
               isSendingTestNotification={isSendingTestNotification}
               onOpenReport={() => setIsReportModalOpen(true)}
+              onOpenBatchDeleteModal={() => setIsBatchDeleteModalOpen(true)}
             />
           )}
 
@@ -5452,6 +5489,27 @@ export default function AdminPage() {
         </AnimatePresence>,
         document.body
       )}
+
+      {/* Batch Delete Venues Modal */}
+      <AdminBatchDeleteShopsModal
+        isOpen={isBatchDeleteModalOpen}
+        onClose={() => setIsBatchDeleteModalOpen(false)}
+        shops={shops}
+        currentUserId={user?.id}
+        isDeveloperUser={isDeveloperUser}
+        myDeviceShopIds={myDeviceShopIds}
+        token={token}
+        onBatchDeleteSuccess={async (deletedIds) => {
+          showToast(`Успешно удалено заведений: ${deletedIds.length}`, "success");
+          deletedIds.forEach(id => unlinkShopFromDevice(id));
+          const updated = shops.filter(s => !deletedIds.includes(s.id));
+          setShops(updated);
+          if (selectedShop && deletedIds.includes(selectedShop.id)) {
+            setSelectedShop(updated.length > 0 ? updated[0] : null);
+          }
+          await fetchShops();
+        }}
+      />
 
       {/* Toast Notifications System */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
