@@ -1,5 +1,4 @@
 import React from "react";
-import { motion } from "motion/react";
 import { Search, Heart, X } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -23,35 +22,35 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
   const { t } = useLanguage();
 
   return (
-    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 border-b border-app-border pb-4 font-sans">
-      {/* Category Pill Tabs */}
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-app-border pb-3 font-sans">
+      {/* Architectural Category Navigation Tabs */}
       <div className="relative flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 overflow-x-auto touch-scroll-x scrollbar-none py-0.5 w-full pr-8">
+        <div className="flex items-center gap-1.5 overflow-x-auto touch-scroll-x scrollbar-none py-0.5 w-full pr-6">
           <button
             type="button"
             onClick={() => onSelectCategory("ALL")}
-            className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all duration-75 active:scale-95 shrink-0 flex items-center justify-center cursor-pointer shadow-2xs ${
+            className={`h-8 px-3 rounded-lg text-xs font-medium transition-all shrink-0 flex items-center justify-center cursor-pointer whitespace-nowrap border ${
               selectedCategory === "ALL"
-                ? "bg-app-accent text-app-accent-fg font-bold shadow-xs"
-                : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
+                ? "bg-app-accent text-app-accent-fg border-app-accent font-semibold"
+                : "bg-app-surface text-app-secondary hover:bg-app-hover hover:text-app-primary border-app-border"
             }`}
           >
-            {t("common.all", "Все")}
+            {t("common.all", "Все позиции")}
           </button>
-          
-          {/* Favorites Category Tab - only shown when items are favorited */}
+
           {favoritesCount > 0 && (
             <button
               type="button"
               onClick={() => onSelectCategory("FAVORITES")}
-              className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all duration-75 active:scale-95 shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+              className={`h-8 px-3 rounded-lg text-xs font-medium transition-all shrink-0 flex items-center gap-1.5 cursor-pointer whitespace-nowrap border ${
                 selectedCategory === "FAVORITES"
-                  ? "bg-app-accent text-app-accent-fg font-bold shadow-xs"
-                  : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
+                  ? "bg-app-accent text-app-accent-fg border-app-accent font-semibold"
+                  : "bg-app-surface text-app-secondary hover:bg-app-hover hover:text-app-primary border-app-border"
               }`}
             >
-              <Heart size={13} className="fill-rose-500 text-rose-500" />
-              <span>{t("shop.favorites", "Избранное")} ({favoritesCount})</span>
+              <Heart size={12} className="fill-rose-500 text-rose-500" />
+              <span>{t("shop.favorites", "Избранное")}</span>
+              <span className="font-mono text-[10px] tabular-nums">{favoritesCount}</span>
             </button>
           )}
 
@@ -60,34 +59,36 @@ export const ShopCategories: React.FC<ShopCategoriesProps> = ({
               key={cat}
               type="button"
               onClick={() => onSelectCategory(cat)}
-              className={`h-9 px-3.5 rounded-xl text-xs font-mono font-medium transition-all duration-75 active:scale-95 shrink-0 flex items-center justify-center cursor-pointer shadow-2xs ${
+              className={`h-8 px-3 rounded-lg text-xs font-medium transition-all shrink-0 flex items-center justify-center cursor-pointer whitespace-nowrap border ${
                 selectedCategory === cat
-                  ? "bg-app-accent text-app-accent-fg shadow-xs font-bold"
-                  : "bg-app-card text-app-secondary hover:bg-app-hover hover:text-app-primary border border-app-border"
+                  ? "bg-app-accent text-app-accent-fg border-app-accent font-semibold"
+                  : "bg-app-surface text-app-secondary hover:bg-app-hover hover:text-app-primary border-app-border"
               }`}
             >
               {cat}
             </button>
           ))}
         </div>
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-app-bg to-transparent pointer-events-none" />
       </div>
 
-      {/* Search Box */}
-      <div className="relative w-full sm:w-64 shrink-0">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted pointer-events-none" />
+      {/* Minimalist Search Input */}
+      <div className="relative w-full sm:w-60 shrink-0">
+        <Search
+          size={14}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted pointer-events-none"
+        />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={t("shop.search_placeholder", "Поиск по каталогу...")}
-          className="h-9 w-full bg-app-surface text-xs rounded-xl pl-9 pr-8 text-app-primary focus:outline-none focus:border-app-secondary border border-app-border transition-colors placeholder:text-app-muted font-sans shadow-2xs"
+          placeholder={t("shop.search_placeholder", "Поиск по меню...")}
+          className="h-8 w-full bg-app-surface text-xs rounded-lg pl-8 pr-7 text-app-primary focus:outline-none focus:border-emerald-500/60 border border-app-border transition-colors placeholder:text-app-muted font-sans"
         />
         {searchQuery && (
           <button
             type="button"
             onClick={() => onSearchChange("")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center text-app-muted hover:text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-app-muted hover:text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
             title={t("common.clear", "Очистить поиск")}
           >
             <X size={12} />

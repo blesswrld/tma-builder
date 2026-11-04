@@ -49,6 +49,7 @@ import { useRealtime } from "../context/RealtimeContext";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { CustomDropdown } from "../components/CustomDropdown";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { DesignModeSwitch } from "../components/common/DesignModeSwitch";
 import { playNotificationSound, playToggleOnSound, playToggleOffSound } from "../lib/sound";
 
 export interface DevShopSummary {
@@ -854,7 +855,7 @@ export default function DeveloperUsersPage() {
 
           <div className="hidden xl:flex items-center gap-2">
             <span className="px-2.5 py-1 rounded-lg text-[11px] font-mono text-app-text-secondary bg-app-card border border-app-border flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-app-primary shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
               <span>DEV ACCESS</span>
               <span className="text-app-muted">•</span>
               <span className="text-app-text-primary font-medium">{user?.email}</span>
@@ -898,6 +899,11 @@ export default function DeveloperUsersPage() {
             <span className="sm:hidden font-bold text-[10px] tracking-tight whitespace-nowrap">
               {isConnected ? "Realtime" : "Sync"}
             </span>
+          </div>
+
+          {/* Design Mode Switcher (Swiss / Classic) */}
+          <div className="hidden sm:block">
+            <DesignModeSwitch compact />
           </div>
 
           {/* Theme toggle */}

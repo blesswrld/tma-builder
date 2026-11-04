@@ -54,6 +54,7 @@ import {
   ReportStatusType
 } from "../components/reports/ReportStatusDropdown";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { DesignModeSwitch } from "../components/common/DesignModeSwitch";
 import { playNotificationSound, playToggleOnSound, playToggleOffSound } from "../lib/sound";
 
 type SortOption = "NEWEST" | "OLDEST" | "STATUS" | "TYPE";
@@ -696,6 +697,11 @@ export default function DeveloperReportsPage() {
             <span className="sm:hidden font-bold text-[10px] tracking-tight whitespace-nowrap">
               {isConnected ? "Realtime" : "Sync"}
             </span>
+          </div>
+
+          {/* Design Mode Switcher (Swiss / Classic) */}
+          <div className="hidden sm:block">
+            <DesignModeSwitch compact />
           </div>
 
           {/* Theme switcher */}

@@ -1,10 +1,11 @@
 @import "tailwindcss";
-@variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
-  --font-mono: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Plus Jakarta Sans', ui-monospace, SFMono-Regular, monospace;
   --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
 
   --color-app-bg: var(--background);
   --color-app-surface: var(--surface);
@@ -26,8 +27,217 @@
 }
 
 @layer base {
-  :root, html.dark {
+  /* ==========================================================================
+     1. SWISS ARCHITECTURAL MINIMALISM (DEFAULT DESIGN SYSTEM: data-design="swiss")
+     Clean whitespace, 1px hairline dividers, matte graphite & alabaster,
+     strict 8-12px geometry, and emerald live telemetry accents.
+     ========================================================================== */
+  :root,
+  html.dark {
     color-scheme: dark;
+    --background: #08090c;
+    --surface: #0e1015;
+    --card: #0e1015;
+    --card-hover: #13161d;
+    --hover: #151922;
+    --input-bg: #0b0d12;
+    --input-border: rgba(255, 255, 255, 0.085);
+    --input-focus-border: #10b981;
+
+    --border: rgba(255, 255, 255, 0.075);
+    --border-subtle: rgba(255, 255, 255, 0.04);
+
+    --text-primary: #f4f6f9;
+    --text-secondary: #949cab;
+    --text-muted: #646d7d;
+
+    --accent: #f4f6f9;
+    --accent-fg: #08090c;
+    --accent-hover: #e2e6ee;
+
+    --btn-secondary-bg: #13161e;
+    --btn-secondary-fg: #f4f6f9;
+    --btn-secondary-hover: #1b1f2a;
+
+    --badge-bg: #151821;
+    --badge-fg: #e2e6ee;
+
+    --modal-bg: #0e1015;
+    --modal-header-bg: #0b0d12;
+    --modal-overlay: rgba(4, 5, 8, 0.78);
+
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+    --glow: rgba(16, 185, 129, 0.08);
+
+    --chart-grid: #151821;
+    --chart-line: #10b981;
+    --chart-area-start: rgba(16, 185, 129, 0.16);
+    --chart-area-end: rgba(16, 185, 129, 0);
+    --chart-tooltip-bg: #0e1015;
+    --chart-tooltip-text: #f4f6f9;
+    --chart-tooltip-border: rgba(255, 255, 255, 0.10);
+
+    --scrollbar-thumb: #1f2430;
+    --scrollbar-thumb-hover: #2d3446;
+  }
+
+  html.light {
+    color-scheme: light;
+    --background: #fafafc;
+    --surface: #ffffff;
+    --card: #ffffff;
+    --card-hover: #f4f5f8;
+    --hover: #eff1f5;
+    --input-bg: #ffffff;
+    --input-border: rgba(15, 23, 42, 0.10);
+    --input-focus-border: #059669;
+
+    --border: rgba(15, 23, 42, 0.08);
+    --border-subtle: rgba(15, 23, 42, 0.04);
+
+    --text-primary: #0b0d13;
+    --text-secondary: #4b5362;
+    --text-muted: #757f90;
+
+    --accent: #0b0d13;
+    --accent-fg: #ffffff;
+    --accent-hover: #1e2330;
+
+    --btn-secondary-bg: #f3f4f7;
+    --btn-secondary-fg: #0b0d13;
+    --btn-secondary-hover: #e6e8ef;
+
+    --badge-bg: #eef0f4;
+    --badge-fg: #0b0d13;
+
+    --modal-bg: #ffffff;
+    --modal-header-bg: #fafafc;
+    --modal-overlay: rgba(9, 11, 17, 0.45);
+
+    --shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.02);
+    --glow: rgba(16, 185, 129, 0.06);
+
+    --chart-grid: #e6e8ef;
+    --chart-line: #059669;
+    --chart-area-start: rgba(5, 150, 105, 0.12);
+    --chart-area-end: rgba(5, 150, 105, 0);
+    --chart-tooltip-bg: #ffffff;
+    --chart-tooltip-text: #0b0d13;
+    --chart-tooltip-border: #e6e8ef;
+
+    --scrollbar-thumb: #d0d5dd;
+    --scrollbar-thumb-hover: #98a2b3;
+  }
+
+  /* ==========================================================================
+     2. EDITORIAL ATELIER DESIGN SYSTEM (data-design="atelier")
+     Warm Luxury: Roasted Espresso & Champagne (Dark) / Warm Linen & Ink (Light),
+     high-contrast Cormorant Garamond serif headings, soft 20-24px curves,
+     editorial numbering, and warm bronze borders.
+     ========================================================================== */
+  html.dark[data-design="atelier"] {
+    --background: #110e0c;
+    --surface: #1a1512;
+    --card: #1f1915;
+    --card-hover: #27201b;
+    --hover: #29211c;
+    --input-bg: #15110e;
+    --input-border: rgba(226, 204, 176, 0.16);
+    --input-focus-border: #d4af7a;
+
+    --border: rgba(226, 204, 176, 0.13);
+    --border-subtle: rgba(226, 204, 176, 0.07);
+
+    --text-primary: #f6f0e6;
+    --text-secondary: #c2b3a1;
+    --text-muted: #8c7d6c;
+
+    --accent: #e6d5bc;
+    --accent-fg: #14100d;
+    --accent-hover: #f0e3cf;
+
+    --btn-secondary-bg: #251e19;
+    --btn-secondary-fg: #f6f0e6;
+    --btn-secondary-hover: #302720;
+
+    --badge-bg: #261f1a;
+    --badge-fg: #e6d5bc;
+
+    --modal-bg: #1a1512;
+    --modal-header-bg: #15110e;
+    --modal-overlay: rgba(10, 8, 6, 0.82);
+
+    --shadow: 0 18px 40px -15px rgba(0, 0, 0, 0.65);
+    --shadow-sm: 0 4px 14px rgba(0, 0, 0, 0.35);
+    --glow: rgba(212, 175, 122, 0.12);
+
+    --chart-grid: #27201b;
+    --chart-line: #10b981;
+    --chart-area-start: rgba(16, 185, 129, 0.18);
+    --chart-area-end: rgba(16, 185, 129, 0);
+    --chart-tooltip-bg: #1a1512;
+    --chart-tooltip-text: #f6f0e6;
+    --chart-tooltip-border: rgba(226, 204, 176, 0.18);
+
+    --scrollbar-thumb: #382e26;
+    --scrollbar-thumb-hover: #4d3f35;
+  }
+
+  html.light[data-design="atelier"] {
+    --background: #f6f1e7;
+    --surface: #fdfbf7;
+    --card: #fdfbf7;
+    --card-hover: #f3ece0;
+    --hover: #efe7d8;
+    --input-bg: #fdfbf7;
+    --input-border: rgba(44, 32, 22, 0.14);
+    --input-focus-border: #8c6239;
+
+    --border: rgba(44, 32, 22, 0.11);
+    --border-subtle: rgba(44, 32, 22, 0.06);
+
+    --text-primary: #1c1510;
+    --text-secondary: #5c4e41;
+    --text-muted: #8a7968;
+
+    --accent: #241a13;
+    --accent-fg: #fdfbf7;
+    --accent-hover: #38291f;
+
+    --btn-secondary-bg: #efe8dc;
+    --btn-secondary-fg: #1c1510;
+    --btn-secondary-hover: #e5dccb;
+
+    --badge-bg: #efe8dc;
+    --badge-fg: #241a13;
+
+    --modal-bg: #fdfbf7;
+    --modal-header-bg: #f6f1e7;
+    --modal-overlay: rgba(28, 21, 16, 0.45);
+
+    --shadow: 0 16px 36px -12px rgba(44, 32, 22, 0.09);
+    --shadow-sm: 0 4px 12px rgba(44, 32, 22, 0.05);
+    --glow: rgba(140, 98, 57, 0.08);
+
+    --chart-grid: #e8dfd1;
+    --chart-line: #059669;
+    --chart-area-start: rgba(5, 150, 105, 0.14);
+    --chart-area-end: rgba(5, 150, 105, 0);
+    --chart-tooltip-bg: #fdfbf7;
+    --chart-tooltip-text: #1c1510;
+    --chart-tooltip-border: #e5dccb;
+
+    --scrollbar-thumb: #d1c4b2;
+    --scrollbar-thumb-hover: #b5a48e;
+  }
+
+  /* ==========================================================================
+     3. CLASSIC DESIGN CHECKPOINT (data-design="classic")
+     Activated when user toggles DesignModeSwitch to "Classic"
+     ========================================================================== */
+  html.dark[data-design="classic"] {
     --background: #09090c;
     --surface: #101014;
     --card: var(--surface);
@@ -36,47 +246,19 @@
     --input-bg: #101014;
     --input-border: rgba(255, 255, 255, 0.10);
     --input-focus-border: #636375;
-    
     --border: rgba(255, 255, 255, 0.09);
     --border-subtle: rgba(255, 255, 255, 0.05);
-    
     --text-primary: #f4f4f7;
     --text-secondary: #a0a0ab;
     --text-muted: #71717c;
-    
     --accent: #f4f4f7;
     --accent-fg: #09090c;
     --accent-hover: #e4e4e9;
-    
-    --btn-secondary-bg: #141419;
-    --btn-secondary-fg: #f4f4f7;
-    --btn-secondary-hover: #1c1c23;
-
-    --badge-bg: #17171e;
-    --badge-fg: #e4e4e9;
-
-    --modal-bg: #101014;
-    --modal-header-bg: #101014;
-    --modal-overlay: rgba(0, 0, 0, 0.75);
-    
     --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-    --glow: rgba(255, 255, 255, 0.07);
-
-    --chart-grid: #16161c;
-    --chart-line: #f4f4f7;
-    --chart-area-start: rgba(244, 244, 247, 0.15);
-    --chart-area-end: rgba(244, 244, 247, 0);
-    --chart-tooltip-bg: #101014;
-    --chart-tooltip-text: #f4f4f7;
-    --chart-tooltip-border: #1a1a22;
-
-    --scrollbar-thumb: #22222d;
-    --scrollbar-thumb-hover: #323240;
   }
 
-  html.light {
-    color-scheme: light;
+  html.light[data-design="classic"] {
     --background: #f7f7f9;
     --surface: #ffffff;
     --card: #ffffff;
@@ -85,43 +267,16 @@
     --input-bg: #ffffff;
     --input-border: rgba(0, 0, 0, 0.12);
     --input-focus-border: #18181b;
-    
     --border: rgba(0, 0, 0, 0.08);
     --border-subtle: rgba(0, 0, 0, 0.04);
-    
     --text-primary: #09090b;
     --text-secondary: #52525c;
     --text-muted: #71717b;
-    
     --accent: #09090b;
     --accent-fg: #ffffff;
     --accent-hover: #27272a;
-    
-    --btn-secondary-bg: #f4f4f6;
-    --btn-secondary-fg: #09090b;
-    --btn-secondary-hover: #e8e8ed;
-
-    --badge-bg: #ececee;
-    --badge-fg: #09090b;
-
-    --modal-bg: #ffffff;
-    --modal-header-bg: #ffffff;
-    --modal-overlay: rgba(0, 0, 0, 0.45);
-    
     --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-    --glow: rgba(0, 0, 0, 0.04);
-
-    --chart-grid: #e5e5ea;
-    --chart-line: #09090b;
-    --chart-area-start: rgba(9, 9, 11, 0.12);
-    --chart-area-end: rgba(9, 9, 11, 0);
-    --chart-tooltip-bg: #ffffff;
-    --chart-tooltip-text: #09090b;
-    --chart-tooltip-border: #e5e5ea;
-
-    --scrollbar-thumb: #d4d4d8;
-    --scrollbar-thumb-hover: #a1a1aa;
   }
 
   html {
@@ -133,41 +288,56 @@
   body {
     background-color: var(--background);
     color: var(--text-primary);
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
     font-weight: 400;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
     letter-spacing: -0.011em;
-    transition: background-color 0.25s ease, color 0.25s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
     min-height: 100vh;
     min-height: 100dvh;
     min-height: -webkit-fill-available;
     overflow-x: hidden;
   }
 
-  /* Universal Minimalist Typography: Remove aggressive bold weights across app */
-  b, strong {
+  /* Classic Mode Typography Override */
+  html[data-design="classic"] b,
+  html[data-design="classic"] strong,
+  html[data-design="classic"] .font-bold,
+  html[data-design="classic"] .font-extrabold,
+  html[data-design="classic"] .font-black,
+  html[data-design="classic"] .font-semibold {
     font-weight: 500 !important;
   }
 
-  .font-bold,
-  .font-extrabold,
-  .font-black,
-  .font-semibold {
-    font-weight: 500 !important;
+  /* Swiss Mode Typography Hierarchy */
+  html[data-design="swiss"] .font-semibold {
+    font-weight: 600;
+  }
+  html[data-design="swiss"] .font-bold {
+    font-weight: 600;
+  }
+  html[data-design="swiss"] .font-extrabold,
+  html[data-design="swiss"] .font-black {
+    font-weight: 700;
+    letter-spacing: -0.022em;
   }
 
-  .font-normal {
-    font-weight: 400 !important;
+  /* Editorial Atelier Typography & Display Headings */
+  .font-editorial,
+  html[data-design="atelier"] h1,
+  html[data-design="atelier"] h2,
+  html[data-design="atelier"] h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
   }
 
-  .font-medium {
-    font-weight: 500 !important;
-  }
-
-  .font-light {
-    font-weight: 300 !important;
+  .font-mono,
+  .tabular-nums,
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
   }
 
   /* Universal Custom Number Input styling */
@@ -180,6 +350,51 @@
   input[type="number"] {
     -moz-appearance: textfield;
   }
+}
+
+/* ============================================================================
+   SWISS ARCHITECTURAL GEOMETRY (8px - 12px Strict Radius & Hairline System)
+   ============================================================================ */
+html[data-design="swiss"] .rounded-3xl {
+  border-radius: 0.75rem !important; /* 12px max container radius */
+}
+html[data-design="swiss"] .rounded-t-3xl {
+  border-top-left-radius: 0.75rem !important;
+  border-top-right-radius: 0.75rem !important;
+}
+html[data-design="swiss"] .rounded-b-3xl {
+  border-bottom-left-radius: 0.75rem !important;
+  border-bottom-right-radius: 0.75rem !important;
+}
+html[data-design="swiss"] .rounded-2xl {
+  border-radius: 0.625rem !important; /* 10px module radius */
+}
+html[data-design="swiss"] .rounded-xl {
+  border-radius: 0.5rem !important; /* 8px control radius */
+}
+html[data-design="swiss"] .rounded-lg {
+  border-radius: 0.375rem !important; /* 6px compact element radius */
+}
+
+/* Swiss Single-Elevation Discipline: clean 1px hairlines instead of heavy card shadows */
+html[data-design="swiss"] .shadow-lg:not([role="dialog"]):not(.z-50):not(.z-40),
+html[data-design="swiss"] .shadow-md:not([role="dialog"]):not(.z-50):not(.z-40),
+html[data-design="swiss"] .shadow-sm:not([role="dialog"]):not(.z-50):not(.z-40) {
+  box-shadow: none !important;
+}
+
+/* ============================================================================
+   EDITORIAL ATELIER GEOMETRY & AMBIENT LUXURY (data-design="atelier")
+   Soft 20px-28px curves, warm ambient shadows, and editorial framing
+   ============================================================================ */
+html[data-design="atelier"] .rounded-xl {
+  border-radius: 1.25rem !important; /* 20px soft luxury cards */
+}
+html[data-design="atelier"] .rounded-lg {
+  border-radius: 0.875rem !important; /* 14px tactile buttons & inputs */
+}
+html[data-design="atelier"] .rounded-md {
+  border-radius: 0.625rem !important; /* 10px pills & badges */
 }
 
 /* Safe Area & Mobile Viewport Utilities */
@@ -236,16 +451,16 @@ html.dark ::-moz-selection {
 }
 
 html.light ::selection {
-  background-color: rgba(16, 185, 129, 0.28) !important;
-  color: #09090b !important;
+  background-color: rgba(16, 185, 129, 0.25) !important;
+  color: #0b0d13 !important;
 }
 
 html.light ::-moz-selection {
-  background-color: rgba(16, 185, 129, 0.28) !important;
-  color: #09090b !important;
+  background-color: rgba(16, 185, 129, 0.25) !important;
+  color: #0b0d13 !important;
 }
 
-/* Linear / Vercel design token utility classes */
+/* Design token utility classes */
 .bg-app-bg { background-color: var(--background); }
 .bg-app-surface { background-color: var(--surface); }
 .bg-app-card { background-color: var(--surface); }
@@ -269,11 +484,11 @@ html.light ::-moz-selection {
 .text-app-accent-fg { color: var(--accent-fg); }
 
 /* Global overrides ensuring theme consistency across legacy utility classes without breaking child elements */
-html.light .bg-\[\#09090b\], html.light .bg-\[\#000000\] {
+html.light .bg-\[\#09090b\], html.light .bg-\[\#000000\], html.light .bg-\[\#08090c\] {
   background-color: var(--background) !important;
 }
 
-html.light .bg-\[\#121215\] {
+html.light .bg-\[\#121215\], html.light .bg-\[\#121217\], html.light .bg-\[\#0e1015\] {
   background-color: var(--surface) !important;
 }
 
@@ -309,9 +524,9 @@ html.light .border-zinc-900 {
 }
 
 .tooltip-card {
-  background-color: #121217 !important;
+  background-color: #0e1015 !important;
   color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
   box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.6), 0 4px 10px -2px rgba(0, 0, 0, 0.4) !important;
 }
 
@@ -430,10 +645,9 @@ html.light .text-zinc-500:not(.keep-white):not(.keep-white *):not(.dark-card):no
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Chrome, Edge, Safari, Yandex custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -457,8 +671,8 @@ html.light .text-zinc-500:not(.keep-white):not(.keep-white *):not(.dark-card):no
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -490,7 +704,7 @@ html.light .text-zinc-500:not(.keep-white):not(.keep-white *):not(.dark-card):no
   will-change: transform, opacity;
 }
 
-/* Zero-lag backdrop filters: uses clean composited solid surfaces instead of expensive GPU gaussian blurs */
+/* Zero-lag backdrop filters */
 .backdrop-blur-xs,
 .backdrop-blur-sm,
 .backdrop-blur-md,
@@ -610,9 +824,9 @@ html.light .skeleton-shimmer {
 }
 
 html.dark .chat-bubble-outgoing {
-  background-color: #27272a !important;
-  color: #f4f4f5 !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  background-color: #1f2430 !important;
+  color: #f4f6f9 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
 }
 html.dark .chat-bubble-outgoing .chat-meta {
   color: rgba(255, 255, 255, 0.65) !important;
@@ -620,8 +834,8 @@ html.dark .chat-bubble-outgoing .chat-meta {
 
 .chat-bubble-incoming {
   background-color: #ffffff !important;
-  color: #111114 !important;
-  border: 1px solid rgba(0, 0, 0, 0.10) !important;
+  color: #0b0d13 !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
 }
 .chat-bubble-incoming a {
   color: #059669 !important;
@@ -632,15 +846,15 @@ html.dark .chat-bubble-outgoing .chat-meta {
 }
 
 html.dark .chat-bubble-incoming {
-  background-color: #141419 !important;
-  color: #e6e6ec !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background-color: #12151d !important;
+  color: #e6e8ef !important;
+  border: 1px solid rgba(255, 255, 255, 0.075) !important;
 }
 html.dark .chat-bubble-incoming a {
   color: #34d399 !important;
 }
 html.dark .chat-bubble-incoming .chat-meta {
-  color: #92929e !important;
+  color: #949cab !important;
 }
 
 /* Snappy Interactive Feedback & 0ms Touch Latency */
@@ -650,7 +864,7 @@ button, a, input, select, textarea, [role="button"] {
 }
 
 .btn-interactive {
-  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.1s ease, opacity 0.1s ease;
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.12s ease, opacity 0.12s ease;
   transform: translateZ(0);
   will-change: transform;
 }
@@ -658,16 +872,16 @@ button, a, input, select, textarea, [role="button"] {
   transform: translateY(-1px);
 }
 .btn-interactive:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
 .card-interactive {
-  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.14s cubic-bezier(0.16, 1, 0.3, 1);
   transform: translateZ(0);
   will-change: transform;
 }
 .card-interactive:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 /* Fast hardware-accelerated drawer & modal transitions */
@@ -681,4 +895,3 @@ button, a, input, select, textarea, [role="button"] {
   padding-top: 0.625rem;
   padding-bottom: 0.625rem;
 }
-

@@ -54,6 +54,7 @@ import { AdminServersTab } from "../components/admin/AdminServersTab";
 import { AdminReferralTab } from "../components/admin/AdminReferralTab";
 import { AdminCreateShopTab } from "../components/admin/AdminCreateShopTab";
 import { AdminBatchDeleteShopsModal } from "../components/admin/AdminBatchDeleteShopsModal";
+import { DesignModeSwitch } from "../components/common/DesignModeSwitch";
 import AdminDevChatTab from "../components/admin/AdminDevChatTab";
 import { AdminShopChatTab } from "../components/admin/AdminShopChatTab";
 import SupportChatWidget from "../components/chat/SupportChatWidget";
@@ -4094,28 +4095,39 @@ export default function AdminPage() {
       </AnimatePresence>
 
       {/* Mobile Top Navigation */}
-      <div className="md:hidden sticky top-0 z-40 bg-app-surface border-b border-app-border px-4 h-14 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2">
-          <img src="/favicon.svg" alt="TMA Builder" className="w-6 h-6 rounded-lg shrink-0 object-cover shadow-2xs border border-white/10" />
-          <span className="font-semibold text-sm text-app-primary font-mono">TMA BUILDER</span>
+      <div className="md:hidden sticky top-0 z-40 bg-app-surface border-b border-app-border px-3.5 h-13 flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <img src="/favicon.svg" alt="TMA Builder" className="w-5 h-5 rounded-md shrink-0 object-cover border border-app-border" />
+          <span className="font-semibold text-xs uppercase tracking-wider text-app-primary font-mono truncate">TMA Studio</span>
+          <span
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-mono font-semibold uppercase shrink-0 ${
+              isConnected
+                ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/25"
+                : "bg-app-card text-app-muted border border-app-border"
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+            <span>{isConnected ? "Live" : "Sync"}</span>
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          <DesignModeSwitch compact />
           <InstallButton variant="icon" className="w-8 h-8" tooltipText="Установить приложение" />
           <button
             type="button"
             onClick={toggleTheme}
-            className="p-1.5 text-app-muted hover:text-app-primary bg-app-card border border-app-border rounded-lg transition-colors cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center text-app-muted hover:text-app-primary bg-app-card border border-app-border rounded-lg transition-colors cursor-pointer"
             title="Переключить тему"
           >
-            {theme === "dark" ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-400" />}
+            {theme === "dark" ? <Sun size={14} className="text-amber-400" /> : <Moon size={14} className="text-app-primary" />}
           </button>
           <button 
             type="button"
             onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-            className="p-1.5 text-app-muted hover:text-app-primary bg-app-card border border-app-border rounded-lg transition-colors cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center text-app-muted hover:text-app-primary bg-app-card border border-app-border rounded-lg transition-colors cursor-pointer"
             aria-label="Открыть меню"
           >
-            {isSidebarOpen ? <X size={18} /> : <Menu size={18} />}
+            {isSidebarOpen ? <X size={16} /> : <Menu size={16} />}
           </button>
         </div>
       </div>
@@ -4177,28 +4189,30 @@ export default function AdminPage() {
 
       {/* Main Content Workspace */}
       <main className="flex-1 min-w-0 flex flex-col min-h-screen">
-        {/* Workspace Top Bar Header */}
-        <header className="min-h-[3.5rem] sm:min-h-[4rem] border-b border-app-border px-4 sm:px-6 py-2.5 sm:py-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-app-surface sticky top-14 md:top-0 z-30 shadow-sm">
-          <div className="flex items-center gap-3">
-            {isSidebarCollapsed && (
-              <button
-                type="button"
-                onClick={toggleSidebarCollapsed}
-                className="hidden md:flex p-1.5 rounded-lg text-app-muted hover:text-app-primary bg-app-card hover:bg-app-hover border border-app-border transition-colors cursor-pointer shrink-0"
-                title="Развернуть боковую панель"
-              >
-                <PanelLeftOpen size={16} />
-              </button>
-            )}
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-app-muted font-mono">
-                  {activeTab === "profile" ? t("sub.account", "Аккаунт /") : t("sub.establishment", "Заведение /")}
+        {/* Swiss Workspace Top Command Bar */}
+        <header className="min-h-[3.25rem] border-b border-app-border px-4 sm:px-6 py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 bg-app-surface sticky top-13 md:top-0 z-30">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={toggleSidebarCollapsed}
+              className="hidden md:flex w-8 h-8 items-center justify-center rounded-lg text-app-muted hover:text-app-primary bg-app-card hover:bg-app-hover border border-app-border transition-colors cursor-pointer shrink-0"
+              title={isSidebarCollapsed ? "Развернуть боковую панель" : "Свернуть в ультра-тонкий док"}
+            >
+              {isSidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+            </button>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] text-app-muted font-mono uppercase tracking-wider">
+                  {activeTab === "profile"
+                    ? t("sub.account", "Аккаунт")
+                    : selectedShop?.name || t("sub.establishment", "Заведение")}
                 </span>
-                <h2 className="text-sm font-semibold tracking-tight text-app-primary font-mono">
+                <span className="text-app-muted font-mono text-xs">/</span>
+                <h2 className="text-xs sm:text-sm font-semibold tracking-tight text-app-primary">
                   {activeTab === "services" && t("nav.services", "Меню и услуги")}
                   {activeTab === "orders" && t("nav.orders", "Заказы")}
-                  {activeTab === "shopchat" && "Чат заведения (Диалоги с клиентами)"}
+                  {activeTab === "shopchat" && "Чат заведения"}
                   {activeTab === "promocodes" && t("nav.promocodes", "Промокоды")}
                   {activeTab === "reviews" && t("nav.reviews", "Отзывы")}
                   {activeTab === "banners" && t("nav.banners", "Баннеры")}
@@ -4209,44 +4223,61 @@ export default function AdminPage() {
                   {activeTab === "analytics" && t("nav.analytics", "Аналитика")}
                   {activeTab === "botsim" && t("nav.botsim", "Симулятор бота")}
                   {activeTab === "payments" && t("nav.payments", "История оплат")}
-                  {activeTab === "servers" && t("nav.servers", "Состояние серверов (Dev)")}
-                  {activeTab === "devchat" && (isDeveloperUser ? t("nav.devchat_support", "Чат поддержки платформы (Dev)") : t("nav.devchat", "Чат с разработчиком"))}
+                  {activeTab === "servers" && t("nav.servers", "Состояние серверов")}
+                  {activeTab === "devchat" && (isDeveloperUser ? t("nav.devchat_support", "Чат поддержки (Dev)") : t("nav.devchat", "Поддержка"))}
                   {activeTab === "settings" && t("nav.settings", "Настройки заведения")}
                   {activeTab === "profile" && t("nav.profile", "Профиль администратора")}
-                  {activeTab === "createshop" && t("nav.createshop", "Создать заведение")}
+                  {activeTab === "createshop" && t("nav.createshop", "Новое заведение")}
                   {activeTab === "addservice" && t("nav.addservice", "Новая позиция меню")}
                   {activeTab === "editservice" && t("nav.editservice", "Редактирование позиции")}
                 </h2>
+
+                {selectedShop && activeTab !== "profile" && activeTab !== "createshop" && (
+                  <a
+                    href={`/${selectedShop.slug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-app-card hover:bg-app-hover border border-app-border text-[10.5px] font-mono text-app-secondary hover:text-app-primary transition-colors"
+                    title="Открыть витрину в новой вкладке"
+                  >
+                    <span>/{selectedShop.slug}</span>
+                    <ExternalLink size={10} />
+                  </a>
+                )}
               </div>
-              <p className="text-[11px] text-app-muted dark:text-zinc-400 font-sans truncate max-w-[200px] sm:max-w-xs">
-                {activeTab === "profile"
-                  ? (user?.email || t("sub.manage_account", "Управление аккаунтом"))
-                  : activeTab === "shopchat"
-                  ? "Прямая связь и оперативная поддержка клиентов заведения"
-                  : activeTab === "servers"
-                  ? t("sub.servers_desc", "Телеметрия и статус инфраструктуры")
-                  : activeTab === "devchat"
-                  ? t("sub.devchat_desc", "Прямая связь с разработчиком, поддержка и вопросы")
-                  : (activeTab === "createshop"
-                    ? t("sub.createshop_desc", "Новое заведение")
-                    : (
-                      <span>
-                        {t("sub.manage_shop", "Управление заведением")}:{" "}
-                        <span className="text-app-primary dark:text-white font-semibold">{selectedShop?.name || ""}</span>
-                      </span>
-                    ))}
-              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            {/* Realtime Status Indicator (Emerald Green) */}
+            <div
+              className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-[10.5px] font-mono font-medium select-none ${
+                isConnected
+                  ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/25"
+                  : "bg-app-card text-amber-500 border border-app-border"
+              }`}
+              title={isConnected ? "Realtime синхронизация активна" : "Подключение к серверу..."}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  isConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-pulse"
+                }`}
+              />
+              <span>{isConnected ? "Realtime Live" : "Sync..."}</span>
+            </div>
+
+            {/* Design Mode Checkpoint Switcher (Swiss / Classic) */}
+            <div className="hidden sm:block">
+              <DesignModeSwitch compact />
+            </div>
+
             {/* Global Theme Switcher */}
             <button
               onClick={toggleTheme}
-              className="p-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0"
+              className="w-8 h-8 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0"
               title={theme === "dark" ? t("btn.theme_light", "Переключить на светлую тему") : t("btn.theme_dark", "Переключить на тёмную тему")}
             >
-              {theme === "dark" ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-400" />}
+              {theme === "dark" ? <Sun size={14} className="text-amber-400" /> : <Moon size={14} className="text-app-primary" />}
             </button>
 
             {/* Help Center & Knowledge Base Button */}
@@ -4256,20 +4287,19 @@ export default function AdminPage() {
                 setHelpCenterArticleId(null);
                 setIsHelpCenterOpen(true);
               }}
-              className="px-2.5 py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 text-xs font-mono group"
+              className="h-8 px-2.5 bg-app-card hover:bg-app-hover border border-app-border text-app-secondary hover:text-app-primary rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 text-xs font-mono"
               title="Центр помощи (?)"
             >
-              <Sparkles size={14} className="text-indigo-500 group-hover:rotate-12 transition-transform" />
-              <span className="hidden sm:inline text-[11px] font-semibold">{t("btn.help", "Справка")}</span>
-              <kbd className="hidden lg:inline text-[9px] font-bold text-app-muted border border-app-border/80 px-1 py-0.5 rounded bg-app-surface/50">?</kbd>
+              <span className="hidden sm:inline text-[11px] font-medium">{t("btn.help", "Справка")}</span>
+              <kbd className="text-[10px] font-semibold text-app-muted border border-app-border px-1 py-0.2 rounded-sm bg-app-surface">?</kbd>
             </button>
 
             {["settings", "profile", "createshop", "addservice", "editservice"].includes(activeTab) && (
               <button
                 onClick={closeSubView}
-                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                className="h-8 px-3 bg-app-card hover:bg-app-hover border border-app-border text-app-primary font-mono text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
               >
-                <ArrowLeft size={14} /> <span>{t("common.back", "Назад")}</span>
+                <ArrowLeft size={13} /> <span>{t("common.back", "Назад")}</span>
               </button>
             )}
 
@@ -4283,16 +4313,16 @@ export default function AdminPage() {
                   setIsAddingService(true);
                   setActiveTab("services");
                 }}
-                className="px-3.5 py-2 bg-app-accent text-app-accent-fg font-mono font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                className="h-8 px-3 bg-app-accent text-app-accent-fg font-mono font-semibold text-xs rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5 cursor-pointer"
               >
-                <Plus size={14} /> <span>{t("btn.add_service", "Добавить услугу")}</span>
+                <Plus size={13} /> <span>{t("btn.add_service", "Добавить позицию")}</span>
               </button>
             )}
           </div>
         </header>
 
         {/* Tab Views Content Container */}
-        <div className="p-4 sm:p-6 flex-1 space-y-6">
+        <div className="p-4 sm:p-6 lg:p-8 flex-1 space-y-6 max-w-[1600px] w-full mx-auto">
           <div
             key={activeTab}
             className="space-y-6 animate-in fade-in duration-75 fast-panel-slide"

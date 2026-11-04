@@ -3,19 +3,15 @@ import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import {
   Star,
-  MapPin,
-  Clock,
-  Truck,
-  Percent,
   Heart,
   ChevronRight,
-  ExternalLink,
+  ArrowUpRight,
   Store,
-  Sparkles,
   MessageSquare,
 } from "lucide-react";
 import { PublicShop } from "../../types";
 import { ResponsiveImage } from "../common/ResponsiveImage";
+import { useTheme } from "../../context/ThemeContext";
 
 interface ShopCardProps {
   shop: PublicShop;
@@ -32,6 +28,9 @@ export const ShopCard: React.FC<ShopCardProps> = ({
   onOpenChat,
   viewMode = "grid",
 }) => {
+  const { designMode } = useTheme();
+  const isAtelier = designMode === "atelier";
+
   const hasDelivery = Boolean(
     shop.deliveryOptions &&
       (shop.deliveryOptions.enabled ||
@@ -39,138 +38,106 @@ export const ShopCard: React.FC<ShopCardProps> = ({
         shop.deliveryOptions.shipping)
   );
 
-  const fallbackBanner =
-    "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=800";
-
-  const bannerImg = shop.bannerUrl || fallbackBanner;
+  const bannerImg = shop.bannerUrl || "";
 
   if (viewMode === "list") {
     return (
       <motion.div
         layout
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.98 }}
-        transition={{ duration: 0.2 }}
-        className="group relative bg-app-surface border border-app-border hover:border-app-border-focus rounded-2xl p-4 transition-all hover:shadow-md flex flex-col sm:flex-row items-start sm:items-center gap-4"
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className={`group relative bg-app-surface border border-app-border hover:border-app-secondary/40 p-4 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-4 ${
+          isAtelier ? "rounded-3xl shadow-sm" : "rounded-xl"
+        }`}
       >
         {/* Banner / Avatar Thumbnail */}
-        <div className="relative w-full sm:w-36 h-28 sm:h-28 rounded-xl overflow-hidden shrink-0 bg-app-card border border-app-border">
-          <ResponsiveImage
-            src={bannerImg}
-            alt={shop.name}
-            preset="thumbnail"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent sm:hidden" />
-          
-          {/* Logo badge */}
-          <div className="absolute bottom-2 left-2 w-9 h-9 rounded-lg bg-app-surface border border-app-border p-0.5 shadow-sm overflow-hidden flex items-center justify-center font-bold text-xs">
-            {shop.logoUrl ? (
-              <ResponsiveImage
-                src={shop.logoUrl}
-                alt={shop.name}
-                preset="avatar"
-                className="w-full h-full object-cover rounded-md"
-              />
-            ) : (
-              <Store size={16} className="text-app-muted" />
-            )}
-          </div>
+        <Link
+          to={`/${shop.slug}`}
+          className={`relative w-full sm:w-44 h-28 overflow-hidden shrink-0 bg-app-bg border border-app-border block ${
+            isAtelier ? "rounded-2xl" : "rounded-lg"
+          }`}
+        >
+          {bannerImg ? (
+            <ResponsiveImage
+              src={bannerImg}
+              alt={shop.name}
+              preset="thumbnail"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-app-bg text-app-muted">
+              <Store size={22} />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
           {/* Status Indicator */}
-          <div className="absolute top-2 left-2">
+          <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/75 text-white text-[10px] font-mono">
             <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium shadow-xs ${
-                shop.isOpen
-                  ? "bg-emerald-600 text-white"
-                  : "bg-zinc-800 text-zinc-300"
+              className={`w-1.5 h-1.5 rounded-full ${
+                shop.isOpen ? "bg-emerald-400" : "bg-zinc-400"
               }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${shop.isOpen ? "bg-white animate-pulse" : "bg-zinc-400"}`} />
-              {shop.isOpen ? "Открыто" : "Закрыто"}
-            </span>
+            />
+            <span>{shop.isOpen ? "Открыто" : "Закрыто"}</span>
           </div>
-        </div>
+        </Link>
 
         {/* Info Column */}
         <div className="flex-1 min-w-0 space-y-1.5 w-full">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Link
-                to={`/${shop.slug}`}
-                className="font-bold text-sm sm:text-base text-app-primary dark:text-white hover:opacity-80 transition-opacity truncate group-hover:underline"
-              >
-                {shop.name}
-              </Link>
-              {shop.cashbackPercent && shop.cashbackPercent > 0 ? (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-app-card text-app-primary border border-app-border">
-                  <Percent size={10} />
-                  {shop.cashbackPercent}% кэшбэк
-                </span>
-              ) : null}
-            </div>
-
-            {shop.description && (
-              <p className="text-xs text-app-muted line-clamp-1 mt-0.5">
-                {shop.description}
-              </p>
-            )}
-          </div>
-
-          {/* Meta specs */}
-          <div className="flex items-center gap-3 text-xs text-app-muted flex-wrap pt-0.5">
-            <div className="flex items-center gap-1 font-mono font-semibold text-app-primary">
-              <Star size={13} className="fill-app-primary text-app-primary" />
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <Link
+              to={`/${shop.slug}`}
+              className={`font-bold text-app-primary hover:text-emerald-500 transition-colors truncate ${
+                isAtelier ? "font-editorial text-xl tracking-tight" : "text-base"
+              }`}
+            >
+              {shop.name}
+            </Link>
+            <div className="flex items-center gap-1 font-mono text-xs font-semibold text-app-primary tabular-nums">
+              <Star size={12} className="fill-amber-400 text-amber-400" />
               <span>{shop.avgRating.toFixed(1)}</span>
-              <span className="text-app-muted font-normal text-[11px]">
+              <span className="text-app-muted font-normal">
                 ({shop.reviewsCount})
               </span>
             </div>
-
-            {shop.address && (
-              <div className="flex items-center gap-1 text-[11px] max-w-[220px] truncate">
-                <MapPin size={12} className="shrink-0 text-app-muted" />
-                <span className="truncate">{shop.address}</span>
-              </div>
-            )}
-
-            <div className="flex items-center gap-1 text-[11px]">
-              <Clock size={12} className="shrink-0 text-app-muted" />
-              <span>{shop.workingHours || "10:00 – 22:00"}</span>
-            </div>
-
-            {hasDelivery && (
-              <div className="flex items-center gap-1 text-[11px] text-app-muted font-medium">
-                <Truck size={12} className="shrink-0" />
-                <span>Доставка</span>
-              </div>
-            )}
           </div>
 
-          {/* Categories */}
-          {shop.categories && shop.categories.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap pt-1">
-              {shop.categories.slice(0, 4).map((cat) => (
-                <span
-                  key={cat}
-                  className="px-2 py-0.5 rounded-md text-[10px] bg-app-card border border-app-border text-app-secondary"
-                >
-                  {cat}
-                </span>
-              ))}
-              {shop.categories.length > 4 && (
-                <span className="text-[10px] text-app-muted font-mono">
-                  +{shop.categories.length - 4}
-                </span>
-              )}
-            </div>
+          {shop.description && (
+            <p className="text-xs text-app-secondary line-clamp-1">
+              {shop.description}
+            </p>
           )}
+
+          {/* Unboxed Metadata Row with · Separators */}
+          <div className="flex items-center gap-2 text-xs text-app-muted flex-wrap pt-0.5 font-mono">
+            <span>{shop.workingHours || "10:00 – 22:00"}</span>
+            {shop.address && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="truncate max-w-[240px] font-sans">{shop.address}</span>
+              </>
+            )}
+            {hasDelivery && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="text-app-secondary font-sans">Доставка</span>
+              </>
+            )}
+            {shop.cashbackPercent && shop.cashbackPercent > 0 ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="text-emerald-600 dark:text-emerald-400">
+                  Кэшбэк {shop.cashbackPercent}%
+                </span>
+              </>
+            ) : null}
+          </div>
         </div>
 
-        {/* Right Actions Column: Favorite and Action button unified and aligned */}
+        {/* Right Actions Column */}
         <div className="w-full sm:w-auto shrink-0 flex items-center justify-end gap-2 pt-2 sm:pt-0 sm:self-center">
-          {/* Chat button */}
           {onOpenChat && (
             <button
               type="button"
@@ -179,14 +146,13 @@ export const ShopCard: React.FC<ShopCardProps> = ({
                 e.stopPropagation();
                 onOpenChat(shop);
               }}
-              className="h-9 w-9 rounded-xl border border-app-border bg-app-card hover:bg-app-hover text-app-muted hover:text-app-primary flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-2xs"
+              className="h-8 w-8 rounded-lg border border-app-border bg-app-bg hover:bg-app-hover text-app-muted hover:text-app-primary flex items-center justify-center transition-colors shrink-0 cursor-pointer"
               title="Написать продавцу"
             >
-              <MessageSquare size={16} />
+              <MessageSquare size={14} />
             </button>
           )}
 
-          {/* Favorite button */}
           <button
             type="button"
             onClick={(e) => {
@@ -194,64 +160,250 @@ export const ShopCard: React.FC<ShopCardProps> = ({
               e.stopPropagation();
               onToggleFavorite(shop.id);
             }}
-            className={`h-9 w-9 rounded-xl border flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+            className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
               isFavorite
-                ? "bg-rose-500/10 border-rose-500/30 text-rose-500 shadow-2xs"
-                : "bg-app-card hover:bg-app-hover border-app-border text-app-muted hover:text-rose-500"
+                ? "bg-rose-500/10 border-rose-500/30 text-rose-500"
+                : "bg-app-bg hover:bg-app-hover border-app-border text-app-muted hover:text-rose-500"
             }`}
             title={isFavorite ? "Удалить из избранного" : "В избранное"}
           >
-            <Heart size={16} className={isFavorite ? "fill-current" : ""} />
+            <Heart size={14} className={isFavorite ? "fill-current" : ""} />
           </button>
 
-          {/* Action Button */}
           <Link
             to={`/${shop.slug}`}
-            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl text-xs font-semibold bg-app-accent text-app-accent-fg hover:opacity-90 active:scale-[0.98] transition-all shadow-xs whitespace-nowrap"
+            className={`inline-flex items-center justify-center gap-1.5 h-8 px-4 rounded-lg text-xs font-semibold bg-app-accent text-app-accent-fg hover:opacity-90 transition-all whitespace-nowrap ${
+              isAtelier ? "font-editorial text-sm tracking-wide rounded-full" : ""
+            }`}
           >
-            <span>В заведение</span>
-            <ChevronRight size={14} />
+            <span>{isAtelier ? "Витрина резиденции" : "Открыть меню"}</span>
+            <ChevronRight size={13} />
           </Link>
         </div>
       </motion.div>
     );
   }
 
-  // Grid view (Default)
+  /* ==========================================================================
+     EDITORIAL ATELIER CARD (Warm Luxury Lookbook & Tasting Menu Layout)
+     ========================================================================== */
+  if (isAtelier) {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="group relative flex flex-col h-full bg-app-surface border border-app-border hover:border-amber-500/40 rounded-3xl p-3.5 transition-all shadow-sm hover:shadow-md"
+      >
+        {/* Framed Editorial Photograph with Soft Inner Radius */}
+        <Link
+          to={`/${shop.slug}`}
+          className="relative h-48 w-full rounded-2xl overflow-hidden bg-app-bg border border-app-border block"
+        >
+          {bannerImg ? (
+            <ResponsiveImage
+              src={bannerImg}
+              alt={shop.name}
+              preset="banner"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-stone-900 to-stone-800 text-stone-400">
+              <Store size={30} />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+
+          {/* Top Bar Over Image */}
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-xs text-white text-[10.5px] font-mono border border-white/15">
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  shop.isOpen ? "bg-emerald-400 animate-pulse" : "bg-zinc-400"
+                }`}
+              />
+              <span>{shop.isOpen ? "Открыто" : "Закрыто"}</span>
+            </span>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleFavorite(shop.id);
+              }}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer border ${
+                isFavorite
+                  ? "bg-rose-500 text-white border-rose-500"
+                  : "bg-black/65 hover:bg-black/85 text-white border-white/20"
+              }`}
+              title={isFavorite ? "В избранном" : "Добавить в избранное"}
+            >
+              <Heart size={14} className={isFavorite ? "fill-current" : ""} />
+            </button>
+          </div>
+
+          {/* Floating Monogram Crest */}
+          <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2 pointer-events-none">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-11 h-11 rounded-full bg-app-surface border-2 border-amber-200/40 overflow-hidden shrink-0 flex items-center justify-center font-editorial font-bold text-base text-app-primary shadow-md">
+                {shop.logoUrl ? (
+                  <ResponsiveImage
+                    src={shop.logoUrl}
+                    alt={shop.name}
+                    preset="avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  shop.name.charAt(0).toUpperCase()
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-editorial italic text-amber-200/90 tracking-wider keep-white">
+                  {hasDelivery ? "Собственная доставка" : "Бутик · Самовывоз"}
+                </div>
+                <div className="text-xs font-mono text-white/95 truncate keep-white">
+                  /{shop.slug}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Link>
+
+        {/* Editorial Body */}
+        <div className="pt-4 px-1.5 pb-1 flex-1 flex flex-col justify-between space-y-4">
+          <div className="space-y-2.5">
+            {/* Title & Serif Rating */}
+            <div className="flex items-baseline justify-between gap-2">
+              <Link
+                to={`/${shop.slug}`}
+                className="font-editorial font-bold text-2xl text-app-primary hover:opacity-80 transition-opacity line-clamp-1 leading-tight"
+                title={shop.name}
+              >
+                {shop.name}
+              </Link>
+
+              <div className="flex items-center gap-1 text-xs font-mono font-semibold text-app-primary shrink-0 tabular-nums">
+                <Star size={12} className="fill-amber-500 text-amber-500" />
+                <span>{shop.avgRating.toFixed(1)}</span>
+              </div>
+            </div>
+
+            {/* Description */}
+            <p className="text-xs text-app-secondary line-clamp-2 leading-relaxed">
+              {shop.description ||
+                (shop.categories?.length
+                  ? shop.categories.slice(0, 3).join(" · ")
+                  : "Авторская коллекция блюд и сервисов с онлайн-заказом")}
+            </p>
+
+            {/* Tasting Menu Preview with Dotted Leaders */}
+            <div className="pt-2.5 border-t border-dashed border-app-border space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] font-editorial italic text-app-muted">
+                <span>Избранные позиции</span>
+                <span className="font-mono not-italic text-[10px] tabular-nums">{shop.servicesCount} поз.</span>
+              </div>
+
+              {shop.featuredServices && shop.featuredServices.length > 0 ? (
+                shop.featuredServices.slice(0, 2).map((srv) => (
+                  <div
+                    key={srv.id}
+                    className="flex items-baseline justify-between gap-2 text-xs"
+                  >
+                    <span className="truncate text-app-secondary font-medium">
+                      {srv.title}
+                    </span>
+                    <span className="flex-1 border-b border-dotted border-app-border min-w-[16px]" />
+                    <span className="font-editorial font-bold text-sm text-app-primary shrink-0 tabular-nums">
+                      {srv.price} {shop.currencySymbol || "₽"}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="flex items-center justify-between py-0.5 text-xs text-app-muted font-editorial italic">
+                  <span>Открыть полную карту зала</span>
+                  <span>→</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Editorial Footer */}
+          <div className="pt-3 border-t border-app-border flex items-center justify-between gap-2 mt-auto">
+            <span className="text-[11px] text-app-muted truncate max-w-[150px]">
+              {shop.address || shop.workingHours || "10:00 – 22:00"}
+            </span>
+
+            <div className="flex items-center gap-1.5">
+              {onOpenChat && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onOpenChat(shop);
+                  }}
+                  className="w-8 h-8 rounded-full border border-app-border bg-app-bg hover:bg-app-hover text-app-muted hover:text-app-primary flex items-center justify-center transition-colors cursor-pointer"
+                  title="Написать заведению"
+                >
+                  <MessageSquare size={13} />
+                </button>
+              )}
+
+              <Link
+                to={`/${shop.slug}`}
+                className="inline-flex items-center gap-1.5 h-8 px-4 rounded-full font-editorial font-bold text-sm tracking-wide bg-app-accent text-app-accent-fg hover:opacity-90 transition-all whitespace-nowrap shadow-2xs"
+              >
+                <span>Посетить</span>
+                <ArrowUpRight size={13} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Swiss Architectural Grid Card
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.96 }}
-      transition={{ duration: 0.2 }}
-      className="group relative flex flex-col h-full bg-app-surface border border-app-border hover:border-app-border-focus rounded-2xl overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5 duration-200"
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.16 }}
+      className="group relative flex flex-col h-full bg-app-surface border border-app-border hover:border-app-secondary/45 rounded-xl overflow-hidden transition-colors"
     >
-      {/* Banner & Overlay */}
-      <div className="relative h-40 sm:h-44 w-full overflow-hidden bg-app-card">
-        <ResponsiveImage
-          src={bannerImg}
-          alt={shop.name}
-          preset="banner"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+      {/* Visual Header (16:9 / 4:3 Proportion) */}
+      <Link
+        to={`/${shop.slug}`}
+        className="relative h-44 w-full overflow-hidden bg-app-bg border-b border-app-border block"
+      >
+        {bannerImg ? (
+          <ResponsiveImage
+            src={bannerImg}
+            alt={shop.name}
+            preset="banner"
+            className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-900 to-zinc-800 text-zinc-400">
+            <Store size={28} />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent pointer-events-none" />
 
-        {/* Top bar over banner: Status badge & Favorite heart */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
-          <span
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono font-medium shadow-sm ${
-              shop.isOpen
-                ? "bg-emerald-600 text-white"
-                : "bg-zinc-900 text-zinc-300"
-            }`}
-          >
+        {/* Top Row Over Image: Status + Favorite */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/75 text-white text-[11px] font-mono font-medium border border-white/10">
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                shop.isOpen ? "bg-white animate-pulse" : "bg-zinc-400"
+                shop.isOpen ? "bg-emerald-400" : "bg-zinc-400"
               }`}
             />
-            {shop.isOpen ? "Открыто" : "Закрыто"}
+            <span>{shop.isOpen ? "Открыто" : "Закрыто"}</span>
           </span>
 
           <button
@@ -261,147 +413,118 @@ export const ShopCard: React.FC<ShopCardProps> = ({
               e.stopPropagation();
               onToggleFavorite(shop.id);
             }}
-            className={`p-2 rounded-full transition-all pointer-events-auto cursor-pointer shadow-sm ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer border ${
               isFavorite
-                ? "bg-rose-500 text-white shadow-rose-500/20"
-                : "bg-black/60 hover:bg-black/80 text-white/90 hover:text-white"
+                ? "bg-rose-500 text-white border-rose-500"
+                : "bg-black/65 hover:bg-black/85 text-white border-white/15"
             }`}
             title={isFavorite ? "В избранном" : "Добавить в избранное"}
           >
-            <Heart size={15} className={isFavorite ? "fill-current" : ""} />
+            <Heart size={14} className={isFavorite ? "fill-current" : ""} />
           </button>
         </div>
 
-        {/* Delivery & Cashback tags over banner bottom-left */}
-        <div className="absolute bottom-3 left-3 right-16 flex items-center gap-1.5 flex-wrap pointer-events-none">
-          {hasDelivery && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-black/80 text-white border border-white/20">
-              <Truck size={11} />
-              Доставка
-            </span>
-          )}
-          {shop.cashbackPercent && shop.cashbackPercent > 0 ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-black/80 text-white border border-white/20">
-              <Percent size={11} />
-              {shop.cashbackPercent}% кэшбэк
-            </span>
-          ) : null}
+        {/* Bottom Left Over Image: Logo + Unboxed Terms */}
+        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2 pointer-events-none">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-10 h-10 rounded-lg bg-app-surface border border-white/20 overflow-hidden shrink-0 flex items-center justify-center font-mono font-bold text-xs text-app-primary">
+              {shop.logoUrl ? (
+                <ResponsiveImage
+                  src={shop.logoUrl}
+                  alt={shop.name}
+                  preset="avatar"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                shop.name.charAt(0).toUpperCase()
+              )}
+            </div>
+            <div className="text-[11px] font-mono text-white/90 truncate keep-white">
+              {hasDelivery ? "Доставка" : "Самовывоз"}
+              {shop.cashbackPercent && shop.cashbackPercent > 0
+                ? ` · Кэшбэк ${shop.cashbackPercent}%`
+                : ""}
+            </div>
+          </div>
         </div>
+      </Link>
 
-        {/* Logo Avatar floating */}
-        <div className="absolute -bottom-4 right-3 w-12 h-12 rounded-xl bg-app-surface p-0.5 border-2 border-app-surface shadow-md overflow-hidden flex items-center justify-center font-bold text-sm">
-          {shop.logoUrl ? (
-            <ResponsiveImage
-              src={shop.logoUrl}
-              alt={shop.name}
-              preset="avatar"
-              className="w-full h-full object-cover rounded-lg"
-            />
-          ) : (
-            <Store size={20} className="text-app-muted" />
-          )}
-        </div>
-      </div>
-
-      {/* Card Body */}
-      <div className="p-4 pt-5 flex-1 flex flex-col justify-between space-y-3">
-        <div className="space-y-2.5">
-          {/* Shop Title & Rating */}
-          <div className="flex items-start justify-between gap-2 min-h-[1.5rem]">
+      {/* Card Body: Swiss Typography & Hairline Dividers */}
+      <div className="p-4 flex-1 flex flex-col justify-between space-y-3.5">
+        <div className="space-y-2">
+          {/* Title & Tabular Rating */}
+          <div className="flex items-start justify-between gap-2">
             <Link
               to={`/${shop.slug}`}
-              className="font-bold text-sm sm:text-base text-app-primary dark:text-white hover:opacity-80 transition-opacity line-clamp-1 group-hover:underline"
+              className="font-bold text-base text-app-primary hover:text-emerald-500 transition-colors line-clamp-1"
               title={shop.name}
             >
               {shop.name}
             </Link>
 
-            <div className="flex items-center gap-1 font-mono font-bold text-xs text-app-primary shrink-0 bg-app-card px-1.5 py-0.5 rounded-md border border-app-border">
-              <Star size={12} className="fill-app-primary text-app-primary" />
+            <div className="flex items-center gap-1 font-mono text-xs font-semibold text-app-primary shrink-0 tabular-nums">
+              <Star size={12} className="fill-amber-400 text-amber-400" />
               <span>{shop.avgRating.toFixed(1)}</span>
-              <span className="text-app-muted font-normal text-[10px]">
+              <span className="text-app-muted font-normal text-[11px]">
                 ({shop.reviewsCount})
               </span>
             </div>
           </div>
 
-          {/* Description with fixed min-height for uniform layout */}
-          <div className="min-h-[2.5rem]">
-            <p className="text-xs text-app-muted line-clamp-2 leading-relaxed">
-              {shop.description || (shop.categories?.length ? `Категории: ${shop.categories.slice(0, 3).join(", ")}` : "Качественный сервис и актуальные предложения")}
-            </p>
+          {/* Description */}
+          <p className="text-xs text-app-secondary line-clamp-2 leading-relaxed min-h-[2.25rem]">
+            {shop.description ||
+              (shop.categories?.length
+                ? shop.categories.slice(0, 3).join(" · ")
+                : "Актуальный каталог и быстрый заказ онлайн")}
+          </p>
+
+          {/* Unboxed Metadata: Hours · Address */}
+          <div className="pt-2 border-t border-app-border text-[11px] text-app-muted flex items-center gap-1.5 truncate font-mono">
+            <span className="shrink-0">{shop.workingHours || "10:00 – 22:00"}</span>
+            <span aria-hidden="true">·</span>
+            <span className="truncate font-sans">
+              {shop.address || "Онлайн-заказ"}
+            </span>
           </div>
 
-          {/* Address & Hours with uniform height */}
-          <div className="space-y-1 text-[11px] text-app-muted pt-1 border-t border-app-border/60 min-h-[2.6rem] flex flex-col justify-center">
-            <div className="flex items-center gap-1.5 truncate">
-              <MapPin size={12} className="shrink-0 text-app-muted" />
-              <span className="truncate">{shop.address || "Адрес уточняется у администратора"}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock size={12} className="shrink-0 text-app-muted" />
-              <span>{shop.workingHours || "10:00 – 22:00"}</span>
-            </div>
-          </div>
-
-          {/* Fixed height (64px) preview of featured items for uniform card heights */}
-          <div className="pt-2">
-            <div className="text-[10px] font-mono text-app-muted uppercase tracking-wider mb-1.5 flex items-center justify-between">
-              <div className="flex items-center gap-1">
-                <Sparkles size={10} className="text-app-muted" />
-                <span>Популярные позиции:</span>
-              </div>
-              <span className="text-[10px] font-mono text-app-muted">
-                {shop.servicesCount} поз.
-              </span>
+          {/* Featured Services Hairline Table (No Nested Boxes) */}
+          <div className="pt-2 border-t border-app-border space-y-1">
+            <div className="flex items-center justify-between text-[10px] font-mono text-app-muted">
+              <span>Позиции меню</span>
+              <span className="tabular-nums">{shop.servicesCount} поз.</span>
             </div>
 
-            <div className="space-y-1.5 h-[62px]">
+            <div className="divide-y divide-app-subtle">
               {shop.featuredServices && shop.featuredServices.length > 0 ? (
-                <>
-                  {shop.featuredServices.slice(0, 2).map((srv) => (
-                    <div
-                      key={srv.id}
-                      className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-app-card/70 border border-app-border/50"
-                    >
-                      <span className="truncate text-app-primary font-medium text-[11px]">
-                        {srv.title}
-                      </span>
-                      <span className="font-mono font-semibold text-app-primary text-[11px] shrink-0 ml-2">
-                        {srv.price} {shop.currencySymbol || "₽"}
-                      </span>
-                    </div>
-                  ))}
-                  {shop.featuredServices.length === 1 && (
-                    <div className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-app-card/40 border border-app-border/30 text-app-muted">
-                      <span className="truncate text-[11px]">И другие позиции в меню</span>
-                      <span className="text-[11px] font-mono">от 150 ₽</span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-app-card/60 border border-app-border/40 text-app-muted">
-                    <span className="truncate text-[11px]">Фирменное меню заведения</span>
-                    <span className="text-[11px] font-mono font-semibold text-app-primary">
-                      В меню
+                shop.featuredServices.slice(0, 2).map((srv) => (
+                  <div
+                    key={srv.id}
+                    className="flex items-center justify-between py-1 text-xs"
+                  >
+                    <span className="truncate text-app-secondary text-[11.5px]">
+                      {srv.title}
+                    </span>
+                    <span className="font-mono font-semibold text-app-primary text-[11.5px] shrink-0 ml-2 tabular-nums">
+                      {srv.price} {shop.currencySymbol || "₽"}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-app-card/40 border border-app-border/30 text-app-muted">
-                    <span className="truncate text-[11px]">Быстрый заказ через WebApp</span>
-                    <span className="text-[10px] font-mono text-app-muted">Telegram</span>
-                  </div>
-                </>
+                ))
+              ) : (
+                <div className="flex items-center justify-between py-1 text-xs text-app-muted">
+                  <span className="truncate text-[11.5px]">Смотреть полное меню</span>
+                  <span className="font-mono text-[11px]">Каталог</span>
+                </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Footer actions pinned to bottom */}
-        <div className="mt-auto pt-3 border-t border-app-border flex items-center justify-between gap-2">
-          <div className="text-[11px] font-mono text-app-muted">
-            Позиций в меню: <span className="font-bold text-app-primary">{shop.servicesCount}</span>
-          </div>
+        {/* Footer Action Bar */}
+        <div className="pt-3 border-t border-app-border flex items-center justify-between gap-2 mt-auto">
+          <span className="text-[11px] font-mono text-app-muted tabular-nums">
+            /{shop.slug}
+          </span>
 
           <div className="flex items-center gap-1.5">
             {onOpenChat && (
@@ -412,19 +535,19 @@ export const ShopCard: React.FC<ShopCardProps> = ({
                   e.stopPropagation();
                   onOpenChat(shop);
                 }}
-                className="p-1.5 rounded-xl border border-app-border bg-app-card hover:bg-app-hover text-app-muted hover:text-app-primary transition-colors cursor-pointer"
-                title="Написать продавцу"
+                className="w-8 h-8 rounded-lg border border-app-border bg-app-bg hover:bg-app-hover text-app-muted hover:text-app-primary flex items-center justify-center transition-colors cursor-pointer"
+                title="Написать заведению"
               >
-                <MessageSquare size={14} />
+                <MessageSquare size={13} />
               </button>
             )}
 
             <Link
               to={`/${shop.slug}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-app-accent text-app-accent-fg hover:opacity-90 active:scale-[0.98] transition-all shadow-xs"
+              className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-semibold bg-app-accent text-app-accent-fg hover:opacity-90 transition-all whitespace-nowrap"
             >
               <span>В меню</span>
-              <ExternalLink size={12} />
+              <ArrowUpRight size={13} />
             </Link>
           </div>
         </div>

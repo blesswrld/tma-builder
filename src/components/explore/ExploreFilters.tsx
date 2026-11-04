@@ -1,11 +1,9 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Sparkles,
   Truck,
   Star,
   Percent,
-  Clock,
   LayoutGrid,
   List,
   RotateCcw,
@@ -136,16 +134,15 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
     SORT_OPTIONS.find((s) => s.id === sortBy)?.label || "По популярности";
 
   return (
-    <div className="space-y-4">
-      {/* Category Pills Carousel with Scroll Controls */}
-      <div className="relative">
-        {/* Left Arrow (only visible if scrolled right) */}
+    <div className="space-y-3">
+      {/* Architectural Category Navigation Strip */}
+      <div className="relative border-b border-app-border pb-2.5">
         {canScrollLeft && (
-          <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center pr-4 bg-gradient-to-r from-app-surface via-app-surface/90 to-transparent pointer-events-none">
+          <div className="absolute left-0 top-0 bottom-2.5 z-10 flex items-center pr-3 bg-gradient-to-r from-app-bg via-app-bg/90 to-transparent pointer-events-none">
             <button
               type="button"
               onClick={() => scrollHoriz("left")}
-              className="pointer-events-auto w-7 h-7 rounded-full bg-app-surface border border-app-border shadow-md flex items-center justify-center text-app-secondary hover:text-app-primary hover:bg-app-hover transition-all cursor-pointer"
+              className="pointer-events-auto w-7 h-7 rounded-md bg-app-surface border border-app-border flex items-center justify-center text-app-secondary hover:text-app-primary hover:bg-app-hover transition-all cursor-pointer"
               aria-label="Прокрутить влево"
             >
               <ChevronLeft size={14} />
@@ -156,31 +153,31 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
         <div
           ref={scrollRef}
           onScroll={checkScroll}
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1 scroll-smooth"
+          className="flex items-center gap-1.5 overflow-x-auto scrollbar-none scroll-smooth"
         >
-          {/* "Все" pill */}
+          {/* "Все заведения" tab */}
           <button
             type="button"
             onClick={() => onSelectCategory("ALL")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
+            className={`h-8 px-3 rounded-lg text-xs whitespace-nowrap transition-all shrink-0 cursor-pointer flex items-center gap-1.5 border ${
               selectedCategory === "ALL"
-                ? "bg-app-accent text-app-accent-fg border-app-accent shadow-xs"
-                : "bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
+                ? "bg-app-accent text-app-accent-fg border-app-accent font-semibold"
+                : "bg-app-surface hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border font-medium"
             }`}
           >
             <span>Все заведения</span>
             <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+              className={`text-[10px] font-mono tabular-nums ${
                 selectedCategory === "ALL"
-                  ? "bg-app-accent-fg/15 text-app-accent-fg"
-                  : "bg-app-hover text-app-muted"
+                  ? "text-app-accent-fg/80"
+                  : "text-app-muted"
               }`}
             >
               {totalCount}
             </span>
           </button>
 
-          {/* Dynamic Category Pills (if any) */}
+          {/* Dynamic Category Tabs */}
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat;
             const count = categoryCounts[cat] || 0;
@@ -189,19 +186,17 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
                 key={cat}
                 type="button"
                 onClick={() => onSelectCategory(cat)}
-                className={`px-3 py-2 rounded-xl text-xs whitespace-nowrap transition-all shrink-0 cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
+                className={`h-8 px-3 rounded-lg text-xs whitespace-nowrap transition-all shrink-0 cursor-pointer flex items-center gap-1.5 border ${
                   isSelected
-                    ? "bg-app-accent text-app-accent-fg border-app-accent font-semibold shadow-xs"
-                    : "bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border font-medium"
+                    ? "bg-app-accent text-app-accent-fg border-app-accent font-semibold"
+                    : "bg-app-surface hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border font-medium"
                 }`}
               >
                 <span>{cat}</span>
                 {count > 0 && (
                   <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                      isSelected
-                        ? "bg-app-accent-fg/15 text-app-accent-fg"
-                        : "bg-app-hover text-app-muted"
+                    className={`text-[10px] font-mono tabular-nums ${
+                      isSelected ? "text-app-accent-fg/80" : "text-app-muted"
                     }`}
                   >
                     {count}
@@ -212,13 +207,12 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
           })}
         </div>
 
-        {/* Right Arrow (only visible if content overflows to the right) */}
         {canScrollRight && (
-          <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center pl-4 bg-gradient-to-l from-app-surface via-app-surface/90 to-transparent pointer-events-none">
+          <div className="absolute right-0 top-0 bottom-2.5 z-10 flex items-center pl-3 bg-gradient-to-l from-app-bg via-app-bg/90 to-transparent pointer-events-none">
             <button
               type="button"
               onClick={() => scrollHoriz("right")}
-              className="pointer-events-auto w-7 h-7 rounded-full bg-app-surface border border-app-border shadow-md flex items-center justify-center text-app-secondary hover:text-app-primary hover:bg-app-hover transition-all cursor-pointer"
+              className="pointer-events-auto w-7 h-7 rounded-md bg-app-surface border border-app-border flex items-center justify-center text-app-secondary hover:text-app-primary hover:bg-app-hover transition-all cursor-pointer"
               aria-label="Прокрутить вправо"
             >
               <ChevronRight size={14} />
@@ -228,78 +222,73 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
       </div>
 
       {/* Secondary Filter & Sort Toolbar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
-        {/* Quick Filter Chips */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-          {/* Open Now */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        {/* Quick Filter Controls */}
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
             onClick={onToggleOnlyOpen}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer shadow-2xs ${
+            className={`h-8 px-2.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               onlyOpen
-                ? "bg-app-accent text-app-accent-fg border-transparent shadow-xs font-semibold"
-                : "bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
+                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/35 font-semibold"
+                : "bg-app-surface hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
             }`}
           >
             <span
-              className={`w-2 h-2 rounded-full ${
-                onlyOpen ? "bg-app-accent-fg" : "bg-app-muted"
+              className={`w-1.5 h-1.5 rounded-full ${
+                onlyOpen ? "bg-emerald-500" : "bg-app-muted"
               }`}
             />
             <span>Сейчас открыто</span>
           </button>
 
-          {/* Delivery */}
           <button
             type="button"
             onClick={onToggleOnlyDelivery}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer shadow-2xs ${
+            className={`h-8 px-2.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               onlyDelivery
-                ? "bg-app-accent text-app-accent-fg border-transparent shadow-xs font-semibold"
-                : "bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
+                ? "bg-app-accent text-app-accent-fg border-transparent font-semibold"
+                : "bg-app-surface hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
             }`}
           >
             <Truck size={13} className={onlyDelivery ? "text-app-accent-fg" : "text-app-muted"} />
             <span>Доставка</span>
           </button>
 
-          {/* Rating 4.5+ */}
           <button
             type="button"
             onClick={() => onSetMinRating(minRating === 4.5 ? 0 : 4.5)}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer shadow-2xs ${
+            className={`h-8 px-2.5 rounded-lg text-xs font-mono font-medium flex items-center gap-1.5 border transition-all cursor-pointer whitespace-nowrap shrink-0 tabular-nums ${
               minRating >= 4.5
-                ? "bg-app-accent text-app-accent-fg border-transparent shadow-xs font-semibold"
-                : "bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
+                ? "bg-app-accent text-app-accent-fg border-transparent font-semibold"
+                : "bg-app-surface hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
             }`}
           >
             <Star
-              size={13}
+              size={12}
               className={minRating >= 4.5 ? "fill-app-accent-fg text-app-accent-fg" : "fill-app-muted text-app-muted"}
             />
             <span>4.5+</span>
           </button>
 
-          {/* Cashback */}
           <button
             type="button"
             onClick={onToggleHasCashback}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer shadow-2xs ${
+            className={`h-8 px-2.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               hasCashback
-                ? "bg-app-accent text-app-accent-fg border-transparent shadow-xs font-semibold"
-                : "bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
+                ? "bg-app-accent text-app-accent-fg border-transparent font-semibold"
+                : "bg-app-surface hover:bg-app-hover text-app-secondary hover:text-app-primary border-app-border"
             }`}
           >
             <Percent size={12} className={hasCashback ? "text-app-accent-fg" : "text-app-muted"} />
             <span>Кэшбэк</span>
           </button>
 
-          {/* Reset Filters button */}
           {hasActiveFilters && (
             <button
               type="button"
               onClick={onResetFilters}
-              className="px-2 py-1.5 rounded-xl text-xs font-medium text-rose-500 hover:bg-rose-500/10 transition-colors flex items-center gap-1 cursor-pointer"
+              className="h-8 px-2.5 rounded-lg text-xs font-medium text-rose-500 hover:bg-rose-500/10 transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
             >
               <RotateCcw size={12} />
               <span>Сбросить</span>
@@ -309,18 +298,18 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
 
         {/* Right Sort & View Controls */}
         <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-          {/* Custom Sleek Sort Selector */}
+          {/* Sort Selector */}
           <div className="relative" ref={sortRef}>
             <button
               type="button"
               onClick={() => setIsSortOpen((prev) => !prev)}
-              className="h-8 pl-2.5 pr-2.5 rounded-xl bg-app-card hover:bg-app-hover border border-app-border hover:border-app-border-focus text-xs font-medium text-app-primary focus:outline-hidden cursor-pointer shadow-2xs flex items-center gap-1.5 transition-all"
+              className="h-8 px-2.5 rounded-lg bg-app-surface hover:bg-app-hover border border-app-border text-xs font-medium text-app-primary focus:outline-hidden cursor-pointer flex items-center gap-1.5 transition-all whitespace-nowrap"
             >
               <ArrowUpDown size={13} className="text-app-muted shrink-0" />
               <span className="truncate max-w-[140px]">{currentSortLabel}</span>
               <ChevronDown
                 size={12}
-                className={`text-app-muted shrink-0 transition-transform duration-200 ${
+                className={`text-app-muted shrink-0 transition-transform duration-150 ${
                   isSortOpen ? "rotate-180 text-app-primary" : ""
                 }`}
               />
@@ -332,11 +321,11 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
                   initial={{ opacity: 0, y: 4, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-1.5 w-52 py-1 bg-app-surface border border-app-border rounded-xl shadow-xl z-50 overflow-hidden"
+                  transition={{ duration: 0.12 }}
+                  className="absolute right-0 top-full mt-1.5 w-52 py-1 bg-app-surface border border-app-border rounded-lg shadow-xl z-50 overflow-hidden"
                 >
-                  <div className="px-2.5 py-1 text-[10px] font-mono text-app-muted uppercase tracking-wider border-b border-app-border/60 mb-0.5">
-                    Сортировка
+                  <div className="px-3 py-1 text-[10px] font-mono text-app-muted border-b border-app-border mb-0.5">
+                    Сортировка списка
                   </div>
                   {SORT_OPTIONS.map((opt) => {
                     const isCurrent = sortBy === opt.id;
@@ -350,7 +339,7 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
                         }}
                         className={`w-full px-3 py-1.5 text-xs text-left flex items-center justify-between transition-colors cursor-pointer ${
                           isCurrent
-                            ? "bg-app-accent/10 text-app-primary font-bold"
+                            ? "bg-app-hover text-app-primary font-semibold"
                             : "text-app-secondary hover:bg-app-hover hover:text-app-primary"
                         }`}
                       >
@@ -367,30 +356,30 @@ export const ExploreFilters: React.FC<ExploreFiltersProps> = ({
           </div>
 
           {/* View Mode Toggle (Grid / List) */}
-          <div className="flex items-center p-0.5 rounded-xl bg-app-card border border-app-border shadow-2xs">
+          <div className="flex items-center p-0.5 rounded-lg bg-app-surface border border-app-border">
             <button
               type="button"
               onClick={() => onChangeViewMode("grid")}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              className={`p-1.5 rounded-md transition-colors cursor-pointer ${
                 viewMode === "grid"
-                  ? "bg-app-surface text-app-primary shadow-xs"
+                  ? "bg-app-accent text-app-accent-fg"
                   : "text-app-muted hover:text-app-primary"
               }`}
               title="Сетка"
             >
-              <LayoutGrid size={14} />
+              <LayoutGrid size={13} />
             </button>
             <button
               type="button"
               onClick={() => onChangeViewMode("list")}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              className={`p-1.5 rounded-md transition-colors cursor-pointer ${
                 viewMode === "list"
-                  ? "bg-app-surface text-app-primary shadow-xs"
+                  ? "bg-app-accent text-app-accent-fg"
                   : "text-app-muted hover:text-app-primary"
               }`}
               title="Список"
             >
-              <List size={14} />
+              <List size={13} />
             </button>
           </div>
         </div>

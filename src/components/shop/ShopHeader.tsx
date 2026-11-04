@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { Sun, Moon, Receipt, Menu, X, Compass, Info, Bug } from "lucide-react";
+import { Sun, Moon, Receipt, Menu, X, Compass, Info, Bug, Layers } from "lucide-react";
 import { Shop } from "../../types";
 import { useLanguage } from "../../context/LanguageContext";
+import { useTheme } from "../../context/ThemeContext";
 import { ResponsiveImage } from "../common/ResponsiveImage";
+import { DesignModeSwitch } from "../common/DesignModeSwitch";
 
 interface ShopHeaderProps {
   shop: Shop;
@@ -32,11 +34,13 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
   hasActiveOrder,
 }) => {
   const { t } = useLanguage();
+  const { designMode, toggleDesignMode } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const handleToggleTheme = onToggleTheme || toggleTheme || (() => {});
   const isDark = theme === "dark";
+  const isAtelier = designMode === "atelier";
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -53,14 +57,20 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
   }, [isMenuOpen]);
 
   return (
-    <header className="sticky top-0 z-40 bg-app-surface/90 backdrop-blur-md border-b border-app-border text-app-primary transition-colors">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-        {/* Shop Avatar & Name */}
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+    <header
+      className={`sticky top-0 z-40 text-app-primary transition-colors ${
+        isAtelier
+          ? "bg-app-surface/95 backdrop-blur-md border-b-2 border-double border-app-border"
+          : "bg-app-surface border-b border-app-border"
+      }`}
+    >
+      <div className={`max-w-5xl mx-auto px-4 sm:px-6 ${isAtelier ? "h-16" : "h-14"} flex items-center justify-between gap-4`}>
+        {/* Zone 1: Shop Identity */}
+        <div className="flex items-center gap-2.5 min-w-0">
           <div
-            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-mono font-bold text-xs sm:text-sm shrink-0 overflow-hidden border border-app-border shadow-2xs ${
-              shop.logoUrl ? "bg-transparent" : "bg-app-card dark:bg-zinc-800 text-app-primary dark:text-white"
-            }`}
+            className={`w-8 h-8 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-app-border ${
+              isAtelier ? "rounded-full font-editorial text-sm" : "rounded-lg font-mono"
+            } ${shop.logoUrl ? "bg-transparent" : "bg-app-bg text-app-primary"}`}
           >
             {shop.logoUrl ? (
               <ResponsiveImage
@@ -73,68 +83,74 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
               shop.name.charAt(0).toUpperCase()
             )}
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <h1 className="text-sm font-bold tracking-tight text-app-primary dark:text-white truncate">
-                {shop.name}
-              </h1>
-              <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  shop.isOpen !== false ? "bg-emerald-500" : "bg-zinc-400"
-                }`}
-                title={shop.isOpen !== false ? t("shop.open", "Открыто") : t("shop.closed", "Закрыто")}
-              />
-            </div>
-            <p className="text-[11px] font-mono text-app-muted truncate">
-              {shop.workingHours || (shop.isOpen !== false ? t("shop.open", "Открыто") : t("shop.closed", "Закрыто"))}
-            </p>
+          <div className="flex items-center gap-2 min-w-0">
+            <h1
+              className={`font-bold tracking-tight text-app-primary truncate ${
+                isAtelier ? "font-editorial text-lg sm:text-xl" : "text-sm"
+              }`}
+            >
+              {shop.name}
+            </h1>
+            <span
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                shop.isOpen !== false ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"
+              }`}
+              title={shop.isOpen !== false ? t("shop.open", "Открыто") : t("shop.closed", "Закрыто")}
+            />
+            {shop.workingHours && (
+              <span className="hidden md:inline text-xs font-mono text-app-muted pl-2 border-l border-app-border truncate">
+                {shop.workingHours}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Right Actions: Orders & Menu */}
+        {/* Zone 2 & 3: Right Controls & Menu */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 relative" ref={menuRef}>
+          <DesignModeSwitch compact />
+
           {/* Orders History button */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+          <button
             type="button"
             onClick={onOpenMyOrders}
-            className="h-9 px-3 rounded-xl text-xs transition-all flex items-center gap-2 font-mono font-medium cursor-pointer shrink-0 bg-app-card hover:bg-app-hover text-app-secondary hover:text-app-primary border border-app-border shadow-2xs relative"
+            className={`h-8 px-2.5 text-xs transition-all flex items-center gap-1.5 font-mono font-medium cursor-pointer shrink-0 bg-app-bg hover:bg-app-hover text-app-secondary hover:text-app-primary border border-app-border relative ${
+              isAtelier ? "rounded-full" : "rounded-lg"
+            }`}
             title={t("shop.orders", "Заказы")}
           >
-            <Receipt size={14} className="text-app-muted shrink-0" />
+            <Receipt size={13} className="text-app-muted shrink-0" />
             <span className="hidden sm:inline">{t("shop.orders", "Заказы")}</span>
             {hasActiveOrder && (
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse absolute -top-0.5 -right-0.5" />
             )}
-          </motion.button>
+          </button>
 
           {/* Menu / Settings dropdown trigger */}
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
+          <button
             type="button"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-2xs border ${
+            className={`w-8 h-8 flex items-center justify-center transition-all cursor-pointer shrink-0 border ${
+              isAtelier ? "rounded-full" : "rounded-lg"
+            } ${
               isMenuOpen
                 ? "bg-app-accent text-app-accent-fg border-app-accent"
-                : "bg-app-card text-app-secondary hover:text-app-primary hover:bg-app-hover border-app-border"
+                : "bg-app-bg text-app-secondary hover:text-app-primary hover:bg-app-hover border-app-border"
             }`}
             title="Меню"
             aria-label="Меню настроек"
           >
-            {isMenuOpen ? <X size={16} /> : <Menu size={16} />}
-          </motion.button>
+            {isMenuOpen ? <X size={15} /> : <Menu size={15} />}
+          </button>
 
           {/* Clean Dropdown Menu */}
           <AnimatePresence>
             {isMenuOpen && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                initial={{ opacity: 0, scale: 0.96, y: -4 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                exit={{ opacity: 0, scale: 0.96, y: -4 }}
                 transition={{ duration: 0.12 }}
-                className="absolute right-0 top-11 w-52 bg-app-card border border-app-border rounded-2xl shadow-xl p-1.5 z-50 text-xs font-sans space-y-1 fast-panel-slide"
+                className="absolute right-0 top-10 w-60 bg-app-surface border border-app-border rounded-xl shadow-xl p-1.5 z-50 text-xs font-sans space-y-0.5 fast-panel-slide"
               >
                 {/* Theme Switcher Row */}
                 <button
@@ -143,14 +159,35 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
                     handleToggleTheme();
                     setIsMenuOpen(false);
                   }}
-                  className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-app-primary hover:bg-app-hover transition-colors cursor-pointer text-left"
+                  className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-app-primary hover:bg-app-hover transition-colors cursor-pointer text-left"
                 >
                   <span className="flex items-center gap-2">
-                    {isDark ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-app-secondary" />}
+                    {isDark ? <Sun size={14} className="text-amber-400" /> : <Moon size={14} className="text-app-secondary" />}
                     <span>{isDark ? "Светлая тема" : "Тёмная тема"}</span>
                   </span>
                   <span className="text-[10px] font-mono text-app-muted uppercase">
                     {isDark ? "Dark" : "Light"}
+                  </span>
+                </button>
+
+                {/* Design Mode Switcher Row (Swiss / Atelier / Classic) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleDesignMode();
+                  }}
+                  className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-app-primary hover:bg-app-hover transition-colors cursor-pointer text-left"
+                >
+                  <span className="flex items-center gap-2">
+                    <Layers size={14} className="text-emerald-500" />
+                    <span>Стиль дизайна</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-500 uppercase font-semibold">
+                    {designMode === "swiss"
+                      ? "Swiss"
+                      : designMode === "atelier"
+                      ? "Atelier"
+                      : "Classic"}
                   </span>
                 </button>
 
@@ -162,9 +199,9 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
                       onOpenInfoModal();
                       setIsMenuOpen(false);
                     }}
-                    className="w-full px-3 py-2 rounded-xl flex items-center gap-2 text-app-primary hover:bg-app-hover transition-colors cursor-pointer text-left"
+                    className="w-full px-3 py-2 rounded-lg flex items-center gap-2 text-app-primary hover:bg-app-hover transition-colors cursor-pointer text-left"
                   >
-                    <Info size={15} className="text-app-muted" />
+                    <Info size={14} className="text-app-muted" />
                     <span>{t("shop.about", "О заведении")}</span>
                   </button>
                 )}
@@ -173,9 +210,9 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
                 <Link
                   to="/explore"
                   onClick={() => setIsMenuOpen(false)}
-                  className="w-full px-3 py-2 rounded-xl flex items-center gap-2 text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
+                  className="w-full px-3 py-2 rounded-lg flex items-center gap-2 text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
                 >
-                  <Compass size={15} className="text-emerald-500" />
+                  <Compass size={14} className="text-emerald-500" />
                   <span>Каталог заведений</span>
                 </Link>
 
@@ -187,9 +224,9 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
                       onOpenReport();
                       setIsMenuOpen(false);
                     }}
-                    className="w-full px-3 py-2 rounded-xl flex items-center gap-2 text-app-muted hover:text-app-primary hover:bg-app-hover transition-colors cursor-pointer text-left border-t border-app-border/40 pt-2"
+                    className="w-full px-3 py-2 rounded-lg flex items-center gap-2 text-app-muted hover:text-app-primary hover:bg-app-hover transition-colors cursor-pointer text-left border-t border-app-border pt-2 mt-1"
                   >
-                    <Bug size={14} />
+                    <Bug size={13} />
                     <span>{t("btn.bug_report", "Сообщить об ошибке")}</span>
                   </button>
                 )}

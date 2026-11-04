@@ -10,7 +10,6 @@ import {
   ExternalLink,
   Trash2,
   ChevronDown,
-  ChevronRight,
   Layers,
   Tag,
   Star,
@@ -35,20 +34,18 @@ import {
   LogOut,
   LogIn,
   ShieldCheck,
-  Sparkles,
   Github,
   X,
   Search,
   PanelLeftClose,
   PanelLeftOpen,
   GripVertical,
-  Compass,
-  Wallet,
   Lock
 } from "lucide-react";
-import { CHANGELOG_DATA } from "../../data/changelogData";
 import { useLanguage } from "../../context/LanguageContext";
 import { useRealtime } from "../../context/RealtimeContext";
+import { useTheme } from "../../context/ThemeContext";
+import { DesignModeSwitch } from "../common/DesignModeSwitch";
 
 interface Service {
   id: string;
@@ -67,7 +64,7 @@ interface Shop {
   name: string;
   description?: string | null;
   ownerId?: string;
-  currentUserRole?: "OWNER" | "MANAGER" | "STAFF";
+  currentUserRole?: "OWNER" | "MANAGER" | "STAFF" | null;
   services?: Service[];
   owner?: any;
 }
@@ -156,7 +153,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
   setActiveTab,
   closeSubView,
   isStaff,
-  isManager,
   isOwner,
   isDeveloperUser,
   unreadChatCount,
@@ -181,8 +177,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
   setIsAuthModalOpen,
   setIsQrModalOpen,
   setIsPlanModalOpen,
-  setIsPrivacyModalOpen,
-  setIsChangelogOpen,
   shopFilterMode,
   setShopFilterMode,
   unreadNotificationsCount = 0,
@@ -191,10 +185,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
 }) => {
   const { t } = useLanguage();
   const { isConnected } = useRealtime();
+  const { designMode } = useTheme();
+  const isAtelier = designMode === "atelier";
   const navigate = useNavigate();
   const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
   const [sidebarFilterQuery, setSidebarFilterQuery] = useState("");
-  const [isQuickShopSearchOpen, setIsQuickShopSearchOpen] = useState(false);
   const [shopSearchInput, setShopSearchInput] = useState("");
   const shopDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -237,13 +232,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
 
     return [
       {
-        title: t("group.main", "Основное"),
+        title: t("group.main", "Операции"),
         items: [
           { id: "orders", label: t("nav.orders", "Заказы"), icon: ShoppingBag, badge: pendingOrdersCount, alert: pendingOrdersCount > 0 },
           { id: "services", label: t("nav.services", "Меню и услуги"), icon: Layers, badge: (selectedShop?.services || []).length },
           { id: "customers", label: t("nav.customers", "Клиенты CRM"), icon: Users, badge: (customers || []).length },
           { id: "analytics", label: t("nav.analytics", "Аналитика"), icon: BarChart3 },
-          { id: "shopchat", label: "Чат заведения", icon: MessageSquare, badge: unreadPeerChatCount, alert: unreadPeerChatCount > 0 },
+          { id: "shopchat", label: "Чат заведения", icon: MessageSquare, badge: unreadPeerChatCount, alert: unreadPeerChatCount > 0 }
         ]
       },
       {
@@ -257,20 +252,20 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
         ]
       },
       {
-        title: t("group.management", "Управление"),
+        title: t("group.management", "Система"),
         items: [
-          { id: "settings", label: t("nav.settings", "Настройки заведения"), icon: Settings },
-          { id: "team", label: t("nav.team", "Команда и доступ"), icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
+          { id: "settings", label: t("nav.settings", "Настройки"), icon: Settings },
+          { id: "team", label: t("nav.team", "Команда"), icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
           { id: "botsim", label: t("nav.botsim", "Симулятор бота"), icon: Smartphone },
-          { id: "payments", label: t("nav.payments", "История оплат"), icon: CreditCard }
+          { id: "payments", label: t("nav.payments", "Оплаты"), icon: CreditCard }
         ]
       },
       ...(isDeveloperUser
         ? [
             {
-              title: t("group.development", "Разработка (Dev)"),
+              title: t("group.development", "Платформа (Dev)"),
               items: [
-                { id: "devchat", label: t("nav.devchat_support", "Чат поддержки"), icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
+                { id: "devchat", label: t("nav.devchat_support", "Поддержка"), icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
                 { id: "moderation", label: "Модерация", icon: ShieldCheck },
                 { id: "servers", label: t("nav.servers", "Серверы"), icon: Server },
                 { id: "dev-users", label: t("nav.users", "Пользователи"), icon: ShieldAlert },
@@ -284,6 +279,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
     isStaff,
     t,
     pendingOrdersCount,
+    unreadPeerChatCount,
     isDeveloperUser,
     unreadChatCount,
     unhandledReportsCount,
@@ -297,7 +293,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
     teamMembers?.length
   ]);
 
-  // Filter items if user typed in sidebar quick filter
   const filteredNavGroups = useMemo(() => {
     const q = sidebarFilterQuery.toLowerCase().trim();
     if (!q) return navigationGroups;
@@ -356,9 +351,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
       setActiveTab(tabId as any);
     }
     setIsSidebarOpen(false);
-  }, [navigate, handleOpenProfile, closeSubView, setActiveTab, setIsSidebarOpen]);
+  }, [navigate, handleOpenProfile, selectedShop, handleOpenSettings, closeSubView, setActiveTab, setIsSidebarOpen]);
 
-  const effectiveWidth = isSidebarCollapsed ? 64 : sidebarWidth;
+  const effectiveWidth = isSidebarCollapsed ? 60 : sidebarWidth;
 
   return (
     <aside
@@ -366,47 +361,50 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
       style={{ ["--sidebar-w" as any]: `${effectiveWidth}px` }}
       className={`
         fixed md:sticky top-0 left-0 z-50 h-[100dvh] md:h-screen max-h-[100dvh] md:max-h-screen bg-app-surface border-r border-app-border
-        ${isSidebarCollapsed ? "w-16 md:w-16" : "w-[280px] max-w-[85vw] md:w-[var(--sidebar-w)] md:max-w-none"}
+        ${isSidebarCollapsed ? "w-[60px] md:w-[60px]" : "w-[264px] max-w-[85vw] md:w-[var(--sidebar-w)] md:max-w-none"}
         shrink-0 transition-transform duration-150 ease-out md:transition-[width] md:duration-150 will-change-transform fast-panel-slide
         ${isResizingSidebar ? "select-none" : ""}
         ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0 shadow-none"}
       `}
     >
-      <div className="h-full w-full overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col justify-between p-2.5 space-y-2.5 pb-6 md:pb-2.5">
-        <div className="space-y-2.5">
-          {/* Top Brand & Collapse Bar */}
-          <div className={`flex items-center ${isSidebarCollapsed ? "justify-center" : "justify-between"} px-1 pt-0.5`}>
+      <div className="h-full w-full overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col justify-between p-2 space-y-2 pb-6 md:pb-2">
+        <div className="space-y-2">
+          {/* Swiss Dock Top Brand & Collapse Bar */}
+          <div className={`flex items-center ${isSidebarCollapsed ? "justify-center" : "justify-between"} h-9 px-1 border-b border-app-subtle pb-2`}>
             {isSidebarCollapsed ? (
               <button
                 type="button"
                 onClick={toggleSidebarCollapsed}
                 data-tooltip-position="right"
-                className="w-9 h-9 rounded-xl bg-app-card hover:bg-app-hover border border-app-border flex items-center justify-center font-mono font-bold text-xs text-app-primary transition-all cursor-pointer group shadow-2xs p-1.5"
-                title={t("admin.sidebar_expand", "Развернуть боковое меню (Compact Mode)")}
+                className="w-9 h-9 rounded-lg bg-app-card hover:bg-app-hover border border-app-border flex items-center justify-center font-mono font-bold text-xs text-app-primary transition-colors cursor-pointer group relative"
+                title={t("admin.sidebar_expand", "Развернуть боковую панель")}
               >
-                <img src="/favicon.svg" alt="TMA" className="w-5 h-5 rounded-md object-cover group-hover:hidden" />
-                <PanelLeftOpen size={16} className="hidden group-hover:block text-app-accent" />
+                <img src="/favicon.svg" alt="TMA" className="w-4 h-4 rounded-sm object-cover group-hover:hidden" />
+                <PanelLeftOpen size={15} className="hidden group-hover:block text-app-primary" />
+                <span
+                  className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-app-surface ${
+                    isConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                  }`}
+                />
               </button>
             ) : (
               <>
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <img src="/favicon.svg" alt="TMA Builder" className="w-6 h-6 rounded-lg shrink-0 object-cover shadow-2xs border border-white/10" />
-                  <span className="font-bold text-xs tracking-tight text-app-primary font-mono truncate">
-                    TMA BUILDER
+                <div className="flex items-center gap-2 min-w-0">
+                  <img src="/favicon.svg" alt="TMA Builder" className={`w-5 h-5 shrink-0 object-cover border border-app-border ${isAtelier ? "rounded-full" : "rounded-md"}`} />
+                  <span className={isAtelier ? "font-editorial font-bold text-base tracking-tight text-app-primary truncate" : "font-semibold text-[11px] tracking-wider uppercase text-app-primary font-mono truncate"}>
+                    {isAtelier ? "TMA Atelier" : "TMA Studio"}
                   </span>
                   <span
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold transition-all shrink-0 ${
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-mono font-semibold uppercase tracking-wider shrink-0 ${
                       isConnected
-                        ? "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-xs shadow-emerald-500/15"
+                        ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/25"
                         : "bg-app-card text-app-muted border border-app-border"
                     }`}
                     title={isConnected ? "Realtime синхронизация активна" : "Подключение к Realtime..."}
                   >
                     <span
                       className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                        isConnected
-                          ? "bg-emerald-500 shadow-xs shadow-emerald-500/60 animate-pulse ring-1 ring-emerald-400/40"
-                          : "bg-amber-500 animate-pulse"
+                        isConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-pulse"
                       }`}
                     />
                     <span>{isConnected ? "Live" : "Sync"}</span>
@@ -417,16 +415,16 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                   <button
                     type="button"
                     onClick={toggleSidebarCollapsed}
-                    className="hidden md:flex p-1.5 rounded-lg text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border transition-all cursor-pointer"
-                    title={t("admin.sidebar_collapse", "Свернуть панель (Компактный режим)")}
+                    className="hidden md:flex p-1 rounded-md text-app-muted hover:text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
+                    title={t("admin.sidebar_collapse", "Свернуть в узкий док")}
                   >
-                    <PanelLeftClose size={15} />
+                    <PanelLeftClose size={14} />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setIsSidebarOpen(false)}
-                    className="p-1.5 rounded-lg text-app-muted hover:text-app-primary bg-app-card border border-app-border md:hidden cursor-pointer"
+                    className="p-1 rounded-md text-app-muted hover:text-app-primary bg-app-card border border-app-border md:hidden cursor-pointer"
                     title={t("admin.sidebar_close", "Закрыть меню")}
                   >
                     <X size={14} />
@@ -436,43 +434,45 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
             )}
           </div>
 
-          {/* Compact Shop Switcher Popover */}
+          {/* Swiss Venue Switcher */}
           <div className="relative" ref={shopDropdownRef}>
             {isSidebarCollapsed ? (
               <button
                 type="button"
                 data-tooltip-position="right"
                 onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
-                className="w-full h-10 rounded-xl bg-app-card hover:bg-app-hover border border-app-border flex items-center justify-center text-app-primary relative transition-colors cursor-pointer group shadow-2xs"
-                title={selectedShop ? `${t("admin.venues_count", "Заведение")}: ${selectedShop.name} (${selectedShop.slug})` : t("admin.select_shop", "Выбрать заведение")}
+                className="w-10 h-10 mx-auto rounded-lg bg-app-card hover:bg-app-hover border border-app-border flex items-center justify-center text-app-primary relative transition-colors cursor-pointer group"
+                title={selectedShop ? `${t("admin.venues_count", "Заведение")}: ${selectedShop.name} (/${selectedShop.slug})` : t("admin.select_shop", "Выбрать заведение")}
               >
-                <Store size={16} className="text-app-secondary group-hover:text-app-primary" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <Store size={15} className="text-app-secondary group-hover:text-app-primary" />
+                {selectedShop && (
+                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                )}
               </button>
             ) : (
-              <div className="p-1.5 bg-app-card border border-app-border rounded-xl shadow-2xs">
-                <div className="flex items-center justify-between gap-1 p-0.5 rounded-lg hover:bg-app-surface transition-colors">
+              <div className="bg-app-card border border-app-border rounded-lg p-1">
+                <div className="flex items-center justify-between gap-1">
                   <button
                     type="button"
                     onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
-                    className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer group p-1"
+                    className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer group px-1.5 py-1 rounded-md hover:bg-app-hover transition-colors"
                   >
-                    <div className="w-6 h-6 rounded-lg bg-app-surface border border-app-border flex items-center justify-center shrink-0">
-                      <Store size={13} className="text-app-primary" />
+                    <div className="w-6 h-6 rounded-md bg-app-surface border border-app-border flex items-center justify-center shrink-0">
+                      <Store size={12} className="text-app-primary" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11.5px] font-bold text-app-primary dark:text-white truncate group-hover:text-app-accent leading-none">
+                        <span className="text-xs font-semibold text-app-primary truncate leading-none">
                           {selectedShop ? selectedShop.name : t("admin.select_shop", "Выберите заведение")}
                         </span>
                       </div>
-                      <p className="text-[9.5px] font-mono text-app-muted dark:text-zinc-400 truncate mt-0.5">
+                      <p className="text-[10px] font-mono text-app-muted truncate mt-0.5">
                         {selectedShop ? `/${selectedShop.slug}` : t("admin.no_shops", "нет заведений")}
                       </p>
                     </div>
                     <ChevronDown
                       size={13}
-                      className={`text-app-muted group-hover:text-app-primary shrink-0 transition-transform duration-200 mr-1 ${
+                      className={`text-app-muted group-hover:text-app-primary shrink-0 transition-transform duration-150 ${
                         isShopDropdownOpen ? "rotate-180" : ""
                       }`}
                     />
@@ -483,54 +483,50 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                       href={`/${selectedShop.slug}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1.5 rounded-lg text-app-muted hover:text-app-primary hover:bg-app-hover border border-transparent hover:border-app-border transition-colors cursor-pointer shrink-0"
-                      title={t("admin.open_storefront", "Открыть витрину заведения в новой вкладке")}
+                      className="p-1.5 rounded-md text-app-muted hover:text-app-primary hover:bg-app-hover transition-colors cursor-pointer shrink-0"
+                      title={t("admin.open_storefront", "Открыть витрину в новой вкладке")}
                     >
-                      <ExternalLink size={13} />
+                      <ExternalLink size={12} />
                     </a>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Shop Dropdown Menu Popover - completely opaque background */}
+            {/* Venue Dropdown Popover */}
             <AnimatePresence>
               {isShopDropdownOpen && (
                 <motion.div
-                  initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.12 }}
-                  style={{
-                    backgroundColor: "var(--surface)",
-                    opacity: 1
-                  }}
+                  style={{ backgroundColor: "var(--surface)", opacity: 1 }}
                   className={`absolute ${
-                    isSidebarCollapsed ? "left-full ml-2 top-0 w-64" : "left-0 right-0 top-full mt-1.5"
-                  } z-50 bg-[#121217] dark:bg-[#121217] text-app-primary border border-app-border rounded-xl shadow-2xl p-2 space-y-1.5`}
+                    isSidebarCollapsed ? "left-full ml-2 top-0 w-68" : "left-0 right-0 top-full mt-1"
+                  } z-50 bg-app-surface text-app-primary border border-app-border rounded-lg shadow-xl p-2 space-y-2`}
                 >
-                  {/* Dropdown Header & Category Filter Tabs */}
+                  {/* Header & Mode Switcher: Мои vs Все */}
                   <div className="space-y-1.5 pb-1.5 border-b border-app-border">
                     <div className="flex items-center justify-between text-[10px] font-mono text-app-muted px-0.5">
-                      <span className="font-semibold text-app-primary">
+                      <span className="font-semibold uppercase tracking-wider text-app-primary">
                         {t("admin.venues_count", "Заведения")}
                       </span>
-                      <span className="text-[10px] text-app-muted">
-                        {myCreatedShopsCount} созданных • {shops.length - myCreatedShopsCount} приглашённых
+                      <span className="tabular-nums">
+                        {myCreatedShopsCount} своих · {shops.length - myCreatedShopsCount} пригл.
                       </span>
                     </div>
 
-                    {/* Segmented Mode Switcher: Мои vs Все заведения */}
-                    <div className="grid grid-cols-2 p-0.5 bg-app-surface rounded-lg border border-app-border font-mono text-[10.5px]">
+                    <div className="grid grid-cols-2 p-0.5 bg-app-card rounded-md border border-app-border font-mono text-[10.5px]">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setShopFilterMode("my");
                         }}
-                        className={`py-1 px-1 rounded-md transition-all font-semibold flex items-center justify-center gap-1 cursor-pointer ${
+                        className={`py-1 px-1.5 rounded-sm transition-colors font-medium flex items-center justify-center gap-1 cursor-pointer tabular-nums ${
                           shopFilterMode === "my"
-                            ? "bg-app-accent text-app-accent-fg shadow-2xs font-bold"
+                            ? "bg-app-accent text-app-accent-fg font-semibold"
                             : "text-app-muted hover:text-app-primary"
                         }`}
                       >
@@ -543,9 +539,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                           e.stopPropagation();
                           setShopFilterMode("all");
                         }}
-                        className={`py-1 px-1 rounded-md transition-all font-semibold flex items-center justify-center gap-1 cursor-pointer ${
+                        className={`py-1 px-1.5 rounded-sm transition-colors font-medium flex items-center justify-center gap-1 cursor-pointer tabular-nums ${
                           shopFilterMode === "all"
-                            ? "bg-app-accent text-app-accent-fg shadow-2xs font-bold"
+                            ? "bg-app-accent text-app-accent-fg font-semibold"
                             : "text-app-muted hover:text-app-primary"
                         }`}
                       >
@@ -555,7 +551,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                     </div>
                   </div>
 
-                  {/* Shop Search Filter inside Dropdown */}
+                  {/* Quick Search inside Dropdown */}
                   {shops.length > 3 && (
                     <div className="relative">
                       <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-app-muted" />
@@ -573,8 +569,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                     {filteredShopsList.length === 0 ? (
                       <div className="p-3 text-center text-[11px] text-app-muted font-mono space-y-1">
                         <div>
-                          {shopFilterMode === "my" 
-                            ? "У вас нет созданных заведений" 
+                          {shopFilterMode === "my"
+                            ? "У вас нет созданных заведений"
                             : t("admin.no_venues_found", "Заведений не найдено")}
                         </div>
                         {shopFilterMode === "my" && shops.length > 0 && (
@@ -584,7 +580,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                               e.stopPropagation();
                               setShopFilterMode("all");
                             }}
-                            className="text-[10px] text-app-accent hover:underline cursor-pointer font-semibold block mx-auto"
+                            className="text-[10px] text-app-primary underline cursor-pointer font-semibold block mx-auto"
                           >
                             Показать все ({shops.length})
                           </button>
@@ -602,39 +598,40 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                               setSelectedShop(s);
                               setIsShopDropdownOpen(false);
                             }}
-                            className={`w-full flex items-center justify-between p-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer text-left ${
+                            className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs font-mono transition-colors cursor-pointer text-left ${
                               isSelected
-                                ? "bg-app-accent text-app-accent-fg font-bold shadow-2xs"
+                                ? "bg-app-accent text-app-accent-fg font-semibold"
                                 : "text-app-secondary hover:text-app-primary hover:bg-app-hover"
                             }`}
                           >
-                            <div className="flex items-center gap-2 min-w-0 pr-1 truncate flex-1">
-                              <Store size={13} className={isSelected ? "text-app-accent-fg shrink-0" : "text-app-muted shrink-0"} />
+                            <div className="flex items-center gap-1.5 min-w-0 pr-1 truncate flex-1">
+                              <Store size={12} className={isSelected ? "text-app-accent-fg shrink-0" : "text-app-muted shrink-0"} />
                               <span className="truncate text-[11px]">{s.name}</span>
-                              <span className={`text-[9.5px] ${isSelected ? "text-app-accent-fg/80" : "text-app-muted"} shrink-0`}>
-                                ({s.slug})
-                              </span>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                               {isMine ? (
-                                <span className={`text-[8.5px] px-1.5 py-0.2 rounded font-mono uppercase font-semibold ${
-                                  isSelected
-                                    ? "bg-black/20 text-app-accent-fg"
-                                    : "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                                }`}>
+                                <span
+                                  className={`text-[8.5px] px-1.5 py-0.2 rounded-sm font-mono uppercase font-semibold ${
+                                    isSelected
+                                      ? "bg-black/20 text-app-accent-fg"
+                                      : "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                                  }`}
+                                >
                                   Владелец
                                 </span>
                               ) : (
-                                <span className={`text-[8.5px] px-1.5 py-0.2 rounded font-mono uppercase font-medium flex items-center gap-0.5 ${
-                                  isSelected
-                                    ? "bg-black/20 text-app-accent-fg"
-                                    : "bg-sky-500/10 text-sky-400 border border-sky-500/20"
-                                }`}>
+                                <span
+                                  className={`text-[8.5px] px-1.5 py-0.2 rounded-sm font-mono uppercase font-medium flex items-center gap-0.5 ${
+                                    isSelected
+                                      ? "bg-black/20 text-app-accent-fg"
+                                      : "bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                                  }`}
+                                >
                                   <Users size={9} />
-                                  Приглашён
+                                  Пригл.
                                 </span>
                               )}
-                              {isSelected && <Check size={13} className="text-app-accent-fg shrink-0" />}
+                              {isSelected && <Check size={12} className="text-app-accent-fg shrink-0" />}
                             </div>
                           </button>
                         );
@@ -649,9 +646,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                         setIsShopDropdownOpen(false);
                         handleOpenCreateShop();
                       }}
-                      className="w-full py-1.5 px-2 rounded-lg text-[11px] font-mono font-semibold bg-app-card hover:bg-app-hover text-app-primary border border-app-border flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="w-full py-1.5 px-2 rounded-md text-[11px] font-mono font-medium bg-app-card hover:bg-app-hover text-app-primary border border-app-border flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <Plus size={13} className="text-emerald-500" />
+                      <Plus size={12} className="text-emerald-500" />
                       <span>{t("admin.create_venue", "Создать заведение")}</span>
                     </button>
 
@@ -663,9 +660,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                           setIsShopDropdownOpen(false);
                           onOpenBatchDeleteModal();
                         }}
-                        className="w-full py-1.5 px-2 rounded-lg text-[10.5px] font-mono font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/5 hover:bg-rose-500/15 border border-rose-500/20 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="w-full py-1.5 px-2 rounded-md text-[10.5px] font-mono font-medium text-rose-400 hover:text-rose-300 bg-rose-500/5 hover:bg-rose-500/15 border border-rose-500/20 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
-                        <Trash2 size={12} className="text-rose-400" />
+                        <Trash2 size={11} className="text-rose-400" />
                         <span>Удалить заведения (выбор / все)</span>
                       </button>
                     )}
@@ -678,7 +675,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                           setIsShopDropdownOpen(false);
                           handleDeleteShop(selectedShop);
                         }}
-                        className="w-full py-1 px-2 rounded-lg text-[10px] font-mono text-rose-500 hover:bg-rose-500/10 flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                        className="w-full py-1 px-2 rounded-md text-[10px] font-mono text-rose-500 hover:bg-rose-500/10 flex items-center justify-center gap-1 transition-colors cursor-pointer"
                       >
                         <Trash2 size={11} />
                         <span>{t("admin.delete_current_venue", "Удалить текущее заведение")}</span>
@@ -687,9 +684,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
 
                     {/* Informative notice if currently viewing an invited shop */}
                     {!isOwner && selectedShop && (
-                      <div className="w-full py-1 px-2 text-[9.5px] font-mono text-app-muted flex items-center justify-center gap-1.5 select-none bg-app-card/40 rounded-lg border border-app-subtle">
-                        <Lock size={10} className="text-sky-400" />
-                        <span>Приглашённое заведение защищено от удаления</span>
+                      <div className="w-full py-1 px-2 text-[9.5px] font-mono text-app-muted flex items-center justify-center gap-1.5 select-none bg-app-card/50 rounded-md border border-app-subtle">
+                        <Lock size={10} className="text-sky-400 shrink-0" />
+                        <span className="truncate">Приглашённое заведение защищено</span>
                       </div>
                     )}
                   </div>
@@ -698,16 +695,16 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
             </AnimatePresence>
           </div>
 
-          {/* Quick Nav Search Filter (when expanded) */}
+          {/* Quick Nav Filter (when expanded) */}
           {!isSidebarCollapsed && (
             <div className="relative">
-              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-app-muted" />
+              <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-app-muted" />
               <input
                 type="text"
                 value={sidebarFilterQuery}
                 onChange={(e) => setSidebarFilterQuery(e.target.value)}
-                placeholder={t("sidebar.search_placeholder", "Фильтр меню...")}
-                className="w-full pl-7 pr-6 py-1.5 text-[11px] bg-app-card border border-app-border rounded-lg text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-secondary transition-colors font-mono"
+                placeholder={t("sidebar.search_placeholder", "Быстрый фильтр...")}
+                className="w-full pl-7 pr-6 py-1 text-[11px] bg-app-card border border-app-border rounded-md text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-secondary transition-colors font-mono"
               />
               {sidebarFilterQuery && (
                 <button
@@ -722,16 +719,24 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
           )}
 
           {/* Categorized Navigation List */}
-          <nav className="space-y-3 font-mono">
+          <nav className="space-y-2.5">
             {filteredNavGroups.map((group, groupIdx) => (
-              <div key={group.title || groupIdx} className="space-y-1">
+              <div key={group.title || groupIdx} className="space-y-0.5">
                 {!isSidebarCollapsed && group.title && (
-                  <div className="px-2 pt-1 text-[9.5px] uppercase font-bold tracking-wider text-app-muted select-none flex items-center justify-between">
-                    <span>{group.title}</span>
+                  <div
+                    className={`px-2 pt-1 pb-0.5 select-none ${
+                      isAtelier
+                        ? "text-xs font-editorial italic text-app-secondary tracking-wide"
+                        : "text-[9.5px] font-mono uppercase font-semibold tracking-wider text-app-muted"
+                    }`}
+                  >
+                    <span>
+                      {isAtelier ? `${["I", "II", "III", "IV"][groupIdx] || "•"}. ${group.title}` : group.title}
+                    </span>
                   </div>
                 )}
                 {isSidebarCollapsed && groupIdx > 0 && (
-                  <div className="w-8 mx-auto my-1 border-t border-app-border/40" />
+                  <div className="w-6 mx-auto my-1 border-t border-app-border" />
                 )}
 
                 <div className="space-y-0.5">
@@ -746,19 +751,28 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                           type="button"
                           data-tooltip-position="right"
                           onClick={() => handleNavClick(tab.id)}
-                          className={`relative w-10 h-10 mx-auto rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
+                          className={`relative w-10 h-9 mx-auto rounded-lg flex items-center justify-center transition-colors cursor-pointer group ${
                             isActive
-                              ? "bg-app-accent text-app-accent-fg font-bold shadow-2xs"
+                              ? "bg-app-accent text-app-accent-fg font-semibold"
                               : "text-app-muted hover:text-app-primary hover:bg-app-hover"
                           }`}
                           title={`${tab.label}${tab.badge ? ` (${tab.badge})` : ""}`}
                         >
-                          <Icon size={16} className={isActive ? "text-app-accent-fg" : (tab.id === "reports" && unhandledReportsCount > 0 ? "text-rose-500" : "text-app-muted group-hover:text-app-primary")} />
+                          <Icon
+                            size={15}
+                            className={
+                              isActive
+                                ? "text-app-accent-fg"
+                                : tab.id === "reports" && unhandledReportsCount > 0
+                                ? "text-rose-500"
+                                : "text-app-muted group-hover:text-app-primary"
+                            }
+                          />
 
                           {tab.badge !== undefined && tab.badge > 0 && (
                             <span
-                              className={`absolute top-1.5 right-1.5 min-w-[7px] h-[7px] rounded-full ${
-                                tab.alert ? "bg-rose-500 animate-pulse" : "bg-app-accent"
+                              className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${
+                                tab.alert ? "bg-rose-500 animate-pulse" : "bg-emerald-500"
                               }`}
                             />
                           )}
@@ -771,13 +785,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                         key={tab.id}
                         type="button"
                         onClick={() => handleNavClick(tab.id)}
-                        className={`relative w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all cursor-pointer text-[11.5px] ${
+                        className={`relative w-full flex items-center justify-between px-2.5 py-1.5 rounded-md transition-colors cursor-pointer text-xs ${
                           isActive
-                            ? "bg-app-accent text-app-accent-fg font-bold shadow-2xs"
+                            ? "bg-app-accent text-app-accent-fg font-medium"
                             : "text-app-secondary hover:text-app-primary hover:bg-app-hover"
                         }`}
                       >
-                        <div className="flex items-center gap-2 z-10 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0">
                           <Icon
                             size={14}
                             className={`shrink-0 ${
@@ -793,12 +807,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
 
                         {tab.badge !== undefined && tab.badge > 0 && (
                           <span
-                            className={`z-10 px-1.5 py-0.2 rounded-md text-[9.5px] font-mono font-bold transition-all shrink-0 ${
+                            className={`px-1.5 py-0.2 rounded-sm text-[10px] font-mono font-medium tabular-nums shrink-0 ${
                               tab.alert
                                 ? "bg-rose-500 text-white animate-pulse"
                                 : isActive
                                 ? "bg-app-accent-fg/20 text-app-accent-fg"
-                                : "bg-app-card text-app-muted border border-app-border"
+                                : "text-app-muted"
                             }`}
                           >
                             {tab.badge}
@@ -813,15 +827,15 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
           </nav>
         </div>
 
-        {/* Bottom Sidebar Compact Footer */}
-        <div className="space-y-2 pt-2 border-t border-app-border font-mono">
-          {/* Quick System Icons Strip */}
-          <div className={`flex items-center ${isSidebarCollapsed ? "flex-col gap-1.5" : "justify-between gap-1"} px-0.5`}>
+        {/* Bottom Sidebar Footer */}
+        <div className="space-y-1.5 pt-2 border-t border-app-border font-mono">
+          {/* Quick System Utility Strip */}
+          <div className={`flex items-center ${isSidebarCollapsed ? "flex-col gap-1" : "justify-between gap-1"}`}>
             <button
               type="button"
               data-tooltip-position="right"
               onClick={handleToggleAdminAudio}
-              className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-lg text-app-primary transition-colors cursor-pointer flex items-center justify-center"
+              className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-md text-app-primary transition-colors cursor-pointer flex items-center justify-center"
               title={isAudioEnabled ? t("admin.audio_on", "Звук уведомлений включен") : t("admin.audio_off", "Звук уведомлений выключен")}
             >
               {isAudioEnabled ? <Volume2 size={13} className="text-app-primary shrink-0" /> : <VolumeX size={13} className="text-app-muted shrink-0" />}
@@ -834,7 +848,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                 setIsQrModalOpen(true);
                 setIsSidebarOpen(false);
               }}
-              className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-lg text-app-primary transition-colors cursor-pointer flex items-center justify-center"
+              className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-md text-app-primary transition-colors cursor-pointer flex items-center justify-center"
               title={t("admin.qr_generator", "Генератор QR-кодов")}
             >
               <QrCode size={13} className="text-app-primary shrink-0" />
@@ -846,12 +860,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
               onClick={() => {
                 if (onOpenNotificationBox) onOpenNotificationBox();
               }}
-              className="relative p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-lg text-app-primary transition-colors cursor-pointer flex items-center justify-center"
-              title={t("admin.notification_box", "Ящик уведомлений (текстовые сообщения вместо звука)")}
+              className="relative p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-md text-app-primary transition-colors cursor-pointer flex items-center justify-center"
+              title={t("admin.notification_box", "Ящик уведомлений")}
             >
               <Bell size={13} className="text-app-primary shrink-0" />
               {Boolean(unreadNotificationsCount && unreadNotificationsCount > 0) && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 bg-rose-500 text-white font-bold text-[8px] rounded-full flex items-center justify-center ring-2 ring-app-surface shadow-xs animate-pulse">
+                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-1 bg-rose-500 text-white font-bold text-[8px] rounded-full flex items-center justify-center tabular-nums">
                   {unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}
                 </span>
               )}
@@ -864,7 +878,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                   setIsPlanModalOpen(true);
                   setIsSidebarOpen(false);
                 }}
-                className="flex-1 px-2 py-1 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-lg text-[9.5px] font-bold uppercase transition-all flex items-center justify-center gap-1 cursor-pointer truncate"
+                className="flex-1 px-2 py-1 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-md text-[10px] font-semibold uppercase transition-colors flex items-center justify-center gap-1 cursor-pointer truncate"
               >
                 <Crown size={11} className="text-amber-400 shrink-0" />
                 <span className="truncate">{user?.plan || "FREE"}</span>
@@ -872,26 +886,34 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
             )}
           </div>
 
-          {/* Compact Profile Card */}
+          {/* Design Mode Rollback Switch inside Expanded Sidebar */}
+          {!isSidebarCollapsed && (
+            <div className="flex items-center justify-between px-1.5 py-1 bg-app-card/60 border border-app-border rounded-md">
+              <span className="text-[9.5px] uppercase tracking-wider text-app-muted">Стиль UI</span>
+              <DesignModeSwitch compact />
+            </div>
+          )}
+
+          {/* Profile Card */}
           {isSidebarCollapsed ? (
             <button
               type="button"
               data-tooltip-position="right"
               onClick={handleOpenProfile}
-              className="w-10 h-10 mx-auto rounded-xl bg-app-surface border border-app-border flex items-center justify-center relative hover:border-app-secondary transition-colors cursor-pointer group shadow-2xs"
+              className="w-10 h-10 mx-auto rounded-lg bg-app-card border border-app-border flex items-center justify-center relative hover:border-app-secondary transition-colors cursor-pointer"
               title={`${t("admin.profile_label", "Профиль")}: ${user?.name || user?.email || t("admin.role_admin", "Администратор")}`}
             >
               {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt="" className="w-full h-full rounded-xl object-cover" />
+                <img src={user.avatarUrl} alt="" className="w-full h-full rounded-lg object-cover" />
               ) : (
                 <span className="text-xs font-bold text-app-primary">
                   {user?.name ? user.name[0].toUpperCase() : user?.email ? user.email[0].toUpperCase() : "А"}
                 </span>
               )}
-              <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-app-surface ${token ? "bg-emerald-500" : "bg-amber-500"}`} />
+              <span className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-app-surface ${token ? "bg-emerald-500" : "bg-amber-500"}`} />
             </button>
           ) : (
-            <div className="p-1.5 bg-app-surface border border-app-border rounded-xl flex items-center justify-between shadow-2xs">
+            <div className="p-1.5 bg-app-card border border-app-border rounded-lg flex items-center justify-between">
               <button
                 type="button"
                 onClick={handleOpenProfile}
@@ -899,19 +921,19 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                 title={t("admin.profile_settings", "Настройки профиля")}
               >
                 {user?.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="" className="w-7 h-7 rounded-lg object-cover border border-app-border shrink-0" />
+                  <img src={user.avatarUrl} alt="" className="w-7 h-7 rounded-md object-cover border border-app-border shrink-0" />
                 ) : (
-                  <div className="w-7 h-7 rounded-lg bg-app-accent text-app-accent-fg border border-app-border flex items-center justify-center text-[11px] font-bold shrink-0">
+                  <div className="w-7 h-7 rounded-md bg-app-accent text-app-accent-fg flex items-center justify-center text-[11px] font-bold shrink-0">
                     {user?.name ? user.name.charAt(0).toUpperCase() : user?.email ? user.email.charAt(0).toUpperCase() : "А"}
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1 min-w-0">
-                    <p className="text-[11px] font-semibold text-app-primary truncate group-hover:text-app-accent transition-colors leading-tight">
+                    <p className="text-[11px] font-semibold text-app-primary truncate leading-tight">
                       {user?.name || (user?.githubHandle ? `@${user.githubHandle}` : user?.email) || t("admin.role_admin", "Администратор")}
                     </p>
                     {user?.githubHandle && (
-                      <span className="inline-flex items-center text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 p-0.5 rounded shrink-0" title={`GitHub: @${user.githubHandle}`}>
+                      <span className="inline-flex items-center text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 p-0.5 rounded-sm shrink-0" title={`GitHub: @${user.githubHandle}`}>
                         <Github size={9} />
                       </span>
                     )}
@@ -933,7 +955,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                       handleLogoutRequest();
                       setIsSidebarOpen(false);
                     }}
-                    className="p-1 text-app-muted hover:text-rose-500 hover:bg-app-hover rounded-md transition-colors cursor-pointer"
+                    className="p-1.5 text-app-muted hover:text-rose-500 hover:bg-app-hover rounded-md transition-colors cursor-pointer"
                     title={t("admin.logout", "Выйти из аккаунта")}
                   >
                     <LogOut size={13} />
@@ -945,7 +967,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
                       setIsAuthModalOpen(true);
                       setIsSidebarOpen(false);
                     }}
-                    className="p-1 text-app-accent hover:bg-app-hover rounded-md transition-colors cursor-pointer"
+                    className="p-1.5 text-app-accent hover:bg-app-hover rounded-md transition-colors cursor-pointer"
                     title={t("admin.login", "Войти")}
                   >
                     <LogIn size={13} />
@@ -957,7 +979,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
         </div>
       </div>
 
-      {/* Interactive Drag Resizer Handle (only when not collapsed) */}
+      {/* Interactive Drag Resizer Handle (when expanded) */}
       {!isSidebarCollapsed && (
         <div
           onMouseDown={startResizingSidebar}
@@ -966,23 +988,18 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
           className="hidden md:flex absolute top-0 -right-2 bottom-0 w-4 cursor-col-resize z-50 group items-center justify-center select-none"
         >
           <div
-            className={`absolute top-0 bottom-0 w-0.5 right-2 transition-colors duration-150 ${
-              isResizingSidebar ? "bg-amber-400 opacity-100" : "bg-transparent group-hover:bg-app-accent/50 opacity-70"
+            className={`absolute top-0 bottom-0 w-px right-2 transition-colors duration-150 ${
+              isResizingSidebar ? "bg-emerald-500 opacity-100" : "bg-transparent group-hover:bg-app-secondary opacity-70"
             }`}
           />
           <div
             className={`
-              relative z-10 flex items-center justify-center w-3 h-7 rounded-full bg-app-surface border border-app-border shadow-xs
-              transition-all duration-200 group-hover:scale-110 group-hover:border-app-accent
-              ${isResizingSidebar ? "border-amber-400 bg-amber-500/15 scale-110 text-amber-400" : "opacity-40 group-hover:opacity-100 text-app-muted"}
+              relative z-10 flex items-center justify-center w-3 h-7 rounded-sm bg-app-surface border border-app-border
+              transition-all duration-150
+              ${isResizingSidebar ? "border-emerald-500 text-emerald-500" : "opacity-0 group-hover:opacity-100 text-app-muted"}
             `}
           >
             <GripVertical size={9} className="shrink-0" />
-
-            {/* Centered Tooltip positioned right next to the resize handle */}
-            <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 whitespace-nowrap bg-app-surface/95 backdrop-blur-md border border-app-border text-app-primary text-[11px] font-mono px-2.5 py-1.5 rounded-lg shadow-xl flex items-center gap-1.5">
-              <span>{t("sidebar.resize_tooltip", "Потяните для изменения ширины. Двойной клик — сбросить (256px)")}</span>
-            </div>
           </div>
         </div>
       )}

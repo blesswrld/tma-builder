@@ -1,17 +1,24 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 
-type Theme = "dark" | "light";
+export type Theme = "dark" | "light";
+export type DesignMode = "swiss" | "atelier" | "classic";
 
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
+  designMode: DesignMode;
+  toggleDesignMode: () => void;
+  setDesignMode: (mode: DesignMode) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: "dark",
   toggleTheme: () => {},
   setTheme: () => {},
+  designMode: "swiss",
+  toggleDesignMode: () => {},
+  setDesignMode: () => {},
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -28,6 +35,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return "dark";
   });
 
+  const [designMode, setDesignModeState] = useState<DesignMode>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("app_design_mode");
+      if (saved === "swiss" || saved === "atelier" || saved === "classic") return saved;
+    }
+    return "swiss";
+  });
+
   useEffect(() => {
     if (typeof document !== "undefined") {
       document.documentElement.classList.remove("light", "dark");
@@ -40,15 +55,36 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (tg) {
           const supportsColors = typeof tg.isVersionAtLeast === "function" ? tg.isVersionAtLeast("6.1") : false;
           if (supportsColors) {
-            const bg = theme === "dark" ? "#09090c" : "#ffffff";
-            const secondaryBg = theme === "dark" ? "#101014" : "#f7f7f9";
+            let bg = "#08090c";
+            let secondaryBg = "#0e1015";
+            if (designMode === "atelier") {
+              bg = theme === "dark" ? "#110e0c" : "#f7f3eb";
+              secondaryBg = theme === "dark" ? "#1a1512" : "#fdfbf7";
+            } else if (designMode === "classic") {
+              bg = theme === "dark" ? "#09090c" : "#ffffff";
+              secondaryBg = theme === "dark" ? "#101014" : "#f7f7f9";
+            } else {
+              bg = theme === "dark" ? "#08090c" : "#fafafc";
+              secondaryBg = theme === "dark" ? "#0e1015" : "#ffffff";
+            }
             tg.setHeaderColor?.(bg);
             tg.setBackgroundColor?.(secondaryBg);
           }
         }
       } catch {}
     }
-  }, [theme]);
+  }, [theme, designMode]);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-design", designMode);
+      document.documentElement.classList.remove("design-swiss", "design-atelier", "design-classic");
+      document.documentElement.classList.add(`design-${designMode}`);
+      try {
+        localStorage.setItem("app_design_mode", designMode);
+      } catch {}
+    }
+  }, [designMode]);
 
   // Listen to Telegram themeChanged events if user hasn't explicitly overridden theme
   useEffect(() => {
@@ -86,11 +122,26 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {}
   }, []);
 
+  const toggleDesignMode = useCallback(() => {
+    setDesignModeState(prev => {
+      if (prev === "swiss") return "atelier";
+      if (prev === "atelier") return "classic";
+      return "swiss";
+    });
+  }, []);
+
+  const setDesignMode = useCallback((mode: DesignMode) => {
+    setDesignModeState(mode);
+  }, []);
+
   const value = useMemo(() => ({
     theme,
     toggleTheme,
-    setTheme
-  }), [theme, toggleTheme, setTheme]);
+    setTheme,
+    designMode,
+    toggleDesignMode,
+    setDesignMode
+  }), [theme, toggleTheme, setTheme, designMode, toggleDesignMode, setDesignMode]);
 
   return (
     <ThemeContext.Provider value={value}>
