@@ -1,5 +1,5 @@
 import React from "react";
-import { Layers, Sparkles, RotateCcw } from "lucide-react";
+import { Layers, Sparkles, LayoutGrid } from "lucide-react";
 import { useTheme, DesignMode } from "../../context/ThemeContext";
 
 interface DesignModeSwitchProps {
@@ -24,7 +24,7 @@ const MODES: { id: DesignMode; label: string; shortLabel: string; hint: string }
     id: "classic",
     label: "Classic",
     shortLabel: "Classic",
-    hint: "Контрольная точка: классический базовый дизайн",
+    hint: "Классический базовый дизайн",
   },
 ];
 
@@ -38,7 +38,7 @@ export const DesignModeSwitch: React.FC<DesignModeSwitchProps> = ({
     return (
       <div
         className={`inline-flex items-center p-0.5 h-8 rounded-lg bg-app-card border border-app-border text-[10.5px] font-mono select-none shrink-0 ${className}`}
-        title="Переключение архитектуры интерфейса: Swiss (Минимализм) · Atelier (Тёплый люкс) · Classic (Исходный)"
+        title="Переключение стиля интерфейса: Swiss · Atelier · Classic"
       >
         {MODES.map((m) => {
           const isActive = designMode === m.id;
@@ -61,7 +61,7 @@ export const DesignModeSwitch: React.FC<DesignModeSwitchProps> = ({
                 <Sparkles size={10} className={isActive ? "text-amber-500" : "text-amber-500/70"} />
               )}
               {m.id === "classic" && (
-                <RotateCcw size={9.5} className="opacity-75" />
+                <LayoutGrid size={9.5} className="opacity-75" />
               )}
               <span className={m.id === "atelier" ? "font-editorial tracking-wide text-xs font-semibold" : ""}>
                 {m.shortLabel}
@@ -94,7 +94,7 @@ export const DesignModeSwitch: React.FC<DesignModeSwitchProps> = ({
           >
             {m.id === "swiss" && <Layers size={11} className={isActive ? "text-emerald-500" : "text-app-muted"} />}
             {m.id === "atelier" && <Sparkles size={11} className="text-amber-500" />}
-            {m.id === "classic" && <RotateCcw size={10} />}
+            {m.id === "classic" && <LayoutGrid size={10} />}
             <span className={m.id === "atelier" ? "font-editorial text-xs font-semibold tracking-wide" : ""}>
               {m.label}
             </span>
