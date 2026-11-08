@@ -1261,7 +1261,7 @@ export default function DeveloperUsersPage() {
               const isSelected = selectedUserIds.has(targetUser.id);
               const isExpanded = expandedUserIds.has(targetUser.id);
               const isDev =
-                targetUser.email.toLowerCase().trim() === "gelgaev.dev@mail.ru";
+                (targetUser.email || "").toLowerCase().trim() === "gelgaev.dev@mail.ru";
 
               return (
                 <div
@@ -1651,7 +1651,7 @@ export default function DeveloperUsersPage() {
                   {filteredUsers.map((targetUser) => {
                     const isSelected = selectedUserIds.has(targetUser.id);
                     const isDev =
-                      targetUser.email.toLowerCase().trim() === "gelgaev.dev@mail.ru";
+                      (targetUser.email || "").toLowerCase().trim() === "gelgaev.dev@mail.ru";
 
                     return (
                       <tr
@@ -2005,6 +2005,16 @@ export default function DeveloperUsersPage() {
                       <Key size={14} className="text-app-text-secondary" />
                       <span>Задать новый пароль для входа (опционально):</span>
                     </label>
+                    <input
+                      type="text"
+                      name="username"
+                      autoComplete="username"
+                      value={editForm.email || ""}
+                      readOnly
+                      tabIndex={-1}
+                      aria-hidden="true"
+                      className="sr-only"
+                    />
                     <input
                       type="password"
                       autoComplete="new-password"

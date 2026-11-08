@@ -54,7 +54,6 @@ import { AdminServersTab } from "../components/admin/AdminServersTab";
 import { AdminReferralTab } from "../components/admin/AdminReferralTab";
 import { AdminCreateShopTab } from "../components/admin/AdminCreateShopTab";
 import { AdminBatchDeleteShopsModal } from "../components/admin/AdminBatchDeleteShopsModal";
-import { DesignModeSwitch } from "../components/common/DesignModeSwitch";
 import AdminDevChatTab from "../components/admin/AdminDevChatTab";
 import { AdminShopChatTab } from "../components/admin/AdminShopChatTab";
 import SupportChatWidget from "../components/chat/SupportChatWidget";
@@ -2526,14 +2525,14 @@ export default function AdminPage() {
           title: titleRes.title,
           price: priceRes.price,
           oldPrice: newServiceData.oldPrice ? Number(newServiceData.oldPrice) : undefined,
-          description: newServiceData.description.trim() || undefined,
-          category: newServiceData.category.trim() || undefined,
-          imageUrl: newServiceData.imageUrl.trim() || undefined,
+          description: (newServiceData.description || "").trim() || undefined,
+          category: (newServiceData.category || "").trim() || undefined,
+          imageUrl: (newServiceData.imageUrl || "").trim() || undefined,
           gallery: (newServiceData.gallery || []).length > 0 ? JSON.stringify(newServiceData.gallery) : undefined,
-          badge: newServiceData.badge.trim() || undefined,
-          tags: newServiceData.tags.trim() || undefined,
-          prepTime: newServiceData.prepTime.trim() || undefined,
-          weight: newServiceData.weight.trim() || undefined,
+          badge: (newServiceData.badge || "").trim() || undefined,
+          tags: (newServiceData.tags || "").trim() || undefined,
+          prepTime: (newServiceData.prepTime || "").trim() || undefined,
+          weight: (newServiceData.weight || "").trim() || undefined,
           isAvailable: newServiceData.isAvailable,
           fulfillment: newServiceData.fulfillment
         })
@@ -2648,14 +2647,14 @@ export default function AdminPage() {
           title: titleRes.title,
           price: priceRes.price,
           oldPrice: currentData.oldPrice ? Number(currentData.oldPrice) : undefined,
-          description: currentData.description.trim() || undefined,
-          category: currentData.category.trim() || undefined,
-          imageUrl: currentData.imageUrl.trim() || undefined,
+          description: (currentData.description || "").trim() || undefined,
+          category: (currentData.category || "").trim() || undefined,
+          imageUrl: (currentData.imageUrl || "").trim() || undefined,
           gallery: (currentData.gallery || []).length > 0 ? JSON.stringify(currentData.gallery) : undefined,
-          badge: currentData.badge.trim() || undefined,
-          tags: currentData.tags.trim() || undefined,
-          prepTime: currentData.prepTime.trim() || undefined,
-          weight: currentData.weight.trim() || undefined,
+          badge: (currentData.badge || "").trim() || undefined,
+          tags: (currentData.tags || "").trim() || undefined,
+          prepTime: (currentData.prepTime || "").trim() || undefined,
+          weight: (currentData.weight || "").trim() || undefined,
           isAvailable: currentData.isAvailable,
           fulfillment: currentData.fulfillment
         })
@@ -2778,7 +2777,7 @@ export default function AdminPage() {
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const promoPayload = {
-        code: newPromoData.code.trim().toUpperCase(),
+        code: (newPromoData.code || "").trim().toUpperCase(),
         discountPercent: isPercent ? Number(newPromoData.discountPercent) || 0 : 0,
         discountAmount: !isPercent ? Number(newPromoData.discountAmount) || 0 : 0,
         maxUses: Number(newPromoData.usageLimit) || 100,
@@ -2950,7 +2949,7 @@ export default function AdminPage() {
 
   const handleCreateBanner = async (e: FormEvent) => {
     e.preventDefault();
-    if (!selectedShop || !newBannerData.title.trim()) return;
+    if (!selectedShop || !(newBannerData.title || "").trim()) return;
     setBannerError(null);
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -3018,7 +3017,7 @@ export default function AdminPage() {
 
   const handleCreateBroadcast = async (e: FormEvent) => {
     e.preventDefault();
-    if (!selectedShop || !newBroadcastData.title.trim() || !newBroadcastData.message.trim()) return;
+    if (!selectedShop || !(newBroadcastData.title || "").trim() || !(newBroadcastData.message || "").trim()) return;
     setBroadcastError(null);
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -3099,16 +3098,18 @@ export default function AdminPage() {
   const handleOpenProfile = () => {
     setIsSidebarOpen(false);
     if (user) {
-      setProfileData({
+      setProfileData(prev => ({
+        ...prev,
         name: user.name || "",
         phone: user.phone || "",
         avatarUrl: user.avatarUrl || "",
         telegramHandle: user.telegramHandle || "",
+        githubHandle: user.githubHandle || "",
         companyName: user.companyName || "",
         currentPassword: "",
         newPassword: "",
         emailCode: ""
-      });
+      }));
     }
     setProfileError(null);
     setProfileSuccess(null);
@@ -3152,7 +3153,7 @@ export default function AdminPage() {
     setProfileError(null);
     setProfileSuccess(null);
 
-    let formattedPhone = profileData.phone.trim();
+    let formattedPhone = (profileData.phone || "").trim();
     if (formattedPhone) {
       const digits = formattedPhone.replace(/\D/g, "");
       if (digits.length >= 7) {
@@ -3163,23 +3164,27 @@ export default function AdminPage() {
       }
     }
 
-    if (profileData.newPassword.trim() || profileData.currentPassword.trim() || profileData.emailCode.trim()) {
-      if (!profileData.newPassword.trim() || profileData.newPassword.trim().length < 6) {
+    const cleanNewPassword = (profileData.newPassword || "").trim();
+    const cleanCurrentPassword = (profileData.currentPassword || "").trim();
+    const cleanEmailCode = (profileData.emailCode || "").trim();
+
+    if (cleanNewPassword || cleanCurrentPassword || cleanEmailCode) {
+      if (!cleanNewPassword || cleanNewPassword.length < 6) {
         setProfileError("Укажите новый пароль (минимум 6 символов)");
         return;
       }
 
       if (passwordChangeMethod === "password") {
-        if (!profileData.currentPassword.trim()) {
+        if (!cleanCurrentPassword) {
           setProfileError("Укажите текущий пароль для подтверждения смены");
           return;
         }
-        if (profileData.newPassword.trim() === profileData.currentPassword.trim()) {
+        if (cleanNewPassword === cleanCurrentPassword) {
           setProfileError("Новый пароль не должен совпадать с текущим паролем");
           return;
         }
       } else if (passwordChangeMethod === "code") {
-        if (!profileData.emailCode.trim()) {
+        if (!cleanEmailCode) {
           setProfileError("Запросите и введите 6-значный код подтверждения из письма");
           return;
         }
@@ -3190,23 +3195,26 @@ export default function AdminPage() {
 
     try {
       const updatedUser = await updateProfile({
-        name: profileData.name.trim(),
+        name: (profileData.name || "").trim(),
         phone: formattedPhone,
-        avatarUrl: profileData.avatarUrl.trim(),
-        telegramHandle: profileData.telegramHandle.trim(),
-        githubHandle: profileData.githubHandle.trim(),
-        companyName: profileData.companyName.trim(),
-        currentPassword: (passwordChangeMethod === "password" && profileData.newPassword.trim()) ? profileData.currentPassword.trim() : undefined,
-        newPassword: profileData.newPassword.trim() || undefined,
-        emailCode: (passwordChangeMethod === "code" && profileData.newPassword.trim()) ? profileData.emailCode.trim() : undefined
+        avatarUrl: (profileData.avatarUrl || "").trim(),
+        telegramHandle: (profileData.telegramHandle || "").trim(),
+        githubHandle: (profileData.githubHandle || "").trim(),
+        companyName: (profileData.companyName || "").trim(),
+        currentPassword: (passwordChangeMethod === "password" && cleanNewPassword) ? cleanCurrentPassword : undefined,
+        newPassword: cleanNewPassword || undefined,
+        emailCode: (passwordChangeMethod === "code" && cleanNewPassword) ? cleanEmailCode : undefined
       });
 
-      if (updatedUser?.name) {
+      if (updatedUser) {
         setProfileData(p => ({
           ...p,
-          name: updatedUser.name,
+          name: updatedUser.name || "",
           phone: updatedUser.phone || "",
           avatarUrl: updatedUser.avatarUrl || "",
+          telegramHandle: updatedUser.telegramHandle || "",
+          githubHandle: updatedUser.githubHandle || "",
+          companyName: updatedUser.companyName || "",
           currentPassword: "",
           newPassword: "",
           emailCode: ""
@@ -3233,6 +3241,7 @@ export default function AdminPage() {
       phone: "",
       avatarUrl: "",
       telegramHandle: "",
+      githubHandle: "",
       companyName: "",
       currentPassword: "",
       newPassword: "",
@@ -3425,7 +3434,7 @@ export default function AdminPage() {
       }
     }
 
-    let formattedPhone = settingsData.phone.trim();
+    let formattedPhone = (settingsData.phone || "").trim();
     if (formattedPhone) {
       const phoneRes = validateCisPhone(formattedPhone);
       if (!phoneRes.isValid) {
@@ -3469,19 +3478,19 @@ export default function AdminPage() {
         body: JSON.stringify({
           name: nameRes.name,
           slug: slugRes.cleanSlug,
-          description: settingsData.description.trim(),
-          botToken: settingsData.botToken.trim(),
-          adminChatId: settingsData.adminChatId.trim(),
-          workingHours: settingsData.workingHours.trim(),
-          address: settingsData.address.trim(),
+          description: (settingsData.description || "").trim(),
+          botToken: (settingsData.botToken || "").trim(),
+          adminChatId: (settingsData.adminChatId || "").trim(),
+          workingHours: (settingsData.workingHours || "").trim(),
+          address: (settingsData.address || "").trim(),
           phone: formattedPhone,
-          logoUrl: settingsData.logoUrl.trim(),
-          bannerUrl: settingsData.bannerUrl.trim(),
+          logoUrl: (settingsData.logoUrl || "").trim(),
+          bannerUrl: (settingsData.bannerUrl || "").trim(),
           currency: codeRes.sanitized,
           currencySymbol: symbolRes.sanitized,
           socialLinks: JSON.stringify(settingsData.socialLinks),
           deliveryOptions: JSON.stringify(settingsData.deliveryOptions),
-          paymentInstructions: settingsData.paymentInstructions.trim(),
+          paymentInstructions: (settingsData.paymentInstructions || "").trim(),
           cashbackPercent: settingsData.cashbackPercent !== undefined && settingsData.cashbackPercent !== "" ? Math.max(0, Math.min(100, Number(settingsData.cashbackPercent) || 0)) : 0,
           isOpen: settingsData.isOpen,
           musicSettings: settingsData.musicSettings ? JSON.stringify(settingsData.musicSettings) : null,
@@ -3808,6 +3817,16 @@ export default function AdminPage() {
           {/* Form rendering */}
           {otpStep === "code" ? (
             <form onSubmit={handleVerifyOtpCode} noValidate className="space-y-3.5 font-sans">
+              <input
+                type="email"
+                name="username"
+                autoComplete="username"
+                value={authEmail}
+                readOnly
+                tabIndex={-1}
+                aria-hidden="true"
+                className="sr-only"
+              />
               <p className="text-xs text-app-muted">
                 {authMode === "register" && (
                   <>Код подтверждения отправлен на <strong className="text-app-primary">{authEmail}</strong> для завершения регистрации.</>
@@ -3921,6 +3940,7 @@ export default function AdminPage() {
                   </p>
                   <input
                     type="email"
+                    autoComplete="email"
                     value={authEmail}
                     onChange={e => setAuthEmail(e.target.value)}
                     placeholder="name@example.com"
@@ -3952,7 +3972,7 @@ export default function AdminPage() {
                   )}
                   <input
                     type="email"
-                    autoComplete="email"
+                    autoComplete={authMode === "login" ? "username" : "email"}
                     value={authEmail}
                     onChange={e => setAuthEmail(e.target.value)}
                     placeholder="Электронная почта"
@@ -4111,7 +4131,6 @@ export default function AdminPage() {
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <DesignModeSwitch compact />
           <InstallButton variant="icon" className="w-8 h-8" tooltipText="Установить приложение" />
           <button
             type="button"
@@ -4266,11 +4285,6 @@ export default function AdminPage() {
               <span>{isConnected ? "Realtime Live" : "Sync..."}</span>
             </div>
 
-            {/* Design Mode Checkpoint Switcher (Swiss / Classic) */}
-            <div className="hidden sm:block">
-              <DesignModeSwitch compact />
-            </div>
-
             {/* Global Theme Switcher */}
             <button
               onClick={toggleTheme}
@@ -4363,6 +4377,16 @@ export default function AdminPage() {
               )}
 
               <form onSubmit={handleSaveProfile} noValidate className="space-y-6 font-sans text-xs">
+                <input
+                  type="text"
+                  name="username"
+                  autoComplete="username"
+                  value={user?.email || ""}
+                  readOnly
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="sr-only"
+                />
                 {/* Avatar Section */}
                 <div className="p-5 bg-app-surface border border-app-border rounded-2xl space-y-3">
                   <label className="block text-xs font-mono font-semibold text-app-secondary">
@@ -4379,6 +4403,7 @@ export default function AdminPage() {
                     <div className="flex-1 w-full space-y-2">
                       <input
                         type="text"
+                        autoComplete="url"
                         value={profileData.avatarUrl ?? ""}
                         onChange={e => setProfileData(p => ({ ...p, avatarUrl: e.target.value }))}
                         placeholder="https://example.com/avatar.png"
@@ -4484,6 +4509,7 @@ export default function AdminPage() {
                     </div>
                     <input
                       type="text"
+                      autoComplete="nickname"
                       value={profileData.name ?? ""}
                       onChange={e => {
                         setProfileData(p => ({ ...p, name: e.target.value }));
@@ -4530,6 +4556,7 @@ export default function AdminPage() {
                     </label>
                     <input
                       type="text"
+                      autoComplete="organization"
                       value={profileData.companyName ?? ""}
                       onChange={e => setProfileData(p => ({ ...p, companyName: e.target.value }))}
                       placeholder="ООО Кофе и Сласти"
@@ -4545,7 +4572,8 @@ export default function AdminPage() {
                       Телефон (СНГ, например +7...)
                     </label>
                     <input
-                      type="text"
+                      type="tel"
+                      autoComplete="tel"
                       value={profileData.phone ?? ""}
                       onChange={e => setProfileData(p => ({ ...p, phone: e.target.value }))}
                       placeholder="+7 (999) 000-00-00"
@@ -4558,6 +4586,7 @@ export default function AdminPage() {
                     </label>
                     <input
                       type="text"
+                      autoComplete="off"
                       value={profileData.telegramHandle ?? ""}
                       onChange={e => setProfileData(p => ({ ...p, telegramHandle: e.target.value }))}
                       placeholder="@username"
@@ -4569,11 +4598,11 @@ export default function AdminPage() {
                       <label className="block text-[11px] font-mono text-app-muted">
                         GitHub профиль (никнейм)
                       </label>
-                      {profileData.githubHandle && (
+                      {(profileData.githubHandle || "").trim() && (
                         <button
                           type="button"
                           onClick={() => {
-                            const clean = profileData.githubHandle.trim().replace(/^@/, "");
+                            const clean = (profileData.githubHandle || "").trim().replace(/^@/, "");
                             if (clean) {
                               setProfileData(p => ({
                                 ...p,
@@ -4593,6 +4622,7 @@ export default function AdminPage() {
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-app-muted font-mono text-xs">@</span>
                       <input
                         type="text"
+                        autoComplete="off"
                         value={profileData.githubHandle ?? ""}
                         onChange={e => setProfileData(p => ({ ...p, githubHandle: e.target.value }))}
                         placeholder="username (например: octocat)"
@@ -4696,6 +4726,7 @@ export default function AdminPage() {
                           <input
                             type="text"
                             maxLength={6}
+                            autoComplete="one-time-code"
                             value={profileData.emailCode ?? ""}
                             onChange={e => setProfileData(p => ({ ...p, emailCode: e.target.value }))}
                             placeholder="123456"

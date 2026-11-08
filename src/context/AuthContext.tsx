@@ -352,6 +352,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     phone?: string;
     avatarUrl?: string;
     telegramHandle?: string;
+    githubHandle?: string;
+    githubId?: string;
     companyName?: string;
     currentPassword?: string;
     newPassword?: string;

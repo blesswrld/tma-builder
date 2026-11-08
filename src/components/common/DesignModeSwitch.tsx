@@ -1,5 +1,5 @@
 import React from "react";
-import { Layers, Sparkles, LayoutGrid } from "lucide-react";
+import { Layers, Sparkles } from "lucide-react";
 import { useTheme, DesignMode } from "../../context/ThemeContext";
 
 interface DesignModeSwitchProps {
@@ -20,12 +20,6 @@ const MODES: { id: DesignMode; label: string; shortLabel: string; hint: string }
     shortLabel: "Atelier",
     hint: "Editorial Atelier: тёплый люкс (эспрессо и лён), антиква с засечками и журнальная вёрстка",
   },
-  {
-    id: "classic",
-    label: "Classic",
-    shortLabel: "Classic",
-    hint: "Классический базовый дизайн",
-  },
 ];
 
 export const DesignModeSwitch: React.FC<DesignModeSwitchProps> = ({
@@ -37,8 +31,8 @@ export const DesignModeSwitch: React.FC<DesignModeSwitchProps> = ({
   if (compact) {
     return (
       <div
-        className={`inline-flex items-center p-0.5 h-8 rounded-lg bg-app-card border border-app-border text-[10.5px] font-mono select-none shrink-0 ${className}`}
-        title="Переключение стиля интерфейса: Swiss · Atelier · Classic"
+        className={`inline-flex items-center p-0.5 h-7 rounded-lg bg-app-card border border-app-border text-[10.5px] font-mono select-none shrink-0 ${className}`}
+        title="Переключение стиля интерфейса: Swiss · Atelier"
       >
         {MODES.map((m) => {
           const isActive = designMode === m.id;
@@ -60,9 +54,6 @@ export const DesignModeSwitch: React.FC<DesignModeSwitchProps> = ({
               {m.id === "atelier" && (
                 <Sparkles size={10} className={isActive ? "text-amber-500" : "text-amber-500/70"} />
               )}
-              {m.id === "classic" && (
-                <LayoutGrid size={9.5} className="opacity-75" />
-              )}
               <span className={m.id === "atelier" ? "font-editorial tracking-wide text-xs font-semibold" : ""}>
                 {m.shortLabel}
               </span>
@@ -76,7 +67,7 @@ export const DesignModeSwitch: React.FC<DesignModeSwitchProps> = ({
   return (
     <div
       className={`inline-flex items-center p-0.5 rounded-lg bg-app-card border border-app-border text-[11px] font-mono select-none shrink-0 ${className}`}
-      title="Переключение дизайна интерфейса: Swiss · Atelier · Classic"
+      title="Переключение дизайна интерфейса: Swiss · Atelier"
     >
       {MODES.map((m) => {
         const isActive = designMode === m.id;
@@ -94,7 +85,6 @@ export const DesignModeSwitch: React.FC<DesignModeSwitchProps> = ({
           >
             {m.id === "swiss" && <Layers size={11} className={isActive ? "text-emerald-500" : "text-app-muted"} />}
             {m.id === "atelier" && <Sparkles size={11} className="text-amber-500" />}
-            {m.id === "classic" && <LayoutGrid size={10} />}
             <span className={m.id === "atelier" ? "font-editorial text-xs font-semibold tracking-wide" : ""}>
               {m.label}
             </span>

@@ -6,7 +6,6 @@ import { Shop } from "../../types";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
 import { ResponsiveImage } from "../common/ResponsiveImage";
-import { DesignModeSwitch } from "../common/DesignModeSwitch";
 
 interface ShopHeaderProps {
   shop: Shop;
@@ -107,8 +106,6 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
 
         {/* Zone 2 & 3: Right Controls & Menu */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 relative" ref={menuRef}>
-          <DesignModeSwitch compact />
-
           {/* Orders History button */}
           <button
             type="button"
@@ -183,11 +180,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
                     <span>Стиль дизайна</span>
                   </span>
                   <span className="text-[10px] font-mono text-emerald-500 uppercase font-semibold">
-                    {designMode === "swiss"
-                      ? "Swiss"
-                      : designMode === "atelier"
-                      ? "Atelier"
-                      : "Classic"}
+                    {designMode === "atelier" ? "Atelier" : "Swiss"}
                   </span>
                 </button>
 

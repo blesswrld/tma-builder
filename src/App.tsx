@@ -75,7 +75,7 @@ export default function App() {
   useEffect(() => {
     try {
       const tg = (window as any).Telegram?.WebApp;
-      if (tg) {
+      if (tg && tg.initData) {
         tg.ready?.();
         tg.expand?.();
       }

@@ -38,7 +38,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [designMode, setDesignModeState] = useState<DesignMode>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("app_design_mode");
-      if (saved === "swiss" || saved === "atelier" || saved === "classic") return saved;
+      if (saved === "swiss" || saved === "atelier") return saved;
     }
     return "swiss";
   });
@@ -52,7 +52,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Sync Telegram WebApp native top/bottom chrome (supported from Telegram WebApp v6.1+)
       try {
         const tg = (window as any).Telegram?.WebApp;
-        if (tg) {
+        if (tg && tg.initData) {
           const supportsColors = typeof tg.isVersionAtLeast === "function" ? tg.isVersionAtLeast("6.1") : false;
           if (supportsColors) {
             let bg = "#08090c";
@@ -60,9 +60,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (designMode === "atelier") {
               bg = theme === "dark" ? "#110e0c" : "#f7f3eb";
               secondaryBg = theme === "dark" ? "#1a1512" : "#fdfbf7";
-            } else if (designMode === "classic") {
-              bg = theme === "dark" ? "#09090c" : "#ffffff";
-              secondaryBg = theme === "dark" ? "#101014" : "#f7f7f9";
             } else {
               bg = theme === "dark" ? "#08090c" : "#fafafc";
               secondaryBg = theme === "dark" ? "#0e1015" : "#ffffff";
@@ -123,11 +120,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const toggleDesignMode = useCallback(() => {
-    setDesignModeState(prev => {
-      if (prev === "swiss") return "atelier";
-      if (prev === "atelier") return "classic";
-      return "swiss";
-    });
+    setDesignModeState(prev => (prev === "swiss" ? "atelier" : "swiss"));
   }, []);
 
   const setDesignMode = useCallback((mode: DesignMode) => {

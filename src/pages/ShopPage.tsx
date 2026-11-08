@@ -717,7 +717,7 @@ export default function ShopPage() {
       errors.phone = phoneVal.error || t("validation.invalid_phone", "Некорректный номер телефона");
     }
 
-    let finalAddress = formData.deliveryAddress.trim();
+    let finalAddress = (formData.deliveryAddress || "").trim();
 
     if (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping") {
       if (!formData.city || !formData.city.trim()) {
@@ -762,12 +762,12 @@ export default function ShopPage() {
 
       const payload = {
         shopId: shop.id,
-        customerName: nameVal.formatted || formData.name.trim(),
-        customerPhone: phoneVal.formatted || formData.phone.trim(),
+        customerName: nameVal.formatted || (formData.name || "").trim(),
+        customerPhone: phoneVal.formatted || (formData.phone || "").trim(),
         deliveryAddress: (fulfillmentMethod === "courier" || fulfillmentMethod === "shipping") ? finalAddress : undefined,
-        tableNumber: fulfillmentMethod === "pickup" ? (formData.tableNumber.trim() || undefined) : undefined,
-        preferredTime: formData.preferredTime.trim() || undefined,
-        note: formData.note.trim() || undefined,
+        tableNumber: fulfillmentMethod === "pickup" ? ((formData.tableNumber || "").trim() || undefined) : undefined,
+        preferredTime: (formData.preferredTime || "").trim() || undefined,
+        note: (formData.note || "").trim() || undefined,
         fulfillmentMethod,
         promocode: appliedPromo?.code || undefined,
         discountAmount: discountValue,
@@ -788,7 +788,7 @@ export default function ShopPage() {
 
       // Save customer phone for active order tracking
       try {
-        localStorage.setItem(`customer_phone_${shop.id}`, phoneVal.formatted || formData.phone.trim());
+        localStorage.setItem(`customer_phone_${shop.id}`, phoneVal.formatted || (formData.phone || "").trim());
       } catch (e) {}
 
       // Generate PDF Receipt Client-Side
@@ -1030,9 +1030,9 @@ export default function ShopPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            customerName: newReview.name.trim() || "Аноним",
+            customerName: (newReview.name || "").trim() || "Аноним",
             rating: newReview.rating,
-            comment: newReview.comment.trim() || null,
+            comment: (newReview.comment || "").trim() || null,
             imageUrl: newReview.imageUrl && newReview.imageUrl.trim() ? newReview.imageUrl.trim() : null,
           }),
         });
@@ -1041,9 +1041,9 @@ export default function ShopPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            customerName: newReview.name.trim() || "Аноним",
+            customerName: (newReview.name || "").trim() || "Аноним",
             rating: newReview.rating,
-            comment: newReview.comment.trim() || null,
+            comment: (newReview.comment || "").trim() || null,
             imageUrl: newReview.imageUrl && newReview.imageUrl.trim() ? newReview.imageUrl.trim() : null,
           }),
         });

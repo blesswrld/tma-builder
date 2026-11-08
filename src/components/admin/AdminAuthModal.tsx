@@ -213,6 +213,16 @@ export function AdminAuthModal({
         {/* OTP Code Step */}
         {otpStep === "code" ? (
           <form onSubmit={handleVerifyOtpCode} noValidate className="space-y-3 font-sans">
+            <input
+              type="email"
+              name="username"
+              autoComplete="username"
+              value={authEmail}
+              readOnly
+              tabIndex={-1}
+              aria-hidden="true"
+              className="sr-only"
+            />
             <p className="text-xs text-app-muted">
               {authMode === "register" && (
                 <>Код подтверждения отправлен на <strong className="text-app-primary">{authEmail}</strong> для завершения регистрации.</>
@@ -322,6 +332,7 @@ export function AdminAuthModal({
                 </p>
                 <input
                   type="email"
+                  autoComplete="email"
                   value={authEmail}
                   onChange={e => setAuthEmail(e.target.value)}
                   placeholder="name@example.com"
@@ -352,7 +363,7 @@ export function AdminAuthModal({
                 )}
                 <input
                   type="email"
-                  autoComplete="email"
+                  autoComplete={authMode === "login" ? "username" : "email"}
                   value={authEmail}
                   onChange={e => setAuthEmail(e.target.value)}
                   placeholder="Электронная почта"

@@ -431,18 +431,18 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const payload = {
-        name: formData.name.trim(),
-        slug: cleanSlugForSubmit(formData.slug),
-        description: formData.description.trim() || undefined,
-        phone: formData.phone.trim() || undefined,
-        address: formData.address.trim() || undefined,
-        workingHours: formData.workingHours.trim() || undefined,
+        name: (formData.name || "").trim(),
+        slug: cleanSlugForSubmit(formData.slug || ""),
+        description: (formData.description || "").trim() || undefined,
+        phone: (formData.phone || "").trim() || undefined,
+        address: (formData.address || "").trim() || undefined,
+        workingHours: (formData.workingHours || "").trim() || undefined,
         isOpen: formData.isOpen,
-        logoUrl: formData.logoUrl.trim() || undefined,
-        bannerUrl: formData.bannerUrl.trim() || undefined,
+        logoUrl: (formData.logoUrl || "").trim() || undefined,
+        bannerUrl: (formData.bannerUrl || "").trim() || undefined,
         currency: codeRes.sanitized,
         currencySymbol: symbolRes.sanitized,
-        paymentInstructions: formData.paymentInstructions.trim() || undefined,
+        paymentInstructions: (formData.paymentInstructions || "").trim() || undefined,
         socialLinks: formData.socialLinks,
         deliveryOptions: {
           pickup: Boolean(formData.deliveryOptions.pickup),
@@ -451,8 +451,8 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
           minOrder: formData.deliveryOptions.minOrder ? String(formData.deliveryOptions.minOrder) : "",
           deliveryFee: formData.deliveryOptions.deliveryFee ? String(formData.deliveryOptions.deliveryFee) : "",
         },
-        botToken: formData.botToken.trim() || undefined,
-        adminChatId: formData.adminChatId.trim() || undefined,
+        botToken: (formData.botToken || "").trim() || undefined,
+        adminChatId: (formData.adminChatId || "").trim() || undefined,
       };
 
       const res = await fetch("/api/shops", {
@@ -1477,10 +1477,20 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                         Токен бота (Telegram Bot API Token)
                       </label>
                       <div className="relative flex items-center">
+                        <input
+                          type="text"
+                          name="username"
+                          autoComplete="username"
+                          value="telegram-bot-token"
+                          readOnly
+                          tabIndex={-1}
+                          aria-hidden="true"
+                          className="sr-only"
+                        />
                         <Bot size={14} className="absolute left-3.5 text-app-muted" />
                         <input
                           type="password"
-                          autoComplete="off"
+                          autoComplete="new-password"
                           value={formData.botToken}
                           onChange={(e) => setFormData((p) => ({ ...p, botToken: e.target.value }))}
                           placeholder="1234567890:ABCDefGhIjKlmnOpQrStUvWxYz..."
@@ -1497,6 +1507,7 @@ export const AdminCreateShopTab: React.FC<AdminCreateShopTabProps> = ({
                         <Send size={14} className="absolute left-3.5 text-app-muted" />
                         <input
                           type="text"
+                          autoComplete="off"
                           value={formData.adminChatId}
                           onChange={(e) => setFormData((p) => ({ ...p, adminChatId: e.target.value }))}
                           placeholder="Например: 123456789 или -100123456789 (для группы)"
