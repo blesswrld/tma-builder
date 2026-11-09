@@ -4268,23 +4268,6 @@ export default function AdminPage() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            {/* Realtime Status Indicator (Emerald Green) */}
-            <div
-              className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-[10.5px] font-mono font-medium select-none ${
-                isConnected
-                  ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/25"
-                  : "bg-app-card text-amber-500 border border-app-border"
-              }`}
-              title={isConnected ? "Realtime синхронизация активна" : "Подключение к серверу..."}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                  isConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-pulse"
-                }`}
-              />
-              <span>{isConnected ? "Realtime Live" : "Sync..."}</span>
-            </div>
-
             {/* Global Theme Switcher */}
             <button
               onClick={toggleTheme}
@@ -5383,6 +5366,7 @@ export default function AdminPage() {
         services={selectedShop?.services || []}
         orders={orders}
         promocodes={promocodes}
+        onOpenChangelog={() => setIsChangelogOpen(true)}
       />
 
       <ChangelogModal

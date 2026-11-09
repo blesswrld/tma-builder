@@ -40,7 +40,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   GripVertical,
-  Lock
+  Lock,
+  Sparkles
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useRealtime } from "../../context/RealtimeContext";
@@ -181,7 +182,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
   setShopFilterMode,
   unreadNotificationsCount = 0,
   onOpenNotificationBox,
-  onOpenBatchDeleteModal
+  onOpenBatchDeleteModal,
+  setIsChangelogOpen
 }) => {
   const { t } = useLanguage();
   const { isConnected } = useRealtime();

@@ -48,6 +48,7 @@ export interface HelpCenterModalProps {
   services?: Service[];
   orders?: Order[];
   promocodes?: any[];
+  onOpenChangelog?: () => void;
 }
 
 export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
@@ -59,6 +60,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
   services = [],
   orders = [],
   promocodes = [],
+  onOpenChangelog,
 }) => {
   const [activeView, setActiveView] = useState<"search" | "articles" | "onboarding" | "hotkeys">("search");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -382,7 +384,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                   Центр помощи & GitBook AI
                 </h3>
                 <span className="hidden xs:inline-flex px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-full shrink-0">
-                  Docs v3.0
+                  Docs v3.1
                 </span>
               </div>
               <p className="text-[10px] sm:text-xs text-app-muted font-sans truncate">
@@ -392,6 +394,22 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {onOpenChangelog && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenChangelog();
+                }}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-mono font-medium transition-colors cursor-pointer"
+                title="Посмотреть список изменений и обновлений"
+              >
+                <Sparkles size={12} className="shrink-0" />
+                <span className="hidden xs:inline">Что нового</span>
+                <span className="text-[10px] font-bold">v3.1.0</span>
+              </button>
+            )}
+
             <a
               href="https://docs.gitbook.com"
               target="_blank"
