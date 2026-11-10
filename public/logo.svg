@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient: Obsidian to Onyx -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#18181f"/>
+      <stop offset="45%" stop-color="#0e0e13"/>
+      <stop offset="100%" stop-color="#050507"/>
+    </linearGradient>
+
+    <!-- Metallic Edge Border Gradient -->
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="40%" stop-color="#71717a" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#27272a" stop-opacity="0.5"/>
+    </linearGradient>
+
+    <!-- Inner Subtle Glow -->
+    <radialGradient id="ambientGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="60%" stop-color="#71717a" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Upper Main Wing: Platinum / Pure White Sheen -->
+    <linearGradient id="wingUpper" x1="15%" y1="85%" x2="90%" y2="15%">
+      <stop offset="0%" stop-color="#a1a1aa"/>
+      <stop offset="40%" stop-color="#e4e4e7"/>
+      <stop offset="85%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f4f4f5"/>
+    </linearGradient>
+
+    <!-- Lower Wing: Silver-to-Graphite Shading -->
+    <linearGradient id="wingLower" x1="20%" y1="20%" x2="85%" y2="85%">
+      <stop offset="0%" stop-color="#cbd5e1"/>
+      <stop offset="50%" stop-color="#64748b"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+
+    <!-- Center Fold / Keel: Deep Contrast Graphite & Onyx -->
+    <linearGradient id="wingKeel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#94a3b8"/>
+      <stop offset="35%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <!-- Light Gleam / Sharp Specular Ridge -->
+    <linearGradient id="ridgeLight" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Sparkle / Diamond Gradient -->
+    <linearGradient id="diamondGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+
+    <!-- Shadow for Depth -->
+    <filter id="monochromeDepth" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <!-- Base Squircle Container -->
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#bgGrad)"/>
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="none" stroke="url(#borderGrad)" stroke-width="7"/>
+
+  <!-- Subtle High-Tech Blueprint/Grid Overlay -->
+  <g opacity="0.05" stroke="#ffffff" stroke-width="1.5">
+    <line x1="80" y1="170" x2="432" y2="170" stroke-dasharray="6 6"/>
+    <line x1="80" y1="256" x2="432" y2="256" stroke-dasharray="6 6"/>
+    <line x1="80" y1="342" x2="432" y2="342" stroke-dasharray="6 6"/>
+    <line x1="170" y1="80" x2="170" y2="432" stroke-dasharray="6 6"/>
+    <line x1="256" y1="80" x2="256" y2="432" stroke-dasharray="6 6"/>
+    <line x1="342" y1="80" x2="342" y2="432" stroke-dasharray="6 6"/>
+  </g>
+
+  <!-- Ambient Center Lighting -->
+  <circle cx="256" cy="256" r="140" fill="url(#ambientGlow)"/>
+
+  <!-- TMA Origami / Delta Emblem with Metallic Monochrome Shading -->
+  <g filter="url(#monochromeDepth)" transform="translate(18, 12)">
+    <!-- Right Main Wing (Upper, facing light) -->
+    <polygon points="120,248 376,140 236,280" fill="url(#wingUpper)"/>
+
+    <!-- Left Wing (Lower shaded facet) -->
+    <polygon points="120,248 236,280 188,348" fill="url(#wingLower)"/>
+
+    <!-- Central Keel & Fold (Deep bevel) -->
+    <polygon points="236,280 376,140 276,316" fill="url(#wingKeel)"/>
+
+    <!-- Razor-Sharp Specular Ridge Line -->
+    <line x1="120" y1="248" x2="376" y2="140" stroke="url(#ridgeLight)" stroke-width="3" stroke-linecap="round"/>
+    <line x1="236" y1="280" x2="376" y2="140" stroke="#ffffff" stroke-width="2" stroke-opacity="0.75" stroke-linecap="round"/>
+
+    <!-- Trailing Vector Speed Lines / Kinetic Accents -->
+    <path d="M 96,284 C 130,296 160,298 200,286" fill="none" stroke="#e4e4e7" stroke-width="4.5" stroke-linecap="round" opacity="0.35"/>
+    <path d="M 80,314 C 120,324 150,320 180,306" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" opacity="0.25"/>
+  </g>
+
+  <!-- High-Precision Builder Accent: 4-Point Specular Star (Top-Right) -->
+  <g transform="translate(382, 116)">
+    <!-- Outer Glow -->
+    <circle cx="0" cy="0" r="18" fill="#ffffff" opacity="0.12"/>
+    <!-- Diamond Shape -->
+    <polygon points="0,-16 4.5,-4.5 16,0 4.5,4.5 0,16 -4.5,4.5 -16,0 -4.5,-4.5" fill="url(#diamondGrad)"/>
+    <circle cx="0" cy="0" r="2.5" fill="#ffffff"/>
+  </g>
+
+  <!-- High-Precision Tech Node (Bottom-Left) -->
+  <circle cx="112" cy="386" r="7" fill="#ffffff" opacity="0.8"/>
+  <circle cx="112" cy="386" r="16" fill="none" stroke="#a1a1aa" stroke-width="1.8" opacity="0.35"/>
+</svg>

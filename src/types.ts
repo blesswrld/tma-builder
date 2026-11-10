@@ -1,0 +1,606 @@
+export interface User {
+  id: string;
+  email: string;
+  name?: string | null;
+  phone?: string | null;
+  avatarUrl?: string | null;
+  telegramHandle?: string | null;
+  telegramId?: string | null;
+  githubHandle?: string | null;
+  githubId?: string | null;
+  companyName?: string | null;
+  plan?: "FREE" | "PRO" | "ENTERPRISE";
+  subscriptionExpiresAt?: string | null;
+  isBanned?: boolean;
+  banReason?: string | null;
+  bannedAt?: string | null;
+  role?: "USER" | "SELLER" | "MODERATOR" | "ADMIN" | "DEVELOPER";
+  balance?: number;
+  city?: string | null;
+  isVerified?: boolean;
+  referralCode?: string | null;
+  referredById?: string | null;
+  createdAt?: string;
+}
+
+export interface DevShopSummary {
+  id: string;
+  name: string;
+  slug: string;
+  isOpen: boolean;
+  servicesCount: number;
+  ordersCount: number;
+  totalRevenue: number;
+  botToken?: string | null;
+  createdAt: string;
+  address?: string | null;
+  phone?: string | null;
+}
+
+export interface DevUser extends User {
+  shopsCount: number;
+  totalOrdersCount: number;
+  totalRevenue: number;
+  shops: DevShopSummary[];
+}
+
+export interface DevUsersStats {
+  totalUsers: number;
+  activeUsers: number;
+  bannedUsers: number;
+  paidUsers: number;
+  totalShops: number;
+  totalOrders: number;
+  totalRevenue: number;
+}
+
+export interface Service {
+  id: string;
+  shopId?: string;
+  title: string;
+  price: number;
+  oldPrice?: number | null;
+  description?: string | null;
+  category?: string | null;
+  imageUrl?: string | null;
+  gallery?: string | null;
+  badge?: string | null;
+  tags?: string | null;
+  prepTime?: string | null;
+  weight?: string | null;
+  isAvailable?: boolean;
+  position?: number;
+  fulfillment?: string | null;
+  moderationStatus?: "APPROVED" | "PENDING" | "REJECTED";
+  moderationReason?: string | null;
+  isVip?: boolean;
+  boostedAt?: string | null;
+  boostExpiresAt?: string | null;
+  city?: string | null;
+  createdAt?: string;
+}
+
+export interface SocialLinks {
+  telegram?: string;
+  instagram?: string;
+  whatsapp?: string;
+  vk?: string;
+  website?: string;
+}
+
+export interface DeliveryOptions {
+  enabled?: boolean;
+  pickup?: boolean;
+  courier?: boolean;
+  shipping?: boolean;
+  minOrder?: number | string;
+  deliveryFee?: number | string;
+  pickupAddress?: string;
+  deliveryMinOrder?: number | string;
+  deliveryFeeVal?: number | string;
+  freeDeliveryThreshold?: number | string;
+}
+
+export interface MusicTrack {
+  id: string;
+  title: string;
+  artist?: string;
+  url: string;
+  duration?: string;
+  genre?: string;
+  genreName?: string;
+}
+
+export interface MusicSettings {
+  enabled?: boolean;
+  title?: string;
+  description?: string;
+  sourceType?: "playlist" | "radio" | "tracks" | "custom";
+  playlistUrl?: string;
+  yandexMusicUrl?: string;
+  spotifyUrl?: string;
+  vkMusicUrl?: string;
+  appleMusicUrl?: string;
+  soundcloudUrl?: string;
+  youtubeMusicUrl?: string;
+  selectedRadioGenre?: string;
+  customStreamUrl?: string;
+  tracks?: MusicTrack[];
+  autoplay?: boolean;
+}
+
+export interface TelegramSubscriber {
+  chatId: string;
+  userId?: string;
+  name?: string;
+  username?: string;
+  role: "OWNER" | "ADMIN" | "STAFF";
+  addedAt: string;
+  notifyOrders?: boolean;
+  notifyReviews?: boolean;
+}
+
+export interface TelegramInviteCode {
+  code: string;
+  role: "ADMIN" | "STAFF";
+  createdAt: string;
+  expiresAt: string;
+  createdBy?: string;
+}
+
+export interface TelegramSettings {
+  botId?: number;
+  botName?: string;
+  botUsername?: string;
+  connectedAt?: string;
+  notifyOnNewOrder?: boolean;
+  notifyOnOrderStatus?: boolean;
+  notifyOnNewReview?: boolean;
+  notifyOnLowRating?: boolean;
+  subscribers?: TelegramSubscriber[];
+  inviteCodes?: TelegramInviteCode[];
+  webhookUrl?: string;
+  webhookActive?: boolean;
+  lastWebhookError?: string | null;
+}
+
+export interface ShopVideo {
+  id: string;
+  type: "youtube" | "vk" | "rutube" | "file";
+  url: string;
+  embedUrl?: string;
+  title?: string;
+  size?: number;
+}
+
+export interface Shop {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  botToken?: string | null;
+  botTokenMasked?: string | null;
+  hasBotToken?: boolean;
+  isTelegramConnected?: boolean;
+  adminChatId?: string | null;
+  telegramSettings?: string | TelegramSettings | null;
+  workingHours?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  currency?: string | null;
+  currencySymbol?: string | null;
+  socialLinks?: string | SocialLinks | null;
+  deliveryOptions?: string | DeliveryOptions | null;
+  paymentInstructions?: string | null;
+  cashbackPercent?: number;
+  isOpen?: boolean;
+  ownerId?: string | null;
+  musicSettings?: string | MusicSettings | null;
+  videos?: string | ShopVideo[] | null;
+  owner?: {
+    id: string;
+    email: string;
+    name?: string | null;
+  } | null;
+  services?: Service[];
+  currentUserRole?: "OWNER" | "MANAGER" | "STAFF";
+  _count?: {
+    orders?: number;
+  };
+}
+
+export interface Banner {
+  id: string;
+  shopId?: string;
+  title: string;
+  subtitle?: string | null;
+  imageUrl?: string | null;
+  badge?: string | null;
+  bgGradient?: string | null;
+  isActive?: boolean;
+  createdAt?: string;
+}
+
+export interface Review {
+  id: string;
+  shopId?: string;
+  customerName: string;
+  rating: number;
+  comment?: string | null;
+  imageUrl?: string | null;
+  reply?: string | null;
+  isEdited?: boolean;
+  authorToken?: string | null;
+  createdAt: string;
+}
+
+export interface OrderItem {
+  id: string;
+  title: string;
+  price: number;
+  quantity: number;
+  note?: string;
+}
+
+export interface Order {
+  id: string;
+  shopId: string;
+  customerName: string;
+  customerPhone: string;
+  tableNumber?: string | null;
+  preferredTime?: string | null;
+  fulfillmentMethod?: "courier" | "pickup" | "shipping" | "online" | string;
+  deliveryAddress?: string | null;
+  items: string; // JSON string of OrderItem[]
+  totalPrice: number;
+  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+  note?: string | null;
+  createdAt: string;
+}
+
+export interface Promocode {
+  id: string;
+  shopId: string;
+  code: string;
+  discountType?: "percent" | "fixed" | string | null;
+  discountPercent?: number | null;
+  discountAmount?: number | null;
+  minOrderAmount?: number | null;
+  expiresAt?: string | null;
+  description?: string | null;
+  maxUses?: number;
+  usageLimit?: number | null;
+  usedCount: number;
+  timesUsed?: number;
+  isActive: boolean;
+  createdAt?: string;
+}
+
+export interface Customer {
+  id: string;
+  phone: string;
+  name?: string;
+  totalOrders: number;
+  totalSpent: number;
+  lastOrderAt?: string;
+  notes?: string;
+}
+
+export interface TeamMember {
+  id: string;
+  shopId: string;
+  userId: string;
+  role: "ADMIN" | "MANAGER" | "COURIER";
+  user?: {
+    id: string;
+    email: string;
+    name?: string | null;
+  };
+  createdAt?: string;
+}
+
+export interface Broadcast {
+  id: string;
+  shopId?: string;
+  title: string;
+  message: string;
+  imageUrl?: string | null;
+  buttonText?: string | null;
+  targetFilter?: string | null;
+  sentCount?: number;
+  recipientsCount?: number;
+  status?: string;
+  sentAt?: string;
+  createdAt?: string;
+}
+
+export interface BugReport {
+  id?: string;
+  type: "BUG" | "FEATURE" | "OTHER";
+  title?: string;
+  description: string;
+  attachments?: Array<{ name: string; size: number; type: string; url: string }> | string;
+  contact?: string;
+  userId?: string;
+  shopId?: string;
+  metadata?: any;
+  status?: "NEW" | "IN_PROGRESS" | "RESOLVED" | "REJECTED" | "CLOSED" | string;
+  developerEmail?: string;
+  developerNotes?: string;
+  resolvedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return typeof window !== "undefined" ? window.btoa(binary) : Buffer.from(binary, "binary").toString("base64");
+};
+
+export function parseSocialLinks(data: any): SocialLinks {
+  if (!data) return {};
+  if (typeof data === "object") return data;
+  try {
+    return JSON.parse(data);
+  } catch (e) {
+    return {};
+  }
+}
+
+export function parseDeliveryOptions(data: any): DeliveryOptions {
+  if (!data) return {};
+  if (typeof data === "object") return data;
+  try {
+    return JSON.parse(data);
+  } catch (e) {
+    return {};
+  }
+}
+
+export function parseMusicSettings(data: any): MusicSettings {
+  if (!data) return { enabled: false, sourceType: "playlist" };
+  if (typeof data === "object") return data;
+  try {
+    const parsed = JSON.parse(data);
+    return typeof parsed === "object" && parsed !== null ? parsed : { enabled: false, sourceType: "playlist" };
+  } catch (e) {
+    return { enabled: false, sourceType: "playlist" };
+  }
+}
+
+export function parseGallery(galleryStr?: string | null): string[] {
+  if (!galleryStr) return [];
+  try {
+    const parsed = JSON.parse(galleryStr);
+    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+  } catch (e) {
+    return galleryStr.split(",").map(s => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+export function getServiceBadges(service: Service): string[] {
+  if (!service.badge) return [];
+  return service.badge.split(",").map(b => b.trim()).filter(Boolean);
+}
+
+export function parseTelegramSettings(data: any): TelegramSettings {
+  if (!data) {
+    return {
+      notifyOnNewOrder: true,
+      notifyOnOrderStatus: true,
+      notifyOnNewReview: true,
+      notifyOnLowRating: true,
+      subscribers: [],
+      inviteCodes: []
+    };
+  }
+  if (typeof data === "object") {
+    return {
+      notifyOnNewOrder: true,
+      notifyOnOrderStatus: true,
+      notifyOnNewReview: true,
+      notifyOnLowRating: true,
+      subscribers: [],
+      inviteCodes: [],
+      ...data
+    };
+  }
+  try {
+    const parsed = JSON.parse(data);
+    return typeof parsed === "object" && parsed !== null
+      ? {
+          notifyOnNewOrder: true,
+          notifyOnOrderStatus: true,
+          notifyOnNewReview: true,
+          notifyOnLowRating: true,
+          subscribers: [],
+          inviteCodes: [],
+          ...parsed
+        }
+      : {
+          notifyOnNewOrder: true,
+          notifyOnOrderStatus: true,
+          notifyOnNewReview: true,
+          notifyOnLowRating: true,
+          subscribers: [],
+          inviteCodes: []
+        };
+  } catch (e) {
+    return {
+      notifyOnNewOrder: true,
+      notifyOnOrderStatus: true,
+      notifyOnNewReview: true,
+      notifyOnLowRating: true,
+      subscribers: [],
+      inviteCodes: []
+    };
+  }
+}
+
+export function maskTelegramToken(token?: string | null): string {
+  if (!token || !token.includes(":")) return "";
+  const [botId, secret] = token.split(":");
+  if (!secret) return `${botId}:••••••••`;
+  const visiblePrefix = secret.slice(0, 3);
+  const visibleSuffix = secret.slice(-3);
+  return `${botId}:${visiblePrefix}••••••••${visibleSuffix}`;
+}
+
+export interface ChatMessage {
+  id: string;
+  clientMessageId?: string | null;
+  userId: string;
+  senderRole: "USER" | "DEVELOPER";
+  senderId: string;
+  senderName?: string | null;
+  text?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: "image" | "video" | "file" | null;
+  mediaName?: string | null;
+  mediaSize?: number | null;
+  mediaThumbnail?: string | null;
+  isRead: boolean;
+  readAt?: string | null;
+  isEdited?: boolean;
+  editedAt?: string | null;
+  deletedForUserIds?: string | null;
+  createdAt: string;
+  status?: "sending" | "sent" | "error"; // For optimistic UI
+}
+
+export interface ChatPartner {
+  id: string;
+  email: string;
+  name: string;
+  companyName?: string | null;
+  role: "USER" | "DEVELOPER";
+  avatarUrl?: string | null;
+  plan?: string;
+  isOnline?: boolean;
+  supportHours?: string;
+  shops?: Array<{ id: string; name: string; slug: string }>;
+}
+
+export interface ChatConversation {
+  userId: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    companyName?: string | null;
+    plan: string;
+    avatarUrl?: string | null;
+    isBanned: boolean;
+    shops: Array<{ id: string; name: string; slug: string }>;
+    createdAt: string;
+  };
+  lastMessage: {
+    id: string;
+    senderRole: "USER" | "DEVELOPER";
+    text?: string | null;
+    mediaUrl?: string | null;
+    mediaType?: "image" | "video" | "file" | null;
+    isRead: boolean;
+    createdAt: string;
+  } | null;
+  unreadCount: number;
+  totalMessages: number;
+  lastActivityAt: string;
+  isOnline?: boolean;
+}
+
+export interface PublicShopFeaturedService {
+  id: string;
+  title: string;
+  price: number;
+  imageUrl?: string | null;
+  category?: string | null;
+}
+
+export interface PublicShop {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  workingHours?: string;
+  address?: string;
+  phone?: string;
+  currency?: string;
+  currencySymbol?: string;
+  deliveryOptions?: DeliveryOptions | null;
+  isOpen: boolean;
+  cashbackPercent?: number;
+  servicesCount: number;
+  reviewsCount: number;
+  ordersCount: number;
+  avgRating: number;
+  categories: string[];
+  city?: string | null;
+  isVerified?: boolean;
+  priceRange?: { min: number; max: number };
+  featuredServices?: PublicShopFeaturedService[];
+  createdAt: string;
+}
+
+export interface FavoriteItem {
+  id: string;
+  userId: string;
+  targetType: "shop" | "service";
+  targetId: string;
+  createdAt: string;
+}
+
+export interface PeerMessage {
+  id: string;
+  shopId: string;
+  buyerId: string;
+  senderId: string;
+  senderRole: "BUYER" | "SELLER";
+  senderName?: string | null;
+  text?: string | null;
+  mediaUrl?: string | null;
+  isRead: boolean;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface UserTransaction {
+  id: string;
+  userId: string;
+  amount: number;
+  type: "DEPOSIT" | "BOOST" | "ORDER_PAYMENT" | "REFUND";
+  status: "COMPLETED" | "PENDING" | "FAILED";
+  paymentMethod?: string | null;
+  description?: string | null;
+  createdAt: string;
+}
+
+export interface PublicShopsResponse {
+  shops: PublicShop[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+  allCategories: string[];
+  stats: {
+    totalShops: number;
+    openCount: number;
+    totalServices: number;
+    cities: string[];
+    cityCounts?: Record<string, number>;
+  };
+}
+
+export { parseShopVideos } from "./lib/videoUtils";
+
+

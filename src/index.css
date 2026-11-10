@@ -1,0 +1,897 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Plus Jakarta Sans', ui-monospace, SFMono-Regular, monospace;
+  --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+
+  --color-app-bg: var(--background);
+  --color-app-surface: var(--surface);
+  --color-app-card: var(--surface);
+  --color-app-hover: var(--hover);
+  --color-app-border: var(--border);
+  --color-app-border-focus: var(--input-focus-border);
+  --color-app-subtle: var(--border-subtle);
+  --color-app-input: var(--input-bg);
+  --color-app-modal: var(--modal-bg);
+  --color-app-modal-header: var(--modal-header-bg);
+  --color-app-accent: var(--accent);
+  --color-app-accent-fg: var(--accent-fg);
+  --color-app-primary: var(--text-primary);
+  --color-app-primary-fg: var(--accent-fg);
+  --color-app-inverse: var(--accent-fg);
+  --color-app-secondary: var(--text-secondary);
+  --color-app-muted: var(--text-muted);
+}
+
+@layer base {
+  /* ==========================================================================
+     1. SWISS ARCHITECTURAL MINIMALISM (DEFAULT DESIGN SYSTEM: data-design="swiss")
+     Clean whitespace, 1px hairline dividers, matte graphite & alabaster,
+     strict 8-12px geometry, and emerald live telemetry accents.
+     ========================================================================== */
+  :root,
+  html.dark {
+    color-scheme: dark;
+    --background: #08090c;
+    --surface: #0e1015;
+    --card: #0e1015;
+    --card-hover: #13161d;
+    --hover: #151922;
+    --input-bg: #0b0d12;
+    --input-border: rgba(255, 255, 255, 0.085);
+    --input-focus-border: #10b981;
+
+    --border: rgba(255, 255, 255, 0.075);
+    --border-subtle: rgba(255, 255, 255, 0.04);
+
+    --text-primary: #f4f6f9;
+    --text-secondary: #949cab;
+    --text-muted: #646d7d;
+
+    --accent: #f4f6f9;
+    --accent-fg: #08090c;
+    --accent-hover: #e2e6ee;
+
+    --btn-secondary-bg: #13161e;
+    --btn-secondary-fg: #f4f6f9;
+    --btn-secondary-hover: #1b1f2a;
+
+    --badge-bg: #151821;
+    --badge-fg: #e2e6ee;
+
+    --modal-bg: #0e1015;
+    --modal-header-bg: #0b0d12;
+    --modal-overlay: rgba(4, 5, 8, 0.78);
+
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+    --glow: rgba(16, 185, 129, 0.08);
+
+    --chart-grid: #151821;
+    --chart-line: #10b981;
+    --chart-area-start: rgba(16, 185, 129, 0.16);
+    --chart-area-end: rgba(16, 185, 129, 0);
+    --chart-tooltip-bg: #0e1015;
+    --chart-tooltip-text: #f4f6f9;
+    --chart-tooltip-border: rgba(255, 255, 255, 0.10);
+
+    --scrollbar-thumb: #1f2430;
+    --scrollbar-thumb-hover: #2d3446;
+  }
+
+  html.light {
+    color-scheme: light;
+    --background: #fafafc;
+    --surface: #ffffff;
+    --card: #ffffff;
+    --card-hover: #f4f5f8;
+    --hover: #eff1f5;
+    --input-bg: #ffffff;
+    --input-border: rgba(15, 23, 42, 0.10);
+    --input-focus-border: #059669;
+
+    --border: rgba(15, 23, 42, 0.08);
+    --border-subtle: rgba(15, 23, 42, 0.04);
+
+    --text-primary: #0b0d13;
+    --text-secondary: #4b5362;
+    --text-muted: #757f90;
+
+    --accent: #0b0d13;
+    --accent-fg: #ffffff;
+    --accent-hover: #1e2330;
+
+    --btn-secondary-bg: #f3f4f7;
+    --btn-secondary-fg: #0b0d13;
+    --btn-secondary-hover: #e6e8ef;
+
+    --badge-bg: #eef0f4;
+    --badge-fg: #0b0d13;
+
+    --modal-bg: #ffffff;
+    --modal-header-bg: #fafafc;
+    --modal-overlay: rgba(9, 11, 17, 0.45);
+
+    --shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.02);
+    --glow: rgba(16, 185, 129, 0.06);
+
+    --chart-grid: #e6e8ef;
+    --chart-line: #059669;
+    --chart-area-start: rgba(5, 150, 105, 0.12);
+    --chart-area-end: rgba(5, 150, 105, 0);
+    --chart-tooltip-bg: #ffffff;
+    --chart-tooltip-text: #0b0d13;
+    --chart-tooltip-border: #e6e8ef;
+
+    --scrollbar-thumb: #d0d5dd;
+    --scrollbar-thumb-hover: #98a2b3;
+  }
+
+  /* ==========================================================================
+     2. EDITORIAL ATELIER DESIGN SYSTEM (data-design="atelier")
+     Warm Luxury: Roasted Espresso & Champagne (Dark) / Warm Linen & Ink (Light),
+     high-contrast Cormorant Garamond serif headings, soft 20-24px curves,
+     editorial numbering, and warm bronze borders.
+     ========================================================================== */
+  html.dark[data-design="atelier"] {
+    --background: #110e0c;
+    --surface: #1a1512;
+    --card: #1f1915;
+    --card-hover: #27201b;
+    --hover: #29211c;
+    --input-bg: #15110e;
+    --input-border: rgba(226, 204, 176, 0.16);
+    --input-focus-border: #d4af7a;
+
+    --border: rgba(226, 204, 176, 0.13);
+    --border-subtle: rgba(226, 204, 176, 0.07);
+
+    --text-primary: #f6f0e6;
+    --text-secondary: #c2b3a1;
+    --text-muted: #8c7d6c;
+
+    --accent: #e6d5bc;
+    --accent-fg: #14100d;
+    --accent-hover: #f0e3cf;
+
+    --btn-secondary-bg: #251e19;
+    --btn-secondary-fg: #f6f0e6;
+    --btn-secondary-hover: #302720;
+
+    --badge-bg: #261f1a;
+    --badge-fg: #e6d5bc;
+
+    --modal-bg: #1a1512;
+    --modal-header-bg: #15110e;
+    --modal-overlay: rgba(10, 8, 6, 0.82);
+
+    --shadow: 0 18px 40px -15px rgba(0, 0, 0, 0.65);
+    --shadow-sm: 0 4px 14px rgba(0, 0, 0, 0.35);
+    --glow: rgba(212, 175, 122, 0.12);
+
+    --chart-grid: #27201b;
+    --chart-line: #10b981;
+    --chart-area-start: rgba(16, 185, 129, 0.18);
+    --chart-area-end: rgba(16, 185, 129, 0);
+    --chart-tooltip-bg: #1a1512;
+    --chart-tooltip-text: #f6f0e6;
+    --chart-tooltip-border: rgba(226, 204, 176, 0.18);
+
+    --scrollbar-thumb: #382e26;
+    --scrollbar-thumb-hover: #4d3f35;
+  }
+
+  html.light[data-design="atelier"] {
+    --background: #f6f1e7;
+    --surface: #fdfbf7;
+    --card: #fdfbf7;
+    --card-hover: #f3ece0;
+    --hover: #efe7d8;
+    --input-bg: #fdfbf7;
+    --input-border: rgba(44, 32, 22, 0.14);
+    --input-focus-border: #8c6239;
+
+    --border: rgba(44, 32, 22, 0.11);
+    --border-subtle: rgba(44, 32, 22, 0.06);
+
+    --text-primary: #1c1510;
+    --text-secondary: #5c4e41;
+    --text-muted: #8a7968;
+
+    --accent: #241a13;
+    --accent-fg: #fdfbf7;
+    --accent-hover: #38291f;
+
+    --btn-secondary-bg: #efe8dc;
+    --btn-secondary-fg: #1c1510;
+    --btn-secondary-hover: #e5dccb;
+
+    --badge-bg: #efe8dc;
+    --badge-fg: #241a13;
+
+    --modal-bg: #fdfbf7;
+    --modal-header-bg: #f6f1e7;
+    --modal-overlay: rgba(28, 21, 16, 0.45);
+
+    --shadow: 0 16px 36px -12px rgba(44, 32, 22, 0.09);
+    --shadow-sm: 0 4px 12px rgba(44, 32, 22, 0.05);
+    --glow: rgba(140, 98, 57, 0.08);
+
+    --chart-grid: #e8dfd1;
+    --chart-line: #059669;
+    --chart-area-start: rgba(5, 150, 105, 0.14);
+    --chart-area-end: rgba(5, 150, 105, 0);
+    --chart-tooltip-bg: #fdfbf7;
+    --chart-tooltip-text: #1c1510;
+    --chart-tooltip-border: #e5dccb;
+
+    --scrollbar-thumb: #d1c4b2;
+    --scrollbar-thumb-hover: #b5a48e;
+  }
+
+  /* ==========================================================================
+     3. CLASSIC DESIGN CHECKPOINT (data-design="classic")
+     Activated when user toggles DesignModeSwitch to "Classic"
+     ========================================================================== */
+  html.dark[data-design="classic"] {
+    --background: #09090c;
+    --surface: #101014;
+    --card: var(--surface);
+    --card-hover: #16161c;
+    --hover: #16161c;
+    --input-bg: #101014;
+    --input-border: rgba(255, 255, 255, 0.10);
+    --input-focus-border: #636375;
+    --border: rgba(255, 255, 255, 0.09);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+    --text-primary: #f4f4f7;
+    --text-secondary: #a0a0ab;
+    --text-muted: #71717c;
+    --accent: #f4f4f7;
+    --accent-fg: #09090c;
+    --accent-hover: #e4e4e9;
+    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  html.light[data-design="classic"] {
+    --background: #f7f7f9;
+    --surface: #ffffff;
+    --card: #ffffff;
+    --card-hover: #f3f3f6;
+    --hover: #f0f0f4;
+    --input-bg: #ffffff;
+    --input-border: rgba(0, 0, 0, 0.12);
+    --input-focus-border: #18181b;
+    --border: rgba(0, 0, 0, 0.08);
+    --border-subtle: rgba(0, 0, 0, 0.04);
+    --text-primary: #09090b;
+    --text-secondary: #52525c;
+    --text-muted: #71717b;
+    --accent: #09090b;
+    --accent-fg: #ffffff;
+    --accent-hover: #27272a;
+    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    letter-spacing: -0.011em;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    min-height: 100vh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    overflow-x: hidden;
+  }
+
+  /* Classic Mode Typography Override */
+  html[data-design="classic"] b,
+  html[data-design="classic"] strong,
+  html[data-design="classic"] .font-bold,
+  html[data-design="classic"] .font-extrabold,
+  html[data-design="classic"] .font-black,
+  html[data-design="classic"] .font-semibold {
+    font-weight: 500 !important;
+  }
+
+  /* Swiss Mode Typography Hierarchy */
+  html[data-design="swiss"] .font-semibold {
+    font-weight: 600;
+  }
+  html[data-design="swiss"] .font-bold {
+    font-weight: 600;
+  }
+  html[data-design="swiss"] .font-extrabold,
+  html[data-design="swiss"] .font-black {
+    font-weight: 700;
+    letter-spacing: -0.022em;
+  }
+
+  /* Editorial Atelier Typography & Display Headings */
+  .font-editorial,
+  html[data-design="atelier"] h1,
+  html[data-design="atelier"] h2,
+  html[data-design="atelier"] h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  .font-mono,
+  .tabular-nums,
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Universal Custom Number Input styling */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+}
+
+/* ============================================================================
+   SWISS ARCHITECTURAL GEOMETRY (8px - 12px Strict Radius & Hairline System)
+   ============================================================================ */
+html[data-design="swiss"] .rounded-3xl {
+  border-radius: 0.75rem !important; /* 12px max container radius */
+}
+html[data-design="swiss"] .rounded-t-3xl {
+  border-top-left-radius: 0.75rem !important;
+  border-top-right-radius: 0.75rem !important;
+}
+html[data-design="swiss"] .rounded-b-3xl {
+  border-bottom-left-radius: 0.75rem !important;
+  border-bottom-right-radius: 0.75rem !important;
+}
+html[data-design="swiss"] .rounded-2xl {
+  border-radius: 0.625rem !important; /* 10px module radius */
+}
+html[data-design="swiss"] .rounded-xl {
+  border-radius: 0.5rem !important; /* 8px control radius */
+}
+html[data-design="swiss"] .rounded-lg {
+  border-radius: 0.375rem !important; /* 6px compact element radius */
+}
+
+/* Swiss Single-Elevation Discipline: clean 1px hairlines instead of heavy card shadows */
+html[data-design="swiss"] .shadow-lg:not([role="dialog"]):not(.z-50):not(.z-40),
+html[data-design="swiss"] .shadow-md:not([role="dialog"]):not(.z-50):not(.z-40),
+html[data-design="swiss"] .shadow-sm:not([role="dialog"]):not(.z-50):not(.z-40) {
+  box-shadow: none !important;
+}
+
+/* ============================================================================
+   EDITORIAL ATELIER GEOMETRY & AMBIENT LUXURY (data-design="atelier")
+   Soft 20px-28px curves, warm ambient shadows, and editorial framing
+   ============================================================================ */
+html[data-design="atelier"] .rounded-xl {
+  border-radius: 1.25rem !important; /* 20px soft luxury cards */
+}
+html[data-design="atelier"] .rounded-lg {
+  border-radius: 0.875rem !important; /* 14px tactile buttons & inputs */
+}
+html[data-design="atelier"] .rounded-md {
+  border-radius: 0.625rem !important; /* 10px pills & badges */
+}
+
+/* Safe Area & Mobile Viewport Utilities */
+.pt-safe {
+  padding-top: max(1rem, calc(env(safe-area-inset-top) + 0.5rem)) !important;
+}
+.pb-safe {
+  padding-bottom: max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem)) !important;
+}
+.pl-safe {
+  padding-left: max(1rem, env(safe-area-inset-left, 1rem)) !important;
+}
+.pr-safe {
+  padding-right: max(1rem, env(safe-area-inset-right, 1rem)) !important;
+}
+
+.min-h-screen-safe {
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+/* Touch-friendly inputs and buttons */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Prevent unwanted layout shifts on horizontal scroll containers */
+.touch-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+}
+
+/* Explicit text selection styling for high contrast & legibility across themes */
+::selection {
+  background-color: rgba(16, 185, 129, 0.35) !important;
+  color: #ffffff !important;
+}
+
+::-moz-selection {
+  background-color: rgba(16, 185, 129, 0.35) !important;
+  color: #ffffff !important;
+}
+
+html.dark ::selection {
+  background-color: rgba(16, 185, 129, 0.40) !important;
+  color: #ffffff !important;
+}
+
+html.dark ::-moz-selection {
+  background-color: rgba(16, 185, 129, 0.40) !important;
+  color: #ffffff !important;
+}
+
+html.light ::selection {
+  background-color: rgba(16, 185, 129, 0.25) !important;
+  color: #0b0d13 !important;
+}
+
+html.light ::-moz-selection {
+  background-color: rgba(16, 185, 129, 0.25) !important;
+  color: #0b0d13 !important;
+}
+
+/* Design token utility classes */
+.bg-app-bg { background-color: var(--background); }
+.bg-app-surface { background-color: var(--surface); }
+.bg-app-card { background-color: var(--surface); }
+.bg-app-input { background-color: var(--input-bg); }
+.bg-app-modal { background-color: var(--modal-bg); }
+.bg-app-modal-header { background-color: var(--modal-header-bg); }
+.bg-app-accent { background-color: var(--accent); color: var(--accent-fg); }
+.bg-app-secondary { background-color: var(--btn-secondary-bg); color: var(--btn-secondary-fg); }
+.bg-app-badge { background-color: var(--badge-bg); color: var(--badge-fg); }
+
+.hover\:bg-app-hover:hover { background-color: var(--hover); }
+.hover\:bg-app-card-hover:hover { background-color: var(--card-hover); }
+
+.border-app-border { border-color: var(--border); }
+.border-app-subtle { border-color: var(--border-subtle); }
+.border-app-input { border-color: var(--input-border); }
+
+.text-app-primary { color: var(--text-primary); }
+.text-app-secondary { color: var(--text-secondary); }
+.text-app-muted { color: var(--text-muted); }
+.text-app-accent-fg { color: var(--accent-fg); }
+
+/* Global overrides ensuring theme consistency across legacy utility classes without breaking child elements */
+html.light .bg-\[\#09090b\], html.light .bg-\[\#000000\], html.light .bg-\[\#08090c\] {
+  background-color: var(--background) !important;
+}
+
+html.light .bg-\[\#121215\], html.light .bg-\[\#121217\], html.light .bg-\[\#0e1015\] {
+  background-color: var(--surface) !important;
+}
+
+html.light .bg-\[\#18181c\] {
+  background-color: var(--surface) !important;
+}
+
+html.light .bg-\[\#1f1f23\], html.light .bg-\[\#16161a\] {
+  background-color: var(--card-hover) !important;
+}
+
+html.light .border-zinc-800,
+html.light .border-zinc-800\/80,
+html.light .border-zinc-800\/50,
+html.light .border-zinc-800\/60,
+html.light .border-zinc-800\/40,
+html.light .border-zinc-700,
+html.light .border-zinc-700\/60 {
+  border-color: var(--border) !important;
+}
+
+html.light .border-zinc-900 {
+  border-color: var(--border-subtle) !important;
+}
+
+.keep-white,
+.keep-white *,
+.dark-card,
+.dark-card *,
+.tooltip-card,
+.tooltip-card * {
+  color: #ffffff !important;
+}
+
+.tooltip-card {
+  background-color: #0e1015 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.6), 0 4px 10px -2px rgba(0, 0, 0, 0.4) !important;
+}
+
+.tooltip-card.tooltip-danger {
+  background-color: #1f0b0f !important;
+  border-color: rgba(244, 63, 94, 0.4) !important;
+}
+
+.tooltip-card.tooltip-danger,
+.tooltip-card.tooltip-danger * {
+  color: #fecdd3 !important;
+}
+
+.tooltip-card.tooltip-success {
+  background-color: #091a10 !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+}
+
+.tooltip-card.tooltip-success,
+.tooltip-card.tooltip-success * {
+  color: #a7f3d0 !important;
+}
+
+.tooltip-card kbd {
+  background-color: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: #f4f4f5 !important;
+}
+
+.keep-white-subtle,
+.keep-white-subtle * {
+  color: #e4e4e7 !important;
+}
+
+.keep-black,
+.keep-black * {
+  color: #09090b !important;
+}
+
+html.light .bg-zinc-800 {
+  background-color: var(--btn-secondary-bg) !important;
+  color: var(--btn-secondary-fg) !important;
+}
+
+html.light .bg-zinc-900, html.light .bg-zinc-900\/50 {
+  background-color: var(--surface) !important;
+}
+
+html.light .bg-black,
+html.light .bg-app-accent {
+  background-color: var(--accent) !important;
+  color: var(--accent-fg) !important;
+}
+
+html.light .hover\:bg-zinc-800:hover, html.light .hover\:bg-zinc-700:hover {
+  background-color: var(--hover) !important;
+}
+
+html.light .hover\:bg-zinc-200:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+/* Fallbacks preventing invisible or white-on-white text in light mode */
+html.light .bg-app-surface,
+html.light .bg-app-card,
+html.light .bg-app-bg,
+html.light .bg-app-input,
+html.light .bg-app-modal {
+  color: var(--text-primary);
+}
+
+/* Ensure modal overlays, dark buttons, badges, and dark containers retain pure crisp contrast */
+.modal-overlay,
+[class*="bg-black/"],
+[class*="bg-black"],
+button[class*="bg-black"],
+button[class*="bg-rose"],
+button[class*="bg-emerald"],
+button[class*="bg-indigo"],
+button[class*="bg-amber"],
+button[class*="bg-zinc-900"],
+button[class*="bg-zinc-950"],
+.keep-white,
+.keep-white * {
+  color-scheme: dark;
+}
+
+html.light .text-white:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-black"]):not([class*="bg-black"] *):not([class*="bg-gradient"]):not([class*="bg-gradient"] *):not([class*="bg-zinc-900"]):not([class*="bg-zinc-900"] *):not([class*="bg-zinc-950"]):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-900"]):not([class*="bg-neutral-900"] *):not([class*="bg-neutral-950"]):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500):not(.bg-rose-500 *):not(.bg-rose-600):not(.bg-rose-600 *):not(.bg-emerald-500):not(.bg-emerald-500 *):not(.bg-emerald-600):not(.bg-emerald-600 *):not(.bg-indigo-600):not(.bg-indigo-600 *):not(button):not(button *):not([role="dialog"]):not([role="dialog"] *):not([class*="modal"]):not([class*="modal"] *) {
+  color: var(--text-primary) !important;
+}
+
+html.light .text-zinc-100:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *),
+html.light .text-zinc-200:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *),
+html.light .text-zinc-300:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *):not(.bg-rose-500 *):not(.bg-emerald-500 *) {
+  color: var(--text-secondary) !important;
+}
+
+html.light .text-zinc-400:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *),
+html.light .text-zinc-500:not(.keep-white):not(.keep-white *):not(.dark-card):not(.dark-card *):not(.bg-black):not(.bg-black *):not([class*="bg-zinc-950"] *):not([class*="bg-neutral-950"] *):not(.bg-app-accent):not(.bg-app-accent *) {
+  color: var(--text-muted) !important;
+}
+
+/* Linear style glow effects */
+.glow-accent {
+  box-shadow: 0 0 20px -5px var(--glow);
+}
+
+.glow-subtle {
+  box-shadow: var(--shadow);
+}
+
+/* Scrollbars - Cross-Browser (Chrome, Safari, Edge, Firefox, Yandex) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* High-Performance Rendering & Hardware Acceleration */
+.transform-gpu {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
+/* Zero-lag backdrop filters */
+.backdrop-blur-xs,
+.backdrop-blur-sm,
+.backdrop-blur-md,
+.backdrop-blur-lg,
+.backdrop-blur-xl {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Content visibility optimization for large lists and offscreen items */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 100px;
+}
+
+.cv-auto-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 240px;
+}
+
+.cv-auto-row {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 64px;
+}
+
+/* Text Wrapping & Hyphenation Cross-Browser Optimization */
+.text-balance-wrap {
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  -webkit-hyphens: manual;
+  -ms-hyphens: manual;
+  hyphens: manual;
+}
+
+/* Print Optimization for Documents / Policies */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-readable {
+    color: #000000 !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
+/* Animation & Performance Utilities */
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.9; }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes shimmerWave {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 20%,
+    var(--hover) 50%,
+    var(--surface) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmerWave 1.8s infinite cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html.light .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    #e4e4e7 20%,
+    #f4f4f6 50%,
+    #e4e4e7 80%
+  );
+  background-size: 200% 100%;
+}
+
+/* GPU Accelerated Smooth Motion */
+.hardware-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Chat Message Bubbles - High Contrast in Light & Dark Mode */
+.chat-bubble-outgoing {
+  background-color: #18181b !important;
+  color: #fafafa !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+.chat-bubble-outgoing a {
+  color: #6ee7b7 !important;
+  text-decoration: underline;
+}
+.chat-bubble-outgoing .chat-meta {
+  color: rgba(255, 255, 255, 0.70) !important;
+}
+
+html.dark .chat-bubble-outgoing {
+  background-color: #1f2430 !important;
+  color: #f4f6f9 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+html.dark .chat-bubble-outgoing .chat-meta {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+.chat-bubble-incoming {
+  background-color: #ffffff !important;
+  color: #0b0d13 !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+.chat-bubble-incoming a {
+  color: #059669 !important;
+  text-decoration: underline;
+}
+.chat-bubble-incoming .chat-meta {
+  color: #71717a !important;
+}
+
+html.dark .chat-bubble-incoming {
+  background-color: #12151d !important;
+  color: #e6e8ef !important;
+  border: 1px solid rgba(255, 255, 255, 0.075) !important;
+}
+html.dark .chat-bubble-incoming a {
+  color: #34d399 !important;
+}
+html.dark .chat-bubble-incoming .chat-meta {
+  color: #949cab !important;
+}
+
+/* Snappy Interactive Feedback & 0ms Touch Latency */
+button, a, input, select, textarea, [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-interactive {
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.12s ease, opacity 0.12s ease;
+  transform: translateZ(0);
+  will-change: transform;
+}
+.btn-interactive:hover {
+  transform: translateY(-1px);
+}
+.btn-interactive:active {
+  transform: scale(0.98);
+}
+
+.card-interactive {
+  transition: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateZ(0);
+  will-change: transform;
+}
+.card-interactive:hover {
+  transform: translateY(-1px);
+}
+
+/* Fast hardware-accelerated drawer & modal transitions */
+.fast-panel-slide {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+}
+
+/* Compact layout utilities */
+.compact-table th, .compact-table td {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}

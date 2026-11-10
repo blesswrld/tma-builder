@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: tma-builder
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm run render-build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: APP_URL
+        sync: false

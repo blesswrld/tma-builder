@@ -1,0 +1,1737 @@
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  Send,
+  Paperclip,
+  Smile,
+  Image as ImageIcon,
+  Video,
+  X,
+  RefreshCw,
+  Search,
+  Check,
+  CheckCheck,
+  ShieldCheck,
+  User,
+  Store,
+  Crown,
+  AlertCircle,
+  Clock,
+  ChevronDown,
+  ArrowLeft,
+  Sparkles,
+  MessageSquare,
+  Radio,
+  FileQuestion,
+  HelpCircle,
+  ExternalLink,
+  Trash2,
+  Pencil
+} from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { useRealtime, useRealtimeEvent } from "../../context/RealtimeContext";
+import { resilientFetch } from "../../lib/api";
+import { ChatMessage, ChatPartner, ChatConversation } from "../../types";
+import ChatMessageItem from "../chat/ChatMessageItem";
+import EmojiPickerPopover, { QUICK_EMOJIS } from "../chat/EmojiPickerPopover";
+import MediaLightboxModal, { formatBytes } from "../chat/MediaLightboxModal";
+import DeleteMessageModal from "../chat/DeleteMessageModal";
+
+const MAX_IMAGE_SIZE_MB = 15;
+const MAX_VIDEO_SIZE_MB = 50;
+
+const PROMPT_SUGGESTIONS = [
+  "👋 Привет! Нужна помощь с настройкой заведения в Telegram",
+  "💡 У меня есть идея по улучшению функционала приложения",
+  "❓ Как настроить оплату через ЮKassa / СБП?",
+  "🚀 Вопрос по интеграции и подключению бота"
+];
+
+const DEV_QUICK_REPLIES = [
+  "👋 Здравствуйте! Чем могу вам помочь?",
+  "🚀 Привет! Как продвигается настройка Telegram-бота?",
+  "💳 Подсказать по выбору тарифа или подключению оплаты?",
+  "🔧 Давайте проверим настройки каталога и заведения"
+];
+
+function formatDateGroup(dateString: string): string {
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return "";
+    const now = new Date();
+
+    const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const diffDays = Math.round((today.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return "Сегодня";
+    if (diffDays === 1) return "Вчера";
+
+    const isCurrentYear = d.getFullYear() === now.getFullYear();
+    return d.toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "long",
+      ...(isCurrentYear ? {} : { year: "numeric" })
+    });
+  } catch {
+    return "";
+  }
+}
+
+interface AdminDevChatTabProps {
+  isFloatingMode?: boolean;
+  onClose?: () => void;
+}
+
+export default function AdminDevChatTab({ isFloatingMode = false, onClose }: AdminDevChatTabProps) {
+  const { user, token } = useAuth();
+  const isDev = Boolean(
+    user?.email && user.email.toLowerCase().trim() === "gelgaev.dev@mail.ru"
+  );
+
+  const { authenticate, sendEvent } = useRealtime();
+
+  // States for Active Chat
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [partner, setPartner] = useState<ChatPartner | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Real-time Typing Indicator State
+  const [partnerTyping, setPartnerTyping] = useState<{ isTyping: boolean; userName?: string }>({ isTyping: false });
+  const partnerTypingTimeoutRef = useRef<any>(null);
+  const myTypingTimeoutRef = useRef<any>(null);
+  const lastTypingSentRef = useRef<number>(0);
+
+  // Presence State (Online / Offline in Real Time)
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [devOnline, setDevOnline] = useState<boolean>(false);
+
+  // Input & Media
+  const [inputText, setInputText] = useState("");
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    message: ChatMessage | null;
+    mode: "for_all" | "for_me" | null;
+  }>({ isOpen: false, message: null, mode: null });
+  const [isDeletingMessage, setIsDeletingMessage] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<{
+    file: File;
+    url: string;
+    type: "image" | "video";
+    name: string;
+    size: number;
+  } | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+
+  // Developer mode conversations state
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [activeConversationUserId, setActiveConversationUserId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("dev_active_chat_user_id") || null;
+    } catch {
+      return null;
+    }
+  });
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<"all" | "unread" | "paid">("all");
+  const [mobileShowChat, setMobileShowChat] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (activeConversationUserId) {
+        localStorage.setItem("dev_active_chat_user_id", activeConversationUserId);
+      }
+    } catch {}
+  }, [activeConversationUserId]);
+
+  // Sync WS authentication and presence
+  useEffect(() => {
+    if (token) {
+      authenticate(token);
+      sendEvent({ type: "subscribe_chat", userId: user?.id });
+      sendEvent({ type: "get_presence" });
+    }
+  }, [token, user?.id, authenticate, sendEvent]);
+
+  // Lightbox Modal
+  const [lightboxData, setLightboxData] = useState<{
+    isOpen: boolean;
+    url: string | null;
+    type: "image" | "video" | "file" | null;
+    name?: string | null;
+    size?: number | null;
+  }>({
+    isOpen: false,
+    url: null,
+    type: null
+  });
+
+  // UI helpers
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isSubmittingRef = useRef(false);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
+
+  // Active chat target ref for stable access inside closures / realtime handlers
+  const currentTargetIdRef = useRef<string | null>(null);
+  currentTargetIdRef.current = isDev ? activeConversationUserId : user?.id || null;
+
+  // Scroll to bottom helper
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: smooth ? "smooth" : "auto",
+        block: "end"
+      });
+    }
+  }, []);
+
+  // 1. Fetch Conversations (Developer only)
+  const fetchConversations = useCallback(async () => {
+    if (!isDev || !token) return;
+    try {
+      setConversationsLoading(true);
+      const res = await resilientFetch("/api/chat/conversations", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Не удалось загрузить список диалогов");
+      const data = await res.json();
+      setConversations(data.conversations || []);
+
+      // Auto-select first conversation if none selected
+      if (!activeConversationUserId && data.conversations?.length > 0) {
+        setActiveConversationUserId(data.conversations[0].userId);
+      }
+    } catch (err: any) {
+      console.error("Error loading conversations:", err);
+    } finally {
+      setConversationsLoading(false);
+    }
+  }, [isDev, token, activeConversationUserId]);
+
+  // 2. Fetch Messages for active chat
+  const fetchMessages = useCallback(
+    async (targetUserId?: string | null, isInitial = false) => {
+      if (!token) return;
+      try {
+        if (isInitial) setLoading(true);
+        setError(null);
+
+        const url = isDev && targetUserId
+          ? `/api/chat/messages?userId=${encodeURIComponent(targetUserId)}`
+          : "/api/chat/messages";
+
+        const res = await resilientFetch(url, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Не удалось загрузить сообщения");
+        }
+
+        const data = await res.json();
+        setMessages(data.messages || []);
+        if (data.partner) {
+          setPartner(data.partner);
+        }
+
+        // Auto-mark as read
+        if (data.messages?.length > 0) {
+          markAsRead(targetUserId || undefined);
+        }
+
+        if (isInitial) {
+          setTimeout(() => scrollToBottom(false), 80);
+        }
+      } catch (err: any) {
+        console.error("Error loading chat messages:", err);
+        setError(err.message || "Ошибка загрузки сообщений");
+      } finally {
+        if (isInitial) setLoading(false);
+      }
+    },
+    [token, isDev, scrollToBottom]
+  );
+
+  // 3. Mark messages as read
+  const markAsRead = useCallback(
+    async (targetUserId?: string) => {
+      if (!token) return;
+      try {
+        await resilientFetch("/api/chat/read", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ targetUserId })
+        });
+      } catch (err) {
+        // silent fail
+      }
+    },
+    [token]
+  );
+
+  // Initial load
+  useEffect(() => {
+    if (isDev) {
+      fetchConversations();
+    } else {
+      fetchMessages(null, true);
+    }
+  }, [isDev, fetchConversations, fetchMessages]);
+
+  // Load messages when developer changes active conversation
+  useEffect(() => {
+    setPartnerTyping({ isTyping: false });
+    if (partnerTypingTimeoutRef.current) clearTimeout(partnerTypingTimeoutRef.current);
+    if (isDev && activeConversationUserId) {
+      fetchMessages(activeConversationUserId, true);
+    }
+  }, [isDev, activeConversationUserId, fetchMessages]);
+
+  // Realtime presence listeners (Live Online/Offline updates)
+  useRealtimeEvent(["PRESENCE_STATE", "PRESENCE_CHANGED"], (event) => {
+    if (event.payload?.onlineUserIds && Array.isArray(event.payload.onlineUserIds)) {
+      setOnlineUserIds(new Set(event.payload.onlineUserIds));
+    }
+    if (typeof event.payload?.devOnline === "boolean") {
+      setDevOnline(event.payload.devOnline);
+      if (!isDev) {
+        setPartner((prev) => (prev ? { ...prev, isOnline: event.payload.devOnline } : prev));
+      }
+    }
+    if (event.payload?.userId) {
+      const uid = event.payload.userId;
+      const isUserOnline = Boolean(event.payload.isOnline);
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        if (isUserOnline) next.add(uid);
+        else next.delete(uid);
+        return next;
+      });
+      if (isDev && uid === activeConversationUserId) {
+        setPartner((prev) => (prev ? { ...prev, isOnline: isUserOnline } : prev));
+      }
+    }
+  });
+
+  // Realtime typing indicator listener
+  useRealtimeEvent("CHAT_TYPING", (event) => {
+    const payload = event.payload;
+    if (!payload) return;
+
+    const currentTargetId = currentTargetIdRef.current || (isDev ? activeConversationUserId : user?.id);
+    const isFromCurrentPartner = isDev
+      ? payload.senderId === currentTargetId || (payload.senderRole === "USER" && payload.senderId === activeConversationUserId)
+      : payload.senderRole === "DEVELOPER";
+
+    if (isFromCurrentPartner) {
+      if (payload.isTyping) {
+        setPartnerTyping({ isTyping: true, userName: payload.userName });
+        if (partnerTypingTimeoutRef.current) clearTimeout(partnerTypingTimeoutRef.current);
+        partnerTypingTimeoutRef.current = setTimeout(() => {
+          setPartnerTyping({ isTyping: false });
+        }, 3500);
+      } else {
+        setPartnerTyping({ isTyping: false });
+        if (partnerTypingTimeoutRef.current) clearTimeout(partnerTypingTimeoutRef.current);
+      }
+    }
+  });
+
+  // Realtime chat message listener
+  useRealtimeEvent("CHAT_MESSAGE_CREATED", (event) => {
+    const newMsg: ChatMessage = event.payload?.message;
+    if (!newMsg) return;
+
+    // Check if relevant to currently open chat
+    const currentTargetId = currentTargetIdRef.current || (isDev ? activeConversationUserId : user?.id);
+    const isTargetChat = isDev
+      ? newMsg.userId === currentTargetId
+      : (!newMsg.userId || newMsg.userId === currentTargetId || newMsg.userId === user?.id || true);
+
+    if (isTargetChat) {
+      setMessages((prev) => {
+        // 1. If message with exact server ID is already present, update status/data
+        const idxById = prev.findIndex((m) => m.id === newMsg.id);
+        if (idxById !== -1) {
+          const updated = [...prev];
+          updated[idxById] = { ...updated[idxById], ...newMsg, status: "sent" };
+          return updated;
+        }
+
+        // 2. If an optimistic message matches clientMessageId or temp id, replace in-place
+        const cMsgId = newMsg.clientMessageId || (event.payload?.clientMessageId as string | undefined);
+        if (cMsgId) {
+          const idxByClient = prev.findIndex(
+            (m) => m.id === cMsgId || (m.clientMessageId && m.clientMessageId === cMsgId)
+          );
+          if (idxByClient !== -1) {
+            const updated = [...prev];
+            updated[idxByClient] = { ...newMsg, status: "sent" };
+            return updated;
+          }
+        }
+
+        // 3. Fallback matching for pending optimistic message from the same sender
+        const idxPending = prev.findIndex(
+          (m) =>
+            m.status === "sending" &&
+            m.senderRole === newMsg.senderRole &&
+            m.senderId === newMsg.senderId &&
+            (m.text || "") === (newMsg.text || "") &&
+            (m.mediaUrl || "") === (newMsg.mediaUrl || "")
+        );
+        if (idxPending !== -1) {
+          const updated = [...prev];
+          updated[idxPending] = { ...newMsg, status: "sent" };
+          return updated;
+        }
+
+        // 4. Otherwise it's a completely new incoming message
+        return [...prev, { ...newMsg, status: "sent" }];
+      });
+      setTimeout(() => scrollToBottom(true), 60);
+
+      // If user or dev received message from partner, mark read
+      if (
+        (isDev && newMsg.senderRole === "USER") ||
+        (!isDev && newMsg.senderRole === "DEVELOPER")
+      ) {
+        markAsRead(currentTargetId || undefined);
+      }
+    }
+
+    // If developer, immediately update sidebar state in-memory and trigger background sync
+    if (isDev) {
+      setConversations((prev) => {
+        const next = [...prev];
+        const idx = next.findIndex((c) => c.userId === newMsg.userId);
+        if (idx !== -1) {
+          const conv = next[idx];
+          const isCurrentActive = activeConversationUserId === newMsg.userId;
+          next[idx] = {
+            ...conv,
+            lastMessage: {
+              id: newMsg.id,
+              senderRole: newMsg.senderRole,
+              text: newMsg.text,
+              mediaUrl: newMsg.mediaUrl,
+              mediaType: newMsg.mediaType,
+              isRead: isCurrentActive || Boolean(newMsg.isRead),
+              createdAt: newMsg.createdAt
+            },
+            unreadCount: isCurrentActive ? 0 : (newMsg.senderRole === "USER" ? conv.unreadCount + 1 : conv.unreadCount),
+            lastActivityAt: newMsg.createdAt
+          };
+          const [moved] = next.splice(idx, 1);
+          next.unshift(moved);
+        }
+        return next;
+      });
+      fetchConversations();
+    }
+  });
+
+  useRealtimeEvent("CHAT_MESSAGES_READ", (event) => {
+    const targetUserId = event.payload?.targetUserId;
+    const currentTargetId = currentTargetIdRef.current || (isDev ? activeConversationUserId : user?.id);
+    if (targetUserId === currentTargetId) {
+      setMessages((prev) =>
+        prev.map((m) => ({
+          ...m,
+          isRead: true,
+          readAt: m.readAt || new Date().toISOString()
+        }))
+      );
+    }
+  });
+
+  useRealtimeEvent("CHAT_MESSAGE_DELETED", (event) => {
+    const deletedId = event.payload?.messageId;
+    const mode = event.payload?.mode;
+    const deletedByUserId = event.payload?.deletedByUserId;
+    if (!deletedId) return;
+
+    if (mode === "for_me") {
+      // If deleted "for_me", only remove if this client is the one who deleted it
+      if (deletedByUserId === user?.id) {
+        setMessages((prev) => prev.filter((m) => m.id !== deletedId));
+      }
+    } else {
+      // Deleted for everyone
+      setMessages((prev) => prev.filter((m) => m.id !== deletedId));
+    }
+
+    if (isDev) {
+      fetchConversations();
+    }
+  });
+
+  useRealtimeEvent("CHAT_MESSAGE_UPDATED", (event) => {
+    const updated = event.payload?.message;
+    if (!updated || !updated.id) return;
+
+    setMessages((prev) =>
+      prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m))
+    );
+
+    if (isDev) {
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.userId === updated.userId && c.lastMessage?.id === updated.id) {
+            return {
+              ...c,
+              lastMessage: {
+                ...c.lastMessage,
+                text: updated.text,
+                mediaUrl: updated.mediaUrl,
+                mediaType: updated.mediaType
+              }
+            };
+          }
+          return c;
+        })
+      );
+    }
+  });
+
+  // Handle file select
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMediaError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+      setMediaError("Поддерживаются только изображения (PNG, JPG, WebP, GIF) и видео (MP4, WebM, MOV).");
+      return;
+    }
+
+    if (isImage && file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+      setMediaError(`Размер изображения превышает ${MAX_IMAGE_SIZE_MB} МБ.`);
+      return;
+    }
+
+    if (isVideo && file.size > MAX_VIDEO_SIZE_MB * 1024 * 1024) {
+      setMediaError(`Размер видеофайла превышает ${MAX_VIDEO_SIZE_MB} МБ.`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (loadEvt) => {
+      const dataUrl = loadEvt.target?.result as string;
+      setSelectedMedia({
+        file,
+        url: dataUrl,
+        type: isVideo ? "video" : "image",
+        name: file.name,
+        size: file.size
+      });
+    };
+    reader.onerror = () => {
+      setMediaError("Не удалось прочитать файл");
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input
+    e.target.value = "";
+  };
+
+  // Handle Input Text Change & Broadcast Typing Indicator
+  const handleInputChange = (text: string) => {
+    setInputText(text);
+
+    const now = Date.now();
+    const targetUserId = isDev ? activeConversationUserId : undefined;
+
+    if (text.trim().length > 0) {
+      if (now - lastTypingSentRef.current > 2000) {
+        lastTypingSentRef.current = now;
+        sendEvent({
+          type: "chat_typing",
+          targetUserId,
+          isTyping: true,
+          userName: user?.name || user?.email
+        });
+      }
+
+      if (myTypingTimeoutRef.current) clearTimeout(myTypingTimeoutRef.current);
+      myTypingTimeoutRef.current = setTimeout(() => {
+        sendEvent({
+          type: "chat_typing",
+          targetUserId,
+          isTyping: false,
+          userName: user?.name || user?.email
+        });
+      }, 3000);
+    } else {
+      if (myTypingTimeoutRef.current) clearTimeout(myTypingTimeoutRef.current);
+      sendEvent({
+        type: "chat_typing",
+        targetUserId,
+        isTyping: false,
+        userName: user?.name || user?.email
+      });
+    }
+  };
+
+  // Handle Send Message (or Save Edit)
+  const handleSendMessage = async (customText?: string) => {
+    if (editingMessage) {
+      return handleSaveEdit();
+    }
+
+    if (isSubmittingRef.current || sending) return;
+
+    const textToSend = (customText !== undefined ? customText : inputText).trim();
+    if (!textToSend && !selectedMedia) return;
+    if (!token) {
+      setError("Сессия истекла, пожалуйста, обновите страницу");
+      return;
+    }
+
+    const targetUserId = isDev ? activeConversationUserId : user?.id;
+    if (isDev && !targetUserId) {
+      setError("Выберите диалог с пользователем");
+      return;
+    }
+
+    // Stop self typing status immediately on send
+    if (myTypingTimeoutRef.current) clearTimeout(myTypingTimeoutRef.current);
+    sendEvent({
+      type: "chat_typing",
+      targetUserId: isDev ? targetUserId : undefined,
+      isTyping: false,
+      userName: user?.name || user?.email
+    });
+
+    isSubmittingRef.current = true;
+    setSending(true);
+    setError(null);
+    setMediaError(null);
+
+    // Unique client message identifier for idempotency & instant deduplication
+    const clientMessageId = `cmsg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const optimisticMessage: ChatMessage = {
+      id: clientMessageId,
+      clientMessageId,
+      userId: targetUserId || "",
+      senderRole: isDev ? "DEVELOPER" : "USER",
+      senderId: user?.id || "",
+      senderName: isDev ? "Разработчик TMA-Builder" : (user?.name || user?.email),
+      text: textToSend || null,
+      mediaUrl: selectedMedia?.url || null,
+      mediaType: selectedMedia?.type || null,
+      mediaName: selectedMedia?.name || null,
+      mediaSize: selectedMedia?.size || null,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      status: "sending"
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setInputText("");
+    const mediaToSend = selectedMedia;
+    setSelectedMedia(null);
+    setIsEmojiPickerOpen(false);
+    setTimeout(() => scrollToBottom(true), 40);
+
+    try {
+      const res = await resilientFetch("/api/chat/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          text: textToSend,
+          mediaUrl: mediaToSend?.url,
+          mediaType: mediaToSend?.type,
+          mediaName: mediaToSend?.name,
+          mediaSize: mediaToSend?.size,
+          targetUserId: isDev ? targetUserId : undefined,
+          clientMessageId
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Ошибка отправки сообщения");
+      }
+
+      const data = await res.json();
+      const realMessage: ChatMessage = {
+        ...data.message,
+        clientMessageId
+      };
+
+      // Safely replace optimistic placeholder with real server response
+      setMessages((prev) => {
+        // 1. If server ID is already in the list (e.g. from realtime WebSocket)
+        const idxById = prev.findIndex((m) => m.id === realMessage.id);
+        if (idxById !== -1) {
+          // Remove any leftover optimistic message with clientMessageId
+          return prev
+            .filter((m) => m.id === realMessage.id || (m.id !== clientMessageId && m.clientMessageId !== clientMessageId))
+            .map((m) => (m.id === realMessage.id ? { ...m, ...realMessage, status: "sent" } : m));
+        }
+
+        // 2. Replace the optimistic message by clientMessageId or temp id
+        const idxByClient = prev.findIndex(
+          (m) => m.id === clientMessageId || (m.clientMessageId && m.clientMessageId === clientMessageId)
+        );
+        if (idxByClient !== -1) {
+          const updated = [...prev];
+          updated[idxByClient] = { ...realMessage, status: "sent" };
+          return updated;
+        }
+
+        // 3. Fallback: if not found, append real message
+        return [...prev, { ...realMessage, status: "sent" }];
+      });
+
+      if (isDev) {
+        fetchConversations();
+      }
+    } catch (err: any) {
+      console.error("Send message error:", err);
+      // Mark optimistic message as failed
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === clientMessageId || (m.clientMessageId && m.clientMessageId === clientMessageId)
+            ? { ...m, status: "error" }
+            : m
+        )
+      );
+      setError(err.message || "Не удалось отправить сообщение");
+    } finally {
+      setSending(false);
+      isSubmittingRef.current = false;
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }
+  };
+
+  // Start editing a message
+  const handleStartEdit = useCallback((message: ChatMessage) => {
+    if (!message.text) return;
+    setEditingMessage(message);
+    setInputText(message.text);
+    setSelectedMedia(null);
+    setIsEmojiPickerOpen(false);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, []);
+
+  // Cancel editing
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessage(null);
+    setInputText("");
+  }, []);
+
+  // Save edited message
+  const handleSaveEdit = async () => {
+    if (!editingMessage || !token || isSubmittingRef.current || sending) return;
+
+    const trimmed = inputText.trim();
+    if (!trimmed && !editingMessage.mediaUrl) {
+      setError("Сообщение не может быть пустым");
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setSending(true);
+    setError(null);
+
+    const messageId = editingMessage.id;
+    const oldText = editingMessage.text;
+
+    // Optimistic update
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId
+          ? { ...m, text: trimmed, isEdited: true, editedAt: new Date().toISOString() }
+          : m
+      )
+    );
+
+    setEditingMessage(null);
+    setInputText("");
+
+    try {
+      const res = await resilientFetch(`/api/chat/messages/${messageId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ text: trimmed })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Ошибка изменения сообщения");
+      }
+
+      const data = await res.json();
+      if (data.message) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, ...data.message } : m))
+        );
+      }
+    } catch (err: any) {
+      console.error("Error editing message:", err);
+      // Rollback on error
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, text: oldText } : m))
+      );
+      setError(err.message || "Не удалось изменить сообщение");
+    } finally {
+      setSending(false);
+      isSubmittingRef.current = false;
+      if (textareaRef.current) textareaRef.current.focus();
+    }
+  };
+
+  // Prompt delete for me confirmation
+  const handleDeleteForMePrompt = useCallback((msg: ChatMessage) => {
+    setDeleteModal({ isOpen: true, message: msg, mode: "for_me" });
+  }, []);
+
+  // Prompt delete for all confirmation
+  const handleDeleteForAllPrompt = useCallback((msg: ChatMessage) => {
+    setDeleteModal({ isOpen: true, message: msg, mode: "for_all" });
+  }, []);
+
+  // Copy text helper
+  const handleCopyText = useCallback((text: string) => {
+    navigator.clipboard.writeText(text);
+    setToastMessage("Текст скопирован");
+    setTimeout(() => setToastMessage(null), 2000);
+  }, []);
+
+  // Confirm delete (for_all or for_me)
+  const handleConfirmDelete = async () => {
+    if (!deleteModal.message || !deleteModal.mode || !token) return;
+    const messageId = deleteModal.message.id;
+    const mode = deleteModal.mode;
+
+    setIsDeletingMessage(true);
+    try {
+      const res = await resilientFetch(`/api/chat/messages/${messageId}?mode=${mode}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Ошибка удаления сообщения");
+      }
+
+      // Optimistic removal from current user view
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      setDeleteModal({ isOpen: false, message: null, mode: null });
+
+      // Immediate trace-free removal from Notification Inbox
+      try {
+        const raw = localStorage.getItem("admin_notifications_inbox");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const next = parsed.filter((item: any) => {
+              if (item.type === "chat") {
+                if (item.chatMessageId === messageId) return false;
+                if (item.payload?.messageId === messageId) return false;
+                if (item.id === `chat_msg_${messageId}`) return false;
+                if (typeof item.id === "string" && item.id.includes(messageId)) return false;
+              }
+              return true;
+            });
+            localStorage.setItem("admin_notifications_inbox", JSON.stringify(next));
+          }
+        }
+      } catch {}
+      window.dispatchEvent(new CustomEvent("chat-message-deleted", { detail: { messageId, mode } }));
+      window.dispatchEvent(new CustomEvent("chat_message_deleted", { detail: { messageId, mode } }));
+    } catch (err: any) {
+      console.error("Error deleting message:", err);
+      setError(err.message || "Не удалось удалить сообщение");
+    } finally {
+      setIsDeletingMessage(false);
+    }
+  };
+
+  // Group messages by date with strict ID & clientMessageId deduplication
+  const groupedMessages = useMemo(() => {
+    const groups: { date: string; items: ChatMessage[] }[] = [];
+    const seenIds = new Set<string>();
+
+    messages.forEach((msg) => {
+      if (seenIds.has(msg.id)) return;
+      if (msg.clientMessageId && seenIds.has(msg.clientMessageId)) return;
+      seenIds.add(msg.id);
+      if (msg.clientMessageId) {
+        seenIds.add(msg.clientMessageId);
+      }
+
+      const dateLabel = formatDateGroup(msg.createdAt);
+      const lastGroup = groups[groups.length - 1];
+      if (lastGroup && lastGroup.date === dateLabel) {
+        lastGroup.items.push(msg);
+      } else {
+        groups.push({ date: dateLabel, items: [msg] });
+      }
+    });
+    return groups;
+  }, [messages]);
+
+  // Filtered conversations for developer
+  const filteredConversations = useMemo(() => {
+    return conversations.filter((conv) => {
+      if (activeFilter === "unread" && conv.unreadCount === 0) return false;
+      if (activeFilter === "paid" && conv.user.plan === "FREE") return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        conv.user.email.toLowerCase().includes(q) ||
+        conv.user.name.toLowerCase().includes(q) ||
+        conv.user.companyName?.toLowerCase().includes(q) ||
+        conv.user.shops.some((s) => s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q))
+      );
+    });
+  }, [conversations, activeFilter, searchQuery]);
+
+  // Total unread for developer
+  const totalDevUnread = useMemo(() => {
+    return conversations.reduce((acc, c) => acc + c.unreadCount, 0);
+  }, [conversations]);
+
+  // Active conversation user details (Developer mode)
+  const activeConv = useMemo(() => {
+    return conversations.find((c) => c.userId === activeConversationUserId);
+  }, [conversations, activeConversationUserId]);
+
+  return (
+    <div
+      className={`w-full flex flex-col ${
+        isFloatingMode
+          ? "h-full bg-app-card overflow-hidden"
+          : "h-[calc(100vh-140px)] min-h-[580px] max-h-[920px] bg-app-card border border-app-border rounded-2xl shadow-xl overflow-hidden backdrop-blur-md"
+      }`}
+    >
+      {/* DEVELOPER SPLIT VIEW (List on Left, Chat on Right) OR REGULAR DIRECT VIEW */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* ========================================================= */}
+        {/* LEFT COLUMN: CONVERSATIONS LIST (DEVELOPER ONLY) */}
+        {/* ========================================================= */}
+        {isDev && (
+          <div
+            className={`border-r border-app-border flex flex-col bg-app-card/60 shrink-0 ${
+              isFloatingMode
+                ? mobileShowChat && activeConversationUserId
+                  ? "hidden"
+                  : "w-full flex-1"
+                : mobileShowChat
+                ? "hidden md:flex md:w-72 lg:w-80 xl:w-96"
+                : "flex w-full md:w-72 lg:w-80 xl:w-96"
+            }`}
+          >
+            {/* Header / Search */}
+            <div className="p-3 border-b border-app-border space-y-2.5 bg-app-card">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                    <ShieldCheck size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-semibold text-app-primary">Диалоги поддержки</h3>
+                    <p className="text-[10px] text-app-muted">Все пользователи платформы</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={fetchConversations}
+                  className="p-1.5 rounded-lg hover:bg-app-hover text-app-muted hover:text-app-primary transition cursor-pointer"
+                  title="Обновить список"
+                >
+                  <RefreshCw size={14} className={conversationsLoading ? "animate-spin" : ""} />
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-app-muted" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Поиск по email, имени, заведению..."
+                  className="w-full pl-8 pr-7 py-1.5 text-xs bg-app-input border border-app-border rounded-xl text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-secondary transition"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-app-muted hover:text-app-primary"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Filter Pills */}
+              <div className="flex items-center gap-1.5 pt-0.5">
+                <button
+                  onClick={() => setActiveFilter("all")}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
+                    activeFilter === "all"
+                      ? "bg-app-accent text-app-accent-fg shadow-xs"
+                      : "text-app-muted hover:text-app-primary hover:bg-app-hover"
+                  }`}
+                >
+                  Все ({conversations.length})
+                </button>
+                <button
+                  onClick={() => setActiveFilter("unread")}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 transition cursor-pointer ${
+                    activeFilter === "unread"
+                      ? "bg-rose-500 text-white"
+                      : "text-app-muted hover:text-app-primary hover:bg-app-hover"
+                  }`}
+                >
+                  <span>Непрочитанные</span>
+                  {totalDevUnread > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-400 text-[9px] font-bold">
+                      {totalDevUnread}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveFilter("paid")}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
+                    activeFilter === "paid"
+                      ? "bg-amber-500 text-slate-950 font-bold"
+                      : "text-app-muted hover:text-app-primary hover:bg-app-hover"
+                  }`}
+                >
+                  PRO / VIP
+                </button>
+              </div>
+            </div>
+
+            {/* Conversation List */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-app-border/40">
+              {conversationsLoading && conversations.length === 0 ? (
+                <div className="p-6 text-center text-xs text-app-muted animate-pulse">
+                  Загрузка диалогов...
+                </div>
+              ) : filteredConversations.length === 0 ? (
+                <div className="p-8 text-center text-xs text-app-muted">
+                  <MessageSquare size={28} className="mx-auto mb-2 opacity-30" />
+                  <span>Диалогов не найдено</span>
+                </div>
+              ) : (
+                filteredConversations.map((conv) => {
+                  const isSelected = conv.userId === activeConversationUserId;
+                  const isPaid = conv.user.plan === "PRO" || conv.user.plan === "ENTERPRISE";
+                  const isUserOnline = onlineUserIds.has(conv.userId) || Boolean(conv.isOnline);
+
+                  return (
+                    <button
+                      key={conv.userId}
+                      onClick={() => {
+                        setActiveConversationUserId(conv.userId);
+                        setMobileShowChat(true);
+                      }}
+                      className={`w-full text-left p-3 transition flex items-start gap-2.5 cursor-pointer relative ${
+                        isSelected
+                          ? "bg-app-surface border-l-2 border-app-primary"
+                          : "hover:bg-app-hover"
+                      }`}
+                    >
+                      {/* Avatar */}
+                      <div className="relative shrink-0">
+                        {conv.user.avatarUrl ? (
+                          <img
+                            src={conv.user.avatarUrl}
+                            alt=""
+                            className="w-9 h-9 rounded-xl object-cover border border-app-border"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-xl bg-app-surface border border-app-border flex items-center justify-center text-app-primary font-bold text-xs">
+                            {conv.user.name?.[0] || conv.user.email[0].toUpperCase()}
+                          </div>
+                        )}
+                        {/* Live presence indicator badge */}
+                        <div
+                          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-app-card ${
+                            isUserOnline ? "bg-emerald-500 shadow-xs" : "bg-app-muted"
+                          }`}
+                          title={isUserOnline ? "В сети (Online)" : "Не в сети (Офлайн)"}
+                        />
+                        {isPaid && (
+                          <div className="absolute -top-1 -right-1 p-0.5 rounded-full bg-amber-500 text-slate-950 shadow-xs">
+                            <Crown size={9} />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1 mb-0.5">
+                          <span className="text-xs font-semibold text-app-primary truncate">
+                            {conv.user.name || conv.user.email}
+                          </span>
+                          {conv.lastMessage && (
+                            <span className="text-[10px] text-app-muted shrink-0">
+                              {formatDateGroup(conv.lastMessage.createdAt)}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-[10px] text-app-muted mb-1">
+                          <span className="truncate">{conv.user.email}</span>
+                          {conv.user.shops?.length > 0 && (
+                            <>
+                              <span>•</span>
+                              <span className="text-emerald-500 font-medium truncate">
+                                🏬 {conv.user.shops[0].name}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Last message text preview */}
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] text-app-muted truncate">
+                            {conv.lastMessage?.senderRole === "DEVELOPER" ? "Вы: " : ""}
+                            {conv.lastMessage?.mediaType === "video"
+                              ? "🎬 Видео"
+                              : conv.lastMessage?.mediaType === "image"
+                              ? "🖼️ Фото"
+                              : conv.lastMessage?.text || "Нет сообщений"}
+                          </p>
+
+                          {conv.unreadCount > 0 && (
+                            <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs">
+                              {conv.unreadCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* RIGHT COLUMN / MAIN CHAT WINDOW */}
+        {/* ========================================================= */}
+        <div
+          className={`flex-1 min-w-0 flex flex-col bg-app-card ${
+            isDev
+              ? isFloatingMode
+                ? mobileShowChat && activeConversationUserId
+                  ? "flex w-full"
+                  : "hidden"
+                : !mobileShowChat
+                ? "hidden md:flex"
+                : "flex"
+              : "flex"
+          }`}
+        >
+          {/* Top Header Bar */}
+          <div className="p-3 sm:px-4 border-b border-app-border flex items-center justify-between bg-app-card/95 backdrop-blur-md shrink-0">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              {/* Back button for mobile / floating view in Dev Mode */}
+              {isDev && (
+                <button
+                  onClick={() => setMobileShowChat(false)}
+                  className={`${
+                    isFloatingMode ? "flex" : "md:hidden flex"
+                  } items-center gap-1 p-1.5 rounded-lg hover:bg-app-hover text-app-muted hover:text-app-primary transition cursor-pointer text-xs shrink-0 font-medium`}
+                  title="Вернуться к списку диалогов"
+                >
+                  <ArrowLeft size={16} />
+                  <span className="hidden sm:inline">Диалоги</span>
+                </button>
+              )}
+
+              {/* Partner Avatar / Status */}
+              {(() => {
+                const isPartnerOnline = isDev
+                  ? Boolean(activeConversationUserId && onlineUserIds.has(activeConversationUserId)) || activeConv?.isOnline === true || partner?.isOnline === true
+                  : devOnline || partner?.isOnline === true;
+
+                return (
+                  <>
+                    <div className="relative shrink-0">
+                      {isDev ? (
+                        activeConv?.user?.avatarUrl ? (
+                          <img
+                            src={activeConv.user.avatarUrl}
+                            alt=""
+                            className="w-10 h-10 rounded-xl object-cover border border-app-border"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl bg-app-surface border border-app-border flex items-center justify-center text-app-primary font-bold text-sm">
+                            {activeConv?.user?.name?.[0] || activeConv?.user?.email?.[0]?.toUpperCase() || "U"}
+                          </div>
+                        )
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-app-surface border border-app-border text-app-primary flex items-center justify-center shadow-2xs">
+                          <ShieldCheck size={20} className="text-emerald-500" />
+                        </div>
+                      )}
+
+                      {/* Online pulse indicator */}
+                      <div
+                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-app-card ${
+                          isPartnerOnline ? "bg-emerald-500 shadow-xs" : "bg-app-muted"
+                        }`}
+                        title={isPartnerOnline ? "В сети (Online)" : "Не в сети (Офлайн)"}
+                      />
+                    </div>
+
+                    {/* Partner details */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-xs sm:text-sm font-semibold text-app-primary truncate">
+                          {isDev
+                            ? activeConv?.user?.name || activeConv?.user?.email || "Пользователь"
+                            : "Разработчик TMA-Builder"}
+                        </h2>
+                        {isDev && activeConv?.user?.plan && (
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${
+                              activeConv.user.plan === "ENTERPRISE"
+                                ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                                : activeConv.user.plan === "PRO"
+                                ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                                : "bg-app-surface text-app-muted"
+                            }`}
+                          >
+                            {activeConv.user.plan}
+                          </span>
+                        )}
+                        {!isDev && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-semibold shrink-0">
+                            PRO DEV
+                          </span>
+                        )}
+                      </div>
+
+                      {partnerTyping.isTyping ? (
+                        <div className="flex items-center gap-1.5 text-emerald-500 dark:text-emerald-400 font-medium animate-pulse">
+                          <span className="flex items-center gap-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.3s]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.15s]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce" />
+                          </span>
+                          <span className="text-[11px] sm:text-xs">
+                            {isDev
+                              ? `${activeConv?.user?.name || "Пользователь"} печатает...`
+                              : "Разработчик печатает..."}
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] sm:text-xs text-app-muted flex items-center gap-1.5 truncate">
+                          {isDev ? (
+                            <>
+                              <span className={`inline-flex items-center gap-1 font-medium shrink-0 ${isPartnerOnline ? "text-emerald-500" : "text-app-muted"}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${isPartnerOnline ? "bg-emerald-500 animate-pulse" : "bg-app-muted"}`} />
+                                {isPartnerOnline ? "В сети" : "Офлайн"}
+                              </span>
+                              <span>•</span>
+                              <span className="truncate">{activeConv?.user?.email}</span>
+                              {activeConv?.user?.shops?.length ? (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-emerald-500 truncate font-medium">
+                                    🏬 {activeConv.user.shops.map((s) => s.name).join(", ")}
+                                  </span>
+                                </>
+                              ) : null}
+                            </>
+                          ) : (
+                            <>
+                              <span className={`flex items-center gap-1 font-medium shrink-0 ${isPartnerOnline ? "text-emerald-500" : "text-app-muted"}`}>
+                                <Radio size={11} className={isPartnerOnline ? "animate-pulse" : ""} />
+                                {isPartnerOnline ? "В сети (Online)" : "Офлайн (Ответит скоро)"}
+                              </span>
+                              <span>•</span>
+                              <span>Прямая поддержка 24/7</span>
+                            </>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Header Right Actions */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => fetchMessages(isDev ? activeConversationUserId : null, false)}
+                className="p-2 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary transition cursor-pointer"
+                title="Обновить переписку"
+              >
+                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              </button>
+
+              {isDev && activeConv?.user?.shops?.[0] && (
+                <a
+                  href={`/${activeConv.user.shops[0].slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary transition cursor-pointer"
+                  title="Открыть витрину заведения"
+                >
+                  <ExternalLink size={14} />
+                </a>
+              )}
+
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className="p-2 rounded-xl bg-app-surface hover:bg-app-hover border border-app-border text-app-muted hover:text-app-primary transition cursor-pointer"
+                  title="Свернуть окно чата"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ========================================================= */}
+          {/* MESSAGES STREAM VIEWPORT */}
+          {/* ========================================================= */}
+          <div
+            className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 custom-scrollbar relative bg-app-bg flex flex-col"
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+              setShowScrollBottomBtn(!isNearBottom);
+            }}
+          >
+            {/* Loading Skeleton */}
+            {loading && messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center flex-1 space-y-3 text-app-muted my-auto">
+                <RefreshCw size={24} className="animate-spin text-app-primary" />
+                <p className="text-xs">Загрузка переписки...</p>
+              </div>
+            ) : error ? (
+              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs flex items-center justify-between my-auto">
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={16} />
+                  <span>{error}</span>
+                </div>
+                <button
+                  onClick={() => fetchMessages(isDev ? activeConversationUserId : null, true)}
+                  className="px-2.5 py-1 rounded-lg bg-rose-500 text-white font-medium text-xs hover:bg-rose-600 transition"
+                >
+                  Повторить
+                </button>
+              </div>
+            ) : isDev && !activeConversationUserId ? (
+              /* Dev with no conversation selected */
+              <div className="flex flex-col items-center justify-center flex-1 text-center p-6 space-y-3 my-auto">
+                <div className="w-14 h-14 rounded-2xl bg-app-surface border border-app-border flex items-center justify-center text-app-primary shadow-xs">
+                  <MessageSquare size={28} />
+                </div>
+                <h3 className="text-sm font-semibold text-app-primary">Выберите диалог</h3>
+                <p className="text-xs text-app-muted max-w-xs">
+                  Выберите пользователя из списка слева, чтобы просмотреть переписку и ответить клиенту.
+                </p>
+              </div>
+            ) : messages.length === 0 ? (
+              /* Empty Chat Prompt */
+              <div className="flex flex-col items-center justify-center flex-1 text-center p-6 space-y-4 my-auto">
+                <div className="w-14 h-14 rounded-2xl bg-app-surface border border-app-border flex items-center justify-center text-app-primary shadow-xs">
+                  <MessageSquare size={28} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-app-primary">
+                    {isDev
+                      ? "С этим пользователем ещё нет сообщений"
+                      : "Добро пожаловать в чат с разработчиком!"}
+                  </h3>
+                  <p className="text-xs text-app-muted max-w-sm mt-1">
+                    {isDev
+                      ? "Напишите первое сообщение, чтобы помочь клиенту с настройкой заведения или ответить на вопрос."
+                      : "Задайте любой технический вопрос, предложите улучшение или запросите помощь по Telegram-боту."}
+                  </p>
+                </div>
+
+                {isDev ? (
+                  <div className="w-full max-w-md space-y-2 pt-2">
+                    <p className="text-[11px] font-semibold text-app-muted text-left">
+                      ⚡ Быстрый ответ:
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {DEV_QUICK_REPLIES.map((sug, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setInputText(sug);
+                            if (textareaRef.current) textareaRef.current.focus();
+                          }}
+                          className="p-2.5 rounded-xl bg-app-card hover:bg-app-surface border border-app-border text-left text-xs text-app-primary transition cursor-pointer hover:border-app-secondary group"
+                        >
+                          <span className="group-hover:text-app-primary transition">{sug}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full max-w-md space-y-2 pt-2">
+                    <p className="text-[11px] font-semibold text-app-muted text-left">
+                      💡 Быстрые вопросы:
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {PROMPT_SUGGESTIONS.map((sug, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setInputText(sug);
+                            if (textareaRef.current) textareaRef.current.focus();
+                          }}
+                          className="p-2.5 rounded-xl bg-app-card hover:bg-app-surface border border-app-border text-left text-xs text-app-primary transition cursor-pointer hover:border-app-secondary group"
+                        >
+                          <span className="group-hover:text-app-primary transition">{sug}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Grouped Message Bubbles */
+              groupedMessages.map((group, groupIdx) => (
+                <div key={`${group.date}-${groupIdx}`} className="space-y-1">
+                  {/* Date Divider */}
+                  {group.date && (
+                    <div className="flex items-center justify-center my-3">
+                      <span className="px-3 py-0.5 rounded-full bg-app-surface border border-app-border text-[10px] font-semibold text-app-muted shadow-2xs">
+                        {group.date}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Messages */}
+                  {group.items.map((msg, msgIdx) => {
+                    const isMine =
+                      (isDev && msg.senderRole === "DEVELOPER") ||
+                      (!isDev && msg.senderRole === "USER");
+
+                    // Show sender name only on the first message of a consecutive series from the partner
+                    const isFirstFromSender =
+                      msgIdx === 0 || group.items[msgIdx - 1].senderRole !== msg.senderRole;
+
+                    return (
+                      <ChatMessageItem
+                        key={msg.id}
+                        message={msg}
+                        isCurrentUser={isMine}
+                        onOpenMedia={(url, type, name, size) =>
+                          setLightboxData({
+                            isOpen: true,
+                            url,
+                            type,
+                            name,
+                            size
+                          })
+                        }
+                        onEditMessage={handleStartEdit}
+                        onDeleteForMe={handleDeleteForMePrompt}
+                        onDeleteForAll={handleDeleteForAllPrompt}
+                        showSenderName={!isMine && isFirstFromSender}
+                      />
+                    );
+                  })}
+                </div>
+              ))
+            )}
+
+            {/* Real-time typing bubble in chat stream */}
+            {partnerTyping.isTyping && (
+              <div className="flex items-center gap-2 py-1.5 px-3 my-1 rounded-2xl bg-app-card border border-app-border/60 text-app-muted w-fit animate-in fade-in slide-in-from-bottom-1 duration-150 shadow-2xs select-none">
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-bounce" />
+                </div>
+                <span className="text-[11px] text-app-muted">
+                  {isDev ? (activeConv?.user?.name || "Пользователь") : "Разработчик"} печатает...
+                </span>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Floating Scroll to Bottom Button */}
+          {showScrollBottomBtn && (
+            <div className="absolute bottom-20 right-6 z-20">
+              <button
+                onClick={() => scrollToBottom(true)}
+                className="p-2 rounded-full bg-app-card border border-app-border text-app-primary shadow-lg hover:scale-105 transition cursor-pointer flex items-center gap-1.5 text-xs font-semibold px-3"
+              >
+                <span>Вниз</span>
+                <ChevronDown size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* BOTTOM INPUT & MEDIA TOOLBAR */}
+          {/* ========================================================= */}
+          <div className="p-2.5 sm:p-3 border-t border-app-border bg-app-card/95 backdrop-blur-md relative">
+            {/* Error alerts if any */}
+            {mediaError && (
+              <div className="mb-2 p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <AlertCircle size={14} />
+                  <span>{mediaError}</span>
+                </div>
+                <button
+                  onClick={() => setMediaError(null)}
+                  className="text-rose-500 hover:text-rose-700"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+
+            {/* Editing Message Banner */}
+            {editingMessage && (
+              <div className="mb-2 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-500 flex items-center justify-center shrink-0">
+                    <Pencil size={14} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 block leading-tight">
+                      Редактирование сообщения
+                    </span>
+                    <p className="text-[10px] text-app-muted truncate max-w-sm">
+                      {editingMessage.text}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="p-1.5 rounded-lg hover:bg-indigo-500/20 text-app-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer shrink-0"
+                  title="Отменить редактирование (Esc)"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            )}
+
+            {/* Pre-send Media Attachment Card */}
+            {selectedMedia && (
+              <div className="mb-2.5 p-2 rounded-xl bg-app-surface border border-app-border flex items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {selectedMedia.type === "image" ? (
+                    <img
+                      src={selectedMedia.url}
+                      alt="Превью"
+                      className="w-11 h-11 rounded-lg object-cover border border-app-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-11 h-11 rounded-lg bg-black/40 border border-app-border flex items-center justify-center text-indigo-400 shrink-0">
+                      <Video size={18} />
+                    </div>
+                  )}
+
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-app-primary truncate">
+                      {selectedMedia.name}
+                    </p>
+                    <p className="text-[10px] text-app-muted">
+                      {selectedMedia.type === "video" ? "🎬 Видео" : "🖼️ Изображение"} • {formatBytes(selectedMedia.size)}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setSelectedMedia(null)}
+                  className="p-1.5 rounded-lg hover:bg-rose-500/10 text-app-muted hover:text-rose-500 transition cursor-pointer"
+                  title="Отменить прикрепление"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* Input Bar Form */}
+            <div className="flex items-end gap-1.5 sm:gap-2">
+              {/* Media File Picker Trigger (disabled when editing) */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
+                onChange={handleFileChange}
+                className="hidden"
+                disabled={Boolean(editingMessage)}
+              />
+
+              <button
+                type="button"
+                disabled={Boolean(editingMessage)}
+                onClick={() => fileInputRef.current?.click()}
+                className={`w-10 h-10 rounded-xl border transition shrink-0 flex items-center justify-center shadow-2xs ${
+                  editingMessage
+                    ? "bg-app-surface border-app-border text-app-muted opacity-40 cursor-not-allowed"
+                    : "bg-app-surface hover:bg-app-hover border-app-border text-app-muted hover:text-app-primary cursor-pointer active:scale-95"
+                }`}
+                title={editingMessage ? "Прикрепление файлов недоступно в режиме редактирования" : "Прикрепить изображение или видео (до 50 МБ)"}
+              >
+                <Paperclip size={18} />
+              </button>
+
+              {/* Emoji Picker Trigger */}
+              <div className="relative shrink-0 flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
+                  className={`w-10 h-10 rounded-xl border transition cursor-pointer shrink-0 flex items-center justify-center shadow-2xs active:scale-95 ${
+                    isEmojiPickerOpen
+                      ? "bg-app-accent text-app-accent-fg border-app-accent"
+                      : "bg-app-surface hover:bg-app-hover border-app-border text-app-muted hover:text-app-primary"
+                  }`}
+                  title="Выбрать эмодзи"
+                >
+                  <Smile size={18} />
+                </button>
+
+                {/* Emoji Popover */}
+                <EmojiPickerPopover
+                  isOpen={isEmojiPickerOpen}
+                  onClose={() => setIsEmojiPickerOpen(false)}
+                  onSelectEmoji={(emoji) => {
+                    handleInputChange(inputText + emoji);
+                    if (textareaRef.current) textareaRef.current.focus();
+                  }}
+                />
+              </div>
+
+              {/* Textarea */}
+              <div className="flex-1 relative flex items-center">
+                <textarea
+                  ref={textareaRef}
+                  value={inputText}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape" && editingMessage) {
+                      e.preventDefault();
+                      handleCancelEdit();
+                      return;
+                    }
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (e.nativeEvent.isComposing) return;
+                      if (!sending && !isSubmittingRef.current) {
+                        handleSendMessage();
+                      }
+                    }
+                  }}
+                  rows={1}
+                  placeholder={
+                    editingMessage
+                      ? "Отредактируйте сообщение... (Enter для сохранения, Esc для отмены)"
+                      : isDev
+                      ? "Напишите ответ клиенту... (Enter для отправки)"
+                      : "Напишите сообщение разработчику... (Enter)"
+                  }
+                  className={`w-full min-h-[40px] max-h-32 px-3.5 py-2.5 text-xs bg-app-input border rounded-xl text-app-primary placeholder:text-app-muted focus:outline-none transition resize-none shadow-2xs box-border leading-normal ${
+                    editingMessage
+                      ? "border-indigo-500/50 focus:border-indigo-500"
+                      : "border-app-border focus:border-app-secondary"
+                  }`}
+                />
+              </div>
+
+              {/* Send / Save Button */}
+              <button
+                type="button"
+                disabled={sending || (!inputText.trim() && !selectedMedia && !editingMessage?.mediaUrl)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (!sending && !isSubmittingRef.current) {
+                    handleSendMessage();
+                  }
+                }}
+                className={`w-10 h-10 rounded-xl font-bold flex items-center justify-center transition cursor-pointer shrink-0 shadow-2xs ${
+                  inputText.trim() || selectedMedia || (editingMessage && editingMessage.mediaUrl)
+                    ? editingMessage
+                      ? "bg-indigo-600 text-white shadow-xs hover:bg-indigo-700 active:scale-95"
+                      : "bg-app-accent text-app-accent-fg shadow-xs hover:opacity-90 active:scale-95"
+                    : "bg-app-surface border border-app-border text-app-muted cursor-not-allowed opacity-50"
+                }`}
+                title={editingMessage ? "Сохранить изменения (Enter)" : "Отправить сообщение (Enter)"}
+              >
+                {sending ? (
+                  <RefreshCw size={18} className="animate-spin" />
+                ) : editingMessage ? (
+                  <Check size={18} />
+                ) : (
+                  <Send size={18} />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Media Lightbox Expanded Modal */}
+      <MediaLightboxModal
+        isOpen={lightboxData.isOpen}
+        onClose={() =>
+          setLightboxData({
+            isOpen: false,
+            url: null,
+            type: null
+          })
+        }
+        mediaUrl={lightboxData.url}
+        mediaType={lightboxData.type}
+        mediaName={lightboxData.name}
+        mediaSize={lightboxData.size}
+      />
+
+      {/* Delete Message Confirmation Modal (for all vs for me) */}
+      <DeleteMessageModal
+        isOpen={deleteModal.isOpen}
+        message={deleteModal.message}
+        mode={deleteModal.mode}
+        onClose={() => setDeleteModal({ isOpen: false, message: null, mode: null })}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeletingMessage}
+      />
+    </div>
+  );
+}

@@ -1,0 +1,1010 @@
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  Store,
+  ShoppingBag,
+  Check,
+  Settings,
+  Plus,
+  ExternalLink,
+  Trash2,
+  ChevronDown,
+  Layers,
+  Tag,
+  Star,
+  Image as ImageIcon,
+  Send,
+  Users,
+  UserPlus,
+  BarChart3,
+  Gift,
+  Smartphone,
+  CreditCard,
+  MessageSquare,
+  Server,
+  ShieldAlert,
+  Bug,
+  User,
+  Volume2,
+  VolumeX,
+  QrCode,
+  Bell,
+  Crown,
+  LogOut,
+  LogIn,
+  ShieldCheck,
+  Github,
+  X,
+  Search,
+  PanelLeftClose,
+  PanelLeftOpen,
+  GripVertical,
+  Lock,
+  Sparkles
+} from "lucide-react";
+import { useLanguage } from "../../context/LanguageContext";
+import { useRealtime } from "../../context/RealtimeContext";
+import { useTheme } from "../../context/ThemeContext";
+import { DesignModeSwitch } from "../common/DesignModeSwitch";
+
+interface Service {
+  id: string;
+  title: string;
+  price: number;
+}
+
+interface Order {
+  id: string;
+  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+}
+
+interface Shop {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string | null;
+  ownerId?: string;
+  currentUserRole?: "OWNER" | "MANAGER" | "STAFF" | null;
+  services?: Service[];
+  owner?: any;
+}
+
+interface AdminSidebarProps {
+  sidebarWidth: number;
+  isResizingSidebar: boolean;
+  startResizingSidebar: (e: React.MouseEvent | React.TouchEvent) => void;
+  resetSidebarWidth: (e: React.MouseEvent) => void;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (open: boolean) => void;
+  isSidebarCollapsed: boolean;
+  toggleSidebarCollapsed: () => void;
+  selectedShop: Shop | null;
+  setSelectedShop: (shop: Shop) => void;
+  shops: Shop[];
+  activeShops: Shop[];
+  activeTab: string;
+  setActiveTab: (tab: any) => void;
+  closeSubView: () => void;
+  isStaff: boolean;
+  isManager: boolean;
+  isOwner: boolean;
+  isDeveloperUser: boolean;
+  unreadChatCount: number;
+  unreadPeerChatCount?: number;
+  unhandledReportsCount: number;
+  orders: Order[];
+  promocodes: any[];
+  reviews: any[];
+  banners: any[];
+  broadcasts: any[];
+  customers: any[];
+  teamMembers: any[];
+  user: any;
+  token: string | null;
+  theme: "light" | "dark";
+  toggleTheme: () => void;
+  isAudioEnabled: boolean;
+  handleToggleAdminAudio: () => void;
+  handleOpenCreateShop: () => void;
+  handleOpenSettings: (shop: Shop) => void;
+  handleDeleteShop: (shop: Shop) => void;
+  handleOpenProfile: () => void;
+  handleLogoutRequest: () => void;
+  setIsAuthModalOpen: (open: boolean) => void;
+  setIsQrModalOpen: (open: boolean) => void;
+  setIsPlanModalOpen: (open: boolean) => void;
+  setIsPrivacyModalOpen: (open: boolean) => void;
+  setIsChangelogOpen: (open: boolean) => void;
+  setIsHelpCenterOpen: (open: boolean) => void;
+  shopFilterMode: "my" | "all";
+  setShopFilterMode: (mode: "my" | "all") => void;
+  unreadNotificationsCount?: number;
+  onOpenNotificationBox?: () => void;
+  onOpenBatchDeleteModal?: () => void;
+}
+
+interface SidebarNavItem {
+  id: string;
+  label: string;
+  icon: any;
+  badge?: number;
+  alert?: boolean;
+}
+
+interface SidebarNavGroup {
+  title: string;
+  items: SidebarNavItem[];
+}
+
+export const AdminSidebar: React.FC<AdminSidebarProps> = React.memo(({
+  sidebarWidth,
+  isResizingSidebar,
+  startResizingSidebar,
+  resetSidebarWidth,
+  isSidebarOpen,
+  setIsSidebarOpen,
+  isSidebarCollapsed,
+  toggleSidebarCollapsed,
+  selectedShop,
+  setSelectedShop,
+  shops,
+  activeShops,
+  activeTab,
+  setActiveTab,
+  closeSubView,
+  isStaff,
+  isOwner,
+  isDeveloperUser,
+  unreadChatCount,
+  unreadPeerChatCount = 0,
+  unhandledReportsCount,
+  orders,
+  promocodes,
+  reviews,
+  banners,
+  broadcasts,
+  customers,
+  teamMembers,
+  user,
+  token,
+  isAudioEnabled,
+  handleToggleAdminAudio,
+  handleOpenCreateShop,
+  handleOpenSettings,
+  handleDeleteShop,
+  handleOpenProfile,
+  handleLogoutRequest,
+  setIsAuthModalOpen,
+  setIsQrModalOpen,
+  setIsPlanModalOpen,
+  shopFilterMode,
+  setShopFilterMode,
+  unreadNotificationsCount = 0,
+  onOpenNotificationBox,
+  onOpenBatchDeleteModal,
+  setIsChangelogOpen
+}) => {
+  const { t } = useLanguage();
+  const { isConnected } = useRealtime();
+  const { designMode } = useTheme();
+  const isAtelier = designMode === "atelier";
+  const navigate = useNavigate();
+  const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
+  const [sidebarFilterQuery, setSidebarFilterQuery] = useState("");
+  const [shopSearchInput, setShopSearchInput] = useState("");
+  const shopDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (shopDropdownRef.current && !shopDropdownRef.current.contains(event.target as Node)) {
+        setIsShopDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const pendingOrdersCount = useMemo(() => {
+    return (orders || []).filter((o) => o.status === "PENDING").length;
+  }, [orders]);
+
+  // Navigation Items Categorization
+  const navigationGroups: SidebarNavGroup[] = useMemo(() => {
+    if (isStaff) {
+      return [
+        {
+          title: t("group.staff", "Сотрудник"),
+          items: [
+            { id: "orders", label: t("nav.orders", "Заказы"), icon: ShoppingBag, badge: pendingOrdersCount, alert: pendingOrdersCount > 0 },
+            { id: "shopchat", label: "Чат заведения", icon: MessageSquare, badge: unreadPeerChatCount, alert: unreadPeerChatCount > 0 },
+            { id: "botsim", label: t("nav.botsim", "Симулятор бота"), icon: Smartphone },
+            ...(isDeveloperUser
+              ? [
+                  { id: "devchat", label: t("nav.devchat_support", "Чат поддержки"), icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
+                  { id: "dev-users", label: t("nav.users", "Пользователи"), icon: ShieldAlert },
+                  { id: "reports", label: t("nav.reports", "Репорты"), icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
+                ]
+              : []),
+            { id: "profile", label: t("nav.profile_staff", "Профиль сотрудника"), icon: User }
+          ]
+        }
+      ];
+    }
+
+    return [
+      {
+        title: t("group.main", "Операции"),
+        items: [
+          { id: "orders", label: t("nav.orders", "Заказы"), icon: ShoppingBag, badge: pendingOrdersCount, alert: pendingOrdersCount > 0 },
+          { id: "services", label: t("nav.services", "Меню и услуги"), icon: Layers, badge: (selectedShop?.services || []).length },
+          { id: "customers", label: t("nav.customers", "Клиенты CRM"), icon: Users, badge: (customers || []).length },
+          { id: "analytics", label: t("nav.analytics", "Аналитика"), icon: BarChart3 },
+          { id: "shopchat", label: "Чат заведения", icon: MessageSquare, badge: unreadPeerChatCount, alert: unreadPeerChatCount > 0 }
+        ]
+      },
+      {
+        title: t("group.marketing", "Маркетинг"),
+        items: [
+          { id: "promocodes", label: t("nav.promocodes", "Промокоды"), icon: Tag, badge: (promocodes || []).length },
+          { id: "reviews", label: t("nav.reviews", "Отзывы"), icon: Star, badge: (reviews || []).length },
+          { id: "banners", label: t("nav.banners", "Баннеры"), icon: ImageIcon, badge: (banners || []).length },
+          { id: "broadcasts", label: t("nav.broadcasts", "Рассылки"), icon: Send, badge: (broadcasts || []).length },
+          { id: "referrals", label: t("nav.referrals", "Рефералы"), icon: Gift }
+        ]
+      },
+      {
+        title: t("group.management", "Система"),
+        items: [
+          { id: "settings", label: t("nav.settings", "Настройки"), icon: Settings },
+          { id: "team", label: t("nav.team", "Команда"), icon: UserPlus, badge: (teamMembers || []).length + (selectedShop?.owner ? 1 : 0) },
+          { id: "botsim", label: t("nav.botsim", "Симулятор бота"), icon: Smartphone },
+          { id: "payments", label: t("nav.payments", "Оплаты"), icon: CreditCard }
+        ]
+      },
+      ...(isDeveloperUser
+        ? [
+            {
+              title: t("group.development", "Платформа (Dev)"),
+              items: [
+                { id: "devchat", label: t("nav.devchat_support", "Поддержка"), icon: MessageSquare, badge: unreadChatCount, alert: unreadChatCount > 0 },
+                { id: "moderation", label: "Модерация", icon: ShieldCheck },
+                { id: "servers", label: t("nav.servers", "Серверы"), icon: Server },
+                { id: "dev-users", label: t("nav.users", "Пользователи"), icon: ShieldAlert },
+                { id: "reports", label: t("nav.reports", "Репорты"), icon: Bug, badge: unhandledReportsCount, alert: unhandledReportsCount > 0 }
+              ]
+            }
+          ]
+        : [])
+    ];
+  }, [
+    isStaff,
+    t,
+    pendingOrdersCount,
+    unreadPeerChatCount,
+    isDeveloperUser,
+    unreadChatCount,
+    unhandledReportsCount,
+    selectedShop?.services?.length,
+    selectedShop?.owner,
+    customers?.length,
+    promocodes?.length,
+    reviews?.length,
+    banners?.length,
+    broadcasts?.length,
+    teamMembers?.length
+  ]);
+
+  const filteredNavGroups = useMemo(() => {
+    const q = sidebarFilterQuery.toLowerCase().trim();
+    if (!q) return navigationGroups;
+    return navigationGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) =>
+          item.label.toLowerCase().includes(q)
+        )
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [navigationGroups, sidebarFilterQuery]);
+
+  const filteredShopsList = useMemo(() => {
+    const q = shopSearchInput.toLowerCase().trim();
+    if (!q) return activeShops;
+    return activeShops.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.slug.toLowerCase().includes(q)
+    );
+  }, [activeShops, shopSearchInput]);
+
+  const isShopCreatedByMe = useCallback((s: Shop) => {
+    if (isDeveloperUser) return true;
+    if (s.currentUserRole === "OWNER") return true;
+    if (user?.id && s.ownerId === user.id) return true;
+    if (user?.id && s.owner?.id === user.id) return true;
+    return false;
+  }, [user, isDeveloperUser]);
+
+  const myCreatedShopsCount = useMemo(() => {
+    return shops.filter(isShopCreatedByMe).length;
+  }, [shops, isShopCreatedByMe]);
+
+  const handleNavClick = useCallback((tabId: string) => {
+    if (tabId === "moderation") {
+      navigate("/moderation");
+    } else if (tabId === "explore") {
+      navigate("/explore");
+    } else if (tabId === "dev-users") {
+      navigate("/dev-users");
+    } else if (tabId === "reports") {
+      navigate("/reports");
+    } else if (tabId === "profile") {
+      handleOpenProfile();
+    } else if (tabId === "settings") {
+      if (selectedShop) {
+        handleOpenSettings(selectedShop);
+      } else {
+        closeSubView();
+        setActiveTab("settings");
+      }
+    } else {
+      closeSubView();
+      setActiveTab(tabId as any);
+    }
+    setIsSidebarOpen(false);
+  }, [navigate, handleOpenProfile, selectedShop, handleOpenSettings, closeSubView, setActiveTab, setIsSidebarOpen]);
+
+  const effectiveWidth = isSidebarCollapsed ? 60 : sidebarWidth;
+
+  return (
+    <aside
+      data-tooltip-side="right"
+      style={{ ["--sidebar-w" as any]: `${effectiveWidth}px` }}
+      className={`
+        fixed md:sticky top-0 left-0 z-50 h-[100dvh] md:h-screen max-h-[100dvh] md:max-h-screen bg-app-surface border-r border-app-border
+        ${isSidebarCollapsed ? "w-[60px] md:w-[60px]" : "w-[264px] max-w-[85vw] md:w-[var(--sidebar-w)] md:max-w-none"}
+        shrink-0 transition-transform duration-150 ease-out md:transition-[width] md:duration-150 will-change-transform fast-panel-slide
+        ${isResizingSidebar ? "select-none" : ""}
+        ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0 shadow-none"}
+      `}
+    >
+      <div className="h-full w-full overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col justify-between p-2 space-y-2 pb-6 md:pb-2">
+        <div className="space-y-2">
+          {/* Swiss Dock Top Brand & Collapse Bar */}
+          <div className={`flex items-center ${isSidebarCollapsed ? "justify-center" : "justify-between"} h-9 px-1 border-b border-app-subtle pb-2`}>
+            {isSidebarCollapsed ? (
+              <button
+                type="button"
+                onClick={toggleSidebarCollapsed}
+                data-tooltip-position="right"
+                className="w-9 h-9 rounded-lg bg-app-card hover:bg-app-hover border border-app-border flex items-center justify-center font-mono font-bold text-xs text-app-primary transition-colors cursor-pointer group relative"
+                title={t("admin.sidebar_expand", "Развернуть боковую панель")}
+              >
+                <img src="/favicon.svg" alt="TMA" className="w-4 h-4 rounded-sm object-cover group-hover:hidden" />
+                <PanelLeftOpen size={15} className="hidden group-hover:block text-app-primary" />
+                <span
+                  className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-app-surface ${
+                    isConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                  }`}
+                />
+              </button>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 min-w-0">
+                  <img src="/favicon.svg" alt="TMA Builder" className={`w-5 h-5 shrink-0 object-cover border border-app-border ${isAtelier ? "rounded-full" : "rounded-md"}`} />
+                  <span className={isAtelier ? "font-editorial font-bold text-base tracking-tight text-app-primary truncate" : "font-semibold text-[11px] tracking-wider uppercase text-app-primary font-mono truncate"}>
+                    {isAtelier ? "TMA Atelier" : "TMA Studio"}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-mono font-semibold uppercase tracking-wider shrink-0 ${
+                      isConnected
+                        ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/25"
+                        : "bg-app-card text-app-muted border border-app-border"
+                    }`}
+                    title={isConnected ? "Realtime синхронизация активна" : "Подключение к Realtime..."}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        isConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-pulse"
+                      }`}
+                    />
+                    <span>{isConnected ? "Live" : "Sync"}</span>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={toggleSidebarCollapsed}
+                    className="hidden md:flex p-1 rounded-md text-app-muted hover:text-app-primary hover:bg-app-hover transition-colors cursor-pointer"
+                    title={t("admin.sidebar_collapse", "Свернуть в узкий док")}
+                  >
+                    <PanelLeftClose size={14} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="p-1 rounded-md text-app-muted hover:text-app-primary bg-app-card border border-app-border md:hidden cursor-pointer"
+                    title={t("admin.sidebar_close", "Закрыть меню")}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Swiss Venue Switcher */}
+          <div className="relative" ref={shopDropdownRef}>
+            {isSidebarCollapsed ? (
+              <button
+                type="button"
+                data-tooltip-position="right"
+                onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
+                className="w-10 h-10 mx-auto rounded-lg bg-app-card hover:bg-app-hover border border-app-border flex items-center justify-center text-app-primary relative transition-colors cursor-pointer group"
+                title={selectedShop ? `${t("admin.venues_count", "Заведение")}: ${selectedShop.name} (/${selectedShop.slug})` : t("admin.select_shop", "Выбрать заведение")}
+              >
+                <Store size={15} className="text-app-secondary group-hover:text-app-primary" />
+                {selectedShop && (
+                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                )}
+              </button>
+            ) : (
+              <div className="bg-app-card border border-app-border rounded-lg p-1">
+                <div className="flex items-center justify-between gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
+                    className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer group px-1.5 py-1 rounded-md hover:bg-app-hover transition-colors"
+                  >
+                    <div className="w-6 h-6 rounded-md bg-app-surface border border-app-border flex items-center justify-center shrink-0">
+                      <Store size={12} className="text-app-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-app-primary truncate leading-none">
+                          {selectedShop ? selectedShop.name : t("admin.select_shop", "Выберите заведение")}
+                        </span>
+                      </div>
+                      <p className="text-[10px] font-mono text-app-muted truncate mt-0.5">
+                        {selectedShop ? `/${selectedShop.slug}` : t("admin.no_shops", "нет заведений")}
+                      </p>
+                    </div>
+                    <ChevronDown
+                      size={13}
+                      className={`text-app-muted group-hover:text-app-primary shrink-0 transition-transform duration-150 ${
+                        isShopDropdownOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {selectedShop && (
+                    <a
+                      href={`/${selectedShop.slug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1.5 rounded-md text-app-muted hover:text-app-primary hover:bg-app-hover transition-colors cursor-pointer shrink-0"
+                      title={t("admin.open_storefront", "Открыть витрину в новой вкладке")}
+                    >
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Venue Dropdown Popover */}
+            <AnimatePresence>
+              {isShopDropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.12 }}
+                  style={{ backgroundColor: "var(--surface)", opacity: 1 }}
+                  className={`absolute ${
+                    isSidebarCollapsed ? "left-full ml-2 top-0 w-68" : "left-0 right-0 top-full mt-1"
+                  } z-50 bg-app-surface text-app-primary border border-app-border rounded-lg shadow-xl p-2 space-y-2`}
+                >
+                  {/* Header & Mode Switcher: Мои vs Все */}
+                  <div className="space-y-1.5 pb-1.5 border-b border-app-border">
+                    <div className="flex items-center justify-between text-[10px] font-mono text-app-muted px-0.5">
+                      <span className="font-semibold uppercase tracking-wider text-app-primary">
+                        {t("admin.venues_count", "Заведения")}
+                      </span>
+                      <span className="tabular-nums">
+                        {myCreatedShopsCount} своих · {shops.length - myCreatedShopsCount} пригл.
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 p-0.5 bg-app-card rounded-md border border-app-border font-mono text-[10.5px]">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShopFilterMode("my");
+                        }}
+                        className={`py-1 px-1.5 rounded-sm transition-colors font-medium flex items-center justify-center gap-1 cursor-pointer tabular-nums ${
+                          shopFilterMode === "my"
+                            ? "bg-app-accent text-app-accent-fg font-semibold"
+                            : "text-app-muted hover:text-app-primary"
+                        }`}
+                      >
+                        <Crown size={11} className={shopFilterMode === "my" ? "text-app-accent-fg" : "text-emerald-500"} />
+                        <span>{t("admin.my_venues", "Мои")} ({myCreatedShopsCount})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShopFilterMode("all");
+                        }}
+                        className={`py-1 px-1.5 rounded-sm transition-colors font-medium flex items-center justify-center gap-1 cursor-pointer tabular-nums ${
+                          shopFilterMode === "all"
+                            ? "bg-app-accent text-app-accent-fg font-semibold"
+                            : "text-app-muted hover:text-app-primary"
+                        }`}
+                      >
+                        <Store size={11} />
+                        <span>{t("admin.all_venues", "Все")} ({shops.length})</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Search inside Dropdown */}
+                  {shops.length > 3 && (
+                    <div className="relative">
+                      <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-app-muted" />
+                      <input
+                        type="text"
+                        value={shopSearchInput}
+                        onChange={(e) => setShopSearchInput(e.target.value)}
+                        placeholder={t("admin.search_venue_placeholder", "Поиск заведения...")}
+                        className="w-full pl-6 pr-2 py-1 text-[11px] bg-app-input border border-app-border rounded-md text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-secondary font-mono"
+                      />
+                    </div>
+                  )}
+
+                  <div className="max-h-48 overflow-y-auto space-y-0.5 pr-0.5 custom-scrollbar">
+                    {filteredShopsList.length === 0 ? (
+                      <div className="p-3 text-center text-[11px] text-app-muted font-mono space-y-1">
+                        <div>
+                          {shopFilterMode === "my"
+                            ? "У вас нет созданных заведений"
+                            : t("admin.no_venues_found", "Заведений не найдено")}
+                        </div>
+                        {shopFilterMode === "my" && shops.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShopFilterMode("all");
+                            }}
+                            className="text-[10px] text-app-primary underline cursor-pointer font-semibold block mx-auto"
+                          >
+                            Показать все ({shops.length})
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      filteredShopsList.map((s) => {
+                        const isSelected = selectedShop?.id === s.id;
+                        const isMine = isShopCreatedByMe(s);
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedShop(s);
+                              setIsShopDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs font-mono transition-colors cursor-pointer text-left ${
+                              isSelected
+                                ? "bg-app-accent text-app-accent-fg font-semibold"
+                                : "text-app-secondary hover:text-app-primary hover:bg-app-hover"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0 pr-1 truncate flex-1">
+                              <Store size={12} className={isSelected ? "text-app-accent-fg shrink-0" : "text-app-muted shrink-0"} />
+                              <span className="truncate text-[11px]">{s.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {isMine ? (
+                                <span
+                                  className={`text-[8.5px] px-1.5 py-0.2 rounded-sm font-mono uppercase font-semibold ${
+                                    isSelected
+                                      ? "bg-black/20 text-app-accent-fg"
+                                      : "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                                  }`}
+                                >
+                                  Владелец
+                                </span>
+                              ) : (
+                                <span
+                                  className={`text-[8.5px] px-1.5 py-0.2 rounded-sm font-mono uppercase font-medium flex items-center gap-0.5 ${
+                                    isSelected
+                                      ? "bg-black/20 text-app-accent-fg"
+                                      : "bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                                  }`}
+                                >
+                                  <Users size={9} />
+                                  Пригл.
+                                </span>
+                              )}
+                              {isSelected && <Check size={12} className="text-app-accent-fg shrink-0" />}
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <div className="pt-1.5 border-t border-app-border space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsShopDropdownOpen(false);
+                        handleOpenCreateShop();
+                      }}
+                      className="w-full py-1.5 px-2 rounded-md text-[11px] font-mono font-medium bg-app-card hover:bg-app-hover text-app-primary border border-app-border flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Plus size={12} className="text-emerald-500" />
+                      <span>{t("admin.create_venue", "Создать заведение")}</span>
+                    </button>
+
+                    {/* Batch Delete Trigger for Created Shops */}
+                    {onOpenBatchDeleteModal && myCreatedShopsCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsShopDropdownOpen(false);
+                          onOpenBatchDeleteModal();
+                        }}
+                        className="w-full py-1.5 px-2 rounded-md text-[10.5px] font-mono font-medium text-rose-400 hover:text-rose-300 bg-rose-500/5 hover:bg-rose-500/15 border border-rose-500/20 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Trash2 size={11} className="text-rose-400" />
+                        <span>Удалить заведения (выбор / все)</span>
+                      </button>
+                    )}
+
+                    {/* Delete single current shop (ONLY if user created it) */}
+                    {isOwner && selectedShop && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsShopDropdownOpen(false);
+                          handleDeleteShop(selectedShop);
+                        }}
+                        className="w-full py-1 px-2 rounded-md text-[10px] font-mono text-rose-500 hover:bg-rose-500/10 flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Trash2 size={11} />
+                        <span>{t("admin.delete_current_venue", "Удалить текущее заведение")}</span>
+                      </button>
+                    )}
+
+                    {/* Informative notice if currently viewing an invited shop */}
+                    {!isOwner && selectedShop && (
+                      <div className="w-full py-1 px-2 text-[9.5px] font-mono text-app-muted flex items-center justify-center gap-1.5 select-none bg-app-card/50 rounded-md border border-app-subtle">
+                        <Lock size={10} className="text-sky-400 shrink-0" />
+                        <span className="truncate">Приглашённое заведение защищено</span>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Quick Nav Filter (when expanded) */}
+          {!isSidebarCollapsed && (
+            <div className="relative">
+              <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-app-muted" />
+              <input
+                type="text"
+                value={sidebarFilterQuery}
+                onChange={(e) => setSidebarFilterQuery(e.target.value)}
+                placeholder={t("sidebar.search_placeholder", "Быстрый фильтр...")}
+                className="w-full pl-7 pr-6 py-1 text-[11px] bg-app-card border border-app-border rounded-md text-app-primary placeholder:text-app-muted focus:outline-none focus:border-app-secondary transition-colors font-mono"
+              />
+              {sidebarFilterQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSidebarFilterQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-app-muted hover:text-app-primary cursor-pointer p-0.5"
+                >
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Categorized Navigation List */}
+          <nav className="space-y-2.5">
+            {filteredNavGroups.map((group, groupIdx) => (
+              <div key={group.title || groupIdx} className="space-y-0.5">
+                {!isSidebarCollapsed && group.title && (
+                  <div
+                    className={`px-2 pt-1 pb-0.5 select-none ${
+                      isAtelier
+                        ? "text-xs font-editorial italic text-app-secondary tracking-wide"
+                        : "text-[9.5px] font-mono uppercase font-semibold tracking-wider text-app-muted"
+                    }`}
+                  >
+                    <span>
+                      {isAtelier ? `${["I", "II", "III", "IV"][groupIdx] || "•"}. ${group.title}` : group.title}
+                    </span>
+                  </div>
+                )}
+                {isSidebarCollapsed && groupIdx > 0 && (
+                  <div className="w-6 mx-auto my-1 border-t border-app-border" />
+                )}
+
+                <div className="space-y-0.5">
+                  {group.items.map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+
+                    if (isSidebarCollapsed) {
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          data-tooltip-position="right"
+                          onClick={() => handleNavClick(tab.id)}
+                          className={`relative w-10 h-9 mx-auto rounded-lg flex items-center justify-center transition-colors cursor-pointer group ${
+                            isActive
+                              ? "bg-app-accent text-app-accent-fg font-semibold"
+                              : "text-app-muted hover:text-app-primary hover:bg-app-hover"
+                          }`}
+                          title={`${tab.label}${tab.badge ? ` (${tab.badge})` : ""}`}
+                        >
+                          <Icon
+                            size={15}
+                            className={
+                              isActive
+                                ? "text-app-accent-fg"
+                                : tab.id === "reports" && unhandledReportsCount > 0
+                                ? "text-rose-500"
+                                : "text-app-muted group-hover:text-app-primary"
+                            }
+                          />
+
+                          {tab.badge !== undefined && tab.badge > 0 && (
+                            <span
+                              className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${
+                                tab.alert ? "bg-rose-500 animate-pulse" : "bg-emerald-500"
+                              }`}
+                            />
+                          )}
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => handleNavClick(tab.id)}
+                        className={`relative w-full flex items-center justify-between px-2.5 py-1.5 rounded-md transition-colors cursor-pointer text-xs ${
+                          isActive
+                            ? "bg-app-accent text-app-accent-fg font-medium"
+                            : "text-app-secondary hover:text-app-primary hover:bg-app-hover"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Icon
+                            size={14}
+                            className={`shrink-0 ${
+                              isActive
+                                ? "text-app-accent-fg"
+                                : tab.id === "reports" && unhandledReportsCount > 0
+                                ? "text-rose-500"
+                                : "text-app-muted"
+                            }`}
+                          />
+                          <span className="truncate">{tab.label}</span>
+                        </div>
+
+                        {tab.badge !== undefined && tab.badge > 0 && (
+                          <span
+                            className={`px-1.5 py-0.2 rounded-sm text-[10px] font-mono font-medium tabular-nums shrink-0 ${
+                              tab.alert
+                                ? "bg-rose-500 text-white animate-pulse"
+                                : isActive
+                                ? "bg-app-accent-fg/20 text-app-accent-fg"
+                                : "text-app-muted"
+                            }`}
+                          >
+                            {tab.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
+        </div>
+
+        {/* Bottom Sidebar Footer */}
+        <div className="space-y-1.5 pt-2 border-t border-app-border font-mono">
+          {/* Quick System Utility Strip */}
+          <div className={`flex items-center ${isSidebarCollapsed ? "flex-col gap-1" : "justify-between gap-1"}`}>
+            <button
+              type="button"
+              data-tooltip-position="right"
+              onClick={handleToggleAdminAudio}
+              className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-md text-app-primary transition-colors cursor-pointer flex items-center justify-center"
+              title={isAudioEnabled ? t("admin.audio_on", "Звук уведомлений включен") : t("admin.audio_off", "Звук уведомлений выключен")}
+            >
+              {isAudioEnabled ? <Volume2 size={13} className="text-app-primary shrink-0" /> : <VolumeX size={13} className="text-app-muted shrink-0" />}
+            </button>
+
+            <button
+              type="button"
+              data-tooltip-position="right"
+              onClick={() => {
+                setIsQrModalOpen(true);
+                setIsSidebarOpen(false);
+              }}
+              className="p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-md text-app-primary transition-colors cursor-pointer flex items-center justify-center"
+              title={t("admin.qr_generator", "Генератор QR-кодов")}
+            >
+              <QrCode size={13} className="text-app-primary shrink-0" />
+            </button>
+
+            <button
+              type="button"
+              data-tooltip-position="right"
+              onClick={() => {
+                if (onOpenNotificationBox) onOpenNotificationBox();
+              }}
+              className="relative p-1.5 bg-app-card hover:bg-app-hover border border-app-border rounded-md text-app-primary transition-colors cursor-pointer flex items-center justify-center"
+              title={t("admin.notification_box", "Ящик уведомлений")}
+            >
+              <Bell size={13} className="text-app-primary shrink-0" />
+              {Boolean(unreadNotificationsCount && unreadNotificationsCount > 0) && (
+                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-1 bg-rose-500 text-white font-bold text-[8px] rounded-full flex items-center justify-center tabular-nums">
+                  {unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}
+                </span>
+              )}
+            </button>
+
+            {!isSidebarCollapsed && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPlanModalOpen(true);
+                  setIsSidebarOpen(false);
+                }}
+                className="flex-1 px-2 py-1 bg-app-card hover:bg-app-hover border border-app-border text-app-primary rounded-md text-[10px] font-semibold uppercase transition-colors flex items-center justify-center gap-1 cursor-pointer truncate"
+              >
+                <Crown size={11} className="text-amber-400 shrink-0" />
+                <span className="truncate">{user?.plan || "FREE"}</span>
+              </button>
+            )}
+          </div>
+
+          {/* Design Mode Rollback Switch inside Expanded Sidebar */}
+          {!isSidebarCollapsed && (
+            <div className="flex items-center justify-between px-1.5 py-1 bg-app-card/60 border border-app-border rounded-md">
+              <span className="text-[9.5px] uppercase tracking-wider text-app-muted">Стиль UI</span>
+              <DesignModeSwitch compact />
+            </div>
+          )}
+
+          {/* Profile Card */}
+          {isSidebarCollapsed ? (
+            <button
+              type="button"
+              data-tooltip-position="right"
+              onClick={handleOpenProfile}
+              className="w-10 h-10 mx-auto rounded-lg bg-app-card border border-app-border flex items-center justify-center relative hover:border-app-secondary transition-colors cursor-pointer"
+              title={`${t("admin.profile_label", "Профиль")}: ${user?.name || user?.email || t("admin.role_admin", "Администратор")}`}
+            >
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="" className="w-full h-full rounded-lg object-cover" />
+              ) : (
+                <span className="text-xs font-bold text-app-primary">
+                  {user?.name ? user.name[0].toUpperCase() : user?.email ? user.email[0].toUpperCase() : "А"}
+                </span>
+              )}
+              <span className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-app-surface ${token ? "bg-emerald-500" : "bg-amber-500"}`} />
+            </button>
+          ) : (
+            <div className="p-1.5 bg-app-card border border-app-border rounded-lg flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleOpenProfile}
+                className="flex items-center gap-2 min-w-0 text-left hover:opacity-85 transition-opacity flex-1 mr-1 cursor-pointer group"
+                title={t("admin.profile_settings", "Настройки профиля")}
+              >
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="" className="w-7 h-7 rounded-md object-cover border border-app-border shrink-0" />
+                ) : (
+                  <div className="w-7 h-7 rounded-md bg-app-accent text-app-accent-fg flex items-center justify-center text-[11px] font-bold shrink-0">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : user?.email ? user.email.charAt(0).toUpperCase() : "А"}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1 min-w-0">
+                    <p className="text-[11px] font-semibold text-app-primary truncate leading-tight">
+                      {user?.name || (user?.githubHandle ? `@${user.githubHandle}` : user?.email) || t("admin.role_admin", "Администратор")}
+                    </p>
+                    {user?.githubHandle && (
+                      <span className="inline-flex items-center text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 p-0.5 rounded-sm shrink-0" title={`GitHub: @${user.githubHandle}`}>
+                        <Github size={9} />
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 text-[9.5px] text-app-muted truncate font-mono mt-0.5">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${token ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+                    <span className="truncate">
+                      {user?.githubHandle ? `@${user.githubHandle}` : (user?.companyName || (token ? t("admin.status_online", "Онлайн") : t("admin.status_guest", "Гость")))}
+                    </span>
+                  </div>
+                </div>
+              </button>
+
+              <div className="flex items-center gap-0.5 shrink-0">
+                {token ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleLogoutRequest();
+                      setIsSidebarOpen(false);
+                    }}
+                    className="p-1.5 text-app-muted hover:text-rose-500 hover:bg-app-hover rounded-md transition-colors cursor-pointer"
+                    title={t("admin.logout", "Выйти из аккаунта")}
+                  >
+                    <LogOut size={13} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAuthModalOpen(true);
+                      setIsSidebarOpen(false);
+                    }}
+                    className="p-1.5 text-app-accent hover:bg-app-hover rounded-md transition-colors cursor-pointer"
+                    title={t("admin.login", "Войти")}
+                  >
+                    <LogIn size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Interactive Drag Resizer Handle (when expanded) */}
+      {!isSidebarCollapsed && (
+        <div
+          onMouseDown={startResizingSidebar}
+          onTouchStart={startResizingSidebar}
+          onDoubleClick={resetSidebarWidth}
+          className="hidden md:flex absolute top-0 -right-2 bottom-0 w-4 cursor-col-resize z-50 group items-center justify-center select-none"
+        >
+          <div
+            className={`absolute top-0 bottom-0 w-px right-2 transition-colors duration-150 ${
+              isResizingSidebar ? "bg-emerald-500 opacity-100" : "bg-transparent group-hover:bg-app-secondary opacity-70"
+            }`}
+          />
+          <div
+            className={`
+              relative z-10 flex items-center justify-center w-3 h-7 rounded-sm bg-app-surface border border-app-border
+              transition-all duration-150
+              ${isResizingSidebar ? "border-emerald-500 text-emerald-500" : "opacity-0 group-hover:opacity-100 text-app-muted"}
+            `}
+          >
+            <GripVertical size={9} className="shrink-0" />
+          </div>
+        </div>
+      )}
+    </aside>
+  );
+});
